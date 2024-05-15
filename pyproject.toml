@@ -5,7 +5,6 @@ build-backend = "hatchling.build"
 [project]
 name = "haystack-experimental"
 dynamic = ["version"]
-version = "0.0.0.dev0"
 description = "Experimental components and features for the Haystack LLM framework."
 readme = "README.md"
 license = "Apache-2.0"
