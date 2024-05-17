@@ -94,7 +94,10 @@ class PipelinePair:
 
     def _prepare_reqd_outputs_for_first_pipeline(self) -> Set[str]:
         # To ensure that we have all the outputs from the first
-        # pipeline that are required by the second pipeline.
+        # pipeline that are required by the second pipeline, we
+        # collect first collect all the keys in the first-to-second
+        # output-to-input mapping and then add the explicitly included
+        # first pipeline outputs.
         first_components_with_outputs = {self._split_input_output_path(p)[0] for p in self.outputs_to_inputs.keys()}
         if self.included_first_outputs is not None:
             first_components_with_outputs = first_components_with_outputs.union(self.included_first_outputs)
