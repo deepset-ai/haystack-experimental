@@ -82,7 +82,8 @@ class PipelinePair:
                     f"Second pipeline input '{component_name}.{input_name}' cannot be provided both explicitly and by the first pipeline."
                 )
 
-    def _split_input_output_path(self, path: str) -> Tuple[str, str]:
+    @staticmethod
+    def _split_input_output_path(path: str) -> Tuple[str, str]:
         # Split the input/output path into component name and input/output name.
         pos = path.find(".")
         if pos == -1:
