@@ -2,9 +2,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from importlib import metadata
-
-try:
-    __version__ = str(metadata.version("haystack-experimental"))
-except metadata.PackageNotFoundError:
-    __version__ = "main"
+__version__ = "0.0.1"
