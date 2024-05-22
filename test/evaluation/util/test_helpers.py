@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from haystack_experimental.evaluation.util import (
+from haystack_experimental.evaluation.util.helpers import (
     aggregate_batched_pipeline_outputs,
     deaggregate_batched_pipeline_inputs,
 )

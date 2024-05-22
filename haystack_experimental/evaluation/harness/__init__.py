@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .harness import EvalRunOverrides, EvaluationHarness
+from .evalution_harness import EvalRunOverrides, EvaluationHarness
 
 _all_ = ["EvaluationHarness", "EvalRunOverrides"]
