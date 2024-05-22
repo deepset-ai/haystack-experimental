@@ -72,8 +72,10 @@ def deaggregate_batched_pipeline_inputs(inputs: Dict[str, Dict[str, List[Any]]])
     if len(inputs) == 0:
         return []
 
-    sentinel = next(iter(inputs.values()))  # First component's inputs
-    sentinel = next(iter(sentinel.values()))  # First component's first input's values
+    # First component's inputs
+    sentinel = next(iter(inputs.values()))
+    # First component's first input's values
+    sentinel = next(iter(sentinel.values()))  # type: ignore
 
     for component_name, component_inputs in inputs.items():
         for input_name, input_values in component_inputs.items():
