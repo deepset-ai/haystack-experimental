@@ -8,9 +8,9 @@ from typing import Any, Dict, List
 
 def aggregate_batched_pipeline_outputs(outputs: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
     """
-    Combine the outputs of a pipeline that has been executed
-    iteratively over a batch of inputs. It performs a transpose
-    operation on the first and the third dimensions of the outputs.
+    Combine the outputs of a pipeline that has been executed iteratively over a batch of inputs.
+
+    Performs a transpose operation on the first and the third dimensions of the outputs.
 
     :param outputs:
         A list of outputs from the pipeline, where each output
@@ -24,7 +24,7 @@ def aggregate_batched_pipeline_outputs(outputs: List[Dict[str, Dict[str, Any]]])
     # the batch input.
     if len(outputs) == 0:
         return {}
-    elif len(outputs) == 1:
+    if len(outputs) == 1:
         return outputs[0]
 
     # We'll use the first output as a sentinel to determine
@@ -32,13 +32,14 @@ def aggregate_batched_pipeline_outputs(outputs: List[Dict[str, Dict[str, Any]]])
     sentinel = outputs[0]
     for output in outputs[1:]:
         if output.keys() != sentinel.keys():
-            raise ValueError(f"Expected components '{list(sentinel.keys())}' but got '{list(output.keys())}'")
+            raise ValueError(f"Expected components '{list(sentinel.keys())}' " f"but got '{list(output.keys())}'")
 
         for component_name, expected in sentinel.items():
             got = output[component_name]
             if got.keys() != expected.keys():
                 raise ValueError(
-                    f"Expected outputs from component '{component_name}' to have keys '{list(expected.keys())}' but got '{list(got.keys())}'"
+                    f"Expected outputs from component '{component_name}' to have "
+                    f"keys '{list(expected.keys())}' but got '{list(got.keys())}'"
                 )
 
     # The outputs are of the correct/same shape. Now to transpose
@@ -58,10 +59,9 @@ def aggregate_batched_pipeline_outputs(outputs: List[Dict[str, Dict[str, Any]]])
 
 def deaggregate_batched_pipeline_inputs(inputs: Dict[str, Dict[str, List[Any]]]) -> List[Dict[str, Dict[str, Any]]]:
     """
-    Separate the inputs of a pipeline that has been batched along
-    its innermost dimension (component -> input -> values). It
-    performs a transpose operation on the first and the third dimensions
-    of the inputs.
+    Separate the inputs of a pipeline that has been batched along its innermost dimension.
+
+    Performs a transpose operation on the first and the third dimensions of the inputs.
 
     :param inputs:
         A dictionary of pipeline inputs that maps
@@ -79,7 +79,8 @@ def deaggregate_batched_pipeline_inputs(inputs: Dict[str, Dict[str, List[Any]]])
         for input_name, input_values in component_inputs.items():
             if len(input_values) != len(sentinel):
                 raise ValueError(
-                    f"Expected input '{component_name}.{input_name}' to have {len(sentinel)} values but got {len(input_values)}"
+                    f"Expected input '{component_name}.{input_name}' to have "
+                    f"{len(sentinel)} values but got {len(input_values)}"
                 )
 
     proto = {k: {k_h: None for k_h in v.keys()} for k, v in inputs.items()}

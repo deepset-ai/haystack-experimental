@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, List
+from typing import List, Optional
+
 from haystack.core.component import component
 
 

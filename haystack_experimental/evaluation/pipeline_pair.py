@@ -11,8 +11,7 @@ from haystack import Pipeline
 @dataclass(frozen=True)
 class PipelinePair:
     """
-    A pair of pipelines that are linked together and
-    executed sequentially.
+    A pair of pipelines that are linked together and executed sequentially.
 
     :param first:
         The first pipeline in the sequence.
@@ -52,7 +51,7 @@ class PipelinePair:
             first_comp_name, first_out_name = self._split_input_output_path(first_out)
             if first_comp_name not in first_outputs:
                 raise ValueError(f"Output component '{first_comp_name}' not found in first pipeline.")
-            elif first_out_name not in first_outputs[first_comp_name]:
+            if first_out_name not in first_outputs[first_comp_name]:
                 raise ValueError(
                     f"Component '{first_comp_name}' in first pipeline does not have expected output '{first_out_name}'."
                 )
@@ -66,9 +65,10 @@ class PipelinePair:
                 second_comp_name, second_input_name = self._split_input_output_path(second_in)
                 if second_comp_name not in second_inputs:
                     raise ValueError(f"Input component '{second_comp_name}' not found in second pipeline.")
-                elif second_input_name not in second_inputs[second_comp_name]:
+                if second_input_name not in second_inputs[second_comp_name]:
                     raise ValueError(
-                        f"Component '{second_comp_name}' in second pipeline does not have expected input '{second_input_name}'."
+                        f"Component '{second_comp_name}' in second pipeline "
+                        f"does not have expected input '{second_input_name}'."
                     )
                 seen_second_inputs.add(second_in)
 
@@ -81,9 +81,10 @@ class PipelinePair:
             provided_input = inputs.get(component_name)
             if provided_input is None:
                 continue
-            elif input_name in provided_input:
+            if input_name in provided_input:
                 raise ValueError(
-                    f"Second pipeline input '{component_name}.{input_name}' cannot be provided both explicitly and by the first pipeline."
+                    f"Second pipeline input '{component_name}.{input_name}' cannot "
+                    "be provided both explicitly and by the first pipeline."
                 )
 
     @staticmethod
@@ -92,7 +93,8 @@ class PipelinePair:
         pos = path.find(".")
         if pos == -1:
             raise ValueError(
-                f"Invalid pipeline i/o path specifier '{path}' - Must be in the following format: <component_name>.<input/output_name>"
+                f"Invalid pipeline i/o path specifier '{path}' - Must be "
+                "in the following format: <component_name>.<input/output_name>"
             )
         return path[:pos], path[pos + 1 :]
 
@@ -135,10 +137,11 @@ class PipelinePair:
         self, first_inputs: Dict[str, Dict[str, Any]], second_inputs: Optional[Dict[str, Dict[str, Any]]] = None
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Execute the pipeline pair by invoking first pipeline
-        and then the second with the outputs of the former. This
-        assumes that both pipelines have the same input modality,
-        i.e., the shapes of the first pipeline's outputs match the
+        Execute the pipeline pair in sequence.
+
+        Invokes the first pipeline and then the second with the outputs
+        of the former. This assumes that both pipelines have the same input
+        modality, i.e., the shapes of the first pipeline's outputs match the
         shapes of the second pipeline's inputs.
 
         :param first_inputs:
@@ -167,10 +170,11 @@ class PipelinePair:
         self, first_inputs: List[Dict[str, Dict[str, Any]]], second_inputs: Optional[Dict[str, Dict[str, Any]]] = None
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Execute the pipeline pair by invoking the first pipeline
-        iteratively over the list of inputs and passing the cumulative
-        outputs to the second pipeline. This is suitable when the first
-        pipeline has a single logical input-to-output mapping and the
+        Execute the pipeline pair in sequence.
+
+        Invokes the first pipeline iteratively over the list of inputs and
+        passing the cumulative outputs to the second pipeline. This is suitable
+        when the first pipeline has a single logical input-to-output mapping and the
         second pipeline expects multiple logical inputs, e.g: a retrieval
         pipeline that accepts a single query and returns a list of documents
         and an evaluation pipeline that accepts multiple lists of documents
