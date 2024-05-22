@@ -43,7 +43,9 @@ class EvaluationHarness(ABC, Generic[EvalRunInputT, EvalRunOverridesT, EvalRunOu
 
     @staticmethod
     def _override_pipeline(pipeline: Pipeline, parameter_overrides: Optional[Dict[str, Any]]) -> Pipeline:
-        def component_pre_init_callback(name: str, cls: Type, init_params: Dict[str, Any]):
+        def component_pre_init_callback(
+            name: str, cls: Type, init_params: Dict[str, Any]
+        ):  # pylint: disable=unused-argument
             assert parameter_overrides is not None
             overrides = parameter_overrides.get(name)
             if overrides:
@@ -82,4 +84,3 @@ class EvaluationHarness(ABC, Generic[EvalRunInputT, EvalRunOverridesT, EvalRunOu
         :returns:
             The output of the evaluation pipeline.
         """
-        ...
