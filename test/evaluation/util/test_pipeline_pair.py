@@ -1,8 +1,8 @@
 import pytest
 
 from haystack import Pipeline
-from haystack_experimental.evaluation.pipeline_pair import PipelinePair
-from haystack_experimental.evaluation.util import aggregate_batched_pipeline_outputs
+from haystack_experimental.evaluation.util.pipeline_pair import PipelinePair
+from haystack_experimental.evaluation.util.helpers import aggregate_batched_pipeline_outputs
 
 from haystack.testing.sample_components import AddFixedValue, Double
 from haystack_experimental.testing.sample_components import AddFixedValueBatch, DoubleBatch
