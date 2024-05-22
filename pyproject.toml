@@ -7,7 +7,7 @@ name = "haystack-experimental"
 dynamic = ["version"]
 description = "Experimental components and features for the Haystack LLM framework."
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
 authors = [{ name = "deepset.ai", email = "info@deepset.ai" }]
 classifiers = [
@@ -25,9 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = [
-  "haystack-ai",
-]
+dependencies = ["haystack-ai"]
 [project.urls]
 "CI: GitHub" = "https://github.com/deepset-ai/haystack-experimental/actions"
 "GitHub: issues" = "https://github.com/deepset-ai/haystack-experimental/issues"
@@ -60,17 +58,11 @@ lint = [
   "pylint -ry -j 0 {args:haystack_experimental}",
 ]
 test-cov = "coverage run -m pytest {args:test}"
-cov-report = [
-  "- coverage combine",
-  "coverage xml",
-]
-cov = [
-  "test-cov",
-  "cov-report",
-]
+cov-report = ["- coverage combine", "coverage xml"]
+cov = ["test-cov", "cov-report"]
 
 [tool.hatch.envs.readme]
-detached = true  # To avoid installing the dependencies from the default environment
+detached = true                         # To avoid installing the dependencies from the default environment
 dependencies = ["haystack-pydoc-tools"]
 
 [tool.hatch.envs.readme.scripts]
@@ -99,15 +91,18 @@ ignore-paths = [
   "haystack_experimental/__init__.py",
   "haystack_experimental/version.py",
 ]
+
 [tool.pylint.'MESSAGES CONTROL']
 max-line-length = 120
+disable = [
+  "C0114", # missing-module-docstring
+  "R0903", # too-few-public-methods
+]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "--strict-markers"
-markers = [
-  "integration: integration tests",
-]
+markers = ["integration: integration tests"]
 log_cli = true
 
 [tool.mypy]
