@@ -62,7 +62,7 @@ lint = [
 test-cov = "coverage run -m pytest {args:test}"
 cov-report = [
   "- coverage combine",
-  "coverage report",
+  "coverage xml",
 ]
 cov = [
   "test-cov",
