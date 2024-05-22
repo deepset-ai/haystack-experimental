@@ -14,11 +14,12 @@ from haystack.evaluation.eval_run_result import BaseEvaluationRunResult
 @dataclass
 class EvalRunOverrides:
     """
-    Overrides for an evaluation run. Used to override
-    the init parameters of components in either (or
-    both) the evaluated and evaluation pipelines. Each
-    key is a component name and its value a dictionary
-    with init parameters to override.
+    Overrides for an evaluation run.
+
+    Used to override the init parameters of components in either
+    (or both) the evaluated and evaluation pipelines. Each key is
+    a component name and its value a dictionary with init parameters
+    to override.
 
     :param evaluated_pipeline_overrides:
         Overrides for the evaluated pipeline.
@@ -37,8 +38,7 @@ EvalRunOverridesT = TypeVar("EvalRunOverridesT")
 
 class EvaluationHarness(ABC, Generic[EvalRunInputT, EvalRunOverridesT, EvalRunOutputT]):
     """
-    Executes a pipeline with a given set of parameters, inputs and
-    evaluates its outputs with an evaluation pipeline.
+    Executes a pipeline with a given set of parameters, inputs and evaluates its outputs with an evaluation pipeline.
     """
 
     @staticmethod
