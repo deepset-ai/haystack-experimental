@@ -1,0 +1,39 @@
+openapi: 3.0.0
+info:
+  title: SerperDev
+  version: 1.0.0
+  description: API for performing search queries
+servers:
+  - url: https://google.serper.dev
+paths:
+  /search:
+    post:
+      operationId: serperdev_search
+      description: Search the web with Google
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q:
+                  type: string
+              required:
+                - q
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+      security:
+        - apikey: []
+components:
+  securitySchemes:
+    apikey:
+      type: apiKey
+      name: x-api-key
+      in: header
