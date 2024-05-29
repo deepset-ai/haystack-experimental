@@ -64,6 +64,9 @@ jobs:
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 
+      - name: Install test dependencies
+        run: pip install -r test/test_requirements.txt
+
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
 
