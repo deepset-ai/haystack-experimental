@@ -8,11 +8,10 @@ from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 from haystack import Pipeline
 from haystack.core.serialization import DeserializationCallbacks
-from haystack.evaluation.eval_run_result import BaseEvaluationRunResult
 
 
 @dataclass
-class EvalRunOverrides:
+class EvaluationRunOverrides:
     """
     Overrides for an evaluation run.
 
@@ -32,7 +31,7 @@ class EvalRunOverrides:
 
 
 EvalRunInputT = TypeVar("EvalRunInputT")
-EvalRunOutputT = TypeVar("EvalRunOutputT", bound=BaseEvaluationRunResult)
+EvalRunOutputT = TypeVar("EvalRunOutputT")
 EvalRunOverridesT = TypeVar("EvalRunOverridesT")
 
 
@@ -43,9 +42,7 @@ class EvaluationHarness(ABC, Generic[EvalRunInputT, EvalRunOverridesT, EvalRunOu
 
     @staticmethod
     def _override_pipeline(pipeline: Pipeline, parameter_overrides: Optional[Dict[str, Any]]) -> Pipeline:
-        def component_pre_init_callback(
-            name: str, cls: Type, init_params: Dict[str, Any]
-        ):  # pylint: disable=unused-argument
+        def component_pre_init_callback(name: str, cls: Type, init_params: Dict[str, Any]):  # pylint: disable=unused-argument
             assert parameter_overrides is not None
             overrides = parameter_overrides.get(name)
             if overrides:
@@ -70,7 +67,11 @@ class EvaluationHarness(ABC, Generic[EvalRunInputT, EvalRunOverridesT, EvalRunOu
 
     @abstractmethod
     def run(
-        self, inputs: EvalRunInputT, *, overrides: Optional[EvalRunOverridesT] = None, run_name: Optional[str] = None
+        self,
+        inputs: EvalRunInputT,
+        *,
+        overrides: Optional[EvalRunOverridesT] = None,
+        run_name: Optional[str] = None,
     ) -> EvalRunOutputT:
         """
         Launch a evaluation run.
