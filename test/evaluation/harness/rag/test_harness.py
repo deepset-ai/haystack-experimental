@@ -315,11 +315,11 @@ def test_rag_eval_harness_init_invalid_missing_outputs(
 def test_rag_eval_harness_init_defaults(
     rag_pipeline_with_query_embedder, rag_pipeline_with_keyword_retriever
 ):
-    harness = RAGEvaluationHarness.default_with_embedding_retriever(
+    _ = RAGEvaluationHarness.default_with_embedding_retriever(
         rag_pipeline_with_query_embedder, metrics={RAGEvaluationMetric.DOCUMENT_MAP}
     )
 
-    harness = RAGEvaluationHarness.default_with_keyword_retriever(
+    _ = RAGEvaluationHarness.default_with_keyword_retriever(
         rag_pipeline_with_keyword_retriever, metrics={RAGEvaluationMetric.DOCUMENT_MAP}
     )
 
