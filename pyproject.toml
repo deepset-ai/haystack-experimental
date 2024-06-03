@@ -46,7 +46,8 @@ dependencies = [
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  # List here dependencies behind lazy-import
+  # RAG evaluation harness (SAS evaluator)
+  "sentence-transformers>=2.2.0",
 ]
 
 [tool.hatch.envs.test.scripts]
