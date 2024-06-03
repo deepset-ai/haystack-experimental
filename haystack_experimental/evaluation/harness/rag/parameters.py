@@ -115,11 +115,11 @@ class RAGEvaluationOverrides:
     Used to override the init parameters of components in
     either (or both) the evaluated and evaluation pipelines.
 
-    :param rag:
+    :param rag_pipeline:
         Overrides for the RAG pipeline. Each
         key is a component name and its value a dictionary
         with init parameters to override.
-    :param eval:
+    :param eval_pipeline:
         Overrides for the evaluation pipeline. Each
         key is a RAG metric and its value a dictionary
         with init parameters to override.
@@ -138,7 +138,7 @@ class RAGEvaluationOutput:
         Serialized version of the evaluated pipeline, including overrides.
     :param evaluation_pipeline:
         Serialized version of the evaluation pipeline, including overrides.
-    :param input:
+    :param inputs:
         Input passed to the evaluation harness.
     :param results:
         Results of the evaluation run.

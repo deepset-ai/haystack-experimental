@@ -37,7 +37,7 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
         metrics: Set[RAGEvaluationMetric],
     ):
         """
-        Create a evaluation harness for evaluating basic RAG pipelines.
+        Create an evaluation harness for evaluating basic RAG pipelines.
 
         :param rag_pipeline:
             The RAG pipeline to evaluate.
