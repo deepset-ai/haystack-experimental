@@ -9,49 +9,50 @@ from haystack import Pipeline, component
 
 @component
 class PipelineWrapper:
+    """
+    PipelineWrapper wraps a pipeline into a single component.
+
+    This component has the same inputs as the wrapped pipeline. The wrapped pipeline might have
+    a component expecting multiple inputs like this:
+
+    ```python
+    {
+        'llm': {
+            'prompt': {'type': ..., 'is_mandatory': True},
+            'generation_kwargs': {'type': ..., 'is_mandatory': False, 'default_value': None}
+        }
+    }
+    ```
+
+    In turn, this wrapper components would have nested inputs:
+
+    ```python
+    {
+        "this_component": {
+        'llm': {
+            'prompt': {'type': ..., 'is_mandatory': True},
+            'generation_kwargs': {'type': ..., 'is_mandatory': False, 'default_value': None}
+        }
+        }
+    }
+    ````
+
+    This component would be difficult to connect, so we wrap the data we send to the pipeline and
+    the return value of the pipeline using this convention:
+
+    <this component input> -> <wrapped_component_name>:<wrapped_input_name>
+
+    the inputs of this component would then be:
+
+    ```python
+    {
+        'llm:prompt': {...},
+        'llm.generation_kwargs': {...}
+    }
+    ```
+    """
+
     def __init__(self, pipeline: Pipeline) -> None:
-        """
-        PipelineWrapper wraps a pipeline into a single component.
-
-        This component has the same inputs as the wrapped pipeline. The wrapped pipeline might have
-        a component expecting multiple inputs like this:
-
-        ```python
-        {
-            'llm': {
-                'prompt': {'type': ..., 'is_mandatory': True},
-                'generation_kwargs': {'type': ..., 'is_mandatory': False, 'default_value': None}
-            }
-        }
-        ```
-
-        In turn, this wrapper components would have nested inputs:
-
-        ```python
-        {
-          "this_component": {
-            'llm': {
-              'prompt': {'type': ..., 'is_mandatory': True},
-              'generation_kwargs': {'type': ..., 'is_mandatory': False, 'default_value': None}
-            }
-          }
-        }
-        ````
-
-        This component would be difficult to connect, so we wrap the data we send to the pipeline and
-        the return value of the pipeline using this convention:
-
-        <this component input> -> <wrapped_component_name>:<wrapped_input_name>
-
-        the inputs of this component would then be:
-
-        ```python
-        {
-          'llm:prompt': {...},
-          'llm.generation_kwargs': {...}
-        }
-        ```
-        """
         self._pipeline_instance = pipeline
         self.pipeline = pipeline.to_dict()
 
@@ -73,6 +74,7 @@ class PipelineWrapper:
     def run(self, **kwargs):
         """
         Before running the wrapped pipeline, we unwrap `kwargs`, so we can invoke the underlying pipeline.
+
         For example, if the following is passed as `kwargs` (note the "wrapping convention" of the input):
 
         ```python
@@ -94,7 +96,7 @@ class PipelineWrapper:
         ret = self._pipeline_instance.run(data=dict(unwrapped_data))
 
         # Wrap the return value of the pipeline run
-        wrapped_ret = dict()
+        wrapped_ret = {}
         for k, v in ret.items():
             component_name = k
             for output_name, ret_value in v.items():
