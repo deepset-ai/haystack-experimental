@@ -5,8 +5,8 @@
 
 import pytest
 
-from haystack_experimental.util.openapi import OpenAPIServiceClient, ClientConfiguration
-from test.util.conftest import FastAPITestClient
+from haystack_experimental.components.tools.openapi.openapi import OpenAPIServiceClient, ClientConfiguration
+from test.components.tools.openapi.conftest import FastAPITestClient
 
 
 class TestEdgeCases:

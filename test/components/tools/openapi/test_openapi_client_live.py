@@ -7,7 +7,7 @@ import os
 
 import pytest
 import yaml
-from haystack_experimental.util.openapi import OpenAPIServiceClient, ClientConfiguration
+from haystack_experimental.components.tools.openapi.openapi import OpenAPIServiceClient, ClientConfiguration
 
 
 class TestClientLive:

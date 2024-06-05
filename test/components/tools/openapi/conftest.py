@@ -10,12 +10,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from haystack_experimental.util.openapi import HttpClientError
+from haystack_experimental.components.tools.openapi.openapi import HttpClientError
 
 
 @pytest.fixture()
 def test_files_path():
-    return Path(__file__).parent.parent / "test_files"
+    return Path(__file__).parent.parent.parent.parent / "test_files"
 
 
 class FastAPITestClient:

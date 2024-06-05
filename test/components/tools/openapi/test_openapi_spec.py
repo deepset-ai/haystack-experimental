@@ -2,11 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import json
-
 import pytest
 
-from haystack_experimental.util.openapi import OpenAPISpecification
+from haystack_experimental.components.tools.openapi.openapi import OpenAPISpecification
 
 
 class TestOpenAPISpecification:

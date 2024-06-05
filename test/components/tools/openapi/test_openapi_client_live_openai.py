@@ -7,7 +7,7 @@ import os
 import pytest
 from openai import OpenAI
 
-from haystack_experimental.util.openapi import ClientConfiguration, OpenAPIServiceClient
+from haystack_experimental.components.tools.openapi.openapi import ClientConfiguration, OpenAPIServiceClient
 
 
 class TestClientLiveOpenAPI:

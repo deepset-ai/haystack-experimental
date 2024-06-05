@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.tools.openapi.openapi import OpenAPITool
+from haystack_experimental.components.tools.openapi.openapi_tool import OpenAPITool
 
 __all__ = ["OpenAPITool"]

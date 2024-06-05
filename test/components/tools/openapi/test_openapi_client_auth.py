@@ -15,9 +15,9 @@ from fastapi.security import (
     HTTPBearer,
 )
 
-from haystack_experimental.util.openapi import OpenAPIServiceClient, ApiKeyAuthentication, \
+from haystack_experimental.components.tools.openapi.openapi import OpenAPIServiceClient, ApiKeyAuthentication, \
     HTTPAuthentication, ClientConfiguration
-from test.util.conftest import FastAPITestClient
+from test.components.tools.openapi.conftest import FastAPITestClient
 
 API_KEY = "secret_api_key"
 BASIC_AUTH_USERNAME = "admin"

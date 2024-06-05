@@ -6,7 +6,7 @@ import os
 import cohere
 import pytest
 
-from haystack_experimental.util.openapi import ClientConfiguration, OpenAPIServiceClient
+from haystack_experimental.components.tools.openapi.openapi import ClientConfiguration, OpenAPIServiceClient
 
 # Copied from Cohere's documentation
 preamble = """

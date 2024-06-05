@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.util.openapi import OpenAPISpecification, cohere_converter
+from haystack_experimental.components.tools.openapi.openapi import OpenAPISpecification, cohere_converter
 
 
 class TestOpenAPISchemaConversion:

@@ -10,6 +10,9 @@ from typing import Any, Optional, Tuple
 
 
 class LLMProvider(Enum):
+    """
+    Enum for different LLM providers
+    """
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
@@ -42,6 +45,7 @@ def load_class(full_class_path: str):
 
 @dataclass
 class LLMIdentifier:
+    """ Dataclass to hold the LLM provider and model name"""
     provider: LLMProvider
     model_name: str
 
@@ -68,10 +72,9 @@ def create_generator(
     Create ChatGenerator instance based on the model name and provider.
     """
     if provider:
-        try:
-            provider_enum = LLMProvider[provider.lower()]
-        except KeyError:
+        if provider.lower() not in LLMProvider.__members__:
             raise ValueError(f"Invalid provider: {provider}")
+        provider_enum = LLMProvider[provider.lower()]
     else:
         provider_enum = None
         for prov, details in PROVIDER_DETAILS.items():

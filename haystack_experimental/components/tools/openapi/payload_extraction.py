@@ -7,10 +7,13 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Union
 
 
-def create_function_payload_extractor(arguments_field_name: str) -> Callable[[Any], Dict[str, Any]]:
+def create_function_payload_extractor(
+    arguments_field_name: str,
+) -> Callable[[Any], Dict[str, Any]]:
     """
     Extracts invocation payload from a given LLM completion containing function invocation.
     """
+
     def _extract_function_invocation(payload: Any) -> Dict[str, Any]:
         """
         Extract the function invocation details from the payload.
@@ -24,16 +27,22 @@ def create_function_payload_extractor(arguments_field_name: str) -> Callable[[An
                 )
             return {
                 "name": fields_and_values.get("name"),
-                "arguments": json.loads(arguments) if isinstance(arguments, str) else arguments,
+                "arguments": json.loads(arguments)
+                if isinstance(arguments, str)
+                else arguments,
             }
         return {}
 
     return _extract_function_invocation
 
 
-def _get_dict_converter(obj: Any,
-                        method_names: Optional[List[str]] = None) -> Union[Callable[[], Dict[str, Any]], None]:
-    method_names = method_names or ["model_dump", "dict"]  # search for pydantic v2 then v1
+def _get_dict_converter(
+    obj: Any, method_names: Optional[List[str]] = None
+) -> Union[Callable[[], Dict[str, Any]], None]:
+    method_names = method_names or [
+        "model_dump",
+        "dict",
+    ]  # search for pydantic v2 then v1
     for attr in method_names:
         if hasattr(obj, attr) and callable(getattr(obj, attr)):
             return getattr(obj, attr)
