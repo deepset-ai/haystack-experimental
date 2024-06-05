@@ -5,88 +5,101 @@
 import importlib
 import re
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Dict, Optional, Tuple
-
-
-class LLMProvider(Enum):
-    """
-    Enum for different LLM providers
-    """
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    COHERE = "cohere"
-
-
-PROVIDER_DETAILS: Dict[LLMProvider, Dict[str, Any]] = {
-    LLMProvider.OPENAI: {
-        "class_path": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
-        "patterns": [re.compile(r"^gpt.*")],
-    },
-    LLMProvider.ANTHROPIC: {
-        "class_path": "haystack_integrations.components.generators.anthropic.AnthropicChatGenerator",
-        "patterns": [re.compile(r"^claude.*")],
-    },
-    LLMProvider.COHERE: {
-        "class_path": "haystack_integrations.components.generators.cohere.CohereChatGenerator",
-        "patterns": [re.compile(r"^command-r.*")],
-    },
-}
-
-
-def load_class(full_class_path: str):
-    """
-    Load a class from a string representation of its path e.g. "module.submodule.class_name"
-    """
-    module_path, _, class_name = full_class_path.rpartition(".")
-    module = importlib.import_module(module_path)
-    return getattr(module, class_name)
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
-class LLMIdentifier:
-    """ Dataclass to hold the LLM provider and model name"""
-    provider: LLMProvider
+class ChatGeneratorDescriptor:
+    """
+    Dataclass to describe a Chat Generator
+    """
+
+    class_path: str
+    patterns: List[re.Pattern]
+    name: str
     model_name: str
 
-    def __post_init__(self):
-        if not isinstance(self.provider, LLMProvider):
-            raise ValueError(f"Invalid provider: {self.provider}")
 
-        if not isinstance(self.model_name, str):
-            raise ValueError(f"Model name must be a string: {self.model_name}")
-
-        details = PROVIDER_DETAILS.get(self.provider)
-        if not details or not any(
-            pattern.match(self.model_name) for pattern in details["patterns"]
-        ):
-            raise ValueError(
-                f"Invalid combination of provider {self.provider} and model name {self.model_name}"
-            )
-
-
-def create_generator(
-    model_name: str, provider: Optional[str] = None, **model_kwargs
-) -> Tuple[LLMIdentifier, Any]:
+class ChatGeneratorDescriptorManager:
     """
-    Create ChatGenerator instance based on the model name and provider.
+    Class to manage Chat Generator Descriptors
     """
-    provider_enum = None
-    if provider:
-        if provider.lower() not in LLMProvider.__members__:
-            raise ValueError(f"Invalid provider: {provider}")
-        provider_enum = LLMProvider[provider.lower()]
-    else:
-        for prov, details in PROVIDER_DETAILS.items():
-            if any(pattern.match(model_name) for pattern in details["patterns"]):
-                provider_enum = prov
-                break
 
-    if provider_enum is None:
-        raise ValueError(f"Could not infer provider for model name: {model_name}")
+    def __init__(self):
+        self._descriptors: Dict[str, ChatGeneratorDescriptor] = {}
+        self._register_default_descriptors()
 
-    llm_identifier = LLMIdentifier(provider=provider_enum, model_name=model_name)
-    class_path = PROVIDER_DETAILS[llm_identifier.provider]["class_path"]
-    return llm_identifier, load_class(class_path)(
-        model=llm_identifier.model_name, **model_kwargs
-    )
+    def _register_default_descriptors(self):
+        """
+        Register default Chat Generator Descriptors.
+        """
+        default_descriptors = [
+            ChatGeneratorDescriptor(
+                class_path="haystack.components.generators.chat.openai.OpenAIChatGenerator",
+                patterns=[re.compile(r"^gpt.*")],
+                name="openai",
+                model_name="gpt-3.5-turbo",
+            ),
+            ChatGeneratorDescriptor(
+                class_path="haystack_integrations.components.generators.anthropic.AnthropicChatGenerator",
+                patterns=[re.compile(r"^claude.*")],
+                name="anthropic",
+                model_name="claude-1",
+            ),
+            ChatGeneratorDescriptor(
+                class_path="haystack_integrations.components.generators.cohere.CohereChatGenerator",
+                patterns=[re.compile(r"^command-r.*")],
+                name="cohere",
+                model_name="command-r",
+            ),
+        ]
+
+        for descriptor in default_descriptors:
+            self.register_descriptor(descriptor)
+
+    def _load_class(self, full_class_path: str):
+        """
+        Load a class from a string representation of its path e.g. "module.submodule.class_name"
+        """
+        module_path, _, class_name = full_class_path.rpartition(".")
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+
+    def register_descriptor(self, descriptor: ChatGeneratorDescriptor):
+        """
+        Register a new Chat Generator Descriptor.
+        """
+        if descriptor.name in self._descriptors:
+            raise ValueError(f"Descriptor {descriptor.name} already exists.")
+
+        self._descriptors[descriptor.name] = descriptor
+
+    def _infer_descriptor(self, model_name: str) -> Optional[ChatGeneratorDescriptor]:
+        """
+        Infer the descriptor based on the model name.
+        """
+        for descriptor in self._descriptors.values():
+            if any(pattern.match(model_name) for pattern in descriptor.patterns):
+                return descriptor
+        return None
+
+    def create_generator(
+        self, model_name: str, descriptor_name: Optional[str] = None, **model_kwargs
+    ) -> Tuple[ChatGeneratorDescriptor, Any]:
+        """
+        Create ChatGenerator instance based on the model name and descriptor.
+        """
+        if descriptor_name:
+            descriptor = self._descriptors.get(descriptor_name)
+            if not descriptor:
+                raise ValueError(f"Invalid descriptor name: {descriptor_name}")
+        else:
+            descriptor = self._infer_descriptor(model_name)
+            if not descriptor:
+                raise ValueError(
+                    f"Could not infer descriptor for model name: {model_name}"
+                )
+
+        return descriptor, self._load_class(descriptor.class_path)(
+            model=model_name, **model_kwargs
+        )

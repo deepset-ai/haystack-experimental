@@ -9,7 +9,9 @@ from typing import Any, Dict, List, Optional, Union
 from haystack import component, logging
 from haystack.dataclasses import ChatMessage, ChatRole
 
-from haystack_experimental.components.tools.openapi.generator_factory import create_generator
+from haystack_experimental.components.tools.openapi.generator_factory import (
+    ChatGeneratorDescriptorManager,
+)
 from haystack_experimental.components.tools.openapi.openapi import (
     ClientConfiguration,
     OpenAPIServiceClient,
@@ -48,16 +50,20 @@ class OpenAPITool:
         tool_spec: Optional[Union[str, Path]] = None,
         tool_credentials: Optional[Union[str, Dict[str, Any]]] = None,
     ):
-        self.llm_id, self.chat_generator = create_generator(model)
-        self.config_openapi = (
-            ClientConfiguration(
+
+        manager = ChatGeneratorDescriptorManager()
+        self.descriptor, self.chat_generator = manager.create_generator(
+            model_name=model
+        )
+        self.config_openapi: Optional[ClientConfiguration] = None
+        self.open_api_service: Optional[OpenAPIServiceClient] = None
+        if tool_spec:
+            self.config_openapi = ClientConfiguration(
                 openapi_spec=tool_spec,
                 credentials=tool_credentials,
-                llm_provider=self.llm_id.provider.value,
+                llm_provider=self.descriptor.name,
             )
-            if tool_spec
-            else None
-        )
+            self.open_api_service = OpenAPIServiceClient(self.config_openapi)
 
     @component.output_types(service_response=List[ChatMessage])
     def run(
@@ -88,17 +94,29 @@ class OpenAPITool:
             ClientConfiguration(
                 openapi_spec=tool_spec,
                 credentials=tool_credentials,
-                llm_provider=self.llm_id.provider.value,
+                llm_provider=self.descriptor.name,
             )
             if tool_spec
             else self.config_openapi
         )
 
-        if not config_openapi:
+        openapi_service: Optional[OpenAPIServiceClient] = self.open_api_service
+        if tool_spec:
+            config_openapi = ClientConfiguration(
+                openapi_spec=tool_spec,
+                credentials=tool_credentials,
+                llm_provider=self.descriptor.name,
+            )
+            openapi_service = OpenAPIServiceClient(config_openapi)
+        else:
+            config_openapi = self.config_openapi
+
+        if not openapi_service or not config_openapi:
             raise ValueError(
                 "OpenAPI specification not provided. Please provide an OpenAPI specification either at initialization "
                 "or during runtime."
             )
+
         # merge fc_generator_kwargs, tools definitions comes from the OpenAPI spec, other kwargs are passed by the user
         fc_generator_kwargs = {
             "tools": config_openapi.get_tools_definitions(),
@@ -110,11 +128,10 @@ class OpenAPITool:
             f"Invoking chat generator with {last_message.content} to generate function calling payload."
         )
         fc_payload = self.chat_generator.run(messages, fc_generator_kwargs)
-
-        openapi_service = OpenAPIServiceClient(config_openapi)
         try:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
             logger.debug(f"Invoking tool with {invocation_payload}")
+            # openapi_service is never None here, ignore mypy error
             service_response = openapi_service.invoke(invocation_payload)
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"Error invoking OpenAPI endpoint. Error: {e}")

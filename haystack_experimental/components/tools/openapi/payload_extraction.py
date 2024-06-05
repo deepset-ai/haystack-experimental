@@ -27,9 +27,9 @@ def create_function_payload_extractor(
                 )
             return {
                 "name": fields_and_values.get("name"),
-                "arguments": json.loads(arguments)
-                if isinstance(arguments, str)
-                else arguments,
+                "arguments": (
+                    json.loads(arguments) if isinstance(arguments, str) else arguments
+                ),
             }
         return {}
 
