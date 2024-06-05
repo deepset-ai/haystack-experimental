@@ -32,7 +32,7 @@ class OpenAPITool:
     from haystack.components.generators.chat.openai import OpenAIChatGenerator
     from haystack.dataclasses import ChatMessage
 
-    tool = OpenAPITool(llm_provider="openai", model="gpt-3.5-turbo",
+    tool = OpenAPITool(model="gpt-3.5-turbo",
                        tool_spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
                        tool_credentials="<your-tool-token>")
 
@@ -40,7 +40,7 @@ class OpenAPITool:
     print(results)
     ```
 
-    Similarly, you can use the OpenAPITool component to use any OpenAPI service/tool by providing the OpenAPI
+    Similarly, you can use the OpenAPITool component to invoke **any** OpenAPI service/tool by providing the OpenAPI
     specification and credentials.
     """
 
@@ -125,16 +125,16 @@ class OpenAPITool:
 
         # generate function calling payload with the chat generator
         logger.debug(
-            f"Invoking chat generator with {last_message.content} to generate function calling payload."
+            "Invoking chat generator with {message} to generate function calling payload.",
+            message=last_message.content,
         )
         fc_payload = self.chat_generator.run(messages, fc_generator_kwargs)
         try:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
-            logger.debug(f"Invoking tool with {invocation_payload}")
-            # openapi_service is never None here, ignore mypy error
+            logger.debug("Invoking tool with {payload}", payload=invocation_payload)
             service_response = openapi_service.invoke(invocation_payload)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(f"Error invoking OpenAPI endpoint. Error: {e}")
+            logger.error("Error invoking OpenAPI endpoint. Error: {e}", e=str(e))
             service_response = {"error": str(e)}
         response_messages = [ChatMessage.from_user(json.dumps(service_response))]
         return {"service_response": response_messages}
