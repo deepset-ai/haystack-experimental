@@ -97,18 +97,9 @@ class OpenAPITool:
         if not last_message.content:
             raise ValueError("Function calling instruction message content is empty.")
 
-        # build a new ClientConfiguration if a runtime tool_spec is provided
-        config_openapi = (
-            ClientConfiguration(
-                openapi_spec=tool_spec,
-                credentials=tool_credentials,
-                llm_provider=self.descriptor.name,
-            )
-            if tool_spec
-            else self.config_openapi
-        )
-
+        # build a new ClientConfiguration and OpenAPIServiceClient if a runtime tool_spec is provided
         openapi_service: Optional[OpenAPIServiceClient] = self.open_api_service
+        config_openapi: Optional[ClientConfiguration] = self.config_openapi
         if tool_spec:
             config_openapi = ClientConfiguration(
                 openapi_spec=tool_spec,
@@ -116,8 +107,6 @@ class OpenAPITool:
                 llm_provider=self.descriptor.name,
             )
             openapi_service = OpenAPIServiceClient(config_openapi)
-        else:
-            config_openapi = self.config_openapi
 
         if not openapi_service or not config_openapi:
             raise ValueError(
