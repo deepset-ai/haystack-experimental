@@ -4,6 +4,10 @@
 
 import logging
 from typing import Any, Callable, Dict, List, Optional
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 
 import jsonref
 
