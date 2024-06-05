@@ -13,7 +13,7 @@ class TestEdgeCases:
 
     def test_missing_operation_id(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_edge_cases.yml",
-                                     http_client=FastAPITestClient(None))
+                                     request_sender=FastAPITestClient(None))
         client = OpenAPIServiceClient(config)
 
         payload = {

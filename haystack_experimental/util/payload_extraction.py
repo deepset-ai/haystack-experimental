@@ -3,6 +3,30 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Union
 
 
+def create_function_payload_extractor(arguments_field_name: str) -> Callable[[Any], Dict[str, Any]]:
+    """
+    Extracts invocation payload from a given LLM completion containing function invocation.
+    """
+    def _extract_function_invocation(payload: Any) -> Dict[str, Any]:
+        """
+        Extract the function invocation details from the payload.
+        """
+        fields_and_values = _search(payload, arguments_field_name)
+        if fields_and_values:
+            arguments = fields_and_values.get(arguments_field_name)
+            if not isinstance(arguments, (str, dict)):
+                raise ValueError(
+                    f"Invalid {arguments_field_name} type {type(arguments)} for function call, expected str/dict"
+                )
+            return {
+                "name": fields_and_values.get("name"),
+                "arguments": json.loads(arguments) if isinstance(arguments, str) else arguments,
+            }
+        return {}
+
+    return _extract_function_invocation
+
+
 def _get_dict_converter(obj: Any,
                         method_names: Optional[List[str]] = None) -> Union[Callable[[], Dict[str, Any]], None]:
     method_names = method_names or ["model_dump", "dict"]  # search for pydantic v2 then v1
@@ -41,27 +65,3 @@ def _search(payload: Any, arguments_field_name: str) -> Dict[str, Any]:
             if result:
                 return result
     return {}
-
-
-def create_function_payload_extractor(arguments_field_name: str) -> Callable[[Any], Dict[str, Any]]:
-    """
-    Extracts invocation payload from a given LLM completion containing function invocation.
-    """
-    def _extract_function_invocation(payload: Any) -> Dict[str, Any]:
-        """
-        Extract the function invocation details from the payload.
-        """
-        fields_and_values = _search(payload, arguments_field_name)
-        if fields_and_values:
-            arguments = fields_and_values.get(arguments_field_name)
-            if not isinstance(arguments, (str, dict)):
-                raise ValueError(
-                    f"Invalid {arguments_field_name} type {type(arguments)} for function call, expected str/dict"
-                )
-            return {
-                "name": fields_and_values.get("name"),
-                "arguments": json.loads(arguments) if isinstance(arguments, str) else arguments,
-            }
-        return {}
-
-    return _extract_function_invocation

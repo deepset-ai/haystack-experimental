@@ -8,13 +8,11 @@ import os
 from base64 import b64encode
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from urllib.parse import urlparse
 
 import requests
 import yaml
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
 
 from haystack_experimental.util.payload_extraction import create_function_payload_extractor
 from haystack_experimental.util.schema_conversion import anthropic_converter, cohere_converter, openai_converter
@@ -103,63 +101,6 @@ class HTTPAuthentication(AuthenticationStrategy):
                 raise ValueError(f"Unsupported HTTP authentication scheme: {security_scheme['scheme']}")
         else:
             raise ValueError("HTTPAuthentication strategy received a non-HTTP security scheme.")
-
-
-@dataclass
-class HttpClientConfig:
-    """Configuration for the HTTP client."""
-
-    timeout: int = 10
-    max_retries: int = 3
-    backoff_factor: float = 0.3
-    retry_on_status: set = field(default_factory=lambda: {500, 502, 503, 504})
-    default_headers: Dict[str, str] = field(default_factory=dict)
-
-
-class HttpClient:
-    """HTTP client for sending requests."""
-
-    def __init__(self, config: Optional[HttpClientConfig] = None):
-        self.config = config or HttpClientConfig()
-        self.session = requests.Session()
-        retries = Retry(
-            total=self.config.max_retries,
-            backoff_factor=self.config.backoff_factor,
-            status_forcelist=self.config.retry_on_status,
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-        self.session.headers.update(self.config.default_headers)
-
-    def send_request(self, request: Dict[str, Any]) -> Any:
-        """
-        Send an HTTP request using the provided request dictionary.
-
-        :param request: A dictionary containing the request details.
-        """
-        url = request["url"]
-        headers = {**self.config.default_headers, **request.get("headers", {})}
-        try:
-            response = self.session.request(
-                request["method"],
-                url,
-                headers=headers,
-                params=request.get("params", {}),
-                json=request.get("json"),
-                auth=request.get("auth"),
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.HTTPError as e:
-            logger.warning("HTTP error occurred: %s while sending request to %s", e, url)
-            raise HttpClientError(f"HTTP error occurred: {e}") from e
-        except requests.exceptions.RequestException as e:
-            logger.warning("Request error occurred: %s while sending request to %s", e, url)
-            raise HttpClientError(f"HTTP error occurred: {e}") from e
-        except Exception as e:
-            logger.warning("An error occurred: %s while sending request to %s", e, url)
-            raise HttpClientError(f"An error occurred: {e}") from e
 
 
 class HttpClientError(Exception):
@@ -305,7 +246,7 @@ class ClientConfiguration:
         self,
         openapi_spec: Union[str, Path, Dict[str, Any]],
         credentials: Optional[Union[str, Dict[str, Any], AuthenticationStrategy]] = None,
-        http_client: Optional[HttpClient] = None,
+        request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         llm_provider: Optional[str] = None,
     ):  # noqa: PLR0913
         if isinstance(openapi_spec, (str, Path)) and os.path.isfile(openapi_spec):
@@ -321,7 +262,7 @@ class ClientConfiguration:
             raise ValueError("Invalid OpenAPI specification format. Expected file path or dictionary.")
 
         self.credentials = credentials
-        self.http_client = http_client or HttpClient(HttpClientConfig())
+        self.request_sender = request_sender
         self.llm_provider = llm_provider or "openai"
 
     def get_auth_config(self) -> AuthenticationStrategy:
@@ -395,7 +336,7 @@ class OpenAPIServiceClient:
 
     def __init__(self, client_config: ClientConfiguration):
         self.client_config = client_config
-        self.http_client = client_config.http_client
+        self.request_sender = client_config.request_sender or self._request_sender()
 
     def invoke(self, function_payload: Any) -> Any:
         """
@@ -416,7 +357,38 @@ class OpenAPIServiceClient:
         operation = self.client_config.openapi_spec.find_operation_by_id(fn_invocation_payload.get("name"))
         request = self._build_request(operation, **fn_invocation_payload.get("arguments"))
         self._apply_authentication(self.client_config.get_auth_config(), operation, request)
-        return self.http_client.send_request(request)
+        return self.request_sender(request)
+
+    def _request_sender(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Returns a callable that sends the request using the HTTP client.
+        """
+        def send_request(request: Dict[str, Any]) -> Dict[str, Any]:
+            url = request["url"]
+            headers = {**request.get("headers", {})}
+            try:
+                response = requests.request(
+                    request["method"],
+                    url,
+                    headers=headers,
+                    params=request.get("params", {}),
+                    json=request.get("json"),
+                    auth=request.get("auth"),
+                    timeout=10,
+                )
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.HTTPError as e:
+                logger.warning("HTTP error occurred: %s while sending request to %s", e, url)
+                raise HttpClientError(f"HTTP error occurred: {e}") from e
+            except requests.exceptions.RequestException as e:
+                logger.warning("Request error occurred: %s while sending request to %s", e, url)
+                raise HttpClientError(f"HTTP error occurred: {e}") from e
+            except Exception as e:
+                logger.warning("An error occurred: %s while sending request to %s", e, url)
+                raise HttpClientError(f"An error occurred: {e}") from e
+
+        return send_request
 
     def _build_request(self, operation: Operation, **kwargs) -> Any:
         request = {

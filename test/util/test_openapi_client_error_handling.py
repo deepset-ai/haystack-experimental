@@ -27,7 +27,7 @@ class TestErrorHandling:
     @pytest.mark.parametrize("status_code", [400, 401, 403, 404, 500])
     def test_http_error_handling(self, test_files_path, status_code):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_error_handling.yml",
-                                     http_client=FastAPITestClient(create_error_handling_app()))
+                                     request_sender=FastAPITestClient(create_error_handling_app()))
         client = OpenAPIServiceClient(config)
         json_error = {"status_code": status_code}
         payload = {

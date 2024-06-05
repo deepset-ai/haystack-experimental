@@ -57,7 +57,7 @@ class TestPaymentProcess:
 
     def test_process_payment(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "json" / "complex_types_openapi_service.json",
-                                     http_client=FastAPITestClient(create_payment_app()))
+                                     request_sender=FastAPITestClient(create_payment_app()))
         client = OpenAPIServiceClient(config)
 
         payment_json = {

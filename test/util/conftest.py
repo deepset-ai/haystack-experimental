@@ -10,7 +10,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from haystack_experimental.util.openapi import HttpClient, HttpClientError
+from haystack_experimental.util.openapi import HttpClientError
 
 
 @pytest.fixture()
@@ -18,7 +18,7 @@ def test_files_path():
     return Path(__file__).parent.parent / "test_files"
 
 
-class FastAPITestClient(HttpClient):
+class FastAPITestClient:
 
     def __init__(self, app: FastAPI):
         self.app = app
@@ -31,7 +31,7 @@ class FastAPITestClient(HttpClient):
             new_path += "?" + parsed_url.query
         return new_path
 
-    def send_request(self, request: dict) -> dict:
+    def __call__(self, request: dict) -> dict:
         # OAS spec will list a server URL, but FastAPI doesn't need it for local testing, in fact it will fail
         # if the URL has a host. So we strip it here.
         url = self.strip_host(request["url"])

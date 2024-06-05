@@ -59,7 +59,7 @@ class TestComplexRequestBody:
         path_element = "yaml" if spec_file_path.endswith(".yml") else "json"
 
         config = ClientConfiguration(openapi_spec=test_files_path / path_element / spec_file_path,
-                                     http_client=FastAPITestClient(create_order_app()))
+                                     request_sender=FastAPITestClient(create_order_app()))
 
         client = OpenAPIServiceClient(config)
         order_json = {

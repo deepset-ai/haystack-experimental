@@ -139,7 +139,7 @@ class TestOpenAPIAuth:
 
     def test_greet_api_key_auth(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
-                                     http_client=FastAPITestClient(create_greet_api_key_auth_app()),
+                                     request_sender=FastAPITestClient(create_greet_api_key_auth_app()),
                                      credentials=ApiKeyAuthentication(API_KEY))
         client = OpenAPIServiceClient(config)
         payload = {
@@ -155,7 +155,7 @@ class TestOpenAPIAuth:
 
     def test_greet_basic_auth(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
-                                     http_client=FastAPITestClient(create_greet_basic_auth_app()),
+                                     request_sender=FastAPITestClient(create_greet_basic_auth_app()),
                                      credentials=HTTPAuthentication(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD))
         client = OpenAPIServiceClient(config)
         payload = {
@@ -171,7 +171,7 @@ class TestOpenAPIAuth:
 
     def test_greet_api_key_query_auth(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
-                                     http_client=FastAPITestClient(create_greet_api_key_query_app()),
+                                     request_sender=FastAPITestClient(create_greet_api_key_query_app()),
                                      credentials=ApiKeyAuthentication(API_KEY_QUERY))
         client = OpenAPIServiceClient(config)
         payload = {
@@ -188,7 +188,7 @@ class TestOpenAPIAuth:
     def test_greet_api_key_cookie_auth(self, test_files_path):
 
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
-                                     http_client=FastAPITestClient(create_greet_api_key_cookie_app()),
+                                     request_sender=FastAPITestClient(create_greet_api_key_cookie_app()),
                                      credentials=ApiKeyAuthentication(API_KEY_COOKIE))
 
         client = OpenAPIServiceClient(config)
@@ -205,7 +205,7 @@ class TestOpenAPIAuth:
 
     def test_greet_bearer_auth(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
-                                     http_client=FastAPITestClient(create_greet_bearer_auth_app()),
+                                     request_sender=FastAPITestClient(create_greet_bearer_auth_app()),
                                      credentials=HTTPAuthentication(token=BEARER_TOKEN))
         client = OpenAPIServiceClient(config)
         payload = {
