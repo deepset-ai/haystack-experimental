@@ -6,7 +6,7 @@ import importlib
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 
 class LLMProvider(Enum):
@@ -18,7 +18,7 @@ class LLMProvider(Enum):
     COHERE = "cohere"
 
 
-PROVIDER_DETAILS = {
+PROVIDER_DETAILS: Dict[LLMProvider, Dict[str, Any]] = {
     LLMProvider.OPENAI: {
         "class_path": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
         "patterns": [re.compile(r"^gpt.*")],
@@ -71,19 +71,19 @@ def create_generator(
     """
     Create ChatGenerator instance based on the model name and provider.
     """
+    provider_enum = None
     if provider:
         if provider.lower() not in LLMProvider.__members__:
             raise ValueError(f"Invalid provider: {provider}")
         provider_enum = LLMProvider[provider.lower()]
     else:
-        provider_enum = None
         for prov, details in PROVIDER_DETAILS.items():
             if any(pattern.match(model_name) for pattern in details["patterns"]):
                 provider_enum = prov
                 break
 
-        if provider_enum is None:
-            raise ValueError(f"Could not infer provider for model name: {model_name}")
+    if provider_enum is None:
+        raise ValueError(f"Could not infer provider for model name: {model_name}")
 
     llm_identifier = LLMIdentifier(provider=provider_enum, model_name=model_name)
     class_path = PROVIDER_DETAILS[llm_identifier.provider]["class_path"]

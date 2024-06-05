@@ -15,7 +15,7 @@ MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
 
 
-def openai_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # noqa: F821
+def openai_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # type: ignore[name-defined] # noqa: F821
     """
     Converts OpenAPI specification to a list of function suitable for OpenAI LLM function calling.
 
@@ -29,7 +29,7 @@ def openai_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  #
     return [{"type": "function", "function": fn} for fn in fn_definitions]
 
 
-def anthropic_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # noqa: F821
+def anthropic_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # type: ignore # noqa: F821
     """
     Converts an OpenAPI specification to a list of function definitions for Anthropic LLM function calling.
 
@@ -42,7 +42,7 @@ def anthropic_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:
     )
 
 
-def cohere_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # noqa: F821
+def cohere_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # type: ignore[name-defined] # noqa: F821
     """
     Converts an OpenAPI specification to a list of function definitions for Cohere LLM function calling.
 
