@@ -101,5 +101,5 @@ class ChatGeneratorDescriptorManager:
                 )
 
         return descriptor, self._load_class(descriptor.class_path)(
-            model=model_name, **model_kwargs
+            model=model_name, **(model_kwargs or {})
         )

@@ -49,11 +49,19 @@ class OpenAPITool:
         model: str,
         tool_spec: Optional[Union[str, Path]] = None,
         tool_credentials: Optional[Union[str, Dict[str, Any]]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
     ):
+        """
+        Initialize the OpenAPITool component.
 
+        :param model: Name of the chat generator model to use.
+        :param tool_spec: OpenAPI specification for the tool/service.
+        :param tool_credentials: Credentials for the tool/service.
+        :param model_kwargs: Additional arguments for the chat generator model.
+        """
         manager = ChatGeneratorDescriptorManager()
         self.descriptor, self.chat_generator = manager.create_generator(
-            model_name=model
+            model_name=model, **(model_kwargs or {})
         )
         self.config_openapi: Optional[ClientConfiguration] = None
         self.open_api_service: Optional[OpenAPIServiceClient] = None
@@ -78,8 +86,8 @@ class OpenAPITool:
 
         :param messages: List of ChatMessages to generate function calling payload (e.g. human instructions).
         :param fc_generator_kwargs: Additional arguments for the function calling payload generation process.
-        :param tool_spec: OpenAPI specification for the tool/service.
-        :param tool_credentials: Credentials for the tool/service.
+        :param tool_spec: OpenAPI specification for the tool/service, overrides the one provided at initialization.
+        :param tool_credentials: Credentials for the tool/service, overrides the one provided at initialization.
         :returns: a dictionary containing the service response with the following key:
             - `service_response`: List of ChatMessages containing the service response.
         """
