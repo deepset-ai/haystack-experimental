@@ -9,7 +9,7 @@ import os
 from base64 import b64encode
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, Union, runtime_checkable
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from urllib.parse import urlparse
 
 import jsonref
@@ -25,25 +25,11 @@ MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
 
 
-def validate_provider(provider: str) -> str:
-    """
-    Check if the selected provider is supported.
-
-    :param provider: The selected provider to validate.
-    :return: The validated provider.
-    :raises ValueError: If the selected provider is not supported.
-    """
-    available_providers = ["openai", "anthropic", "cohere"]
-    if provider not in available_providers:
-        raise ValueError(f"LLM provider {provider} is not supported. Available providers: {available_providers}")
-    return provider
-
-
-@runtime_checkable
-class AuthenticationStrategy(Protocol):
+class AuthenticationStrategy:
     """
     Represents an authentication strategy that can be applied to an HTTP request.
     """
+
     def apply_auth(self, security_scheme: Dict[str, Any], request: Dict[str, Any]):
         """
         Apply the authentication strategy to the given request.
@@ -53,17 +39,10 @@ class AuthenticationStrategy(Protocol):
         """
 
 
-class PassThroughAuthentication(AuthenticationStrategy):
-    """No-op authentication strategy that does nothing."""
-    def apply_auth(self, security_scheme: Dict[str, Any], request: Dict[str, Any]):
-        """
-        No-op authentication strategy that does nothing.
-        """
-
-
 @dataclass
 class ApiKeyAuthentication(AuthenticationStrategy):
-    """ API key authentication strategy."""
+    """API key authentication strategy."""
+
     api_key: Optional[str] = None
 
     def apply_auth(self, security_scheme: Dict[str, Any], request: Dict[str, Any]):
@@ -88,7 +67,8 @@ class ApiKeyAuthentication(AuthenticationStrategy):
 
 @dataclass
 class HTTPAuthentication(AuthenticationStrategy):
-    """ HTTP authentication strategy."""
+    """HTTP authentication strategy."""
+
     username: Optional[str] = None
     password: Optional[str] = None
     token: Optional[str] = None
@@ -126,7 +106,8 @@ class HTTPAuthentication(AuthenticationStrategy):
 
 @dataclass
 class HttpClientConfig:
-    """ Configuration for the HTTP client. """
+    """Configuration for the HTTP client."""
+
     timeout: int = 10
     max_retries: int = 3
     backoff_factor: float = 0.3
@@ -135,7 +116,8 @@ class HttpClientConfig:
 
 
 class HttpClient:
-    """ HTTP client for sending requests. """
+    """HTTP client for sending requests."""
+
     def __init__(self, config: Optional[HttpClientConfig] = None):
         self.config = config or HttpClientConfig()
         self.session = requests.Session()
@@ -159,13 +141,16 @@ class HttpClient:
         :param request: A dictionary containing the request details.
         """
         url = request["url"]
-        method = request["method"]
         headers = {**self.config.default_headers, **request.get("headers", {})}
-        params = request.get("params", {})
-        json_data = request.get("json")
-        auth = request.get("auth")
         try:
-            response = self.session.request(method, url, headers=headers, params=params, json=json_data, auth=auth)
+            response = self.session.request(
+                request["method"],
+                request["url"],
+                headers=headers,
+                params=request.get("params", {}),
+                json=request.get("json"),
+                auth=request.get("auth"),
+            )
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
@@ -183,70 +168,46 @@ class HttpClientError(Exception):
     """Exception raised for errors in the HTTP client."""
 
 
+@dataclass
 class Operation:
-    """ Represents an operation in an OpenAPI specification."""
-    def __init__(self, path: str, method: str, operation_dict: Dict[str, Any], spec_dict: Dict[str, Any]):
-        if method.lower() not in VALID_HTTP_METHODS:
-            raise ValueError(f"Invalid HTTP method: {method}")
-        self.path = path
-        self.method = method.lower()
-        self.operation_dict = operation_dict
-        self.spec_dict = spec_dict
+    """Represents an operation in an OpenAPI specification."""
+    path: str
+    method: str
+    operation_dict: Dict[str, Any]
+    spec_dict: Dict[str, Any]
+    security_requirements: List[Dict[str, List[str]]] = field(init=False)
+    request_body: Dict[str, Any] = field(init=False)
+    parameters: List[Dict[str, Any]] = field(init=False)
+
+    def __post_init__(self):
+        if self.method.lower() not in VALID_HTTP_METHODS:
+            raise ValueError(f"Invalid HTTP method: {self.method}")
+        self.method = self.method.lower()
+        self.security_requirements = self.operation_dict.get("security", []) or self.spec_dict.get("security", [])
+        self.request_body = self.operation_dict.get("requestBody", {})
+        self.parameters = self.operation_dict.get("parameters", []) + self.spec_dict.get("paths", {}).get(
+            self.path, {}
+        ).get("parameters", [])
 
     def get_parameters(self, location: Optional[Literal["header", "query", "path"]] = None) -> List[Dict[str, Any]]:
         """
         Get the parameters for the operation.
-
-        :param location: The location of the parameters to retrieve. If None, all parameters are returned.
         """
-        parameters = self.operation_dict.get("parameters", [])
-        path_item = self.spec_dict.get("paths", {}).get(self.path, {})
-        parameters.extend(path_item.get("parameters", []))
         if location:
-            return [param for param in parameters if param["in"] == location]
-        return parameters
+            return [param for param in self.parameters if param["in"] == location]
+        return self.parameters
 
-    def get_request_body(self) -> Dict[str, Any]:
+    def get_server(self) -> str:
         """
-        Get the request body for the operation.
+        Get the servers for the operation.
         """
-        return self.operation_dict.get("requestBody", {})
-
-    def get_responses(self) -> Dict[str, Any]:
-        """
-        Get the responses for the operation.
-        """
-        return self.operation_dict.get("responses", {})
-
-    def get_security_requirements(self) -> List[Dict[str, List[str]]]:
-        """
-        Get the security requirements for the operation.
-        """
-        security_requirements = self.operation_dict.get("security", [])
-        if not security_requirements:
-            security_requirements = self.spec_dict.get("security", [])
-        return security_requirements
-
-    def get_server_url(self) -> str:
-        """
-        Get the server URL for the operation.
-        """
-        servers = self.operation_dict.get("servers", [])
-        if not servers:
-            servers = self.spec_dict.get("servers", [])
-        if servers:
-            return servers[0].get("url", "")
-        return ""
-
-    def get_field(self, key: str, default: Any = None) -> Any:
-        """
-        Get a field from the operation dictionary.
-        """
-        return self.operation_dict.get(key, default)
+        servers = self.operation_dict.get("servers", []) or self.spec_dict.get("servers", [])
+        return servers[0].get("url", "")  # just use the first server from the list
 
 
 class OpenAPISpecification:
-    """ Represents an OpenAPI specification."""
+    """Represents an OpenAPI specification."""
+
     def __init__(self, spec_dict: Dict[str, Any]):
         if not isinstance(spec_dict, Dict):
             raise ValueError(f"Invalid OpenAPI specification, expected a dictionary: {spec_dict}")
@@ -301,41 +262,13 @@ class OpenAPISpecification:
             raise ConnectionError(f"Failed to fetch the specification from URL: {url}. {e!s}") from e
         return cls.from_str(content)
 
-    def get_name(self) -> str:
-        """
-        Get the title of the OpenAPI specification.
-        """
-        return self.spec_dict.get("info", {}).get("title", "")
-
-    def get_paths(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get the paths from the OpenAPI specification.
-        """
-        return self.spec_dict.get("paths", {})
-
-    def get_operation(self, path: str, method: Optional[str] = None) -> Operation:
-        """
-        Retrieve an operation from the OpenAPI specification.
-        """
-        path_item = self.get_paths().get(path, {})
-        return self.get_operation_item(path, path_item, method)
-
-    def find_operation_by_path_substring(self, path_partial: str, method: Optional[str] = None) -> Operation:
-        """
-        Find an operation by a substring of the path.
-        """
-        for path, path_item in self.get_paths().items():
-            if path_partial in path:
-                return self.get_operation_item(path, path_item, method)
-        raise ValueError(f"No operation found with path containing {path_partial}")
-
     def find_operation_by_id(self, op_id: str, method: Optional[str] = None) -> Operation:
         """
         Find an operation by operationId.
         """
-        for path, path_item in self.get_paths().items():
+        for path, path_item in self.spec_dict.get("paths", {}).items():
             op: Operation = self.get_operation_item(path, path_item, method)
-            if op_id in op.get_field("operationId", ""):
+            if op_id in op.operation_dict.get("operationId", ""):
                 return self.get_operation_item(path, path_item, method)
         raise ValueError(f"No operation found with operationId {op_id}")
 
@@ -359,17 +292,6 @@ class OpenAPISpecification:
             raise ValueError(f"Multiple operations found at path {path}, method parameter is required.")
         raise ValueError(f"No operations found at path {path}.")
 
-    def get_operations(self) -> List[Operation]:
-        """
-        Get all operations from the OpenAPI specification.
-        """
-        operations = []
-        for path, path_item in self.get_paths().items():
-            for method, operation_dict in path_item.items():
-                if method.lower() in VALID_HTTP_METHODS:
-                    operations.append(Operation(path, method, operation_dict, self.spec_dict))
-        return operations
-
     def get_security_schemes(self) -> Dict[str, Dict[str, Any]]:
         """
         Get the security schemes from the OpenAPI specification.
@@ -391,15 +313,14 @@ class OpenAPISpecification:
 
 
 class ClientConfiguration:
-    """ Configuration for the OpenAPI client. """
+    """Configuration for the OpenAPI client."""
 
     def __init__(  # noqa: PLR0913 pylint: disable=too-many-arguments
-            self,
-            openapi_spec: Union[str, Path, Dict[str, Any]],
-            credentials: Optional[Union[str, Dict[str, Any], AuthenticationStrategy]] = None,
-            http_client: Optional[HttpClient] = None,
-            http_client_config: Optional[HttpClientConfig] = None,
-            llm_provider: Optional[str] = None,
+        self,
+        openapi_spec: Union[str, Path, Dict[str, Any]],
+        credentials: Optional[Union[str, Dict[str, Any], AuthenticationStrategy]] = None,
+        http_client: Optional[HttpClient] = None,
+        llm_provider: Optional[str] = None,
     ):  # noqa: PLR0913
         if isinstance(openapi_spec, (str, Path)) and os.path.isfile(openapi_spec):
             self.openapi_spec = OpenAPISpecification.from_file(openapi_spec)
@@ -414,34 +335,15 @@ class ClientConfiguration:
             raise ValueError("Invalid OpenAPI specification format. Expected file path or dictionary.")
 
         self.credentials = credentials
-        self.http_client = http_client or HttpClient(http_client_config)
-        self.http_client_config = http_client_config or HttpClientConfig()
+        self.http_client = http_client or HttpClient(HttpClientConfig())
         self.llm_provider = llm_provider or "openai"
-
-    def get_openapi_spec(self) -> OpenAPISpecification:
-        """
-        Get the OpenAPI specification.
-        """
-        return self.openapi_spec
-
-    def get_http_client(self) -> HttpClient:
-        """
-        Get the HTTP client.
-        """
-        return self.http_client
-
-    def get_http_client_config(self) -> HttpClientConfig:
-        """
-        Get the HTTP client configuration.
-        """
-        return self.http_client_config
 
     def get_auth_config(self) -> AuthenticationStrategy:
         """
         Get the authentication configuration.
         """
         if not self.credentials:
-            return PassThroughAuthentication()
+            return AuthenticationStrategy()
         if isinstance(self.credentials, AuthenticationStrategy):
             return self.credentials
         security_schemes = self.openapi_spec.get_security_schemes()
@@ -469,7 +371,7 @@ class ClientConfiguration:
         return LLMFunctionPayloadExtractor(arguments_field_name=arguments_field_name)
 
     def _create_authentication_from_string(
-            self, credentials: str, security_schemes: Dict[str, Any]
+        self, credentials: str, security_schemes: Dict[str, Any]
     ) -> AuthenticationStrategy:
         for scheme in security_schemes.values():
             if scheme["type"] == "apiKey":
@@ -501,6 +403,7 @@ class LLMFunctionPayloadExtractor:
     """
     Implements a recursive search for extracting LLM generated function payloads.
     """
+
     def __init__(self, arguments_field_name: str):
         self.arguments_field_name = arguments_field_name
 
@@ -547,7 +450,7 @@ class LLMFunctionPayloadExtractor:
         return {}
 
     def _get_dict_converter(
-            self, obj: Any, method_names: Optional[List[str]] = None
+        self, obj: Any, method_names: Optional[List[str]] = None
     ) -> Union[Callable[[], Dict[str, Any]], None]:
         method_names = method_names or ["model_dump", "dict"]  # search for pydantic v2 then v1
         for attr in method_names:
@@ -559,178 +462,6 @@ class LLMFunctionPayloadExtractor:
         return isinstance(obj, (int, float, str, bool, type(None)))
 
 
-class ClientConfigurationBuilder:
-    """
-    ClientConfigurationBuilder provides a fluent interface for constructing a `ClientConfiguration`.
-
-    This builder allows for the step-by-step configuration of all necessary components to interact with an
-    API defined by an OpenAPI specification.
-    """
-
-    def __init__(self):
-        self._openapi_spec: Union[str, Path, Dict[str, Any], None] = None
-        self._credentials: Optional[Union[str, Dict[str, Any], AuthenticationStrategy]] = None
-        self._http_client: Optional[HttpClient] = None
-        self._http_client_config: Optional[HttpClientConfig] = None
-        self._llm_provider: Optional[str] = None
-
-    def with_openapi_spec(self, openapi_spec: Union[str, Path, Dict[str, Any]]) -> "ClientConfigurationBuilder":
-        """
-        Sets the OpenAPI specification for the configuration.
-
-        :param openapi_spec: The OpenAPI specification as a URL, file path, or dictionary.
-        :return: The instance of this builder to allow for method chaining.
-        """
-        self._openapi_spec = openapi_spec
-        return self
-
-    def with_credentials(
-            self, credentials: Union[str, Dict[str, Any], AuthenticationStrategy]
-    ) -> "ClientConfigurationBuilder":
-        """
-        Specifies the credentials used for authenticating requests made by the client.
-
-        :param credentials: Credentials as a string, dictionary, or an AuthenticationStrategy instance.
-        :return: The instance of this builder to allow for method chaining.
-        """
-        self._credentials = credentials
-        return self
-
-    def with_http_client(self, http_client: HttpClient) -> "ClientConfigurationBuilder":
-        """
-        Specifies the HTTP client to be used for making API calls.
-
-        :param http_client: The HTTP client implementation.
-        :return: The instance of this builder to allow for method chaining.
-        """
-        self._http_client = http_client
-        return self
-
-    def with_http_client_config(self, http_client_config: HttpClientConfig) -> "ClientConfigurationBuilder":
-        """
-        Specifies the HTTP client configuration.
-
-        If not set, the default configuration is used.
-
-        :param http_client_config: Configuration settings for the HTTP client.
-        :return: The instance of this builder to allow for method chaining.
-        """
-        self._http_client_config = http_client_config
-        return self
-
-    def with_provider(self, llm_provider: str) -> "ClientConfigurationBuilder":
-        """
-        Specifies the Large Language Model (LLM) provider to be used for generating function calls.
-
-        :param llm_provider: The LLM provider name.
-        :return: The instance of this builder to allow for method chaining.
-        """
-        self._llm_provider = llm_provider
-        return self
-
-    def build(self) -> ClientConfiguration:
-        """
-        Constructs a `ClientConfiguration` instance using the settings provided.
-
-        It validates that an OpenAPI specification has been set before proceeding with the build.
-
-        :return: A configured instance of ClientConfiguration.
-        :raises ValueError: If the OpenAPI specification is not set.
-        """
-        if self._openapi_spec is None:
-            raise ValueError("OpenAPI specification must be provided to build a configuration.")
-
-        return ClientConfiguration(
-            openapi_spec=self._openapi_spec,
-            credentials=self._credentials,
-            http_client=self._http_client,
-            http_client_config=self._http_client_config,
-            llm_provider=self._llm_provider or "openai",
-        )
-
-
-class RequestBuilder:
-    """ Builds an HTTP request based on an OpenAPI operation"""
-    def __init__(self, client_config: ClientConfiguration):
-        self.openapi_parser = client_config.get_openapi_spec()
-        self.http_client = client_config.get_http_client()
-        self.auth_config = client_config.get_auth_config() or PassThroughAuthentication()
-
-    def build_request(self, operation: Operation, **kwargs) -> Any:
-        """
-        Build an HTTP request based on the operation and arguments provided.
-        """
-        url = self._build_url(operation, **kwargs)
-        method = operation.method.lower()
-        headers = self._build_headers(operation)
-        query_params = self._build_query_params(operation, **kwargs)
-        body = self._build_request_body(operation, **kwargs)
-        request = {
-            "url": url,
-            "method": method,
-            "headers": headers,
-            "params": query_params,
-            "json": body,
-        }
-        self._apply_authentication(operation, request)
-        return request
-
-    def _build_headers(self, operation: Operation, **kwargs) -> Dict[str, str]:
-        headers = {}
-        for parameter in operation.get_parameters("header"):
-            param_value = kwargs.get(parameter["name"], None)
-            if param_value:
-                headers[parameter["name"]] = str(param_value)
-            elif parameter.get("required", False):
-                raise ValueError(f"Missing required header parameter: {parameter['name']}")
-        return headers
-
-    def _build_url(self, operation: Operation, **kwargs) -> str:
-        server_url = operation.get_server_url()
-        path = operation.path
-        for parameter in operation.get_parameters("path"):
-            param_value = kwargs.get(parameter["name"], None)
-            if param_value:
-                path = path.replace(f"{{{parameter['name']}}}", str(param_value))
-            elif parameter.get("required", False):
-                raise ValueError(f"Missing required path parameter: {parameter['name']}")
-        return server_url + path
-
-    def _build_query_params(self, operation: Operation, **kwargs) -> Dict[str, Any]:
-        query_params = {}
-
-        # Simplify query parameter assembly using _get_parameter_value
-        for parameter in operation.get_parameters("query"):
-            param_value = kwargs.get(parameter["name"], None)
-            if param_value:
-                query_params[parameter["name"]] = param_value
-            elif parameter.get("required", False):
-                raise ValueError(f"Missing required query parameter: {parameter['name']}")
-        return query_params
-
-    def _build_request_body(self, operation: Operation, **kwargs) -> Any:
-        request_body = operation.get_request_body()
-        if request_body:
-            content = request_body.get("content", {})
-            if "application/json" in content:
-                return {**kwargs}
-            raise NotImplementedError("Request body content type not supported")
-        return None
-
-    def _apply_authentication(self, operation: Operation, request: Dict[str, Any]):
-        # security requirements specify which authentication scheme to apply (the "what/which")
-        security_requirements = operation.get_security_requirements()
-        # security schemes define how to authenticate (the "how")
-        security_schemes = operation.spec_dict.get("components", {}).get("securitySchemes", {})
-        if security_requirements:
-            for requirement in security_requirements:
-                for scheme_name in requirement:
-                    if scheme_name in security_schemes:
-                        security_scheme = security_schemes[scheme_name]
-                        self.auth_config.apply_auth(security_scheme, request)
-                    break
-
-
 class OpenAPIServiceClient:
     """
     A client for invoking operations on REST services defined by OpenAPI specifications.
@@ -740,9 +471,9 @@ class OpenAPIServiceClient:
     """
 
     def __init__(self, client_config: ClientConfiguration):
-        self.openapi_spec = client_config.get_openapi_spec()
-        self.http_client = client_config.get_http_client()
-        self.request_builder = RequestBuilder(client_config)
+        self.auth_config = client_config.get_auth_config()
+        self.openapi_spec = client_config.openapi_spec
+        self.http_client = client_config.http_client
         self.payload_extractor = client_config.get_payload_extractor()
 
     def invoke(self, function_payload: Any) -> Any:
@@ -763,8 +494,71 @@ class OpenAPIServiceClient:
             )
         # fn_invocation_payload, if not empty, guaranteed to have "name" and "arguments" keys from here on
         operation = self.openapi_spec.find_operation_by_id(fn_invocation_payload.get("name"))
-        request = self.request_builder.build_request(operation, **fn_invocation_payload.get("arguments"))
+        request = self._build_request(operation, **fn_invocation_payload.get("arguments"))
+        self._apply_authentication(self.auth_config, operation, request)
         return self.http_client.send_request(request)
+
+    def _build_request(self, operation: Operation, **kwargs) -> Any:
+        request = {
+            "url": self._build_url(operation, **kwargs),
+            "method": operation.method.lower(),
+            "headers": self._build_headers(operation, **kwargs),
+            "params": self._build_query_params(operation, **kwargs),
+            "json": self._build_request_body(operation, **kwargs),
+        }
+        return request
+
+    def _build_headers(self, operation: Operation, **kwargs) -> Dict[str, str]:
+        headers = {}
+        for parameter in operation.get_parameters("header"):
+            param_value = kwargs.get(parameter["name"], None)
+            if param_value:
+                headers[parameter["name"]] = str(param_value)
+            elif parameter.get("required", False):
+                raise ValueError(f"Missing required header parameter: {parameter['name']}")
+        return headers
+
+    def _build_url(self, operation: Operation, **kwargs) -> str:
+        server_url = operation.get_server()
+        path = operation.path
+        for parameter in operation.get_parameters("path"):
+            param_value = kwargs.get(parameter["name"], None)
+            if param_value:
+                path = path.replace(f"{{{parameter['name']}}}", str(param_value))
+            elif parameter.get("required", False):
+                raise ValueError(f"Missing required path parameter: {parameter['name']}")
+        return server_url + path
+
+    def _build_query_params(self, operation: Operation, **kwargs) -> Dict[str, Any]:
+        query_params = {}
+        for parameter in operation.get_parameters("query"):
+            param_value = kwargs.get(parameter["name"], None)
+            if param_value:
+                query_params[parameter["name"]] = param_value
+            elif parameter.get("required", False):
+                raise ValueError(f"Missing required query parameter: {parameter['name']}")
+        return query_params
+
+    def _build_request_body(self, operation: Operation, **kwargs) -> Any:
+        request_body = operation.request_body
+        if request_body:
+            content = request_body.get("content", {})
+            if "application/json" in content:
+                return {**kwargs}
+            raise NotImplementedError("Request body content type not supported")
+        return None
+
+    def _apply_authentication(self, auth: AuthenticationStrategy, operation: Operation, request: Dict[str, Any]):
+        auth_config = auth or AuthenticationStrategy()
+        security_requirements = operation.security_requirements
+        security_schemes = operation.spec_dict.get("components", {}).get("securitySchemes", {})
+        if security_requirements:
+            for requirement in security_requirements:
+                for scheme_name in requirement:
+                    if scheme_name in security_schemes:
+                        security_scheme = security_schemes[scheme_name]
+                        auth_config.apply_auth(security_scheme, request)
+                    break
 
 
 class OpenAPIClientError(Exception):
@@ -805,8 +599,11 @@ def cohere_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     return _openapi_to_functions(resolved_schema, "not important for cohere", _parse_endpoint_spec_cohere)
 
 
-def _openapi_to_functions(service_openapi_spec: Dict[str, Any], parameters_name: str,
-                          parse_endpoint_fn: Callable[[Dict[str, Any], str], Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _openapi_to_functions(
+    service_openapi_spec: Dict[str, Any],
+    parameters_name: str,
+    parse_endpoint_fn: Callable[[Dict[str, Any], str], Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     """
     Extracts functions from the OpenAPI specification, converts them into a function schema.
     """
@@ -869,8 +666,9 @@ def _parse_endpoint_spec_openai(resolved_spec: Dict[str, Any], parameters_name: 
     return {}
 
 
-def _parse_property_attributes(property_schema: Dict[str, Any], include_attributes: Optional[List[str]] = None
-                               ) -> Dict[str, Any]:
+def _parse_property_attributes(
+    property_schema: Dict[str, Any], include_attributes: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """
     Recursively parses the attributes of a property schema.
     """
@@ -883,8 +681,7 @@ def _parse_property_attributes(property_schema: Dict[str, Any], include_attribut
     if schema_type == "object":
         properties = property_schema.get("properties", {})
         parsed_properties = {
-            prop_name: _parse_property_attributes(prop, include_attributes)
-            for prop_name, prop in properties.items()
+            prop_name: _parse_property_attributes(prop, include_attributes) for prop_name, prop in properties.items()
         }
         parsed_schema["properties"] = parsed_properties
         if "required" in property_schema:
@@ -928,9 +725,7 @@ def _parse_parameters(operation: Dict[str, Any]) -> Dict[str, Any]:
             schema_properties = content["schema"].get("properties", {})
             required_properties = content["schema"].get("required", [])
             for name, schema in schema_properties.items():
-                parameters[name] = _parse_schema(
-                    schema, name in required_properties, schema.get("description", "")
-                )
+                parameters[name] = _parse_schema(schema, name in required_properties, schema.get("description", ""))
     return parameters
 
 
@@ -960,8 +755,14 @@ def _parse_schema(schema: Dict[str, Any], required: bool, description: str) -> D
 
 
 def _get_type(schema: Dict[str, Any]) -> str:
-    type_mapping = {"integer": "int", "string": "str", "boolean": "bool", "number": "float", "object": "object",
-                    "array": "list"}
+    type_mapping = {
+        "integer": "int",
+        "string": "str",
+        "boolean": "bool",
+        "number": "float",
+        "object": "object",
+        "array": "list",
+    }
     schema_type = schema.get("type", "object")
     if schema_type not in type_mapping:
         raise ValueError(f"Unsupported schema type {schema_type}")

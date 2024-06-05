@@ -5,24 +5,15 @@
 
 import pytest
 
-from haystack_experimental.util.openapi import ClientConfigurationBuilder, OpenAPIServiceClient
+from haystack_experimental.util.openapi import OpenAPIServiceClient, ClientConfiguration
 from test.util.conftest import FastAPITestClient
 
 
 class TestEdgeCases:
-    def test_invalid_openapi_spec(self):
-        builder = ClientConfigurationBuilder()
-        with pytest.raises(ValueError, match="Invalid OpenAPI specification"):
-            config = builder.with_openapi_spec("invalid_spec.yml").build()
-            OpenAPIServiceClient(config)
 
     def test_missing_operation_id(self, test_files_path):
-        builder = ClientConfigurationBuilder()
-        config = (
-            builder.with_openapi_spec(test_files_path / "yaml" / "openapi_edge_cases.yml")
-            .with_http_client(FastAPITestClient(None))
-            .build()
-        )
+        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_edge_cases.yml",
+                                     http_client=FastAPITestClient(None))
         client = OpenAPIServiceClient(config)
 
         payload = {

@@ -6,7 +6,7 @@ import os
 import cohere
 import pytest
 
-from haystack_experimental.util.openapi import ClientConfigurationBuilder, OpenAPIServiceClient
+from haystack_experimental.util.openapi import ClientConfiguration, OpenAPIServiceClient
 
 # Copied from Cohere's documentation
 preamble = """
@@ -28,13 +28,9 @@ class TestClientLiveCohere:
     @pytest.mark.skipif("COHERE_API_KEY" not in os.environ, reason="COHERE_API_KEY not set")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
-        builder = ClientConfigurationBuilder()
-        config = (
-            builder.with_openapi_spec(test_files_path / "yaml" / "serper.yml")
-            .with_credentials(os.getenv("SERPERDEV_API_KEY"))
-            .with_provider("cohere")
-            .build()
-        )
+        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "serper.yml",
+                                     credentials=os.getenv("SERPERDEV_API_KEY"),
+                                     llm_provider="cohere")
         client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
         response = client.chat(
             model="command-r",
@@ -56,10 +52,8 @@ class TestClientLiveCohere:
     @pytest.mark.skipif("COHERE_API_KEY" not in os.environ, reason="COHERE_API_KEY not set")
     @pytest.mark.integration
     def test_github(self, test_files_path):
-        builder = ClientConfigurationBuilder()
-        config = (
-            builder.with_openapi_spec(test_files_path / "yaml" / "github_compare.yml").with_provider("cohere").build()
-        )
+        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "github_compare.yml",
+                                     llm_provider="cohere")
 
         client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
         response = client.chat(

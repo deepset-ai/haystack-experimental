@@ -7,7 +7,7 @@ import os
 import pytest
 from openai import OpenAI
 
-from haystack_experimental.util.openapi import ClientConfigurationBuilder, OpenAPIServiceClient
+from haystack_experimental.util.openapi import ClientConfiguration, OpenAPIServiceClient
 
 
 class TestClientLiveOpenAPI:
@@ -15,13 +15,10 @@ class TestClientLiveOpenAPI:
     @pytest.mark.skipif("SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set")
     @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
-    def test_serperdev(self):
-        builder = ClientConfigurationBuilder()
-        config = (
-            builder.with_openapi_spec("https://bit.ly/serper_dev_spec_yaml")
-            .with_credentials(os.getenv("SERPERDEV_API_KEY"))
-            .build()
-        )
+    def test_serperdev(self, test_files_path):
+
+        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "serper.yml",
+                                     credentials=os.getenv("SERPERDEV_API_KEY"))
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -42,9 +39,7 @@ class TestClientLiveOpenAPI:
     @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
     def test_github(self, test_files_path):
-        builder = ClientConfigurationBuilder()
-        config = builder.with_openapi_spec(test_files_path / "yaml" / "github_compare.yml").build()
-
+        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "github_compare.yml")
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -66,9 +61,7 @@ class TestClientLiveOpenAPI:
     @pytest.mark.integration
     def test_firecrawl(self):
         openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
-        builder = ClientConfigurationBuilder()
-        config = builder.with_openapi_spec(openapi_spec_url).with_credentials(os.getenv("FIRECRAWL_API_KEY")).build()
-
+        config = ClientConfiguration(openapi_spec=openapi_spec_url, credentials=os.getenv("FIRECRAWL_API_KEY"))
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",

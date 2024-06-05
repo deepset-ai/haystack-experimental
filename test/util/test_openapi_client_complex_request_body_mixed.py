@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from haystack_experimental.util.openapi import ClientConfigurationBuilder, OpenAPIServiceClient
+from haystack_experimental.util.openapi import OpenAPIServiceClient, ClientConfiguration
 from test.util.conftest import FastAPITestClient
 
 
@@ -56,12 +56,8 @@ def create_payment_app() -> FastAPI:
 class TestPaymentProcess:
 
     def test_process_payment(self, test_files_path):
-        config = (
-            ClientConfigurationBuilder()
-            .with_openapi_spec(test_files_path / "json" / "complex_types_openapi_service.json")
-            .with_http_client(FastAPITestClient(create_payment_app()))
-            .build()
-        )
+        config = ClientConfiguration(openapi_spec=test_files_path / "json" / "complex_types_openapi_service.json",
+                                     http_client=FastAPITestClient(create_payment_app()))
         client = OpenAPIServiceClient(config)
 
         payment_json = {

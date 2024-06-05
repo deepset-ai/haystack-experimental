@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from haystack_experimental.util.openapi import ClientConfigurationBuilder, OpenAPIServiceClient
+from haystack_experimental.util.openapi import OpenAPIServiceClient, ClientConfiguration
 from test.util.conftest import FastAPITestClient
 
 
@@ -56,13 +56,11 @@ class TestComplexRequestBody:
 
     @pytest.mark.parametrize("spec_file_path", ["openapi_order_service.yml", "openapi_order_service.json"])
     def test_create_order(self, spec_file_path, test_files_path):
-        builder = ClientConfigurationBuilder()
         path_element = "yaml" if spec_file_path.endswith(".yml") else "json"
-        config = (
-            builder.with_openapi_spec(test_files_path / path_element / spec_file_path)
-            .with_http_client(FastAPITestClient(create_order_app()))
-            .build()
-        )
+
+        config = ClientConfiguration(openapi_spec=test_files_path / path_element / spec_file_path,
+                                     http_client=FastAPITestClient(create_order_app()))
+
         client = OpenAPIServiceClient(config)
         order_json = {
             "customer": {"name": "John Doe", "email": "john@example.com"},

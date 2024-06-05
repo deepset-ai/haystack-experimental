@@ -32,25 +32,18 @@ class FastAPITestClient(HttpClient):
         return new_path
 
     def send_request(self, request: dict) -> dict:
-        method = request["method"]
         # OAS spec will list a server URL, but FastAPI doesn't need it for local testing, in fact it will fail
         # if the URL has a host. So we strip it here.
         url = self.strip_host(request["url"])
-        headers = request.get("headers", {})
-        params = request.get("params", {})
-        json_data = request.get("json", None)
-        auth = request.get("auth", None)
-        cookies = request.get("cookies", {})
-
         try:
             response = self.client.request(
-                method,
+                request["method"],
                 url,
-                headers=headers,
-                params=params,
-                json=json_data,
-                auth=auth,
-                cookies=cookies,
+                headers=request.get("headers", {}),
+                params=request.get("params", {}),
+                json=request.get("json", None),
+                auth=request.get("auth", None),
+                cookies=request.get("cookies", {}),
             )
             response.raise_for_status()
             return response.json()

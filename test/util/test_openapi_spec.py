@@ -86,18 +86,6 @@ class TestOpenAPISpecification:
             },
         }
 
-    #  can get all paths
-    def test_get_all_paths(self):
-        spec_dict = {
-            "openapi": "3.0.0",
-            "info": {"title": "Test API", "version": "1.0.0"},
-            "servers": [{"url": "https://api.example.com"}],
-            "paths": {"/users": {}, "/products": {}, "/orders": {}},
-        }
-        openapi_spec = OpenAPISpecification(spec_dict)
-        paths = openapi_spec.get_paths()
-        assert paths == {"/users": {}, "/products": {}, "/orders": {}}
-
     #  raises ValueError if initialized from an invalid schema
     def test_raises_value_error_invalid_schema(self):
         spec_dict = {"info": {"title": "Test API", "version": "1.0.0"}, "paths": {"/users": {}}}
