@@ -2,21 +2,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import dataclasses
 import json
 import logging
 import os
 from base64 import b64encode
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from urllib.parse import urlparse
 
-import jsonref
 import requests
 import yaml
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+
+from haystack_experimental.util.payload_extraction import create_function_payload_extractor
+from haystack_experimental.util.schema_conversion import anthropic_converter, cohere_converter, openai_converter
 
 VALID_HTTP_METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "trace"]
 
@@ -121,9 +122,6 @@ class HttpClient:
     def __init__(self, config: Optional[HttpClientConfig] = None):
         self.config = config or HttpClientConfig()
         self.session = requests.Session()
-        self._initialize_session()
-
-    def _initialize_session(self) -> None:
         retries = Retry(
             total=self.config.max_retries,
             backoff_factor=self.config.backoff_factor,
@@ -145,7 +143,7 @@ class HttpClient:
         try:
             response = self.session.request(
                 request["method"],
-                request["url"],
+                url,
                 headers=headers,
                 params=request.get("params", {}),
                 json=request.get("json"),
@@ -299,18 +297,6 @@ class OpenAPISpecification:
         components = self.spec_dict.get("components", {})
         return components.get("securitySchemes", {})
 
-    def to_dict(self, *, resolve_references: Optional[bool] = False) -> Dict[str, Any]:
-        """
-        Converts the OpenAPI specification to a dictionary format.
-
-        Optionally resolves all $ref references within the spec, returning a fully resolved specification
-        dictionary if `resolve_references` is set to True.
-
-        :param resolve_references: If True, resolve references in the specification.
-        :return: A dictionary representation of the OpenAPI specification, optionally fully resolved.
-        """
-        return jsonref.replace_refs(self.spec_dict, proxies=False) if resolve_references else self.spec_dict
-
 
 class ClientConfiguration:
     """Configuration for the OpenAPI client."""
@@ -368,7 +354,7 @@ class ClientConfiguration:
         provider_to_arguments_field_name = {"anthropic": "input", "cohere": "parameters"}  # add more providers here
         # default to OpenAI "arguments"
         arguments_field_name = provider_to_arguments_field_name.get(self.llm_provider, "arguments")
-        return LLMFunctionPayloadExtractor(arguments_field_name=arguments_field_name)
+        return create_function_payload_extractor(arguments_field_name)
 
     def _create_authentication_from_string(
         self, credentials: str, security_schemes: Dict[str, Any]
@@ -399,69 +385,6 @@ class ClientConfiguration:
         return all([r.scheme in ["http", "https"], r.netloc])
 
 
-class LLMFunctionPayloadExtractor:
-    """
-    Implements a recursive search for extracting LLM generated function payloads.
-    """
-
-    def __init__(self, arguments_field_name: str):
-        self.arguments_field_name = arguments_field_name
-
-    def extract_function_invocation(self, payload: Any) -> Dict[str, Any]:
-        """
-        Extract the function invocation details from the payload.
-        """
-        fields_and_values = self._search(payload)
-        if fields_and_values:
-            arguments = fields_and_values.get(self.arguments_field_name)
-            if not isinstance(arguments, (str, dict)):
-                raise ValueError(
-                    f"Invalid {self.arguments_field_name} type {type(arguments)} for function call, expected str/dict"
-                )
-            return {
-                "name": fields_and_values.get("name"),
-                "arguments": json.loads(arguments) if isinstance(arguments, str) else arguments,
-            }
-        return {}
-
-    def _required_fields(self) -> List[str]:
-        return ["name", self.arguments_field_name]
-
-    def _search(self, payload: Any) -> Dict[str, Any]:
-        if self._is_primitive(payload):
-            return {}
-        if dict_converter := self._get_dict_converter(payload):
-            payload = dict_converter()
-        elif dataclasses.is_dataclass(payload):
-            payload = dataclasses.asdict(payload)
-        if isinstance(payload, dict):
-            if all(field in payload for field in self._required_fields()):
-                # this is the payload we are looking for
-                return payload
-            for value in payload.values():
-                result = self._search(value)
-                if result:
-                    return result
-        elif isinstance(payload, list):
-            for item in payload:
-                result = self._search(item)
-                if result:
-                    return result
-        return {}
-
-    def _get_dict_converter(
-        self, obj: Any, method_names: Optional[List[str]] = None
-    ) -> Union[Callable[[], Dict[str, Any]], None]:
-        method_names = method_names or ["model_dump", "dict"]  # search for pydantic v2 then v1
-        for attr in method_names:
-            if hasattr(obj, attr) and callable(getattr(obj, attr)):
-                return getattr(obj, attr)
-        return None
-
-    def _is_primitive(self, obj) -> bool:
-        return isinstance(obj, (int, float, str, bool, type(None)))
-
-
 class OpenAPIServiceClient:
     """
     A client for invoking operations on REST services defined by OpenAPI specifications.
@@ -471,10 +394,8 @@ class OpenAPIServiceClient:
     """
 
     def __init__(self, client_config: ClientConfiguration):
-        self.auth_config = client_config.get_auth_config()
-        self.openapi_spec = client_config.openapi_spec
+        self.client_config = client_config
         self.http_client = client_config.http_client
-        self.payload_extractor = client_config.get_payload_extractor()
 
     def invoke(self, function_payload: Any) -> Any:
         """
@@ -485,17 +406,16 @@ class OpenAPIServiceClient:
         :raises OpenAPIClientError: If the function invocation payload cannot be extracted from the function payload.
         :raises HttpClientError: If an error occurs while sending the request and receiving the response.
         """
-        fn_invocation_payload = self.payload_extractor.extract_function_invocation(function_payload)
+        fn_extractor = self.client_config.get_payload_extractor()
+        fn_invocation_payload = fn_extractor(function_payload)
         if not fn_invocation_payload:
             raise OpenAPIClientError(
-                f"Failed to extract function invocation payload from {function_payload} using "
-                f"{self.payload_extractor.__class__.__name__}. Ensure the payload format matches the expected "
-                "structure for the designated LLM extractor."
+                f"Failed to extract function invocation payload from {function_payload}"
             )
         # fn_invocation_payload, if not empty, guaranteed to have "name" and "arguments" keys from here on
-        operation = self.openapi_spec.find_operation_by_id(fn_invocation_payload.get("name"))
+        operation = self.client_config.openapi_spec.find_operation_by_id(fn_invocation_payload.get("name"))
         request = self._build_request(operation, **fn_invocation_payload.get("arguments"))
-        self._apply_authentication(self.auth_config, operation, request)
+        self._apply_authentication(self.client_config.get_auth_config(), operation, request)
         return self.http_client.send_request(request)
 
     def _build_request(self, operation: Operation, **kwargs) -> Any:
@@ -563,207 +483,3 @@ class OpenAPIServiceClient:
 
 class OpenAPIClientError(Exception):
     """Exception raised for errors in the OpenAPI client."""
-
-
-def openai_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
-    """
-    Converts OpenAPI specification to a list of function suitable for OpenAI LLM function calling.
-
-    :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a function definition.
-    """
-    resolved_schema = jsonref.replace_refs(schema.spec_dict)
-    fn_definitions = _openapi_to_functions(resolved_schema, "parameters", _parse_endpoint_spec_openai)
-    return [{"type": "function", "function": fn} for fn in fn_definitions]
-
-
-def anthropic_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
-    """
-    Converts an OpenAPI specification to a list of function definitions for Anthropic LLM function calling.
-
-    :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a function definition.
-    """
-    resolved_schema = jsonref.replace_refs(schema.spec_dict)
-    return _openapi_to_functions(resolved_schema, "input_schema", _parse_endpoint_spec_openai)
-
-
-def cohere_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
-    """
-    Converts an OpenAPI specification to a list of function definitions for Cohere LLM function calling.
-
-    :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a function definition.
-    """
-    resolved_schema = jsonref.replace_refs(schema.spec_dict)
-    return _openapi_to_functions(resolved_schema, "not important for cohere", _parse_endpoint_spec_cohere)
-
-
-def _openapi_to_functions(
-    service_openapi_spec: Dict[str, Any],
-    parameters_name: str,
-    parse_endpoint_fn: Callable[[Dict[str, Any], str], Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    """
-    Extracts functions from the OpenAPI specification, converts them into a function schema.
-    """
-
-    # Doesn't enforce rigid spec validation because that would require a lot of dependencies
-    # We check the version and require minimal fields to be present, so we can extract functions
-    spec_version = service_openapi_spec.get("openapi")
-    if not spec_version:
-        raise ValueError(f"Invalid OpenAPI spec provided. Could not extract version from {service_openapi_spec}")
-    service_openapi_spec_version = int(spec_version.split(".")[0])
-    # Compare the versions
-    if service_openapi_spec_version < MIN_REQUIRED_OPENAPI_SPEC_VERSION:
-        raise ValueError(
-            f"Invalid OpenAPI spec version {service_openapi_spec_version}. Must be "
-            f"at least {MIN_REQUIRED_OPENAPI_SPEC_VERSION}."
-        )
-    functions: List[Dict[str, Any]] = []
-    for paths in service_openapi_spec["paths"].values():
-        for path_spec in paths.values():
-            function_dict = parse_endpoint_fn(path_spec, parameters_name)
-            if function_dict:
-                functions.append(function_dict)
-    return functions
-
-
-def _parse_endpoint_spec_openai(resolved_spec: Dict[str, Any], parameters_name: str) -> Dict[str, Any]:
-    """
-    Parses an OpenAPI endpoint specification for OpenAI.
-    """
-    if not isinstance(resolved_spec, dict):
-        logger.warning("Invalid OpenAPI spec format provided. Could not extract function.")
-        return {}
-    function_name = resolved_spec.get("operationId")
-    description = resolved_spec.get("description") or resolved_spec.get("summary", "")
-    schema: Dict[str, Any] = {"type": "object", "properties": {}}
-    # requestBody section
-    req_body_schema = (
-        resolved_spec.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {})
-    )
-    if "properties" in req_body_schema:
-        for prop_name, prop_schema in req_body_schema["properties"].items():
-            schema["properties"][prop_name] = _parse_property_attributes(prop_schema)
-        if "required" in req_body_schema:
-            schema.setdefault("required", []).extend(req_body_schema["required"])
-
-    # parameters section
-    for param in resolved_spec.get("parameters", []):
-        if "schema" in param:
-            schema_dict = _parse_property_attributes(param["schema"])
-            # these attributes are not in param[schema] level but on param level
-            useful_attributes = ["description", "pattern", "enum"]
-            schema_dict.update({key: param[key] for key in useful_attributes if param.get(key)})
-            schema["properties"][param["name"]] = schema_dict
-            if param.get("required", False):
-                schema.setdefault("required", []).append(param["name"])
-
-    if function_name and description and schema["properties"]:
-        return {"name": function_name, "description": description, parameters_name: schema}
-    logger.warning("Invalid OpenAPI spec format provided. Could not extract function from %s", resolved_spec)
-    return {}
-
-
-def _parse_property_attributes(
-    property_schema: Dict[str, Any], include_attributes: Optional[List[str]] = None
-) -> Dict[str, Any]:
-    """
-    Recursively parses the attributes of a property schema.
-    """
-    include_attributes = include_attributes or ["description", "pattern", "enum"]
-    schema_type = property_schema.get("type")
-    parsed_schema = {"type": schema_type} if schema_type else {}
-    for attr in include_attributes:
-        if attr in property_schema:
-            parsed_schema[attr] = property_schema[attr]
-    if schema_type == "object":
-        properties = property_schema.get("properties", {})
-        parsed_properties = {
-            prop_name: _parse_property_attributes(prop, include_attributes) for prop_name, prop in properties.items()
-        }
-        parsed_schema["properties"] = parsed_properties
-        if "required" in property_schema:
-            parsed_schema["required"] = property_schema["required"]
-    elif schema_type == "array":
-        items = property_schema.get("items", {})
-        parsed_schema["items"] = _parse_property_attributes(items, include_attributes)
-    return parsed_schema
-
-
-def _parse_endpoint_spec_cohere(operation: Dict[str, Any], ignored_param: str) -> Dict[str, Any]:
-    """
-    Parses an endpoint specification for Cohere.
-    """
-    function_name = operation.get("operationId")
-    description = operation.get("description") or operation.get("summary", "")
-    parameter_definitions = _parse_parameters(operation)
-    if function_name:
-        return {
-            "name": function_name,
-            "description": description,
-            "parameter_definitions": parameter_definitions,
-        }
-    logger.warning("Operation missing operationId, cannot create function definition.")
-    return {}
-
-
-def _parse_parameters(operation: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Parses the parameters from an operation specification.
-    """
-    parameters = {}
-    for param in operation.get("parameters", []):
-        if "schema" in param:
-            parameters[param["name"]] = _parse_schema(
-                param["schema"], param.get("required", False), param.get("description", "")
-            )
-    if "requestBody" in operation:
-        content = operation["requestBody"].get("content", {}).get("application/json", {})
-        if "schema" in content:
-            schema_properties = content["schema"].get("properties", {})
-            required_properties = content["schema"].get("required", [])
-            for name, schema in schema_properties.items():
-                parameters[name] = _parse_schema(schema, name in required_properties, schema.get("description", ""))
-    return parameters
-
-
-def _parse_schema(schema: Dict[str, Any], required: bool, description: str) -> Dict[str, Any]:  # noqa: FBT001
-    """
-    Parses a schema part of an operation specification.
-    """
-    schema_type = _get_type(schema)
-    if schema_type == "object":
-        # Recursive call for complex types
-        properties = schema.get("properties", {})
-        nested_parameters = {
-            name: _parse_schema(
-                schema=prop_schema,
-                required=bool(name in schema.get("required", False)),
-                description=prop_schema.get("description", ""),
-            )
-            for name, prop_schema in properties.items()
-        }
-        return {
-            "type": schema_type,
-            "description": description,
-            "properties": nested_parameters,
-            "required": required,
-        }
-    return {"type": schema_type, "description": description, "required": required}
-
-
-def _get_type(schema: Dict[str, Any]) -> str:
-    type_mapping = {
-        "integer": "int",
-        "string": "str",
-        "boolean": "bool",
-        "number": "float",
-        "object": "object",
-        "array": "list",
-    }
-    schema_type = schema.get("type", "object")
-    if schema_type not in type_mapping:
-        raise ValueError(f"Unsupported schema type {schema_type}")
-    return type_mapping[schema_type]
