@@ -401,9 +401,6 @@ class ClientConfiguration:
 class OpenAPIServiceClient:
     """
     A client for invoking operations on REST services defined by OpenAPI specifications.
-
-    Together with the `ClientConfiguration`, its `ClientConfigurationBuilder`, the `OpenAPIServiceClient`
-    simplifies the process of (LLMs) with services defined by OpenAPI specifications.
     """
 
     def __init__(self, client_config: ClientConfiguration):
@@ -426,15 +423,9 @@ class OpenAPIServiceClient:
                 f"Failed to extract function invocation payload from {function_payload}"
             )
         # fn_invocation_payload, if not empty, guaranteed to have "name" and "arguments" keys from here on
-        operation = self.client_config.openapi_spec.find_operation_by_id(
-            fn_invocation_payload.get("name")
-        )
-        request = self._build_request(
-            operation, **fn_invocation_payload.get("arguments")
-        )
-        self._apply_authentication(
-            self.client_config.get_auth_config(), operation, request
-        )
+        operation = self.client_config.openapi_spec.find_operation_by_id(fn_invocation_payload.get("name"))
+        request = self._build_request(operation, **fn_invocation_payload.get("arguments"))
+        self._apply_authentication(self.client_config.get_auth_config(), operation, request)
         return self.request_sender(request)
 
     def _request_sender(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
