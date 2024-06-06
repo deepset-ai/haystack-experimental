@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from haystack_experimental.components.tools.openapi._openapi import LLMProvider
 from haystack_experimental.components.tools.openapi.openapi_tool import OpenAPITool
 
-__all__ = ["OpenAPITool"]
+__all__ = ["LLMProvider", "OpenAPITool"]

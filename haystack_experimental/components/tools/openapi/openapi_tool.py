@@ -10,10 +10,10 @@ from haystack import component, logging
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, ChatRole
 from haystack.lazy_imports import LazyImport
+from haystack_experimental.components.tools.openapi import LLMProvider
 
 from haystack_experimental.components.tools.openapi._openapi import (
     ClientConfiguration,
-    LLMProvider,
     OpenAPIServiceClient,
 )
 
