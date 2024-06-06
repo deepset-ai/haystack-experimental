@@ -351,7 +351,7 @@ class ClientConfiguration:
         self.request_sender = request_sender or send_request
         self.llm_provider: LLMProvider = llm_provider or LLMProvider.OPENAI
 
-    def get_auth_function(self) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
+    def get_auth_function(self) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         """
         Get the authentication function that sets a schema specified authentication to the request.
 
@@ -401,7 +401,7 @@ class ClientConfiguration:
 
     def _create_authentication_from_string(
         self, credentials: str, security_schemes: Dict[str, Any]
-    ) -> Callable[[dict[str, Any], dict[str, Any]], Any]:
+    ) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         for scheme in security_schemes.values():
             if scheme["type"] == "apiKey":
                 return create_api_key_auth_function(api_key=credentials)
