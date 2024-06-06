@@ -6,7 +6,6 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from urllib.parse import urlparse
@@ -22,6 +21,7 @@ from haystack_experimental.components.tools.openapi._schema_conversion import (
     cohere_converter,
     openai_converter,
 )
+from haystack_experimental.components.tools.openapi.types import LLMProvider
 
 VALID_HTTP_METHODS = [
     "get",
@@ -35,15 +35,6 @@ VALID_HTTP_METHODS = [
 ]
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
-
-
-class LLMProvider(Enum):
-    """
-    Enum for the supported LLM providers.
-    """
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    COHERE = "cohere"
 
 
 def is_valid_http_url(url: str) -> bool:
