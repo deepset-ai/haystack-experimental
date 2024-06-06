@@ -6,7 +6,8 @@ import os
 import cohere
 import pytest
 
-from haystack_experimental.components.tools.openapi.openapi import ClientConfiguration, OpenAPIServiceClient
+from haystack_experimental.components.tools.openapi._openapi import ClientConfiguration, OpenAPIServiceClient, \
+    LLMProvider
 
 # Copied from Cohere's documentation
 preamble = """
@@ -30,7 +31,7 @@ class TestClientLiveCohere:
     def test_serperdev(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "serper.yml",
                                      credentials=os.getenv("SERPERDEV_API_KEY"),
-                                     llm_provider="cohere")
+                                     llm_provider=LLMProvider.COHERE)
         client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
         response = client.chat(
             model="command-r",
@@ -53,7 +54,7 @@ class TestClientLiveCohere:
     @pytest.mark.integration
     def test_github(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "github_compare.yml",
-                                     llm_provider="cohere")
+                                     llm_provider=LLMProvider.COHERE)
 
         client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
         response = client.chat(

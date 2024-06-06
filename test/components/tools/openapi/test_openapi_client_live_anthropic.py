@@ -7,7 +7,8 @@ import os
 import anthropic
 import pytest
 
-from haystack_experimental.components.tools.openapi.openapi import ClientConfiguration, OpenAPIServiceClient
+from haystack_experimental.components.tools.openapi._openapi import ClientConfiguration, OpenAPIServiceClient, \
+    LLMProvider
 
 
 class TestClientLiveAnthropic:
@@ -18,9 +19,9 @@ class TestClientLiveAnthropic:
     def test_serperdev(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "serper.yml",
                                      credentials=os.getenv("SERPERDEV_API_KEY"),
-                                     llm_provider="anthropic")
+                                     llm_provider=LLMProvider.ANTHROPIC)
         client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        response = client.beta.tools.messages.create(
+        response = client.messages.create(
             model="claude-3-opus-20240229",
             max_tokens=1024,
             tools=config.get_tools_definitions(),
@@ -41,10 +42,10 @@ class TestClientLiveAnthropic:
     @pytest.mark.integration
     def test_github(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "github_compare.yml",
-                                     llm_provider="anthropic")
+                                     llm_provider=LLMProvider.ANTHROPIC)
 
         client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        response = client.beta.tools.messages.create(
+        response = client.messages.create(
             model="claude-3-opus-20240229",
             max_tokens=1024,
             tools=config.get_tools_definitions(),

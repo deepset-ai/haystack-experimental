@@ -10,7 +10,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from haystack_experimental.components.tools.openapi.openapi import HttpClientError
+from haystack_experimental.components.tools.openapi._openapi import HttpClientError
 
 
 @pytest.fixture()

@@ -12,11 +12,16 @@ def create_function_payload_extractor(
 ) -> Callable[[Any], Dict[str, Any]]:
     """
     Extracts invocation payload from a given LLM completion containing function invocation.
+
+    :param arguments_field_name: The name of the field containing the function arguments.
+    :return: A function that extracts the function invocation details from the LLM payload.
     """
 
     def _extract_function_invocation(payload: Any) -> Dict[str, Any]:
         """
         Extract the function invocation details from the payload.
+
+        :param payload: The LLM fc payload to extract the function invocation details from.
         """
         fields_and_values = _search(payload, arguments_field_name)
         if fields_and_values:

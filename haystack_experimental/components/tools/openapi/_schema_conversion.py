@@ -5,9 +5,6 @@
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
-# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
-#
-# SPDX-License-Identifier: Apache-2.0
 import jsonref
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
@@ -19,8 +16,9 @@ def openai_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  #
     """
     Converts OpenAPI specification to a list of function suitable for OpenAI LLM function calling.
 
+    See https://platform.openai.com/docs/guides/function-calling for more information about OpenAI's function schema.
     :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a function definition.
+    :return: A list of dictionaries, each dictionary representing an OpenAI function definition.
     """
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     fn_definitions = _openapi_to_functions(
@@ -33,8 +31,10 @@ def anthropic_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Anthropic LLM function calling.
 
+    See https://docs.anthropic.com/en/docs/tool-use for more information about Anthropic's function schema.
+
     :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a function definition.
+    :return: A list of dictionaries, each dictionary representing Anthropic function definition.
     """
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     return _openapi_to_functions(
@@ -46,8 +46,10 @@ def cohere_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  #
     """
     Converts an OpenAPI specification to a list of function definitions for Cohere LLM function calling.
 
+    See https://docs.cohere.com/docs/tool-use for more information about Cohere's function schema.
+
     :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a function definition.
+    :return: A list of dictionaries, each representing a Cohere style function definition.
     """
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     return _openapi_to_functions(
@@ -62,6 +64,10 @@ def _openapi_to_functions(
 ) -> List[Dict[str, Any]]:
     """
     Extracts functions from the OpenAPI specification, converts them into a function schema.
+
+    :param service_openapi_spec: The OpenAPI specification to extract functions from.
+    :param parameters_name: The name of the parameters field in the function schema.
+    :param parse_endpoint_fn: The function to parse the endpoint specification.
     """
 
     # Doesn't enforce rigid spec validation because that would require a lot of dependencies
@@ -92,6 +98,9 @@ def _parse_endpoint_spec_openai(
 ) -> Dict[str, Any]:
     """
     Parses an OpenAPI endpoint specification for OpenAI.
+
+    :param resolved_spec: The resolved OpenAPI specification.
+    :param parameters_name: The name of the parameters field in the function schema.
     """
     if not isinstance(resolved_spec, dict):
         logger.warning(
@@ -145,6 +154,9 @@ def _parse_property_attributes(
 ) -> Dict[str, Any]:
     """
     Recursively parses the attributes of a property schema.
+
+    :param property_schema: The property schema to parse.
+    :param include_attributes: The attributes to include in the parsed schema.
     """
     include_attributes = include_attributes or ["description", "pattern", "enum"]
     schema_type = property_schema.get("type")
@@ -172,6 +184,9 @@ def _parse_endpoint_spec_cohere(
 ) -> Dict[str, Any]:
     """
     Parses an endpoint specification for Cohere.
+
+    :param operation: The operation specification to parse.
+    :param ignored_param: ignored, left for compatibility with the OpenAI converter.
     """
     function_name = operation.get("operationId")
     description = operation.get("description") or operation.get("summary", "")
@@ -189,6 +204,9 @@ def _parse_endpoint_spec_cohere(
 def _parse_parameters(operation: Dict[str, Any]) -> Dict[str, Any]:
     """
     Parses the parameters from an operation specification.
+
+    :param operation: The operation specification to parse.
+    :return: A dictionary containing the parsed parameters.
     """
     parameters = {}
     for param in operation.get("parameters", []):
@@ -217,6 +235,11 @@ def _parse_schema(
 ) -> Dict[str, Any]:  # noqa: FBT001
     """
     Parses a schema part of an operation specification.
+
+    :param schema: The schema to parse.
+    :param required: Whether the schema is required.
+    :param description: The description of the schema.
+    :return: A dictionary containing the parsed schema.
     """
     schema_type = _get_type(schema)
     if schema_type == "object":

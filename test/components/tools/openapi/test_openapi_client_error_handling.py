@@ -8,7 +8,7 @@ import json
 import pytest
 from fastapi import FastAPI, HTTPException
 
-from haystack_experimental.components.tools.openapi.openapi import OpenAPIServiceClient, HttpClientError, \
+from haystack_experimental.components.tools.openapi._openapi import OpenAPIServiceClient, HttpClientError, \
     ClientConfiguration
 from test.components.tools.openapi.conftest import FastAPITestClient
 

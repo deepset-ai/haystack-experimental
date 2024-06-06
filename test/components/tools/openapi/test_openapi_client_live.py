@@ -7,7 +7,7 @@ import os
 
 import pytest
 import yaml
-from haystack_experimental.components.tools.openapi.openapi import OpenAPIServiceClient, ClientConfiguration
+from haystack_experimental.components.tools.openapi._openapi import OpenAPIServiceClient, ClientConfiguration
 
 
 class TestClientLive:
@@ -16,26 +16,6 @@ class TestClientLive:
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
         config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "serper.yml", credentials=os.getenv("SERPERDEV_API_KEY"))
-        serper_api = OpenAPIServiceClient(config)
-        payload = {
-            "id": "call_NJr1NBz2Th7iUWJpRIJZoJIA",
-            "function": {
-                "arguments": '{"q": "Who was Nikola Tesla?"}',
-                "name": "serperdev_search",
-            },
-            "type": "function",
-        }
-        response = serper_api.invoke(payload)
-        assert "invention" in str(response)
-
-    @pytest.mark.skipif("SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set")
-    @pytest.mark.integration
-    def test_serperdev_load_spec_first(self, test_files_path):
-        with open(test_files_path / "yaml" / "serper.yml") as file:
-            loaded_spec = yaml.safe_load(file)
-
-        # use builder with dict spec
-        config = ClientConfiguration(openapi_spec=loaded_spec, credentials=os.getenv("SERPERDEV_API_KEY"))
         serper_api = OpenAPIServiceClient(config)
         payload = {
             "id": "call_NJr1NBz2Th7iUWJpRIJZoJIA",

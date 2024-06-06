@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from haystack_experimental.components.tools.openapi.openapi import OpenAPIServiceClient, ClientConfiguration
+from haystack_experimental.components.tools.openapi._openapi import OpenAPIServiceClient, ClientConfiguration
 from test.components.tools.openapi.conftest import FastAPITestClient
 
 

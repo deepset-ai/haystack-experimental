@@ -4,25 +4,10 @@
 
 import pytest
 
-from haystack_experimental.components.tools.openapi.openapi import OpenAPISpecification
+from haystack_experimental.components.tools.openapi._openapi import OpenAPISpecification
 
 
 class TestOpenAPISpecification:
-
-    #  can be initialized from a dictionary
-    def test_initialized_from_dictionary(self):
-        spec_dict = {
-            "openapi": "3.0.0",
-            "info": {"title": "Test API", "version": "1.0.0"},
-            "servers": [{"url": "https://api.example.com"}],
-            "paths": {
-                "/users": {
-                    "get": {"summary": "Get all users", "responses": {"200": {"description": "Successful response"}}}
-                }
-            },
-        }
-        openapi_spec = OpenAPISpecification.from_dict(spec_dict)
-        assert openapi_spec.spec_dict == spec_dict
 
     #  can be initialized from a string
     def test_initialized_from_string(self):

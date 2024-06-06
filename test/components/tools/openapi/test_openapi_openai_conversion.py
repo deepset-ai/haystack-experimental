@@ -4,7 +4,7 @@
 
 import pytest
 
-from haystack_experimental.components.tools.openapi.openapi import openai_converter, anthropic_converter, OpenAPISpecification
+from haystack_experimental.components.tools.openapi._openapi import openai_converter, anthropic_converter, OpenAPISpecification
 
 
 class TestOpenAPISchemaConversion:
