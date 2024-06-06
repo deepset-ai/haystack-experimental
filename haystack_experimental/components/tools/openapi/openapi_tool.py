@@ -9,12 +9,21 @@ from typing import Any, Dict, List, Optional, Union
 from haystack import component, logging
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, ChatRole
+from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.components.tools.openapi._openapi import (
     ClientConfiguration,
     LLMProvider,
     OpenAPIServiceClient,
 )
+
+with LazyImport("Run 'pip install anthropic-haystack'") as anthropic_import:
+    # pylint: disable=import-error
+    from haystack_integrations.components.generators.anthropic import AnthropicChatGenerator
+
+with LazyImport("Run 'pip install cohere-haystack'") as cohere_import:
+    # pylint: disable=import-error
+    from haystack_integrations.components.generators.cohere import CohereChatGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -140,4 +149,10 @@ class OpenAPITool:
         """
         if generator_api == LLMProvider.OPENAI:
             return OpenAIChatGenerator(**generator_api_params)
+        if generator_api == LLMProvider.COHERE:
+            cohere_import.check()
+            return CohereChatGenerator(**generator_api_params)
+        if generator_api == LLMProvider.ANTHROPIC:
+            anthropic_import.check()
+            return AnthropicChatGenerator(**generator_api_params)
         raise ValueError(f"Unsupported generator API: {generator_api}")
