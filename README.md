@@ -56,6 +56,10 @@ pipe = Pipeline()
 pipe.run(...)
 ```
 
+## Documentation
+
+Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/haystack-experimental-api)
+
 ## Implementation
 
 Experiments should try to replicate the namespace of the core package. For example, a new generator:
@@ -95,10 +99,6 @@ class Pipeline(HaystackPipeline):
         return super().to_dict()
 
 ```
-## Documentation
-
-Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/haystack-experimental-api)
-
 
 ## Contributing
 
