@@ -51,7 +51,7 @@ extra-dependencies = [
 ]
 
 [tool.hatch.envs.test.scripts]
-unit = 'pytest --cov-report xml:coverage.xml --cov="haystack-experimental" -m "not integration" {args:test}'
+unit = 'pytest --cov-report xml:coverage.xml --cov="haystack_experimental" -m "not integration" {args:test}'
 integration = 'pytest --maxfail=5 -m "integration" {args:test}'
 typing = "mypy --install-types --non-interactive {args:haystack_experimental}"
 lint = [
@@ -77,10 +77,10 @@ path = "haystack_experimental/version.py"
 allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
-include = ["/haystack-experimental", "/VERSION.txt"]
+include = ["/haystack_experimental", "/VERSION.txt"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["haystack-experimental"]
+packages = ["haystack_experimental"]
 
 [tool.codespell]
 ignore-words-list = "ans,astroid,nd,ned,nin,ue,rouge,ist"
