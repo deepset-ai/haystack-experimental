@@ -21,14 +21,14 @@ $ pip install -U haystack-experimental
 
 > [!IMPORTANT]
 > The latest version of the experimental package is only tested against the latest version of Haystack. Compatibility
-> with older version of Haystack is not guaranteed.
+> with older versions of Haystack is not guaranteed.
 
 
 ## Experiments lifecycle
 
 Any experimental feature will be removed from `haystack-experimental` after a period of 3 months. After this time,
 the experiment will be either:
-- Incorporated in Haystack and released with the next minor,
+- Merged into Haystack core and published in the next minor release
 - Released as a Core Integration,
 - Dropped.
 
@@ -54,7 +54,7 @@ c = FoobarGenerator()
 c.run([ChatMessage.from_user("What's an experiment? Be brief.")])
 ```
 
-Experiments can also override existing Haystack features. For example, users opt-in for an experimental type of
+Experiments can also override existing Haystack features. For example, users can opt into an experimental type of
 `Pipeline` by just changing the usual import:
 
 ```python
@@ -72,7 +72,7 @@ Documentation for `haystack-experimental` can be found [here](https://docs.hayst
 
 ## Implementation
 
-Experiments should try to replicate the namespace of the core package. For example, a new generator:
+Experiments should replicate the namespace of the core package. For example, a new generator:
 
 ```python
 # in haystack_experimental/components/generators/foobar.py
@@ -112,5 +112,4 @@ class Pipeline(HaystackPipeline):
 
 ## Contributing
 
-Direct contributions to `haystack-experimental` are not expected, but Haystack maintainers might ask you to move here
-a pull request that you originally opened on https://github.com/deepset-ai/haystack.
+Direct contributions to `haystack-experimental` are not expected, but Haystack maintainers might ask contributors to move pull requests that target the [core repository](https://github.com/deepset-ai/haystack) to this repository.
