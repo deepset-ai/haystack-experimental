@@ -9,7 +9,20 @@
 
 The `haystack-experimental` package provides Haystack users with access to experimental features without immediately
 committing to their official release. The main goal is to gather user feedback and iterate on new features quickly.
-For simplicity, every release of `haystack-experimental` will ship all the available experiments at that time.
+
+## Installation
+
+For simplicity, every release of `haystack-experimental` will ship all the available experiments at that time. To
+install the latest experimental features, run:
+
+```sh
+$ pip install -U haystack-experimental
+```
+
+> [!IMPORTANT]
+> The latest version of the experimental package is only tested against the latest version of Haystack. Compatibility
+> with older version of Haystack is not guaranteed.
+
 
 ## Experiments lifecycle
 
