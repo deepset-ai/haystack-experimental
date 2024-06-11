@@ -32,6 +32,16 @@ the experiment will be either:
 - Released as a Core Integration,
 - Dropped.
 
+## Experiments catalog
+
+The latest version of the package contains the following experiments:
+
+| Name                     | Type                    | Experiment end date |
+| ------------------------ | ----------------------- | ------------------- |
+| [`EvaluationHarness`][1] | Evaluation orchestrator | August 2024         |
+
+[1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
+
 ## Usage
 
 Experimental new features can be imported like any other Haystack integration package:
@@ -58,7 +68,7 @@ pipe.run(...)
 
 ## Documentation
 
-Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/haystack-experimental-api)
+Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/haystack-experimental-api).
 
 ## Implementation
 
