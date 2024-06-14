@@ -25,7 +25,9 @@ from .parameters import (
 )
 
 
-class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOverrides, RAGEvaluationOutput]):
+class RAGEvaluationHarness(
+    EvaluationHarness[RAGEvaluationInput, RAGEvaluationOverrides, RAGEvaluationOutput]
+):
     """
     Evaluation harness for evaluating RAG pipelines.
     """
@@ -167,7 +169,9 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
         output_name = mapping[output_name]
         return outputs[name][output_name]
 
-    def _generate_eval_run_pipelines(self, overrides: Optional[RAGEvaluationOverrides]) -> PipelinePair:
+    def _generate_eval_run_pipelines(
+        self, overrides: Optional[RAGEvaluationOverrides]
+    ) -> PipelinePair:
         if overrides is None:
             rag_overrides = None
             eval_overrides = None
@@ -178,7 +182,9 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
         if eval_overrides is not None:
             for metric in eval_overrides.keys():
                 if metric not in self.metrics:
-                    raise ValueError(f"Cannot override parameters of unused evaluation metric '{metric.value}'")
+                    raise ValueError(
+                        f"Cannot override parameters of unused evaluation metric '{metric.value}'"
+                    )
 
             eval_overrides = {k.value: v for k, v in eval_overrides.items()}  # type: ignore
 
@@ -193,18 +199,26 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
                 x
             ),
             included_first_outputs={
-                RAGExpectedComponent.DOCUMENT_RETRIEVER.value,
-                RAGExpectedComponent.RESPONSE_GENERATOR.value,
+                self.rag_components[RAGExpectedComponent.DOCUMENT_RETRIEVER].name,
+                self.rag_components[RAGExpectedComponent.RESPONSE_GENERATOR].name,
             },
         )
 
-    def _aggregate_rag_outputs(self, outputs: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+    def _aggregate_rag_outputs(
+        self, outputs: List[Dict[str, Dict[str, Any]]]
+    ) -> Dict[str, Dict[str, Any]]:
         aggregate = aggregate_batched_pipeline_outputs(outputs)
 
         # We only care about the first response from the generator.
-        generator_name = self.rag_components[RAGExpectedComponent.RESPONSE_GENERATOR].name
-        replies_output_name = self.rag_components[RAGExpectedComponent.RESPONSE_GENERATOR].output_mapping["replies"]
-        aggregate[generator_name][replies_output_name] = [r[0] for r in aggregate[generator_name][replies_output_name]]
+        generator_name = self.rag_components[
+            RAGExpectedComponent.RESPONSE_GENERATOR
+        ].name
+        replies_output_name = self.rag_components[
+            RAGExpectedComponent.RESPONSE_GENERATOR
+        ].output_mapping["replies"]
+        aggregate[generator_name][replies_output_name] = [
+            r[0] for r in aggregate[generator_name][replies_output_name]
+        ]
 
         return aggregate
 
@@ -247,7 +261,10 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
                     RAGExpectedComponent.DOCUMENT_RETRIEVER,
                     "retrieved_documents",
                 ),
-                "responses": (RAGExpectedComponent.RESPONSE_GENERATOR, "replies"),
+                "predicted_answers": (
+                    RAGExpectedComponent.RESPONSE_GENERATOR,
+                    "replies",
+                ),
             },
         }
 
@@ -266,9 +283,15 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
 
         return outputs_to_inputs
 
-    def _prepare_rag_pipeline_inputs(self, inputs: RAGEvaluationInput) -> List[Dict[str, Dict[str, Any]]]:
-        query_embedder_name = self.rag_components[RAGExpectedComponent.QUERY_PROCESSOR].name
-        query_embedder_text_input = self.rag_components[RAGExpectedComponent.QUERY_PROCESSOR].input_mapping["query"]
+    def _prepare_rag_pipeline_inputs(
+        self, inputs: RAGEvaluationInput
+    ) -> List[Dict[str, Dict[str, Any]]]:
+        query_embedder_name = self.rag_components[
+            RAGExpectedComponent.QUERY_PROCESSOR
+        ].name
+        query_embedder_text_input = self.rag_components[
+            RAGExpectedComponent.QUERY_PROCESSOR
+        ].input_mapping["query"]
 
         if inputs.additional_rag_inputs is not None:
             # Ensure that the query embedder input is not provided as additional input.
@@ -284,14 +307,22 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
             rag_inputs = deepcopy(inputs.additional_rag_inputs)
             if query_embedder_name not in rag_inputs:
                 rag_inputs[query_embedder_name] = {}
-            rag_inputs[query_embedder_name][query_embedder_text_input] = deepcopy(inputs.queries)
+            rag_inputs[query_embedder_name][query_embedder_text_input] = deepcopy(
+                inputs.queries
+            )
         else:
-            rag_inputs = {query_embedder_name: {query_embedder_text_input: deepcopy(inputs.queries)}}
+            rag_inputs = {
+                query_embedder_name: {
+                    query_embedder_text_input: deepcopy(inputs.queries)
+                }
+            }
 
         separate_rag_inputs = deaggregate_batched_pipeline_inputs(rag_inputs)
         return separate_rag_inputs
 
-    def _prepare_eval_pipeline_additional_inputs(self, inputs: RAGEvaluationInput) -> Dict[str, Dict[str, Any]]:
+    def _prepare_eval_pipeline_additional_inputs(
+        self, inputs: RAGEvaluationInput
+    ) -> Dict[str, Dict[str, Any]]:
         eval_inputs: Dict[str, Dict[str, List[Any]]] = {}
 
         for metric in self.metrics:
@@ -302,18 +333,30 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
                 RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT,
             ):
                 if inputs.ground_truth_documents is None:
-                    raise ValueError(f"Ground truth documents required for metric '{metric.value}'.")
+                    raise ValueError(
+                        f"Ground truth documents required for metric '{metric.value}'."
+                    )
                 if len(inputs.ground_truth_documents) != len(inputs.queries):
-                    raise ValueError("Length of ground truth documents should match the number of queries.")
+                    raise ValueError(
+                        "Length of ground truth documents should match the number of queries."
+                    )
 
-                eval_inputs[metric.value] = {"ground_truth_documents": inputs.ground_truth_documents}
+                eval_inputs[metric.value] = {
+                    "ground_truth_documents": inputs.ground_truth_documents
+                }
             elif metric == RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY:
                 if inputs.ground_truth_answers is None:
-                    raise ValueError(f"Ground truth answers required for metric '{metric.value}'.")
+                    raise ValueError(
+                        f"Ground truth answers required for metric '{metric.value}'."
+                    )
                 if len(inputs.ground_truth_answers) != len(inputs.queries):
-                    raise ValueError("Length of ground truth answers should match the number of queries.")
+                    raise ValueError(
+                        "Length of ground truth answers should match the number of queries."
+                    )
 
-                eval_inputs[metric.value] = {"ground_truth_answers": inputs.ground_truth_answers}
+                eval_inputs[metric.value] = {
+                    "ground_truth_answers": inputs.ground_truth_answers
+                }
             elif metric == RAGEvaluationMetric.ANSWER_FAITHFULNESS:
                 eval_inputs[metric.value] = {"questions": inputs.queries}
 
@@ -326,13 +369,20 @@ class RAGEvaluationHarness(EvaluationHarness[RAGEvaluationInput, RAGEvaluationOv
     ):
         for e in RAGExpectedComponent:
             if e not in components:
-                raise ValueError(f"RAG evaluation harness requires metadata for the '{e.value}' component.")
+                raise ValueError(
+                    f"RAG evaluation harness requires metadata for the '{e.value}' component."
+                )
 
-        pipeline_outputs = pipeline.outputs(include_components_with_connected_outputs=True)
+        pipeline_outputs = pipeline.outputs(
+            include_components_with_connected_outputs=True
+        )
         pipeline_inputs = pipeline.inputs(include_components_with_connected_inputs=True)
 
         for component, metadata in components.items():
-            if metadata.name not in pipeline_outputs or metadata.name not in pipeline_inputs:
+            if (
+                metadata.name not in pipeline_outputs
+                or metadata.name not in pipeline_inputs
+            ):
                 raise ValueError(
                     f"Expected '{component.value}' component named '{metadata.name}' not found in pipeline."
                 )
