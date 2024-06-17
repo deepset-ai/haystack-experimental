@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from typing import List
+from typing import Any, List, Dict, Callable
 
-from haystack import component
+from haystack import component, default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage
+from haystack.utils import serialize_callable, deserialize_callable
 
 
 @component
@@ -16,12 +17,52 @@ class OpenAIFunctionCaller:
     result as a ChatMessage from role = 'function'
     """
 
-    def __init__(self, available_functions: Dict[str, Callable[...]):
+    def __init__(self, available_functions: Dict[str, Callable]):
         """
         Initialize the OpenAIFunctionCaller component.
         :param available_functions: A dictionary of available functions. This dictionary expects key value pairs of function name, and the function itself. For example, `{"weather_function": weather_function}`
         """
         self.available_functions = available_functions
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the component to a dictionary.
+
+        :returns:
+            Dictionary with serialized data.
+        """
+        available_function_callbacks = {}
+        for function in self.available_functions:
+            available_function_callbacks[function] = (
+                serialize_callable(self.available_functions[function])
+                if function
+                else None
+            )
+        serialization_dict = default_to_dict(
+            self, available_functions=available_function_callbacks
+        )
+        return serialization_dict
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "OpenAIFunctionCaller":
+        """
+        Deserializes the component from a dictionary.
+
+        :param data:
+            The dictionary to deserialize from.
+        :returns:
+            The deserialized component.
+        """
+        init_params = data.get("init_parameters", {})
+        available_function_callback_handler = init_params.get("available_functions")
+        if available_function_callback_handler:
+            for callback in data["init_parameters"]["available_functions"]:
+                print(callback)
+                deserialize_callable(
+                    data["init_parameters"]["available_functions"][callback]
+                )
+
+        return default_from_dict(cls, data)
 
     @component.output_types(
         function_replies=List[ChatMessage], assistant_replies=List[ChatMessage]
