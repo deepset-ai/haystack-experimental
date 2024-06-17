@@ -90,7 +90,7 @@ def create_api_key_auth_function(api_key: str):
     at the schema specified location.
     """
 
-    def apply_api_key_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]):
+    def apply_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]):
         """
         Apply the API key authentication strategy to the given request.
 
@@ -109,7 +109,43 @@ def create_api_key_auth_function(api_key: str):
                 f"must be one of 'header', 'query', or 'cookie'"
             )
 
-    return apply_api_key_auth
+    return apply_auth
+
+
+def create_http_auth_function(token: str):
+    """
+    Create a function that applies the http authentication strategy to a given request.
+
+    :param token: the authentication token to use.
+    :return: a function that applies the API key authentication to a request
+    at the schema specified location.
+    """
+
+    def apply_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]):
+        """
+        Apply the HTTP authentication strategy to the given request.
+
+        :param security_scheme: the security scheme from the OpenAPI spec.
+        :param request: the request to apply the authentication to.
+        """
+        if security_scheme["type"] == "http":
+            # support bearer http auth, no basic support yet
+            if security_scheme["scheme"].lower() == "bearer":
+                if not token:
+                    raise ValueError("Token must be provided for Bearer Auth.")
+                request.setdefault("headers", {})[
+                    "Authorization"
+                ] = f"Bearer {token}"
+            else:
+                raise ValueError(
+                    f"Unsupported HTTP authentication scheme: {security_scheme['scheme']}"
+                )
+        else:
+            raise ValueError(
+                "HTTPAuthentication strategy received a non-HTTP security scheme."
+            )
+
+    return apply_auth
 
 
 class HttpClientError(Exception):
@@ -397,7 +433,7 @@ class ClientConfiguration:
             if scheme["type"] == "apiKey":
                 return create_api_key_auth_function(api_key=credentials)
             if scheme["type"] == "http":
-                raise NotImplementedError("HTTP authentication is not yet supported.")
+                return create_http_auth_function(token=credentials)
             if scheme["type"] == "oauth2":
                 raise NotImplementedError("OAuth2 authentication is not yet supported.")
         raise ValueError(
