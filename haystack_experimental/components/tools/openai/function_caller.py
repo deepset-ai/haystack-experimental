@@ -55,5 +55,4 @@ class OpenAIFunctionCaller:
                         )
                     )
             return {"function_replies": messages}
-        else:
-            return {"assistant_replies": messages}
+        return {"assistant_replies": messages}
