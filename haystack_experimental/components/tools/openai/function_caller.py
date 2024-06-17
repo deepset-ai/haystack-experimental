@@ -9,6 +9,9 @@ from haystack import component, default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage
 from haystack.utils import serialize_callable, deserialize_callable
 
+_FUNCTION_NAME_FAILURE = "I'm sorry, I tried to run a function that did not exist. Would you like me to correct it and try again?"
+_FUNCTION_RUN_FAILURE = "Seems there was an error while runnign the function: {error}"
+
 
 @component
 class OpenAIFunctionCaller:
@@ -82,18 +85,21 @@ class OpenAIFunctionCaller:
                 function_args = json.loads(function_call["function"]["arguments"])
                 if function_name in self.available_functions:
                     function_to_call = self.available_functions[function_name]
-                    function_response = function_to_call(**function_args)
-                    messages.append(
-                        ChatMessage.from_function(
-                            content=json.dumps(function_response), name=function_name
+                    try:
+                        function_response = function_to_call(**function_args)
+                        messages.append(
+                            ChatMessage.from_function(
+                                content=json.dumps(function_response),
+                                name=function_name,
+                            )
                         )
-                    )
+                    except BaseException as e:
+                        messages.append(
+                            ChatMessage.from_assistant(
+                                _FUNCTION_RUN_FAILURE.format(error=e)
+                            )
+                        )
                 else:
-                    messages.append(
-                        ChatMessage.from_assistant(
-                            """I'm sorry, I tried to run a function that did not exist. 
-                                                        Would you like me to correct it and try again?"""
-                        )
-                    )
+                    messages.append(ChatMessage.from_assistant(_FUNCTION_NAME_FAILURE))
             return {"function_replies": messages}
         return {"assistant_replies": messages}
