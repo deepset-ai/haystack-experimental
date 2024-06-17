@@ -38,7 +38,7 @@ class OpenAIFunctionCaller:
         for name, function in self.available_functions.items():
             available_function_paths[name] = serialize_callable(function)
         serialization_dict = default_to_dict(
-            self, available_functions=available_function_callbacks
+            self, available_functions=available_function_paths
         )
         return serialization_dict
 
@@ -56,8 +56,7 @@ class OpenAIFunctionCaller:
         available_functions = {}
         for name, path in available_function_paths.items():
             available_functions[name] =  deserialize_callable(path)
-
-        return default_from_dict(cls, available_functions)
+        return cls(available_functions)
 
     @component.output_types(
         function_replies=List[ChatMessage], assistant_replies=List[ChatMessage]
