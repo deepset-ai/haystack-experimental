@@ -19,7 +19,7 @@ class OpenAIFunctionCaller:
     def __init__(self, available_functions: Dict[str, Callable[...]):
         """
         Initialize the OpenAIFunctionCaller component.
-        :param available_functions: A dictionary of available functions. This dictionary expects key value pairs of function name, and the function itslelf. For example {"weather_function": weather_function}
+        :param available_functions: A dictionary of available functions. This dictionary expects key value pairs of function name, and the function itself. For example, `{"weather_function": weather_function}`
         """
         self.available_functions = available_functions
 
