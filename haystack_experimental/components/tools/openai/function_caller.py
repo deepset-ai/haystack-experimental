@@ -34,13 +34,9 @@ class OpenAIFunctionCaller:
         :returns:
             Dictionary with serialized data.
         """
-        available_function_callbacks = {}
-        for function in self.available_functions:
-            available_function_callbacks[function] = (
-                serialize_callable(self.available_functions[function])
-                if function
-                else None
-            )
+        available_function_paths = {}
+        for name, function in self.available_functions.items():
+            available_function_paths[name] = serialize_callable(function)
         serialization_dict = default_to_dict(
             self, available_functions=available_function_callbacks
         )
