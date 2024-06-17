@@ -16,7 +16,7 @@ class OpenAIFunctionCaller:
     result as a ChatMessage from role = 'function'
     """
 
-    def __init__(self, available_functions):
+    def __init__(self, available_functions: Dict[str, Callable[...]):
         """
         Initialize the OpenAIFunctionCaller component.
         :param available_functions: A dictionary of available functions. This dictionary expects key value pairs of function name, and the function itslelf. For example {"weather_function": weather_function}
