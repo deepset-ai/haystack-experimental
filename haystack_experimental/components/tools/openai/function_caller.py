@@ -56,14 +56,10 @@ class OpenAIFunctionCaller:
         :returns:
             The deserialized component.
         """
-        init_params = data.get("init_parameters", {})
-        available_function_callback_handler = init_params.get("available_functions")
-        if available_function_callback_handler:
-            for callback in data["init_parameters"]["available_functions"]:
-                print(callback)
-                deserialize_callable(
-                    data["init_parameters"]["available_functions"][callback]
-                )
+        available_function_paths = data.get("init_parameters", {}).get("available_functions")
+        available_functions = {}
+        for name, path in available_function_paths.items():
+            available_functions[name] =  deserialize_callable(path)
 
         return default_from_dict(cls, data)
 
