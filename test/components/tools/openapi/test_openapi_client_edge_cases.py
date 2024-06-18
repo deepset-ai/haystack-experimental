@@ -6,13 +6,13 @@
 import pytest
 
 from haystack_experimental.components.tools.openapi._openapi import OpenAPIServiceClient, ClientConfiguration
-from test.components.tools.openapi.conftest import FastAPITestClient
+from test.components.tools.openapi.conftest import FastAPITestClient, create_openapi_spec
 
 
 class TestEdgeCases:
 
     def test_missing_operation_id(self, test_files_path):
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_edge_cases.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "openapi_edge_cases.yml"),
                                      request_sender=FastAPITestClient(None))
         client = OpenAPIServiceClient(config)
 

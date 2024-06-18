@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -10,12 +11,13 @@ from haystack import component, logging
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, ChatRole
 from haystack.lazy_imports import LazyImport
+from haystack.utils.url_validation import is_valid_http_url
 
 from haystack_experimental.components.tools.openapi._openapi import (
     ClientConfiguration,
     OpenAPIServiceClient,
 )
-from haystack_experimental.components.tools.openapi.types import LLMProvider
+from haystack_experimental.components.tools.openapi.types import LLMProvider, OpenAPISpecification
 
 with LazyImport("Run 'pip install anthropic-haystack'") as anthropic_import:
     # pylint: disable=import-error
@@ -74,7 +76,7 @@ class OpenAPITool:
         self.open_api_service: Optional[OpenAPIServiceClient] = None
         if tool_spec:
             self.config_openapi = ClientConfiguration(
-                openapi_spec=tool_spec,
+                openapi_spec=self._create_openapi_spec(tool_spec),
                 credentials=tool_credentials,
                 llm_provider=generator_api
             )
@@ -112,7 +114,7 @@ class OpenAPITool:
         config_openapi: Optional[ClientConfiguration] = self.config_openapi
         if tool_spec:
             config_openapi = ClientConfiguration(
-                openapi_spec=tool_spec,
+                openapi_spec=self._create_openapi_spec(tool_spec),
                 credentials=tool_credentials,
                 llm_provider=self.generator_api,
             )
@@ -160,3 +162,15 @@ class OpenAPITool:
             anthropic_import.check()
             return AnthropicChatGenerator(**generator_api_params)
         raise ValueError(f"Unsupported generator API: {generator_api}")
+
+    def _create_openapi_spec(self, openapi_spec: Union[Path, str]) -> OpenAPISpecification:
+        if isinstance(openapi_spec, (str, Path)) and os.path.isfile(openapi_spec):
+            return OpenAPISpecification.from_file(openapi_spec)
+        if isinstance(openapi_spec, str):
+            if is_valid_http_url(openapi_spec):
+                return OpenAPISpecification.from_url(openapi_spec)
+            return OpenAPISpecification.from_str(openapi_spec)
+
+        raise ValueError(
+            "Invalid OpenAPI specification format. Expected file path or dictionary."
+        )

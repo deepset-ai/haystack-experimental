@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 
 from haystack_experimental.components.tools.openapi._openapi import OpenAPIServiceClient, HttpClientError, \
     ClientConfiguration
-from test.components.tools.openapi.conftest import FastAPITestClient
+from test.components.tools.openapi.conftest import FastAPITestClient, create_openapi_spec
 
 
 def create_error_handling_app() -> FastAPI:
@@ -26,7 +26,7 @@ def create_error_handling_app() -> FastAPI:
 class TestErrorHandling:
     @pytest.mark.parametrize("status_code", [400, 401, 403, 404, 500])
     def test_http_error_handling(self, test_files_path, status_code):
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_error_handling.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "openapi_error_handling.yml"),
                                      request_sender=FastAPITestClient(create_error_handling_app()))
         client = OpenAPIServiceClient(config)
         json_error = {"status_code": status_code}

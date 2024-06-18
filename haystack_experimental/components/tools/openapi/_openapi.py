@@ -3,11 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import os
 from collections import defaultdict
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
-from urllib.parse import urlparse
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
@@ -23,17 +20,6 @@ from haystack_experimental.components.tools.openapi.types import LLMProvider, Op
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
-
-
-def is_valid_http_url(url: str) -> bool:
-    """
-    Check if a URL is a valid HTTP/HTTPS URL.
-
-    :param url: The URL to check.
-    :returns: True if the URL is a valid HTTP/HTTPS URL, False otherwise.
-    """
-    r = urlparse(url)
-    return all([r.scheme in ["http", "https"], r.netloc])
 
 
 def send_request(request: Dict[str, Any]) -> Dict[str, Any]:
@@ -143,9 +129,9 @@ class HttpClientError(Exception):
 class ClientConfiguration:
     """Configuration for the OpenAPI client."""
 
-    def __init__(  # noqa: PLR0913 pylint: disable=too-many-arguments
+    def __init__(
         self,
-        openapi_spec: Union[str, Path],
+        openapi_spec: OpenAPISpecification,
         credentials: Optional[str] = None,
         request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         llm_provider: Optional[LLMProvider] = None,
@@ -153,24 +139,13 @@ class ClientConfiguration:
         """
         Initialize a ClientConfiguration instance.
 
-        :param openapi_spec: The OpenAPI specification as a file path, URL, or dictionary.
+        :param openapi_spec: The OpenAPI specification to use for the client.
         :param credentials: The credentials to use for authentication.
         :param request_sender: The function to use for sending requests.
         :param llm_provider: The LLM provider to use for generating tools definitions.
         :raises ValueError: If the OpenAPI specification format is invalid.
         """
-        if isinstance(openapi_spec, (str, Path)) and os.path.isfile(openapi_spec):
-            self.openapi_spec = OpenAPISpecification.from_file(openapi_spec)
-        elif isinstance(openapi_spec, str):
-            if is_valid_http_url(openapi_spec):
-                self.openapi_spec = OpenAPISpecification.from_url(openapi_spec)
-            else:
-                self.openapi_spec = OpenAPISpecification.from_str(openapi_spec)
-        else:
-            raise ValueError(
-                "Invalid OpenAPI specification format. Expected file path or dictionary."
-            )
-
+        self.openapi_spec = openapi_spec
         self.credentials = credentials
         self.request_sender = request_sender or send_request
         self.llm_provider: LLMProvider = llm_provider or LLMProvider.OPENAI

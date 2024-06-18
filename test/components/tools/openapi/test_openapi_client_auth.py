@@ -16,7 +16,7 @@ from fastapi.security import (
 )
 
 from haystack_experimental.components.tools.openapi._openapi import OpenAPIServiceClient, ClientConfiguration
-from test.components.tools.openapi.conftest import FastAPITestClient
+from test.components.tools.openapi.conftest import FastAPITestClient, create_openapi_spec
 
 API_KEY = "secret_api_key"
 BASIC_AUTH_USERNAME = "admin"
@@ -137,7 +137,7 @@ def create_greet_oauth_auth_app() -> FastAPI:
 class TestOpenAPIAuth:
 
     def test_greet_api_key_auth(self, test_files_path):
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "openapi_greeting_service.yml"),
                                      request_sender=FastAPITestClient(create_greet_api_key_auth_app()),
                                      credentials=API_KEY)
         client = OpenAPIServiceClient(config)
@@ -153,7 +153,7 @@ class TestOpenAPIAuth:
         assert response == {"greeting": "Hello, John from api_key_auth, using secret_api_key"}
 
     def test_greet_api_key_query_auth(self, test_files_path):
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "openapi_greeting_service.yml"),
                                      request_sender=FastAPITestClient(create_greet_api_key_query_app()),
                                      credentials=API_KEY_QUERY)
         client = OpenAPIServiceClient(config)
@@ -170,7 +170,7 @@ class TestOpenAPIAuth:
 
     def test_greet_api_key_cookie_auth(self, test_files_path):
 
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "openapi_greeting_service.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "openapi_greeting_service.yml"),
                                      request_sender=FastAPITestClient(create_greet_api_key_cookie_app()),
                                      credentials=API_KEY_COOKIE)
 

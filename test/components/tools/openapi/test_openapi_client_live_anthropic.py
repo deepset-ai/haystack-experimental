@@ -9,6 +9,7 @@ import pytest
 
 from haystack_experimental.components.tools.openapi._openapi import ClientConfiguration, OpenAPIServiceClient, \
     LLMProvider
+from test.components.tools.openapi.conftest import create_openapi_spec
 
 
 class TestClientLiveAnthropic:
@@ -17,7 +18,7 @@ class TestClientLiveAnthropic:
     @pytest.mark.skipif("ANTHROPIC_API_KEY" not in os.environ, reason="ANTHROPIC_API_KEY not set")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "serper.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "serper.yml"),
                                      credentials=os.getenv("SERPERDEV_API_KEY"),
                                      llm_provider=LLMProvider.ANTHROPIC)
         client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -41,7 +42,7 @@ class TestClientLiveAnthropic:
     @pytest.mark.skipif("ANTHROPIC_API_KEY" not in os.environ, reason="ANTHROPIC_API_KEY not set")
     @pytest.mark.integration
     def test_github(self, test_files_path):
-        config = ClientConfiguration(openapi_spec=test_files_path / "yaml" / "github_compare.yml",
+        config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "github_compare.yml"),
                                      llm_provider=LLMProvider.ANTHROPIC)
 
         client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
