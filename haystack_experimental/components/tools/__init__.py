@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .tools import OpenAIFunctionCaller
+from .openai.function_caller import OpenAIFunctionCaller
 
-_all_ = [ "OpenAIFunctionCaller"]
+_all_ = ["OpenAIFunctionCaller"]
