@@ -266,6 +266,12 @@ class RAGEvaluationHarness(
                     "replies",
                 ),
             },
+            RAGEvaluationMetric.CONTEXT_RELEVANCE: {
+                "contexts": (
+                    RAGExpectedComponent.DOCUMENT_RETRIEVER,
+                    "retrieved_documents",
+                ),
+            },
         }
 
         outputs_to_inputs: Dict[str, List[str]] = {}
@@ -344,6 +350,11 @@ class RAGEvaluationHarness(
                 eval_inputs[metric.value] = {
                     "ground_truth_documents": inputs.ground_truth_documents
                 }
+            elif metric in (
+                RAGEvaluationMetric.ANSWER_FAITHFULNESS,
+                RAGEvaluationMetric.CONTEXT_RELEVANCE,
+            ):
+                eval_inputs[metric.value] = {"questions": inputs.queries}
             elif metric == RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY:
                 if inputs.ground_truth_answers is None:
                     raise ValueError(
@@ -357,8 +368,6 @@ class RAGEvaluationHarness(
                 eval_inputs[metric.value] = {
                     "ground_truth_answers": inputs.ground_truth_answers
                 }
-            elif metric == RAGEvaluationMetric.ANSWER_FAITHFULNESS:
-                eval_inputs[metric.value] = {"questions": inputs.queries}
 
         return eval_inputs
 
