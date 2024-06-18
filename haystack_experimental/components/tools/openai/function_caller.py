@@ -12,7 +12,7 @@ from haystack.utils import deserialize_callable, serialize_callable
 _FUNCTION_NAME_FAILURE = (
     "I'm sorry, I tried to run a function that did not exist. Would you like me to correct it and try again?"
 )
-_FUNCTION_RUN_FAILURE = "Seems there was an error while runnign the function: {error}"
+_FUNCTION_RUN_FAILURE = "Seems there was an error while running the function: {error}"
 
 
 @component
