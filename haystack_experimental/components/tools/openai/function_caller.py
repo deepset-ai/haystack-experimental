@@ -92,6 +92,7 @@ class OpenAIFunctionCaller:
                                 name=function_name,
                             )
                         )
+                    # pylint: disable=broad-exception-caught
                     except Exception as e:
                         messages.append(ChatMessage.from_assistant(_FUNCTION_RUN_FAILURE.format(error=e)))
                 else:
