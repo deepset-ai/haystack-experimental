@@ -7,18 +7,20 @@ from typing import Any, Callable, Dict, List, Optional
 
 import jsonref
 
+from haystack_experimental.components.tools.openapi.types import OpenAPISpecification
+
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 
 logger = logging.getLogger(__name__)
 
 
-def openai_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # type: ignore[name-defined] # noqa: F821
+def openai_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     """
     Converts OpenAPI specification to a list of function suitable for OpenAI LLM function calling.
 
     See https://platform.openai.com/docs/guides/function-calling for more information about OpenAI's function schema.
     :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each dictionary representing an OpenAI function definition.
+    :returns: A list of dictionaries, each dictionary representing an OpenAI function definition.
     """
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     fn_definitions = _openapi_to_functions(
@@ -27,14 +29,14 @@ def openai_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  #
     return [{"type": "function", "function": fn} for fn in fn_definitions]
 
 
-def anthropic_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # type: ignore # noqa: F821
+def anthropic_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Anthropic LLM function calling.
 
     See https://docs.anthropic.com/en/docs/tool-use for more information about Anthropic's function schema.
 
     :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each dictionary representing Anthropic function definition.
+    :returns: A list of dictionaries, each dictionary representing Anthropic function definition.
     """
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     return _openapi_to_functions(
@@ -42,14 +44,14 @@ def anthropic_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:
     )
 
 
-def cohere_converter(schema: "OpenAPISpecification") -> List[Dict[str, Any]]:  # type: ignore[name-defined] # noqa: F821
+def cohere_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Cohere LLM function calling.
 
     See https://docs.cohere.com/docs/tool-use for more information about Cohere's function schema.
 
     :param schema: The OpenAPI specification to convert.
-    :return: A list of dictionaries, each representing a Cohere style function definition.
+    :returns: A list of dictionaries, each representing a Cohere style function definition.
     """
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     return _openapi_to_functions(
@@ -68,6 +70,7 @@ def _openapi_to_functions(
     :param service_openapi_spec: The OpenAPI specification to extract functions from.
     :param parameters_name: The name of the parameters field in the function schema.
     :param parse_endpoint_fn: The function to parse the endpoint specification.
+    :returns: A list of dictionaries, each dictionary representing a function schema.
     """
 
     # Doesn't enforce rigid spec validation because that would require a lot of dependencies
@@ -101,6 +104,7 @@ def _parse_endpoint_spec_openai(
 
     :param resolved_spec: The resolved OpenAPI specification.
     :param parameters_name: The name of the parameters field in the function schema.
+    :returns: A dictionary containing the parsed function schema.
     """
     if not isinstance(resolved_spec, dict):
         logger.warning(
@@ -157,6 +161,7 @@ def _parse_property_attributes(
 
     :param property_schema: The property schema to parse.
     :param include_attributes: The attributes to include in the parsed schema.
+    :returns: A dictionary containing the parsed property schema.
     """
     include_attributes = include_attributes or ["description", "pattern", "enum"]
     schema_type = property_schema.get("type")
@@ -187,6 +192,7 @@ def _parse_endpoint_spec_cohere(
 
     :param operation: The operation specification to parse.
     :param ignored_param: ignored, left for compatibility with the OpenAI converter.
+    :returns: A dictionary containing the parsed function schema.
     """
     function_name = operation.get("operationId")
     description = operation.get("description") or operation.get("summary", "")
@@ -206,7 +212,7 @@ def _parse_parameters(operation: Dict[str, Any]) -> Dict[str, Any]:
     Parses the parameters from an operation specification.
 
     :param operation: The operation specification to parse.
-    :return: A dictionary containing the parsed parameters.
+    :returns: A dictionary containing the parsed parameters.
     """
     parameters = {}
     for param in operation.get("parameters", []):
@@ -239,7 +245,7 @@ def _parse_schema(
     :param schema: The schema to parse.
     :param required: Whether the schema is required.
     :param description: The description of the schema.
-    :return: A dictionary containing the parsed schema.
+    :returns: A dictionary containing the parsed schema.
     """
     schema_type = _get_type(schema)
     if schema_type == "object":
