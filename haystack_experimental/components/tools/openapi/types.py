@@ -133,7 +133,7 @@ class OpenAPISpecification:
         self.spec_dict = spec_dict
 
     @classmethod
-    def _from_str(cls, content: str) -> "OpenAPISpecification":
+    def from_str(cls, content: str) -> "OpenAPISpecification":
         """
         Create an OpenAPISpecification instance from a string.
 
@@ -165,7 +165,7 @@ class OpenAPISpecification:
         """
         with open(spec_file, encoding="utf-8") as file:
             content = file.read()
-        return cls._from_str(content)
+        return cls.from_str(content)
 
     @classmethod
     def from_url(cls, url: str) -> "OpenAPISpecification":
@@ -184,7 +184,7 @@ class OpenAPISpecification:
             raise ConnectionError(
                 f"Failed to fetch the specification from URL: {url}. {e!s}"
             ) from e
-        return cls._from_str(content)
+        return cls.from_str(content)
 
     def find_operation_by_id(
         self, op_id: str, method: Optional[str] = None

@@ -69,7 +69,7 @@ def send_request(request: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # Authentication strategies
-def create_api_key_auth_function(api_key: str):
+def create_api_key_auth_function(api_key: str) -> Callable[[Dict[str, Any], Dict[str, Any]], None]:
     """
     Create a function that applies the API key authentication strategy to a given request.
 
@@ -78,7 +78,7 @@ def create_api_key_auth_function(api_key: str):
     at the schema specified location.
     """
 
-    def apply_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]):
+    def apply_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]) -> None:
         """
         Apply the API key authentication strategy to the given request.
 
@@ -100,7 +100,7 @@ def create_api_key_auth_function(api_key: str):
     return apply_auth
 
 
-def create_http_auth_function(token: str):
+def create_http_auth_function(token: str) -> Callable[[Dict[str, Any], Dict[str, Any]], None]:
     """
     Create a function that applies the http authentication strategy to a given request.
 
@@ -109,7 +109,7 @@ def create_http_auth_function(token: str):
     at the schema specified location.
     """
 
-    def apply_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]):
+    def apply_auth(security_scheme: Dict[str, Any], request: Dict[str, Any]) -> None:
         """
         Apply the HTTP authentication strategy to the given request.
 
@@ -165,7 +165,7 @@ class ClientConfiguration:
             if is_valid_http_url(openapi_spec):
                 self.openapi_spec = OpenAPISpecification.from_url(openapi_spec)
             else:
-                self.openapi_spec = OpenAPISpecification._from_str(openapi_spec)
+                self.openapi_spec = OpenAPISpecification.from_str(openapi_spec)
         else:
             raise ValueError(
                 "Invalid OpenAPI specification format. Expected file path or dictionary."
@@ -203,11 +203,11 @@ class ClientConfiguration:
         provider_to_converter = defaultdict(
             lambda: openai_converter,
             {
-                LLMProvider.ANTHROPIC.value: anthropic_converter,
-                LLMProvider.COHERE.value: cohere_converter,
+                LLMProvider.ANTHROPIC: anthropic_converter,
+                LLMProvider.COHERE: cohere_converter,
             }
         )
-        converter = provider_to_converter[self.llm_provider.value]
+        converter = provider_to_converter[self.llm_provider]
         return converter(self.openapi_spec)
 
     def get_payload_extractor(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
@@ -220,11 +220,11 @@ class ClientConfiguration:
         provider_to_arguments_field_name = defaultdict(
             lambda: "arguments",
             {
-                LLMProvider.ANTHROPIC.value: "input",
-                LLMProvider.COHERE.value: "parameters",
+                LLMProvider.ANTHROPIC: "input",
+                LLMProvider.COHERE: "parameters",
             }
         )
-        arguments_field_name = provider_to_arguments_field_name[self.llm_provider.value]
+        arguments_field_name = provider_to_arguments_field_name[self.llm_provider]
         return create_function_payload_extractor(arguments_field_name)
 
     def _create_authentication_from_string(

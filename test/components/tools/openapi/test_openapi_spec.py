@@ -26,7 +26,7 @@ class TestOpenAPISpecification:
                 '200':
                   description: Successful response
         """
-        openapi_spec = OpenAPISpecification._from_str(content)
+        openapi_spec = OpenAPISpecification.from_str(content)
         assert openapi_spec.spec_dict == {
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
