@@ -61,7 +61,8 @@ class OpenAIFunctionCaller:
         available_functions = {}
         for name, path in available_function_paths.items():
             available_functions[name] = deserialize_callable(path)
-        return cls(available_functions)
+        data["init_parameters"]["available_functions"] = available_functions
+        return default_to_dict(cls, data)
 
     @component.output_types(function_replies=List[ChatMessage], assistant_replies=List[ChatMessage])
     def run(self, messages: List[ChatMessage]):
