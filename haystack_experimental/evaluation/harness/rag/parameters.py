@@ -74,6 +74,9 @@ class RAGEvaluationMetric(Enum):
     #: Answer Faithfulness.
     ANSWER_FAITHFULNESS = "metric_answer_faithfulness"
 
+    #: Context Relevance.
+    CONTEXT_RELEVANCE = "metric_context_relevance"
+
 
 @dataclass(frozen=True)
 class RAGEvaluationInput:

@@ -7,6 +7,7 @@ from typing import Set
 
 from haystack import Pipeline
 from haystack.components.evaluators import (
+    ContextRelevanceEvaluator,
     DocumentMAPEvaluator,
     DocumentMRREvaluator,
     DocumentRecallEvaluator,
@@ -34,12 +35,17 @@ def default_rag_evaluation_pipeline(
     metric_ctors = {
         RAGEvaluationMetric.DOCUMENT_MAP: DocumentMAPEvaluator,
         RAGEvaluationMetric.DOCUMENT_MRR: DocumentMRREvaluator,
-        RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT: partial(DocumentRecallEvaluator, mode=RecallMode.SINGLE_HIT),
-        RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT: partial(DocumentRecallEvaluator, mode=RecallMode.MULTI_HIT),
+        RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT: partial(
+            DocumentRecallEvaluator, mode=RecallMode.SINGLE_HIT
+        ),
+        RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT: partial(
+            DocumentRecallEvaluator, mode=RecallMode.MULTI_HIT
+        ),
         RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY: partial(
             SASEvaluator, model="sentence-transformers/all-MiniLM-L6-v2"
         ),
         RAGEvaluationMetric.ANSWER_FAITHFULNESS: FaithfulnessEvaluator,
+        RAGEvaluationMetric.CONTEXT_RELEVANCE: ContextRelevanceEvaluator,
     }
 
     for metric in metrics:
