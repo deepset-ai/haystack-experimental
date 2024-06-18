@@ -77,10 +77,17 @@ class OpenAPITool:
         self.config_openapi: Optional[ClientConfiguration] = None
         self.open_api_service: Optional[OpenAPIServiceClient] = None
         if spec:
+            if os.path.isfile(spec):
+                openapi_spec = OpenAPISpecification.from_file(spec)
+            elif is_valid_http_url(str(spec)):
+                openapi_spec = OpenAPISpecification.from_url(str(spec))
+            else:
+                raise ValueError(f"Invalid OpenAPI specification source {spec}. Expected valid file path or URL")
+
             self.config_openapi = ClientConfiguration(
-                openapi_spec=self._create_openapi_spec(spec),
+                openapi_spec=openapi_spec,
                 credentials=credentials.resolve_value() if credentials else None,
-                llm_provider=generator_api
+                llm_provider=generator_api,
             )
             self.open_api_service = OpenAPIServiceClient(self.config_openapi)
 
@@ -117,8 +124,15 @@ class OpenAPITool:
         openapi_service: Optional[OpenAPIServiceClient] = self.open_api_service
         config_openapi: Optional[ClientConfiguration] = self.config_openapi
         if spec:
+            if os.path.isfile(spec):
+                openapi_spec = OpenAPISpecification.from_file(spec)
+            elif is_valid_http_url(str(spec)):
+                openapi_spec = OpenAPISpecification.from_url(str(spec))
+            else:
+                raise ValueError(f"Invalid OpenAPI specification source {spec}. Expected valid file path or URL")
+
             config_openapi = ClientConfiguration(
-                openapi_spec=self._create_openapi_spec(spec),
+                openapi_spec=openapi_spec,
                 credentials=credentials.resolve_value() if credentials else None,
                 llm_provider=self.generator_api,
             )
@@ -166,21 +180,3 @@ class OpenAPITool:
             anthropic_import.check()
             return AnthropicChatGenerator(**generator_api_params)
         raise ValueError(f"Unsupported generator API: {generator_api}")
-
-    def _create_openapi_spec(self, openapi_spec: Union[Path, str]) -> OpenAPISpecification:
-        """
-        Create an OpenAPISpecification object from the provided OpenAPI specification.
-
-        :param openapi_spec: OpenAPI specification for the tool/service. This can be a URL, a local file path, or
-        an OpenAPI service specification provided as a string.
-        """
-        if isinstance(openapi_spec, (str, Path)) and os.path.isfile(openapi_spec):
-            return OpenAPISpecification.from_file(openapi_spec)
-        if isinstance(openapi_spec, str):
-            if is_valid_http_url(openapi_spec):
-                return OpenAPISpecification.from_url(openapi_spec)
-            return OpenAPISpecification.from_str(openapi_spec)
-
-        raise ValueError(
-            "Invalid OpenAPI specification format. Expected file path or dictionary."
-        )
