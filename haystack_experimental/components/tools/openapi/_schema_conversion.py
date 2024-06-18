@@ -248,7 +248,7 @@ def _parse_schema(
         nested_parameters = {
             name: _parse_schema(
                 schema=prop_schema,
-                required=bool(name in schema.get("required", False)),
+                required=bool(name in schema.get("required", [])),
                 description=prop_schema.get("description", ""),
             )
             for name, prop_schema in properties.items()
