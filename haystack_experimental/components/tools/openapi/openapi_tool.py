@@ -44,8 +44,8 @@ class OpenAPITool:
 
     tool = OpenAPITool(generator_api=LLMProvider.OPENAI,
                        generator_api_params={"model":"gpt-3.5-turbo"},
-                       tool_spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
-                       tool_credentials="<your-tool-token>")
+                       spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+                       credentials=Secret.from_token("<your-tool-token>"))
 
     results = tool.run(messages=[ChatMessage.from_user("Scrape URL: https://news.ycombinator.com/")])
     print(results)
@@ -167,6 +167,12 @@ class OpenAPITool:
         raise ValueError(f"Unsupported generator API: {generator_api}")
 
     def _create_openapi_spec(self, openapi_spec: Union[Path, str]) -> OpenAPISpecification:
+        """
+        Create an OpenAPISpecification object from the provided OpenAPI specification.
+
+        :param openapi_spec: OpenAPI specification for the tool/service. This can be a URL, a local file path, or
+        an OpenAPI service specification provided as a string.
+        """
         if isinstance(openapi_spec, (str, Path)) and os.path.isfile(openapi_spec):
             return OpenAPISpecification.from_file(openapi_spec)
         if isinstance(openapi_spec, str):
