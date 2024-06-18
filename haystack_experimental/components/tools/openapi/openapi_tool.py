@@ -41,6 +41,7 @@ class OpenAPITool:
     ```python
     from haystack.dataclasses import ChatMessage
     from haystack_experimental.components.tools.openapi import OpenAPITool, LLMProvider
+    from haystack.utils import Secret
 
     tool = OpenAPITool(generator_api=LLMProvider.OPENAI,
                        generator_api_params={"model":"gpt-3.5-turbo"},
