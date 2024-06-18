@@ -30,6 +30,7 @@ class TestClientLive:
         assert "invention" in str(response)
 
     @pytest.mark.integration
+    @pytest.mark.skip("This test hits rate limit on Github API. Skip for now.")
     def test_github(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "github_compare.yml"))
         api = OpenAPIServiceClient(config)
