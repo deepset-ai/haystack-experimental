@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from haystack import component, logging
+from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, ChatRole
 from haystack.lazy_imports import LazyImport
-from haystack.utils import Secret
+from haystack.utils import Secret, deserialize_secrets_inplace
 from haystack.utils.url_validation import is_valid_http_url
 
 from haystack_experimental.components.tools.openapi._openapi import (
@@ -73,6 +73,7 @@ class OpenAPITool:
         :param credentials: Credentials for the tool/service.
         """
         self.generator_api = generator_api
+        self.generator_api_params = generator_api_params or {}  # store the generator API parameters for serialization
         self.chat_generator = self._init_generator(generator_api, generator_api_params or {})
         self.config_openapi: Optional[ClientConfiguration] = None
         self.open_api_service: Optional[OpenAPIServiceClient] = None
@@ -83,7 +84,8 @@ class OpenAPITool:
                 openapi_spec = OpenAPISpecification.from_url(str(spec))
             else:
                 raise ValueError(f"Invalid OpenAPI specification source {spec}. Expected valid file path or URL")
-
+            self.spec = spec  # store the spec for serialization
+            self.credentials = credentials  # store the credentials for serialization
             self.config_openapi = ClientConfiguration(
                 openapi_spec=openapi_spec,
                 credentials=credentials.resolve_value() if credentials else None,
@@ -166,6 +168,41 @@ class OpenAPITool:
         response_messages = [ChatMessage.from_user(json.dumps(service_response))]
 
         return {"service_response": response_messages}
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize this component to a dictionary.
+
+        :returns:
+            The serialized component as a dictionary.
+        """
+        if "api_key" in self.generator_api_params:
+            self.generator_api_params["api_key"] = self.generator_api_params["api_key"].to_dict()
+
+        return default_to_dict(
+            self,
+            generator_api=self.generator_api.value,
+            generator_api_params=self.generator_api_params,
+            spec=self.spec,
+            credentials=self.credentials.to_dict() if self.credentials else None,
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "OpenAPITool":
+        """
+        Deserialize this component from a dictionary.
+
+        :param data: The dictionary representation of this component.
+        :returns:
+            The deserialized component instance.
+        """
+        deserialize_secrets_inplace(data["init_parameters"], keys=["credentials"])
+        if "generator_api_params" in data["init_parameters"]:
+            deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
+        init_params = data.get("init_parameters", {})
+        generator_api = init_params.get("generator_api")
+        data["init_parameters"]["generator_api"] = LLMProvider(generator_api)
+        return default_from_dict(cls, data)
 
     def _init_generator(self, generator_api: LLMProvider, generator_api_params: Dict[str, Any]):
         """

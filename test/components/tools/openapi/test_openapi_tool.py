@@ -13,6 +13,63 @@ import pytest
 
 class TestOpenAPITool:
 
+    def test_to_dict(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        monkeypatch.setenv("SERPERDEV_API_KEY", "fake-api-key")
+
+        openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
+
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            generator_api_params={
+                "model": "gpt-3.5-turbo",
+                "api_key": Secret.from_env_var("OPENAI_API_KEY"),
+            },
+            spec=openapi_spec_url,
+            credentials=Secret.from_env_var("SERPERDEV_API_KEY"),
+        )
+
+        data = tool.to_dict()
+        assert data == {
+            "type": "haystack_experimental.components.tools.openapi.openapi_tool.OpenAPITool",
+            "init_parameters": {
+                "generator_api": "openai",
+                "generator_api_params": {
+                    "model": "gpt-3.5-turbo",
+                    "api_key": {"env_vars": ["OPENAI_API_KEY"], "strict": True, "type": "env_var"},
+                },
+                "spec": openapi_spec_url,
+                "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+            },
+        }
+
+    def test_from_dict(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
+        monkeypatch.setenv("SERPERDEV_API_KEY", "fake-api-key")
+        openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
+        data = {
+            "type": "haystack_experimental.components.tools.openapi.openapi_tool.OpenAPITool",
+            "init_parameters": {
+                "generator_api": "openai",
+                "generator_api_params": {
+                    "model": "gpt-3.5-turbo",
+                    "api_key": {"env_vars": ["OPENAI_API_KEY"], "strict": True, "type": "env_var"},
+                },
+                "spec": openapi_spec_url,
+                "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+            },
+        }
+
+        tool = OpenAPITool.from_dict(data)
+
+        assert tool.generator_api == LLMProvider.OPENAI
+        assert tool.generator_api_params == {
+            "model": "gpt-3.5-turbo",
+            "api_key": Secret.from_env_var("OPENAI_API_KEY")
+        }
+        assert tool.spec == openapi_spec_url
+        assert tool.credentials == Secret.from_env_var("SERPERDEV_API_KEY")
+
     def test_initialize_with_valid_openapi_spec_url_and_credentials(self):
         openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
         credentials = Secret.from_token("<your-tool-token>")
