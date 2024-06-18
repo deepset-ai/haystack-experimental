@@ -134,7 +134,7 @@ class ClientConfiguration:
         openapi_spec: OpenAPISpecification,
         credentials: Optional[str] = None,
         request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
-        llm_provider: Optional[LLMProvider] = None,
+        llm_provider: LLMProvider = LLMProvider.OPENAI,
     ):  # noqa: PLR0913
         """
         Initialize a ClientConfiguration instance.
@@ -148,7 +148,7 @@ class ClientConfiguration:
         self.openapi_spec = openapi_spec
         self.credentials = credentials
         self.request_sender = request_sender or send_request
-        self.llm_provider: LLMProvider = llm_provider or LLMProvider.OPENAI
+        self.llm_provider: LLMProvider = llm_provider
 
     def get_auth_function(self) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         """
