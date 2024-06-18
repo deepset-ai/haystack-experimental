@@ -91,7 +91,7 @@ class OpenAIFunctionCaller:
                                 name=function_name,
                             )
                         )
-                    except BaseException as e:
+                    except Exception as e:
                         messages.append(ChatMessage.from_assistant(_FUNCTION_RUN_FAILURE.format(error=e)))
                 else:
                     messages.append(ChatMessage.from_assistant(_FUNCTION_NAME_FAILURE))
