@@ -44,8 +44,8 @@ def default_rag_evaluation_pipeline(
         RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY: partial(
             SASEvaluator, model="sentence-transformers/all-MiniLM-L6-v2"
         ),
-        RAGEvaluationMetric.ANSWER_FAITHFULNESS: FaithfulnessEvaluator(raise_on_failure=False),
-        RAGEvaluationMetric.CONTEXT_RELEVANCE: ContextRelevanceEvaluator(raise_on_failure=False),
+        RAGEvaluationMetric.ANSWER_FAITHFULNESS: partial(FaithfulnessEvaluator, raise_on_failure=False),
+        RAGEvaluationMetric.CONTEXT_RELEVANCE: partial(ContextRelevanceEvaluator, raise_on_failure=False),
     }
 
     for metric in metrics:
