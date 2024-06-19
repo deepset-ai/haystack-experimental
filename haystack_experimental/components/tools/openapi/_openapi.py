@@ -39,7 +39,7 @@ def send_request(request: Dict[str, Any]) -> Dict[str, Any]:
             params=request.get("params", {}),
             json=request.get("json"),
             auth=request.get("auth"),
-            timeout=10,
+            timeout=30,
         )
         response.raise_for_status()
         return response.json()
