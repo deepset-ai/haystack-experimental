@@ -19,6 +19,7 @@ from haystack_experimental.components.tools.openapi._openapi import (
     OpenAPIServiceClient,
 )
 from haystack_experimental.components.tools.openapi.types import LLMProvider, OpenAPISpecification
+from haystack_experimental.util import serialize_secrets_inplace
 
 with LazyImport("Run 'pip install anthropic-haystack'") as anthropic_import:
     # pylint: disable=import-error
@@ -77,6 +78,8 @@ class OpenAPITool:
         self.chat_generator = self._init_generator(generator_api, generator_api_params or {})
         self.config_openapi: Optional[ClientConfiguration] = None
         self.open_api_service: Optional[OpenAPIServiceClient] = None
+        self.spec = spec  # store the spec for serialization
+        self.credentials = credentials  # store the credentials for serialization
         if spec:
             if os.path.isfile(spec):
                 openapi_spec = OpenAPISpecification.from_file(spec)
@@ -84,8 +87,6 @@ class OpenAPITool:
                 openapi_spec = OpenAPISpecification.from_url(str(spec))
             else:
                 raise ValueError(f"Invalid OpenAPI specification source {spec}. Expected valid file path or URL")
-            self.spec = spec  # store the spec for serialization
-            self.credentials = credentials  # store the credentials for serialization
             self.config_openapi = ClientConfiguration(
                 openapi_spec=openapi_spec,
                 credentials=credentials.resolve_value() if credentials else None,
@@ -176,9 +177,7 @@ class OpenAPITool:
         :returns:
             The serialized component as a dictionary.
         """
-        if "api_key" in self.generator_api_params:
-            self.generator_api_params["api_key"] = self.generator_api_params["api_key"].to_dict()
-
+        serialize_secrets_inplace(self.generator_api_params, keys=["api_key"], recursive=True)
         return default_to_dict(
             self,
             generator_api=self.generator_api.value,
@@ -197,11 +196,10 @@ class OpenAPITool:
             The deserialized component instance.
         """
         deserialize_secrets_inplace(data["init_parameters"], keys=["credentials"])
-        if "generator_api_params" in data["init_parameters"]:
-            deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
+        deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         init_params = data.get("init_parameters", {})
         generator_api = init_params.get("generator_api")
-        data["init_parameters"]["generator_api"] = LLMProvider(generator_api)
+        data["init_parameters"]["generator_api"] = LLMProvider.from_str(generator_api)
         return default_from_dict(cls, data)
 
     def _init_generator(self, generator_api: LLMProvider, generator_api_params: Dict[str, Any]):

@@ -31,6 +31,21 @@ class LLMProvider(Enum):
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
 
+    @staticmethod
+    def from_str(string: str) -> "LLMProvider":
+        """
+        Convert a string to a LLMProvider enum.
+        """
+        provider_map = {e.value: e for e in LLMProvider}
+        provider = provider_map.get(string)
+        if provider is None:
+            msg = (
+                f"Invalid LLMProvider '{string}'"
+                f"Supported LLMProviders are: {list(provider_map.keys())}"
+            )
+            raise ValueError(msg)
+        return provider
+
 
 @dataclass
 class Operation:

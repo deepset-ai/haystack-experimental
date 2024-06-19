@@ -70,6 +70,28 @@ class TestOpenAPITool:
         assert tool.spec == openapi_spec_url
         assert tool.credentials == Secret.from_env_var("SERPERDEV_API_KEY")
 
+    def test_initialize_with_invalid_openapi_spec_url(self):
+        with pytest.raises(ConnectionError, match="Failed to fetch the specification from URL"):
+            OpenAPITool(
+                generator_api=LLMProvider.OPENAI,
+                generator_api_params={
+                    "model": "gpt-3.5-turbo",
+                    "api_key": Secret.from_token("not_needed"),
+                },
+                spec="https://raw.githubusercontent.com/invalid_openapi.json",
+            )
+
+    def test_initialize_with_invalid_openapi_spec_path(self):
+        with pytest.raises(ValueError, match="Invalid OpenAPI specification source"):
+            OpenAPITool(
+                generator_api=LLMProvider.OPENAI,
+                generator_api_params={
+                    "model": "gpt-3.5-turbo",
+                    "api_key": Secret.from_token("not_needed"),
+                },
+                spec="invalid_openapi.json",
+            )
+
     def test_initialize_with_valid_openapi_spec_url_and_credentials(self):
         openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
         credentials = Secret.from_token("<your-tool-token>")
@@ -103,7 +125,7 @@ class TestOpenAPITool:
         )
 
         user_message = ChatMessage.from_user(
-            "Scrape URL: https://news.ycombinator.com/"
+            "Search for 'Who was Nikola Tesla?'"
         )
 
         results = tool.run(messages=[user_message])
@@ -134,7 +156,7 @@ class TestOpenAPITool:
         )
 
         user_message = ChatMessage.from_user(
-            "Scrape URL: https://news.ycombinator.com/"
+            "Search for 'Who was Nikola Tesla?'"
         )
 
         results = tool.run(messages=[user_message])
@@ -165,7 +187,7 @@ class TestOpenAPITool:
         )
 
         user_message = ChatMessage.from_user(
-            "Scrape URL: https://news.ycombinator.com/"
+            "Search for 'Who was Nikola Tesla?'"
         )
 
         results = tool.run(messages=[user_message])
