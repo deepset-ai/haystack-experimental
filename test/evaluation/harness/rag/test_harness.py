@@ -664,6 +664,62 @@ class TestRAGEvaluationHarness:
 
         assert output.inputs == inputs
         assert output.results.run_name == "test_run"
+        assert output.results.inputs == {
+            "questions": ["What is the capital of France?"] * 6,
+            "contexts": [
+                ["France"],
+                [
+                    "9th century",
+                    "10th century",
+                    "9th",
+                ],
+                [
+                    "classical",
+                    "rock music",
+                    "dubstep",
+                ],
+                [
+                    "11th",
+                    "the 11th",
+                    "11th century",
+                ],
+                [
+                    "Denmark",
+                    "Norway",
+                    "Iceland",
+                ],
+                [
+                    "10th century",
+                    "the first half of the 10th century",
+                    "10th",
+                    "10th",
+                ],
+            ],
+            "responses": [
+                "placeholder",
+                "placeholder",
+                "placeholder",
+                "placeholder",
+                "placeholder",
+                "placeholder",
+            ],
+            "ground_truth_documents": [
+                ["France"],
+                ["9th century", "9th"],
+                ["classical music", "classical"],
+                ["11th century", "the 11th"],
+                ["Denmark, Iceland and Norway"],
+                ["10th century", "10th"],
+            ],
+            "ground_truth_answers": [
+                "Paris is the capital of France.",
+                "9th century",
+                "classical music",
+                "11th century",
+                "Denmark, Iceland and Norway",
+                "10th century",
+            ],
+        }
         assert output.results.results == {
             "metric_answer_faithfulness": MockModelBasedEvaluator.default_output(
                 RAGEvaluationMetric.ANSWER_FAITHFULNESS

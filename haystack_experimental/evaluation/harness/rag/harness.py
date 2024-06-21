@@ -131,23 +131,31 @@ class RAGEvaluationHarness(
             pipeline_outputs["second"],
         )
 
+        result_inputs = {
+            "questions": inputs.queries,
+            "contexts": [
+                [doc.content for doc in docs]
+                for docs in self._lookup_component_output(
+                    RAGExpectedComponent.DOCUMENT_RETRIEVER,
+                    rag_outputs,
+                    "retrieved_documents",
+                )
+            ],
+            "responses": self._lookup_component_output(
+                RAGExpectedComponent.RESPONSE_GENERATOR, rag_outputs, "replies"
+            ),
+        }
+        if inputs.ground_truth_answers is not None:
+            result_inputs["ground_truth_answers"] = inputs.ground_truth_answers
+        if inputs.ground_truth_documents is not None:
+            result_inputs["ground_truth_documents"] = [
+                [doc.content for doc in docs] for docs in inputs.ground_truth_documents
+            ]
+
         assert run_name is not None
         run_results = EvaluationRunResult(
             run_name,
-            inputs={
-                "questions": inputs.queries,
-                "contexts": [
-                    [doc.content for doc in docs]
-                    for docs in self._lookup_component_output(
-                        RAGExpectedComponent.DOCUMENT_RETRIEVER,
-                        rag_outputs,
-                        "retrieved_documents",
-                    )
-                ],
-                "responses": self._lookup_component_output(
-                    RAGExpectedComponent.RESPONSE_GENERATOR, rag_outputs, "replies"
-                ),
-            },
+            inputs=result_inputs,
             results=eval_outputs,
         )
 
