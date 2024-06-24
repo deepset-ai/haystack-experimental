@@ -37,10 +37,12 @@ the experiment will be either:
 The latest version of the package contains the following experiments:
 
 | Name                     | Type                    | Experiment end date |
-| ------------------------ | ----------------------- | ------------------- |
+|--------------------------|-------------------------| ------------------- |
 | [`EvaluationHarness`][1] | Evaluation orchestrator | August 2024         |
+| [`OpenAPITool`][2]       | OpenAPITool component   | August 2024         |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
+[2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
 
 ## Usage
 
