@@ -27,8 +27,8 @@ $ pip install -U haystack-experimental
 ## Experiments lifecycle
 
 Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build 
-that includes it. Once it reaches the end of its lifespan, the experiment will either:
-- Be merged into Haystack core and published in the next minor release, or
+that includes it. Once it reaches the end of its lifespan, the experiment will be either:
+- Merged into Haystack core and published in the next minor release, or
 - Released as a Core Integration, or
 - Dropped.
 
