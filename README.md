@@ -26,20 +26,20 @@ $ pip install -U haystack-experimental
 
 ## Experiments lifecycle
 
-Any experimental feature will be removed from `haystack-experimental` after a period of 3 months. After this time,
-the experiment will be either:
-- Merged into Haystack core and published in the next minor release
-- Released as a Core Integration,
+Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build 
+that includes it. Once it reaches the end of its lifespan, the experiment will be either:
+- Be merged into Haystack core and published in the next minor release, or
+- Released as a Core Integration, or
 - Dropped.
 
 ## Experiments catalog
 
 The latest version of the package contains the following experiments:
 
-| Name                     | Type                    | Experiment end date |
+| Name                     | Type                    | Expected experiment end date |
 | ------------------------ | ----------------------- | ------------------- |
-| [`EvaluationHarness`][1] | Evaluation orchestrator | August 2024         |
-| [`OpenAIFunctionCaller`][2] | Function Calling Component | August 2024         |
+| [`EvaluationHarness`][1] | Evaluation orchestrator | September 2024         |
+| [`OpenAIFunctionCaller`][2] | Function Calling Component | September 2024         |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
