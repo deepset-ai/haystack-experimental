@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.8.0"]
+requires = ["hatchling>=1.8.0", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -74,7 +74,8 @@ sync = "./.github/utils/pydoc-markdown.sh"
 delete-outdated = "python ./.github/utils/delete_outdated_docs.py {args}"
 
 [tool.hatch.version]
-path = "haystack_experimental/version.py"
+source = "vcs"
+tag-pattern = 'v(?P<version>.*)'
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -91,10 +92,7 @@ quiet-level = 3
 skip = "test/nodes/*,test/others/*,test/samples/*,e2e/*"
 
 [tool.pylint]
-ignore-paths = [
-  "haystack_experimental/__init__.py",
-  "haystack_experimental/version.py",
-]
+ignore-paths = ["haystack_experimental/__init__.py"]
 
 [tool.pylint.'MESSAGES CONTROL']
 max-line-length = 120
