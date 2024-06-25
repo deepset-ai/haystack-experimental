@@ -1,0 +1,27 @@
+loaders:
+  - type: haystack_pydoc_tools.loaders.CustomPythonLoader
+    search_path: [../../../haystack_experimental/components/tools/openai]
+    modules: ["function_caller"]
+    ignore_when_discovered: ["__init__"]
+processors:
+  - type: filter
+    expression:
+    documented_only: true
+    do_not_filter_modules: false
+    skip_empty_modules: true
+  - type: smart
+  - type: crossref
+renderer:
+  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
+  excerpt: OpenAIFunctionCaller invokes Python functions from ChatMessage(s)
+  category_slug: haystack-api
+  title: OpenAI Function Caller
+  slug: openai-function-caller-api
+  order: 90
+  markdown:
+    descriptive_class_title: false
+    classdef_code_block: false
+    descriptive_module_title: true
+    add_method_class_prefix: true
+    add_member_class_prefix: false
+    filename: openai_function_caller_api.md
