@@ -39,9 +39,6 @@ dependencies = [
   # Test
   "pytest",
   "pytest-cov",
-  "fastapi",
-  "cohere",
-  "anthropic",
   # Linting
   "pylint",
   "ruff",
@@ -51,6 +48,10 @@ dependencies = [
 extra-dependencies = [
   # RAG evaluation harness (SAS evaluator)
   "sentence-transformers>=2.2.0",
+  # OpenAPI tests
+  "cohere",
+  "anthropic",
+  "fastapi",
 ]
 
 [tool.hatch.envs.test.scripts]
