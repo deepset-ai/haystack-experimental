@@ -1,0 +1,75 @@
+openapi: 3.0.0
+info:
+  title: Order Service
+  version: 1.0.0
+servers:
+  - url: http://localhost # not used anyway
+paths:
+  /orders:
+    post:
+      summary: Create a new order
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+      required:
+        - customer
+        - items
+
+    Customer:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - name
+        - email
+
+    OrderItem:
+      type: object
+      properties:
+        product:
+          type: string
+        quantity:
+          type: integer
+      required:
+        - product
+        - quantity
+
+    OrderResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+        status:
+          type: string
+        totalAmount:
+          type: number
+      required:
+        - orderId
+        - status
+        - totalAmount
