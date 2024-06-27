@@ -5,9 +5,14 @@
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
-import jsonref
+from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.components.tools.openapi.types import OpenAPISpecification
+
+with LazyImport("Run 'pip install jsonref'") as jsonref_import:
+    # pylint: disable=import-error
+    import jsonref
+
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 
