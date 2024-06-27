@@ -34,6 +34,8 @@ Homepage = "https://github.com/deepset-ai/haystack-experimental"
 
 [tool.hatch.envs.default]
 dependencies = [
+  # Pre-commit hook
+  "pre-commit",
   # Type check
   "mypy",
   # Test
