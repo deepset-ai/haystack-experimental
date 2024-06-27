@@ -14,7 +14,7 @@ processors:
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
   excerpt: OpenAIFunctionCaller invokes Python functions from ChatMessage(s)
-  category_slug: haystack-api
+  category_slug: haystack-experimental
   title: OpenAI Function Caller
   slug: openai-function-caller-api
   order: 90
