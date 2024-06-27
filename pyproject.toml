@@ -51,8 +51,8 @@ extra-dependencies = [
   # OpenAPI dependencies
   "jsonref",
   # OpenAPI tests
-  "cohere",
-  "anthropic",
+  "cohere-haystack",
+  "anthropic-haystack",
   "fastapi",
 ]
 
