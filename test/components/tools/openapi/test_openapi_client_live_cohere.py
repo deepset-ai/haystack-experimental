@@ -53,6 +53,7 @@ class TestClientLiveCohere:
 
     @pytest.mark.skipif("COHERE_API_KEY" not in os.environ, reason="COHERE_API_KEY not set")
     @pytest.mark.integration
+    @pytest.mark.skip("This test hits rate limit on Github API. Skip for now.")
     def test_github(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "github_compare.yml"),
                                      llm_provider=LLMProvider.COHERE)

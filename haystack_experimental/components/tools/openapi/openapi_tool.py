@@ -47,7 +47,7 @@ class OpenAPITool:
     tool = OpenAPITool(generator_api=LLMProvider.OPENAI,
                        generator_api_params={"model":"gpt-3.5-turbo"},
                        spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
-                       credentials=Secret.from_token("<your-tool-token>"))
+                       credentials=Secret.from_env_var("FIRECRAWL_API_KEY"))
 
     results = tool.run(messages=[ChatMessage.from_user("Scrape URL: https://news.ycombinator.com/")])
     print(results)

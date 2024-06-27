@@ -25,7 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["jsonref", "haystack-ai"]
+dependencies = ["haystack-ai"]
 [project.urls]
 "CI: GitHub" = "https://github.com/deepset-ai/haystack-experimental/actions"
 "GitHub: issues" = "https://github.com/deepset-ai/haystack-experimental/issues"
@@ -39,9 +39,6 @@ dependencies = [
   # Test
   "pytest",
   "pytest-cov",
-  "fastapi",
-  "cohere",
-  "anthropic",
   # Linting
   "pylint",
   "ruff",
@@ -51,6 +48,12 @@ dependencies = [
 extra-dependencies = [
   # RAG evaluation harness (SAS evaluator)
   "sentence-transformers>=2.2.0",
+  # OpenAPI dependencies
+  "jsonref",
+  # OpenAPI tests
+  "cohere-haystack",
+  "anthropic-haystack",
+  "fastapi",
 ]
 
 [tool.hatch.envs.test.scripts]
