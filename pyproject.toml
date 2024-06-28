@@ -38,6 +38,7 @@ dependencies = [
   "mypy",
   # Test
   "pytest",
+  "pytest-rerunfailures",
   "pytest-cov",
   # Linting
   "pylint",
@@ -58,7 +59,7 @@ extra-dependencies = [
 
 [tool.hatch.envs.test.scripts]
 unit = 'pytest --cov-report xml:coverage.xml --cov="haystack_experimental" -m "not integration" {args:test}'
-integration = 'pytest --maxfail=5 -m "integration" {args:test}'
+integration = 'pytest --reruns 3 --reruns-delay 60 -x --maxfail=5 -m "integration" {args:test}'
 typing = "mypy --install-types --non-interactive {args:haystack_experimental}"
 lint = [
   "ruff check {args:haystack_experimental}",
