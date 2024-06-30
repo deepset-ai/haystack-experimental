@@ -43,9 +43,9 @@ repos:
 
 - repo: local
   hooks:
-  -   id: pylint
-      name: pylint
-      entry: pylint
-      language: python
-      types: [python]
-      args: ["--rcfile=pyproject.toml"]
+  - id: pylint
+    name: pylint
+    entry: pylint
+    language: python
+    types: [python]
+    args: ["--rcfile=pyproject.toml"]
