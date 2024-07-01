@@ -4,7 +4,7 @@ You can find Haystack's documentation at https://docs.haystack.deepset.ai/.
 
 # :computer: How to update docs?
 
-## Overview, Components, Pipeline Nodes, and Guides
+## Overview, Components, and Guides
 
 You can find these docs on the Haystack Docs page: https://docs.haystack.deepset.ai/docs/get_started. If you want to contribute, and we welcome every contribution, do the following:
 1. Make sure you're on the right version (check the version expanding list in the top left corner).
