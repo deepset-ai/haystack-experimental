@@ -61,6 +61,7 @@ class TestClientLiveOpenAPI:
     @pytest.mark.skipif("FIRECRAWL_API_KEY" not in os.environ, reason="FIRECRAWL_API_KEY not set")
     @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
+    @pytest.mark.skip("This test is flaky likely due to load on the popular Firecrawl API. Skip for now.")
     def test_firecrawl(self):
         openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
         config = ClientConfiguration(openapi_spec=create_openapi_spec(openapi_spec_url), credentials=os.getenv("FIRECRAWL_API_KEY"))
