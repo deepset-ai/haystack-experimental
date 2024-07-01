@@ -30,7 +30,7 @@ All the updates to doctrings get pushed to documentation when you commit to the 
 
 ### Configuration
 
-Pydoc will read the configuration from a `.yml` file which is located under `/haystack_experimental/docs/pydoc/config. Our files contain three main sections:
+Pydoc will read the configuration from a `.yml` file which is located under `/haystack_experimental/docs/pydoc/config`. Our files contain three main sections:
 
 - **loader**: A list of plugins that load API objects from python source files.
     - **type**: Loader for python source files
