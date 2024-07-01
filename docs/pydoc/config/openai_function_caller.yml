@@ -13,7 +13,7 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: OpenAIFunctionCaller invokes Python functions from ChatMessage(s)
+  excerpt: OpenAIFunctionCaller invokes Python functions from ChatMessage(s).
   category_slug: experiments-api
   title: OpenAI Function Caller
   slug: openai-function-caller-api
