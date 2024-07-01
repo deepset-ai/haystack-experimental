@@ -34,6 +34,8 @@ Homepage = "https://github.com/deepset-ai/haystack-experimental"
 
 [tool.hatch.envs.default]
 dependencies = [
+  # Pre-commit hook
+  "pre-commit",
   # Type check
   "mypy",
   # Test
@@ -103,6 +105,51 @@ max-line-length = 120
 disable = [
   "C0114", # missing-module-docstring
   "R0903", # too-few-public-methods
+  # To keep
+  "fixme",
+  "c-extension-no-member",
+
+  # To review:
+  "missing-docstring",
+  "unused-argument",
+  "no-member",
+  "line-too-long",
+  "protected-access",
+  "too-few-public-methods",
+  "raise-missing-from",
+  "invalid-name",
+  "duplicate-code",
+  "arguments-differ",
+  "consider-using-f-string",
+  "no-else-return",
+  "attribute-defined-outside-init",
+  "super-with-arguments",
+  "redefined-builtin",
+  "abstract-method",
+  "unspecified-encoding",
+  "unidiomatic-typecheck",
+  "no-name-in-module",
+  "consider-using-with",
+  "redefined-outer-name",
+  "arguments-renamed",
+  "unnecessary-pass",
+  "broad-except",
+  "unnecessary-comprehension",
+  "subprocess-run-check",
+  "singleton-comparison",
+  "consider-iterating-dictionary",
+  "undefined-loop-variable",
+  "consider-using-in",
+  "bare-except",
+  "unexpected-keyword-arg",
+  "simplifiable-if-expression",
+  "use-list-literal",
+  "broad-exception-raised",
+
+  # To review later
+  "cyclic-import",
+  "import-outside-toplevel",
+  "deprecated-method",
 ]
 
 [tool.pytest.ini_options]
