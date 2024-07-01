@@ -14,7 +14,7 @@ processors:
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
   excerpt: Allows Haystack to interact with OpenAPI specified services.
-  category_slug: haystack-experimental
+  category_slug: experiments-api
   title: OpenAPI
   slug: openapi-api
   order: 100
