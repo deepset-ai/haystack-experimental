@@ -13,7 +13,7 @@ from ...util.helpers import (
     deaggregate_batched_pipeline_inputs,
 )
 from ...util.pipeline_pair import PipelinePair
-from ..evalution_harness import EvaluationHarness
+from ..evaluation_harness import EvaluationHarness
 from .evaluation_pipeline import default_rag_evaluation_pipeline
 from .parameters import (
     RAGEvaluationInput,
