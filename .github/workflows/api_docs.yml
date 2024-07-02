@@ -22,7 +22,7 @@ jobs:
         id: version_finder
         run: |
           curl -s "https://dash.readme.com/api/v1/version" --header "authorization: Basic ${{ secrets.README_API_KEY }}" > out
-          VERSIONS=$(jq -r '[ .[] | select(.version | startswith("2.")) | .version ] | .[-2:] | @csv' out)
+          VERSIONS=$(jq -c '[ .[] | select(.version | startswith("2.")) | .version ] | .[-2:]' out)
           {
             echo 'versions<<EOF'
             echo "$VERSIONS"
