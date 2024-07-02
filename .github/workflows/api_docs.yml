@@ -13,8 +13,29 @@ env:
   PYTHON_VERSION: "3.10"
 
 jobs:
+  get-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.version_finder.outputs.versions }}
+    steps:
+      - name: Get Haystack Docs versions
+        id: version_finder
+        run: |
+          curl -s "https://dash.readme.com/api/v1/version" --header "authorization: Basic ${{ secrets.README_API_KEY }}" > out
+          VERSIONS=$(jq '[ .[] | select(.version | startswith("2."))| .version ]' out)
+          {
+            echo 'versions<<EOF'
+            echo $VERSIONS
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
   sync:
     runs-on: ubuntu-latest
+    needs: get-versions
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        hs-docs-version: ${{ fromJSON(needs.get-versions.outputs.versions) }}
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -35,27 +56,11 @@ jobs:
           README_API_KEY: ${{ secrets.README_API_KEY }}
         # The command is a bit misleading, we're not actually syncing anything here,
         # we're just generating the markdown files from the the yaml configs.
+          PYDOC_TOOLS_HAYSTACK_DOC_VERSION: ${{ matrix.hs-docs-version }}
         run: hatch run readme:sync
 
-      - name: Get version
-        id: version-getter
-        run: |
-          VERSION="$(hatch version | cut -d '.' -f 1,2)"
-          CURRENT_BRANCH="${{ github.ref_name }}"
-          # If we're on `main` branch we should push docs to the unstable version
-          if [ "$CURRENT_BRANCH" = "main" ]; then
-            VERSION="$VERSION-unstable"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Sync docs
+      - name: Sync docs for ${{ matrix.hs-docs-version }}
         if: github.event_name == 'push'
         uses: readmeio/rdme@v8
         with:
-          rdme: docs ./docs/pydoc/temp --key=${{ secrets.README_API_KEY }} --version=${{ steps.version-getter.outputs.version }}
-
-      - name: Delete outdated
-        if: github.event_name == 'push'
-        env:
-          README_API_KEY: ${{ secrets.README_API_KEY }}
-        run: hatch run readme:delete-outdated  --version="${{ steps.version-getter.outputs.version }}" --config-path ./docs/pydoc/config
+          rdme: docs ./docs/pydoc/temp --key="${{ secrets.README_API_KEY }}" --version="${{ matrix.hs-docs-version }}"
