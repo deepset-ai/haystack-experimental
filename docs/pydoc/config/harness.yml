@@ -17,7 +17,7 @@ processors:
   - type: smart
   - type: crossref
 renderer:
-  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
+  type: haystack_pydoc_tools.renderers.ReadmeIntegrationRenderer
   excerpt: Evaluation harness for Haystack.
   category_slug: experiments-api
   title: Evaluation Harness
