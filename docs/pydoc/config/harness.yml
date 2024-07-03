@@ -5,8 +5,6 @@ loaders:
               "harness/rag/harness",
               "harness/rag/evaluation_pipeline",
               "harness/rag/parameters",
-              "util/pipeline_pair",
-              "util/helpers"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
