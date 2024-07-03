@@ -3,7 +3,6 @@ loaders:
     search_path: [../../../haystack_experimental/evaluation]
     modules: ["harness/evaluation_harness",
               "harness/rag/harness",
-              "harness/rag/evaluation_pipeline",
               "harness/rag/parameters",
     ignore_when_discovered: ["__init__"]
 processors:
