@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 from haystack_experimental.evaluation.harness.rag import (
+    DefaultRAGArchitecture,
     RAGEvaluationHarness,
     RAGExpectedComponent,
     RAGExpectedComponentMetadata,
@@ -377,12 +378,27 @@ class TestRAGEvaluationHarness:
     def test_init_defaults(
         self, rag_pipeline_with_query_embedder, rag_pipeline_with_keyword_retriever
     ):
-        _ = RAGEvaluationHarness.default_with_embedding_retriever(
-            rag_pipeline_with_query_embedder, metrics={RAGEvaluationMetric.DOCUMENT_MAP}
+        _ = RAGEvaluationHarness(
+            rag_pipeline_with_query_embedder,
+            DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
+            metrics={RAGEvaluationMetric.DOCUMENT_MAP},
         )
 
-        _ = RAGEvaluationHarness.default_with_keyword_retriever(
+        _ = RAGEvaluationHarness(
             rag_pipeline_with_keyword_retriever,
+            DefaultRAGArchitecture.GENERATION_WITH_KEYWORD_RETRIEVAL,
+            metrics={RAGEvaluationMetric.DOCUMENT_MAP},
+        )
+
+        _ = RAGEvaluationHarness(
+            rag_pipeline_with_query_embedder,
+            DefaultRAGArchitecture.EMBEDDING_RETRIEVAL,
+            metrics={RAGEvaluationMetric.DOCUMENT_MAP},
+        )
+
+        _ = RAGEvaluationHarness(
+            rag_pipeline_with_keyword_retriever,
+            DefaultRAGArchitecture.KEYWORD_RETRIEVAL,
             metrics={RAGEvaluationMetric.DOCUMENT_MAP},
         )
 
@@ -393,10 +409,11 @@ class TestRAGEvaluationHarness:
             ValueError,
             match="Required input 'text' not found in 'query_processor' component named 'query_embedder'",
         ):
-            _ = RAGEvaluationHarness.default_with_embedding_retriever(
+            _ = RAGEvaluationHarness(
                 build_rag_pipeline_with_query_embedder(
                     embedder_name="llm", generator_name="query_embedder"
                 ),
+                DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
                 metrics={RAGEvaluationMetric.DOCUMENT_MAP},
             )
 
@@ -404,10 +421,11 @@ class TestRAGEvaluationHarness:
             ValueError,
             match="Required input 'query' not found in 'query_processor' component named 'retriever'",
         ):
-            _ = RAGEvaluationHarness.default_with_keyword_retriever(
+            _ = RAGEvaluationHarness(
                 build_rag_pipeline_with_keyword_retriever(
                     retriever_name="llm", generator_name="retriever"
                 ),
+                DefaultRAGArchitecture.GENERATION_WITH_KEYWORD_RETRIEVAL,
                 metrics={RAGEvaluationMetric.DOCUMENT_MAP},
             )
 
@@ -432,8 +450,9 @@ class TestRAGEvaluationHarness:
             ValueError,
             match="Required output 'replies' not found in 'response_generator' component named 'generator'",
         ):
-            _ = RAGEvaluationHarness.default_with_embedding_retriever(
+            _ = RAGEvaluationHarness(
                 non_conformant_query_embedder_pipeline,
+                DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
                 metrics={RAGEvaluationMetric.DOCUMENT_MAP},
             )
 
@@ -441,20 +460,36 @@ class TestRAGEvaluationHarness:
             ValueError,
             match="Required output 'documents' not found in 'document_retriever' component named 'retriever'",
         ):
-            _ = RAGEvaluationHarness.default_with_keyword_retriever(
+            _ = RAGEvaluationHarness(
                 non_conformant_keyword_retriever_pipeline,
+                DefaultRAGArchitecture.GENERATION_WITH_KEYWORD_RETRIEVAL,
                 metrics={RAGEvaluationMetric.DOCUMENT_MAP},
             )
 
+    def test_init_invalid_component_for_metric(self, rag_pipeline_with_query_embedder):
+        with pytest.raises(
+            ValueError,
+            match="In order to use the metric .* RAG evaluation harness requires metadata",
+        ):
+            _ = RAGEvaluationHarness(
+                rag_pipeline_with_query_embedder,
+                DefaultRAGArchitecture.EMBEDDING_RETRIEVAL,
+                metrics={
+                    RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY,
+                },
+            )
+
     def test_run_invalid_ground_truths(self, rag_pipeline_with_query_embedder):
-        harness_map = RAGEvaluationHarness.default_with_embedding_retriever(
+        harness_map = RAGEvaluationHarness(
             rag_pipeline_with_query_embedder,
+            DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
             metrics={
                 RAGEvaluationMetric.DOCUMENT_MAP,
             },
         )
-        harness_sas = RAGEvaluationHarness.default_with_embedding_retriever(
+        harness_sas = RAGEvaluationHarness(
             rag_pipeline_with_query_embedder,
+            DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
             metrics={
                 RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY,
             },
@@ -502,8 +537,9 @@ class TestRAGEvaluationHarness:
         self,
         rag_pipeline_with_query_embedder,
     ):
-        harness = RAGEvaluationHarness.default_with_embedding_retriever(
+        harness = RAGEvaluationHarness(
             rag_pipeline_with_query_embedder,
+            DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
             metrics={
                 RAGEvaluationMetric.DOCUMENT_MAP,
             },
@@ -527,8 +563,9 @@ class TestRAGEvaluationHarness:
         self,
         rag_pipeline_with_query_embedder,
     ):
-        harness = RAGEvaluationHarness.default_with_embedding_retriever(
+        harness = RAGEvaluationHarness(
             rag_pipeline_with_query_embedder,
+            DefaultRAGArchitecture.GENERATION_WITH_EMBEDDING_RETRIEVAL,
             metrics={
                 RAGEvaluationMetric.DOCUMENT_MAP,
             },
@@ -574,12 +611,13 @@ class TestRAGEvaluationHarness:
             RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT,
             RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT,
         }
-        harness = RAGEvaluationHarness.default_with_keyword_retriever(
+        harness = RAGEvaluationHarness(
             build_rag_pipeline_with_keyword_retriever(
                 retriever_component=MockKeywordRetriever(),
                 generator_component=MockGenerator(arg=0),
                 generator_name="generator",
             ),
+            DefaultRAGArchitecture.KEYWORD_RETRIEVAL,
             metrics=metrics,
         )
 
@@ -630,12 +668,13 @@ class TestRAGEvaluationHarness:
             RAGEvaluationMetric.CONTEXT_RELEVANCE,
             RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY,
         }
-        harness = RAGEvaluationHarness.default_with_keyword_retriever(
+        harness = RAGEvaluationHarness(
             build_rag_pipeline_with_keyword_retriever(
                 retriever_component=MockKeywordRetriever(),
                 generator_component=MockGenerator(arg=0),
                 generator_name="generator",
             ),
+            DefaultRAGArchitecture.GENERATION_WITH_KEYWORD_RETRIEVAL,
             metrics=metrics,
         )
 

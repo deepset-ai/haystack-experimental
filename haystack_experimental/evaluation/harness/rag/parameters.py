@@ -12,7 +12,7 @@ from haystack.evaluation.eval_run_result import EvaluationRunResult
 
 class RAGExpectedComponent(Enum):
     """
-    Represents the basic components in a RAG pipeline that needs to be present for evaluation.
+    Represents the basic components in a RAG pipeline that are, by default, required to be present for evaluation.
 
     Each of these can be separate components in the pipeline or a single component that performs
     multiple tasks.
@@ -27,6 +27,7 @@ class RAGExpectedComponent(Enum):
     DOCUMENT_RETRIEVER = "document_retriever"
 
     #: The component in a RAG pipeline that generates responses based on the query and the retrieved documents.
+    #: Can be optional if the harness is only evaluating retrieval.
     #: Expected outputs: `replies` - Name of out containing the LLM responses. Only the first response is used.
     RESPONSE_GENERATOR = "response_generator"
 
@@ -57,24 +58,31 @@ class RAGEvaluationMetric(Enum):
     """
 
     #: Document Mean Average Precision.
+    #: Required RAG components: Query Processor, Document Retriever.
     DOCUMENT_MAP = "metric_doc_map"
 
     #: Document Mean Reciprocal Rank.
+    #: Required RAG components: Query Processor, Document Retriever.
     DOCUMENT_MRR = "metric_doc_mrr"
 
     #: Document Recall with a single hit.
+    #: Required RAG components: Query Processor, Document Retriever.
     DOCUMENT_RECALL_SINGLE_HIT = "metric_doc_recall_single"
 
     #: Document Recall with multiple hits.
+    #: Required RAG components: Query Processor, Document Retriever.
     DOCUMENT_RECALL_MULTI_HIT = "metric_doc_recall_multi"
 
     #: Semantic Answer Similarity.
+    #: Required RAG components: Query Processor, Response Generator.
     SEMANTIC_ANSWER_SIMILARITY = "metric_sas"
 
     #: Faithfulness.
+    #: Required RAG components: Query Processor, Document Retriever, Response Generator.
     FAITHFULNESS = "metric_faithfulness"
 
     #: Context Relevance.
+    #: Required RAG components: Query Processor, Document Retriever.
     CONTEXT_RELEVANCE = "metric_context_relevance"
 
 
