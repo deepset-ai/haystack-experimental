@@ -1,9 +1,9 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
-    search_path: [../../../haystack_experimental/evaluation]
-    modules: ["harness/evaluation_harness",
-              "harness/rag/harness",
-              "harness/rag/parameters"]
+    search_path: [../../../]
+    modules: ["haystack_experimental.evaluation.harness.evaluation_harness",
+              "haystack_experimental.evaluation.harness.rag.harness",
+              "haystack_experimental.evaluation.harness.rag.parameters"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter

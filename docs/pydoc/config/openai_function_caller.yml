@@ -1,7 +1,7 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
-    search_path: [../../../haystack_experimental/components/tools/openai]
-    modules: ["function_caller"]
+    search_path: [../../../]
+    modules: ["haystack_experimental.components.tools.openai.function_caller"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter

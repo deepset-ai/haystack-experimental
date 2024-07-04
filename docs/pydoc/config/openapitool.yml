@@ -1,7 +1,7 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
-    search_path: [../../../haystack_experimental/components/tools/openapi]
-    modules: ["openapi_tool"]
+    search_path: [../../../]
+    modules: ["haystack_experimental.components.tools.openapi.openapi_tool"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
