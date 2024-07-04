@@ -11,7 +11,7 @@ on:
 env:
   HATCH_VERSION: "1.9.3"
   PYTHON_VERSION: "3.10"
-  SYNC_LAST_N_HAYSTACK_VERSIONS: 2 # We sync last 2 versions (last stable and current unstable), change this if needed
+  SYNC_LAST_N_HAYSTACK_VERSIONS: 1
 
 jobs:
   get-versions:
