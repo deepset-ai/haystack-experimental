@@ -64,4 +64,4 @@ jobs:
         if: github.event_name == 'push'
         uses: readmeio/rdme@v8
         with:
-          rdme: docs ./docs/pydoc/temp --key="${{ secrets.README_API_KEY }}" --version="${{ matrix.hs-docs-version }}"
+          rdme: docs ./docs/pydoc/temp --key=${{ secrets.README_API_KEY }} --version=${{ matrix.hs-docs-version }}
