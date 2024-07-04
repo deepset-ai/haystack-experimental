@@ -87,7 +87,7 @@ tag-pattern = 'v(?P<version>.*)'
 allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
-include = ["/haystack_experimental", "/VERSION.txt"]
+include = ["/haystack_experimental"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["haystack_experimental"]
@@ -166,7 +166,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 120
 target-version = "py38"
-exclude = ["test"]
+exclude = ["test", ".github"]
 
 [tool.ruff.lint]
 select = [
