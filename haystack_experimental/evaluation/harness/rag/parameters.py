@@ -71,8 +71,8 @@ class RAGEvaluationMetric(Enum):
     #: Semantic Answer Similarity.
     SEMANTIC_ANSWER_SIMILARITY = "metric_sas"
 
-    #: Answer Faithfulness.
-    ANSWER_FAITHFULNESS = "metric_answer_faithfulness"
+    #: Faithfulness.
+    FAITHFULNESS = "metric_faithfulness"
 
     #: Context Relevance.
     CONTEXT_RELEVANCE = "metric_context_relevance"
@@ -88,16 +88,12 @@ class RAGEvaluationInput:
     :param ground_truth_documents:
         The ground truth documents passed to the
         evaluation pipeline. Only required for metrics
-        that require them.
-
-        Corresponds to the queries.
+        that require them. Corresponds to the queries.
     :param ground_truth_answers:
         The ground truth answers passed to the
         evaluation pipeline. Only required for metrics
-        that require them.
-
-        Corresponds to the queries.
-    :param additional_rag_inputs:
+        that require them. Corresponds to the queries.
+    :param rag_pipeline_inputs:
         Additional inputs to pass to the RAG pipeline. Each
         key is the name of the component and its value a dictionary
         with the input name and a list of values, each corresponding
@@ -107,7 +103,7 @@ class RAGEvaluationInput:
     queries: List[str]
     ground_truth_documents: Optional[List[List[Document]]] = None
     ground_truth_answers: Optional[List[str]] = None
-    additional_rag_inputs: Optional[Dict[str, Dict[str, List[Any]]]] = None
+    rag_pipeline_inputs: Optional[Dict[str, Dict[str, List[Any]]]] = None
 
 
 @dataclass(frozen=True)
