@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .harness import RAGEvaluationHarness
+from .harness import DefaultRAGArchitecture, RAGEvaluationHarness
 from .parameters import (
     RAGEvaluationInput,
     RAGEvaluationMetric,
@@ -13,6 +13,7 @@ from .parameters import (
 )
 
 _all_ = [
+    "DefaultRAGArchitecture",
     "RAGEvaluationHarness",
     "RAGExpectedComponent",
     "RAGExpectedComponentMetadata",
