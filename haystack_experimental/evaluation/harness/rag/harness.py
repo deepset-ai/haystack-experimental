@@ -264,7 +264,7 @@ class RAGEvaluationHarness(
                     "replies",
                 )
             },
-            RAGEvaluationMetric.ANSWER_FAITHFULNESS: {
+            RAGEvaluationMetric.FAITHFULNESS: {
                 "contexts": (
                     RAGExpectedComponent.DOCUMENT_RETRIEVER,
                     "retrieved_documents",
@@ -307,9 +307,9 @@ class RAGEvaluationHarness(
             RAGExpectedComponent.QUERY_PROCESSOR
         ].input_mapping["query"]
 
-        if inputs.additional_rag_inputs is not None:
+        if inputs.rag_pipeline_inputs is not None:
             # Ensure that the query embedder input is not provided as additional input.
-            existing = inputs.additional_rag_inputs.get(query_embedder_name)
+            existing = inputs.rag_pipeline_inputs.get(query_embedder_name)
             if existing is not None:
                 existing = existing.get(query_embedder_text_input)  # type: ignore
                 if existing is not None:
@@ -318,7 +318,7 @@ class RAGEvaluationHarness(
                     )
 
             # Add the queries as an aggregate input.
-            rag_inputs = deepcopy(inputs.additional_rag_inputs)
+            rag_inputs = deepcopy(inputs.rag_pipeline_inputs)
             if query_embedder_name not in rag_inputs:
                 rag_inputs[query_embedder_name] = {}
             rag_inputs[query_embedder_name][query_embedder_text_input] = deepcopy(
@@ -359,7 +359,7 @@ class RAGEvaluationHarness(
                     "ground_truth_documents": inputs.ground_truth_documents
                 }
             elif metric in (
-                RAGEvaluationMetric.ANSWER_FAITHFULNESS,
+                RAGEvaluationMetric.FAITHFULNESS,
                 RAGEvaluationMetric.CONTEXT_RELEVANCE,
             ):
                 eval_inputs[metric.value] = {"questions": inputs.queries}

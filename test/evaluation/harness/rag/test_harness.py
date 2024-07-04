@@ -18,9 +18,13 @@ from haystack.components.embedders import SentenceTransformersTextEmbedder
 from haystack.components.builders import PromptBuilder
 from haystack.components.evaluators import (
     ContextRelevanceEvaluator,
+    DocumentMAPEvaluator,
+    DocumentMRREvaluator,
+    DocumentRecallEvaluator,
     FaithfulnessEvaluator,
     SASEvaluator,
 )
+from haystack.components.evaluators.document_recall import RecallMode
 from haystack.components.retrievers.in_memory import (
     InMemoryEmbeddingRetriever,
     InMemoryBM25Retriever,
@@ -100,15 +104,23 @@ class MockKeywordRetriever:
 
 
 @component
-class MockModelBasedEvaluator:
+class MockEvaluator:
     def __init__(self, metric: RAGEvaluationMetric) -> None:
         self.metric = metric
 
         io_map = {
+            RAGEvaluationMetric.DOCUMENT_MAP: DocumentMAPEvaluator(),
+            RAGEvaluationMetric.DOCUMENT_MRR: DocumentMRREvaluator(),
+            RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT: DocumentRecallEvaluator(
+                mode=RecallMode.SINGLE_HIT
+            ),
+            RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT: DocumentRecallEvaluator(
+                mode=RecallMode.MULTI_HIT
+            ),
             RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY: SASEvaluator(
                 "sentence-transformers/all-MiniLM-L6-v2"
             ),
-            RAGEvaluationMetric.ANSWER_FAITHFULNESS: FaithfulnessEvaluator(
+            RAGEvaluationMetric.FAITHFULNESS: FaithfulnessEvaluator(
                 api_key=Secret.from_token("test_key")
             ),
             RAGEvaluationMetric.CONTEXT_RELEVANCE: ContextRelevanceEvaluator(
@@ -121,7 +133,13 @@ class MockModelBasedEvaluator:
 
     @staticmethod
     def default_output(metric) -> Dict[str, Any]:
-        if metric == RAGEvaluationMetric.ANSWER_FAITHFULNESS:
+        if metric in (
+            RAGEvaluationMetric.FAITHFULNESS,
+            RAGEvaluationMetric.DOCUMENT_MAP,
+            RAGEvaluationMetric.DOCUMENT_MRR,
+            RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT,
+            RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT,
+        ):
             return {
                 "individual_scores": [1] * 6,
                 "score": 1.0,
@@ -496,9 +514,7 @@ class TestRAGEvaluationHarness:
             ground_truth_documents=[
                 [Document(content="Paris is the capital of France.")]
             ],
-            additional_rag_inputs={
-                "query_embedder": {"text": ["Some other question?"]}
-            },
+            rag_pipeline_inputs={"query_embedder": {"text": ["Some other question?"]}},
         )
 
         with pytest.raises(
@@ -552,19 +568,26 @@ class TestRAGEvaluationHarness:
             )
 
     def test_run_statistical_metrics(self):
+        metrics = {
+            RAGEvaluationMetric.DOCUMENT_MAP,
+            RAGEvaluationMetric.DOCUMENT_MRR,
+            RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT,
+            RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT,
+        }
         harness = RAGEvaluationHarness.default_with_keyword_retriever(
             build_rag_pipeline_with_keyword_retriever(
                 retriever_component=MockKeywordRetriever(),
                 generator_component=MockGenerator(arg=0),
                 generator_name="generator",
             ),
-            metrics={
-                RAGEvaluationMetric.DOCUMENT_MAP,
-                RAGEvaluationMetric.DOCUMENT_MRR,
-                RAGEvaluationMetric.DOCUMENT_RECALL_SINGLE_HIT,
-                RAGEvaluationMetric.DOCUMENT_RECALL_MULTI_HIT,
-            },
+            metrics=metrics,
         )
+
+        mock_eval_pipeline = Pipeline()
+        for m in metrics:
+            mock_eval_pipeline.add_component(m.value, MockEvaluator(metric=m))
+
+        harness.evaluation_pipeline = mock_eval_pipeline
 
         inputs = RAGEvaluationInput(
             queries=["What is the capital of France?"] * 6,
@@ -591,22 +614,7 @@ class TestRAGEvaluationHarness:
         assert output.inputs == inputs
         assert output.results.run_name == "test_run"
         assert output.results.results == {
-            "metric_doc_map": {
-                "score": 0.7222222222222222,
-                "individual_scores": [1.0, 0.8333333333333333, 1.0, 0.5, 0.0, 1.0],
-            },
-            "metric_doc_recall_single": {
-                "score": 0.8333333333333334,
-                "individual_scores": [1.0, 1.0, 1.0, 1.0, 0.0, 1.0],
-            },
-            "metric_doc_recall_multi": {
-                "score": 0.75,
-                "individual_scores": [1.0, 1.0, 0.5, 1.0, 0.0, 1.0],
-            },
-            "metric_doc_mrr": {
-                "score": 0.75,
-                "individual_scores": [1.0, 1.0, 1.0, 0.5, 0.0, 1.0],
-            },
+            m.value: MockEvaluator.default_output(m) for m in metrics
         }
         overriden_pipeline_dict = Pipeline.loads(output.evaluated_pipeline).to_dict()
         assert (
@@ -618,7 +626,7 @@ class TestRAGEvaluationHarness:
         monkeypatch.setenv("OPENAI_API_KEY", "test")
 
         metrics = {
-            RAGEvaluationMetric.ANSWER_FAITHFULNESS,
+            RAGEvaluationMetric.FAITHFULNESS,
             RAGEvaluationMetric.CONTEXT_RELEVANCE,
             RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY,
         }
@@ -633,7 +641,7 @@ class TestRAGEvaluationHarness:
 
         mock_eval_pipeline = Pipeline()
         for m in metrics:
-            mock_eval_pipeline.add_component(m.value, MockModelBasedEvaluator(metric=m))
+            mock_eval_pipeline.add_component(m.value, MockEvaluator(metric=m))
 
         harness.evaluation_pipeline = mock_eval_pipeline
 
@@ -721,13 +729,5 @@ class TestRAGEvaluationHarness:
             ],
         }
         assert output.results.results == {
-            "metric_answer_faithfulness": MockModelBasedEvaluator.default_output(
-                RAGEvaluationMetric.ANSWER_FAITHFULNESS
-            ),
-            "metric_context_relevance": MockModelBasedEvaluator.default_output(
-                RAGEvaluationMetric.CONTEXT_RELEVANCE
-            ),
-            "metric_sas": MockModelBasedEvaluator.default_output(
-                RAGEvaluationMetric.SEMANTIC_ANSWER_SIMILARITY
-            ),
+            m.value: MockEvaluator.default_output(m) for m in metrics
         }
