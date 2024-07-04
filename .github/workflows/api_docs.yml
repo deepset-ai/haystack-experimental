@@ -11,6 +11,7 @@ on:
 env:
   HATCH_VERSION: "1.9.3"
   PYTHON_VERSION: "3.10"
+  SYNC_LAST_N_HAYSTACK_VERSIONS: 2 # We sync last 2 versions (last stable and current unstable), change this if needed
 
 jobs:
   get-versions:
@@ -22,7 +23,7 @@ jobs:
         id: version_finder
         run: |
           curl -s "https://dash.readme.com/api/v1/version" --header "authorization: Basic ${{ secrets.README_API_KEY }}" > out
-          VERSIONS=$(jq -c '[ .[] | select(.version | startswith("2.")) | .version ] | .[-2:]' out)
+          VERSIONS=$(jq -c '[ .[] | select(.version | startswith("2.")) | .version ] | .[-${{ env.SYNC_LAST_N_HAYSTACK_VERSIONS }}:]' out)
           {
             echo 'versions<<EOF'
             echo "$VERSIONS"
