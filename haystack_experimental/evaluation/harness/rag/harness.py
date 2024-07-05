@@ -118,6 +118,8 @@ class RAGEvaluationHarness(
             Dict[RAGExpectedComponent, RAGExpectedComponentMetadata],
         ],
         metrics: Set[RAGEvaluationMetric],
+        *,
+        progress_bar: bool = True,
     ):
         """
         Create an evaluation harness for evaluating basic RAG pipelines.
@@ -129,6 +131,8 @@ class RAGEvaluationHarness(
             of expected components to their metadata.
         :param metrics:
             The metrics to use during evaluation.
+        :param progress_bar:
+            Whether to display a progress bar during evaluation.
         """
         super().__init__()
 
@@ -141,6 +145,7 @@ class RAGEvaluationHarness(
         self.rag_components = deepcopy(rag_components)
         self.metrics = deepcopy(metrics)
         self.evaluation_pipeline = default_rag_evaluation_pipeline(metrics)
+        self.progress_bar = progress_bar
 
     def run(  # noqa: D102
         self,
@@ -153,7 +158,11 @@ class RAGEvaluationHarness(
         eval_inputs = self._prepare_eval_pipeline_additional_inputs(inputs)
         pipeline_pair = self._generate_eval_run_pipelines(overrides)
 
-        pipeline_outputs = pipeline_pair.run_first_as_batch(rag_inputs, eval_inputs)
+        pipeline_outputs = pipeline_pair.run_first_as_batch(
+            rag_inputs,
+            eval_inputs,
+            progress_bar=self.progress_bar,
+        )
         rag_outputs, eval_outputs = (
             pipeline_outputs["first"],
             pipeline_outputs["second"],
@@ -245,6 +254,10 @@ class RAGEvaluationHarness(
                 x
             ),
             included_first_outputs=included_first_outputs,
+            pre_execution_callback_first=lambda: print("Executing RAG pipeline..."),
+            pre_execution_callback_second=lambda: print(
+                "Executing evaluation pipeline..."
+            ),
         )
 
     def _aggregate_rag_outputs(
