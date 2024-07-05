@@ -6,10 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from haystack import Pipeline
+from tqdm import tqdm
 
 
 @dataclass(frozen=True)
-class PipelinePair:
+class PipelinePair:  # pylint: disable=too-many-instance-attributes
     """
     A pair of pipelines that are linked together and executed sequentially.
 
@@ -31,6 +32,10 @@ class PipelinePair:
     :param included_second_outputs:
         Names of components in the second pipeline whose outputs
         should be included in the final outputs.
+    :param pre_execution_callback_first:
+        A function that is called before the first pipeline is executed.
+    :param pre_execution_callback_second:
+        A function that is called before the second pipeline is executed.
     """
 
     first: Pipeline
@@ -39,10 +44,16 @@ class PipelinePair:
     map_first_outputs: Optional[Callable] = None
     included_first_outputs: Optional[Set[str]] = None
     included_second_outputs: Optional[Set[str]] = None
+    pre_execution_callback_first: Optional[Callable] = None
+    pre_execution_callback_second: Optional[Callable] = None
 
     def __post_init__(self):
-        first_outputs = self.first.outputs(include_components_with_connected_outputs=True)
-        second_inputs = self.second.inputs(include_components_with_connected_inputs=True)
+        first_outputs = self.first.outputs(
+            include_components_with_connected_outputs=True
+        )
+        second_inputs = self.second.inputs(
+            include_components_with_connected_inputs=True
+        )
         seen_second_inputs = set()
 
         # Validate the mapping of outputs from the first pipeline
@@ -50,7 +61,9 @@ class PipelinePair:
         for first_out, second_ins in self.outputs_to_inputs.items():
             first_comp_name, first_out_name = self._split_input_output_path(first_out)
             if first_comp_name not in first_outputs:
-                raise ValueError(f"Output component '{first_comp_name}' not found in first pipeline.")
+                raise ValueError(
+                    f"Output component '{first_comp_name}' not found in first pipeline."
+                )
             if first_out_name not in first_outputs[first_comp_name]:
                 raise ValueError(
                     f"Component '{first_comp_name}' in first pipeline does not have expected output '{first_out_name}'."
@@ -62,9 +75,13 @@ class PipelinePair:
                         f"Input '{second_in}' in second pipeline is connected to multiple first pipeline outputs."
                     )
 
-                second_comp_name, second_input_name = self._split_input_output_path(second_in)
+                second_comp_name, second_input_name = self._split_input_output_path(
+                    second_in
+                )
                 if second_comp_name not in second_inputs:
-                    raise ValueError(f"Input component '{second_comp_name}' not found in second pipeline.")
+                    raise ValueError(
+                        f"Input component '{second_comp_name}' not found in second pipeline."
+                    )
                 if second_input_name not in second_inputs[second_comp_name]:
                     raise ValueError(
                         f"Component '{second_comp_name}' in second pipeline "
@@ -75,7 +92,9 @@ class PipelinePair:
     def _validate_second_inputs(self, inputs: Dict[str, Dict[str, Any]]):
         # Check if the connected input is also provided explicitly.
         second_connected_inputs = [
-            self._split_input_output_path(p_h) for p in self.outputs_to_inputs.values() for p_h in p
+            self._split_input_output_path(p_h)
+            for p in self.outputs_to_inputs.values()
+            for p_h in p
         ]
         for component_name, input_name in second_connected_inputs:
             provided_input = inputs.get(component_name)
@@ -104,13 +123,19 @@ class PipelinePair:
         # collect first collect all the keys in the first-to-second
         # output-to-input mapping and then add the explicitly included
         # first pipeline outputs.
-        first_components_with_outputs = {self._split_input_output_path(p)[0] for p in self.outputs_to_inputs.keys()}
+        first_components_with_outputs = {
+            self._split_input_output_path(p)[0] for p in self.outputs_to_inputs.keys()
+        }
         if self.included_first_outputs is not None:
-            first_components_with_outputs = first_components_with_outputs.union(self.included_first_outputs)
+            first_components_with_outputs = first_components_with_outputs.union(
+                self.included_first_outputs
+            )
         return first_components_with_outputs
 
     def _map_first_second_pipeline_io(
-        self, first_outputs: Dict[str, Dict[str, Any]], second_inputs: Dict[str, Dict[str, Any]]
+        self,
+        first_outputs: Dict[str, Dict[str, Any]],
+        second_inputs: Dict[str, Dict[str, Any]],
     ) -> Dict[str, Dict[str, Any]]:
         # Map the first pipeline outputs to the second pipeline inputs.
         for first_output, second_input_candidates in self.outputs_to_inputs.items():
@@ -118,23 +143,31 @@ class PipelinePair:
 
             # Each output from the first pipeline can be mapped to multiple inputs in the second pipeline.
             for second_input in second_input_candidates:
-                second_component, second_input_socket = self._split_input_output_path(second_input)
+                second_component, second_input_socket = self._split_input_output_path(
+                    second_input
+                )
 
                 second_component_inputs = second_inputs.get(second_component)
                 if second_component_inputs is not None:
                     # Pre-condition should've been validated earlier.
                     assert second_input_socket not in second_component_inputs
                     # The first pipeline's output should also guaranteed at this point.
-                    second_component_inputs[second_input_socket] = first_outputs[first_component][first_output]
+                    second_component_inputs[second_input_socket] = first_outputs[
+                        first_component
+                    ][first_output]
                 else:
                     second_inputs[second_component] = {
-                        second_input_socket: first_outputs[first_component][first_output]
+                        second_input_socket: first_outputs[first_component][
+                            first_output
+                        ]
                     }
 
         return second_inputs
 
     def run(
-        self, first_inputs: Dict[str, Dict[str, Any]], second_inputs: Optional[Dict[str, Dict[str, Any]]] = None
+        self,
+        first_inputs: Dict[str, Dict[str, Any]],
+        second_inputs: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Execute the pipeline pair in sequence.
@@ -156,18 +189,30 @@ class PipelinePair:
         second_inputs = second_inputs or {}
         self._validate_second_inputs(second_inputs)
 
+        if self.pre_execution_callback_first is not None:
+            self.pre_execution_callback_first()
         first_outputs = self.first.run(
-            first_inputs, include_outputs_from=self._prepare_reqd_outputs_for_first_pipeline()
+            first_inputs,
+            include_outputs_from=self._prepare_reqd_outputs_for_first_pipeline(),
         )
         if self.map_first_outputs is not None:
             first_outputs = self.map_first_outputs(first_outputs)
         second_inputs = self._map_first_second_pipeline_io(first_outputs, second_inputs)
-        second_outputs = self.second.run(second_inputs, include_outputs_from=self.included_second_outputs)
+
+        if self.pre_execution_callback_second is not None:
+            self.pre_execution_callback_second()
+        second_outputs = self.second.run(
+            second_inputs, include_outputs_from=self.included_second_outputs
+        )
 
         return {"first": first_outputs, "second": second_outputs}
 
     def run_first_as_batch(
-        self, first_inputs: List[Dict[str, Dict[str, Any]]], second_inputs: Optional[Dict[str, Dict[str, Any]]] = None
+        self,
+        first_inputs: List[Dict[str, Dict[str, Any]]],
+        second_inputs: Optional[Dict[str, Dict[str, Any]]] = None,
+        *,
+        progress_bar: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Execute the pipeline pair in sequence.
@@ -185,6 +230,9 @@ class PipelinePair:
             function must be provided to aggregate the outputs.
         :param second_inputs:
             The inputs to the second pipeline.
+        :param progress_bar:
+            Whether to display a progress bar for the execution
+            of the first pipeline.
         :returns:
             A dictionary with the following keys:
             - `first` - The (aggregate) outputs of the first pipeline.
@@ -195,15 +243,29 @@ class PipelinePair:
 
         first_components_with_outputs = self._prepare_reqd_outputs_for_first_pipeline()
         if self.map_first_outputs is None:
-            raise ValueError("Mapping function for first pipeline outputs must be provided for batch execution.")
+            raise ValueError(
+                "Mapping function for first pipeline outputs must be provided for batch execution."
+            )
 
+        if self.pre_execution_callback_first is not None:
+            self.pre_execution_callback_first()
         first_outputs: Dict[str, Dict[str, Any]] = self.map_first_outputs(
-            [self.first.run(i, include_outputs_from=first_components_with_outputs) for i in first_inputs]
+            [
+                self.first.run(i, include_outputs_from=first_components_with_outputs)
+                for i in tqdm(first_inputs, disable=not progress_bar)
+            ]
         )
         if not isinstance(first_outputs, dict):
-            raise ValueError("Mapping function must return an aggregate dictionary of outputs.")
+            raise ValueError(
+                "Mapping function must return an aggregate dictionary of outputs."
+            )
 
         second_inputs = self._map_first_second_pipeline_io(first_outputs, second_inputs)
-        second_outputs = self.second.run(second_inputs, include_outputs_from=self.included_second_outputs)
+
+        if self.pre_execution_callback_second is not None:
+            self.pre_execution_callback_second()
+        second_outputs = self.second.run(
+            second_inputs, include_outputs_from=self.included_second_outputs
+        )
 
         return {"first": first_outputs, "second": second_outputs}
