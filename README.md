@@ -70,6 +70,8 @@ pipe = Pipeline()
 pipe.run(...)
 ```
 
+Some experimental features come with example notebooks and resources which can be found in the [`examples` folder](https://github.com/deepset-ai/haystack-experimental/tree/main/examples).
+
 ## Documentation
 
 Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/haystack-experimental-api).
