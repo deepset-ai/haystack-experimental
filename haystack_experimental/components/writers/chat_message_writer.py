@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage
-from haystack.document_stores.types import ChatMessageStore, DuplicatePolicy
+
+from haystack_experimental.chat_message_stores.types import ChatMessageStore
 
 logger = logging.getLogger(__name__)
 
@@ -33,21 +34,14 @@ class ChatMessageWriter:
     ```
     """
 
-    def __init__(self, message_store: ChatMessageStore, policy: DuplicatePolicy = DuplicatePolicy.NONE):
+    def __init__(self, message_store: ChatMessageStore):
         """
         Create a ChatMessageWriter component.
 
         :param message_store:
             The ChatMessageStore where the chat messages are to be written.
-        :param policy:
-            The policy to apply when a ChatMessage with the same id already exists in the ChatMessageStore.
-            - `DuplicatePolicy.NONE`: Default policy, behaviour depends on the ChatMessageStore.
-            - `DuplicatePolicy.SKIP`: If a ChatMessage with the same id already exists, it is skipped and not written.
-            - `DuplicatePolicy.OVERWRITE`: If a ChatMessage with the same id already exists, it is overwritten.
-            - `DuplicatePolicy.FAIL`: If a ChatMessage with the same id already exists, an error is raised.
         """
         self.message_store = message_store
-        self.policy = policy
 
     def _get_telemetry_data(self) -> Dict[str, Any]:
         """
@@ -62,7 +56,7 @@ class ChatMessageWriter:
         :returns:
             Dictionary with serialized data.
         """
-        return default_to_dict(self, message_store=self.message_store.to_dict(), policy=self.policy.name)
+        return default_to_dict(self, message_store=self.message_store.to_dict())
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageWriter":
@@ -95,26 +89,21 @@ class ChatMessageWriter:
         store_class = getattr(module, type_)
         store = store_class.from_dict(init_params["message_store"])
         data["init_parameters"]["message_store"] = store
-        data["init_parameters"]["policy"] = DuplicatePolicy[data["init_parameters"]["policy"]]
         return default_from_dict(cls, data)
 
     @component.output_types(messages_written=int)
-    def run(self, messages: List[ChatMessage], policy: Optional[DuplicatePolicy] = None):
+    def run(self, messages: List[ChatMessage]):
         """
         Run the ChatMessageWriter on the given input data.
 
         :param messages:
             A list of chat messages to write to the store.
-        :param policy:
-            The policy to use when encountering duplicate messages.
         :returns:
             Number of messages written
 
         :raises ValueError:
             If the specified message store is not found.
         """
-        if policy is None:
-            policy = self.policy
 
-        messages_written = self.message_store.write_messages(messages=messages, policy=policy)
+        messages_written = self.message_store.write_messages(messages=messages)
         return {"messages_written": messages_written}

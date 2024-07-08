@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage
-from haystack.document_stores.types import ChatMessageStore
+
+from haystack_experimental.chat_message_stores.types import ChatMessageStore
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 @component
 class ChatMessageRetriever:
     """
-    Retrieves chat messages that match the provided filters.
+    Retrieves chat messages.
 
     Usage example:
     ```python
@@ -30,26 +31,22 @@ class ChatMessageRetriever:
 
     message_store = InMemoryChatMessageStore()
     message_store.write_messages(messages)
-    retriever = ChatMessageRetriever(message_store, filters={"field": "lang", "operator": "==", "value": "en"})
+    retriever = ChatMessageRetriever(message_store)
 
-    # if passed in the run method, filters will override those provided at initialization
-    result = retriever.run(filters={"field": "lang", "operator": "==", "value": "de"})
+    result = retriever.run()
 
     print(result["messages"])
     ```
     """
 
-    def __init__(self, message_store: ChatMessageStore, filters: Optional[Dict[str, Any]] = None):
+    def __init__(self, message_store: ChatMessageStore):
         """
         Create the ChatMessageRetriever component.
 
         :param message_store:
             An instance of a ChatMessageStore.
-        :param filters:
-            A dictionary with filters to narrow down the search space.
         """
         self.message_store = message_store
-        self.filters = filters
 
     def _get_telemetry_data(self) -> Dict[str, Any]:
         """
@@ -65,7 +62,7 @@ class ChatMessageRetriever:
             Dictionary with serialized data.
         """
         message_store = self.message_store.to_dict()
-        return default_to_dict(self, message_store=message_store, filters=self.filters)
+        return default_to_dict(self, message_store=message_store)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageRetriever":
@@ -96,14 +93,11 @@ class ChatMessageRetriever:
         return default_from_dict(cls, data)
 
     @component.output_types(messages=List[ChatMessage])
-    def run(self, filters: Optional[Dict[str, Any]] = None):
+    def run(self):
         """
         Run the ChatMessageRetriever on the given input data.
 
-        :param filters:
-            A dictionary with filters to narrow down the search space.
-            If not specified, the ChatMessageRetriever uses the value provided at initialization.
         :returns:
             The retrieved chat messages.
         """
-        return {"messages": self.message_store.filter_messages(filters=filters or self.filters)}
+        return {"messages": self.message_store.retrieve()}
