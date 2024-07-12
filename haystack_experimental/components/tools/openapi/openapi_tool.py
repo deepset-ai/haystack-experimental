@@ -171,10 +171,11 @@ class OpenAPITool:
             service_response = {"error": msg, "fc_payload": fc_payload["replies"][0].content}
             return {"service_error": [ChatMessage.from_user(json.dumps(service_response))]}
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("Error invoking OpenAPI endpoint. Error: {e}", e=str(e))
+            msg = "Error invoking OpenAPI endpoint. "
+            logger.error(msg + "Error: {e}", e=str(e))
             # extract the function calling payload that is LLM provider-agnostic
             extract_payload = config_openapi.get_payload_extractor()
-            service_response = {"error": str(e), "fc_payload": extract_payload(invocation_payload)}
+            service_response = {"error": msg + str(e), "fc_payload": extract_payload(invocation_payload)}
             return {"service_error": [ChatMessage.from_user(json.dumps(service_response))]}
 
     def to_dict(self) -> Dict[str, Any]:

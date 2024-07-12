@@ -126,7 +126,7 @@ class TestOpenAPITool:
             # Assert that the service error is returned
             assert "service_error" in response
             assert isinstance(response["service_error"][0], ChatMessage)
-            error_message = {"error": "No operation found with operationId it_does_not_matter, method None",
+            error_message = {"error": "Error invoking OpenAPI endpoint. No operation found with operationId it_does_not_matter, method None",
                              "fc_payload": {"name": "it_does_not_matter", "arguments": {}}}
             assert json.loads(response["service_error"][0].content) == error_message
 
