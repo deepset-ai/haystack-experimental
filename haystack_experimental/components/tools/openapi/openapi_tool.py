@@ -164,7 +164,7 @@ class OpenAPITool:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
             logger.debug("Invoking tool with {payload}", payload=invocation_payload)
             service_response = openapi_service.invoke(invocation_payload)
-            return {"service_response": service_response}
+            return {"service_response": [ChatMessage.from_user(json.dumps(service_response))]}
         except JSONDecodeError as e:
             msg = "Function calling model returned invalid function invocation JSON payload."
             logger.error(msg + " Error: {e}", e=str(e))
