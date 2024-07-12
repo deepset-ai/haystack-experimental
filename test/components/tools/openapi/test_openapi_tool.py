@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import Mock, patch
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
@@ -109,6 +110,44 @@ class TestOpenAPITool:
         assert isinstance(tool.chat_generator, OpenAIChatGenerator)
         assert tool.config_openapi is not None
         assert tool.open_api_service is not None
+
+    def test_error_no_such_operation(self):
+        # Mock the chat generator's run method to return a valid function calling payload
+        mock_chat_generator = Mock()
+        mock_chat_generator.run.return_value = {
+            "replies": [ChatMessage.from_user('{"name": "it_does_not_matter", "arguments": {}}')]}
+
+        with patch.object(OpenAPITool, '_init_generator', return_value=mock_chat_generator):
+            tool = OpenAPITool(generator_api=LLMProvider.OPENAI, spec="https://bit.ly/serper_dev_spec_yaml",
+                               credentials=Secret.from_token("dummy_key"))
+            messages = [ChatMessage.from_user("Test message")]
+            response = tool.run(messages=messages)
+
+            # Assert that the service error is returned
+            assert "service_error" in response
+            assert isinstance(response["service_error"][0], ChatMessage)
+            error_message = {"error": "No operation found with operationId it_does_not_matter, method None",
+                             "fc_payload": {"name": "it_does_not_matter", "arguments": {}}}
+            assert json.loads(response["service_error"][0].content) == error_message
+
+    def test_error_invalid_json_payload(self):
+        # Mock the chat generator's run method to return a valid function calling payload
+        mock_chat_generator = Mock()
+        mock_chat_generator.run.return_value = {
+            "replies": [ChatMessage.from_user('name": "it_does_not_matter", "arguments": {}}')]}
+
+        with patch.object(OpenAPITool, '_init_generator', return_value=mock_chat_generator):
+            tool = OpenAPITool(generator_api=LLMProvider.OPENAI, spec="https://bit.ly/serper_dev_spec_yaml",
+                               credentials=Secret.from_token("dummy_key"))
+            messages = [ChatMessage.from_user("Test message")]
+            response = tool.run(messages=messages)
+
+            # Assert that the service error is returned
+            assert "service_error" in response
+            assert isinstance(response["service_error"][0], ChatMessage)
+            error_message = {"error": "Function calling model returned invalid function invocation JSON payload.",
+                             "fc_payload": 'name": "it_does_not_matter", "arguments": {}}'}
+            assert json.loads(response["service_error"][0].content) == error_message
 
     @pytest.mark.skipif(
         "SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set"
