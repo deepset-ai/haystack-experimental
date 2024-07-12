@@ -4,6 +4,7 @@
 
 import json
 import os
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -94,7 +95,7 @@ class OpenAPITool:
             )
             self.open_api_service = OpenAPIServiceClient(self.config_openapi)
 
-    @component.output_types(service_response=List[ChatMessage])
+    @component.output_types(service_response=List[ChatMessage], service_error=List[ChatMessage])
     def run(
         self,
         messages: List[ChatMessage],
@@ -163,12 +164,18 @@ class OpenAPITool:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
             logger.debug("Invoking tool with {payload}", payload=invocation_payload)
             service_response = openapi_service.invoke(invocation_payload)
+            return {"service_response": service_response}
+        except JSONDecodeError as e:
+            msg = "Function calling model returned invalid function invocation JSON payload."
+            logger.error(msg + " Error: {e}", e=str(e))
+            service_response = {"error": msg, "fc_payload": fc_payload["replies"][0].content}
+            return {"service_error": [ChatMessage.from_user(json.dumps(service_response))]}
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error invoking OpenAPI endpoint. Error: {e}", e=str(e))
-            service_response = {"error": str(e)}
-        response_messages = [ChatMessage.from_user(json.dumps(service_response))]
-
-        return {"service_response": response_messages}
+            # extract the function calling payload that is LLM provider-agnostic
+            extract_payload = config_openapi.get_payload_extractor()
+            service_response = {"error": str(e), "fc_payload": extract_payload(invocation_payload)}
+            return {"service_error": [ChatMessage.from_user(json.dumps(service_response))]}
 
     def to_dict(self) -> Dict[str, Any]:
         """
