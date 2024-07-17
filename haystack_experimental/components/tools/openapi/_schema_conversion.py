@@ -7,7 +7,11 @@ from typing import Any, Callable, Dict, List, Optional
 
 from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.components.tools.openapi.types import OpenAPISpecification
+from haystack_experimental.components.tools.openapi.types import (
+    VALID_HTTP_METHODS,
+    OpenAPISpecification,
+    path_to_operation_id,
+)
 
 with LazyImport("Run 'pip install jsonref'") as jsonref_import:
     # pylint: disable=import-error
@@ -96,11 +100,14 @@ def _openapi_to_functions(
             f"at least {MIN_REQUIRED_OPENAPI_SPEC_VERSION}."
         )
     functions: List[Dict[str, Any]] = []
-    for paths in service_openapi_spec["paths"].values():
-        for path_spec in paths.values():
-            function_dict = parse_endpoint_fn(path_spec, parameters_name)
-            if function_dict:
-                functions.append(function_dict)
+    for path, path_value in service_openapi_spec["paths"].items():
+        for path_key, operation_spec in path_value.items():
+            if path_key.lower() in VALID_HTTP_METHODS:
+                if "operationId" not in operation_spec:
+                    operation_spec["operationId"] = path_to_operation_id(path, path_key)
+                function_dict = parse_endpoint_fn(operation_spec, parameters_name)
+                if function_dict:
+                    functions.append(function_dict)
     return functions
 
 
