@@ -8,6 +8,44 @@ paths:
   /missing-operation-id:
     get:
       summary: Missing operationId
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: OK
+
+  /servers-order-in-path:
+    servers:
+      - url: https://inpath.example.com
+    get:
+      summary: Servers order
+      operationId: servers-order-path
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  /servers-order-in-operation:
+    get:
+      summary: Servers order
+      operationId: servers-order-operation
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+      servers:
+        - url: https://inoperation.example.com
