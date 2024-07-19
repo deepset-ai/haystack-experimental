@@ -40,6 +40,7 @@ class TestOpenAPITool:
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+                "allowed_operations": None,
             },
         }
 
@@ -57,6 +58,7 @@ class TestOpenAPITool:
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+                "allowed_operations": None,
             },
         }
 
@@ -222,3 +224,18 @@ class TestOpenAPITool:
             assert "hourly" in json_response
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
+
+    @pytest.mark.integration
+    def test_allowed_operations(self):
+        """
+        Although the tool definition is generated from the OpenAPI spec and firecrawl's API has multiple operations,
+        only the ones we specify in the allowed_operations list are registered with LLMs via the tool definition.
+        """
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrapeAndExtractFromUrl"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "scrapeAndExtractFromUrl"

@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 from typing import Any, Callable, Dict, List, Optional
 
+from haystack import logging
 from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.components.tools.openapi.types import (
@@ -23,51 +23,62 @@ MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
 
 
-def openai_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
+def openai_converter(
+    schema: OpenAPISpecification,
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
     """
     Converts OpenAPI specification to a list of function suitable for OpenAI LLM function calling.
 
     See https://platform.openai.com/docs/guides/function-calling for more information about OpenAI's function schema.
     :param schema: The OpenAPI specification to convert.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each dictionary representing an OpenAI function definition.
     """
     jsonref_import.check()
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
-    fn_definitions = _openapi_to_functions(
-        resolved_schema, "parameters", _parse_endpoint_spec_openai
-    )
+    fn_definitions = _openapi_to_functions(resolved_schema, "parameters", _parse_endpoint_spec_openai, operation_filter)
     return [{"type": "function", "function": fn} for fn in fn_definitions]
 
 
-def anthropic_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
+def anthropic_converter(
+    schema: OpenAPISpecification,
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Anthropic LLM function calling.
 
     See https://docs.anthropic.com/en/docs/tool-use for more information about Anthropic's function schema.
 
     :param schema: The OpenAPI specification to convert.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each dictionary representing Anthropic function definition.
     """
     jsonref_import.check()
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
-    return _openapi_to_functions(
-        resolved_schema, "input_schema", _parse_endpoint_spec_openai
-    )
+    return _openapi_to_functions(resolved_schema, "input_schema", _parse_endpoint_spec_openai, operation_filter)
 
 
-def cohere_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
+def cohere_converter(
+    schema: OpenAPISpecification,
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Cohere LLM function calling.
 
     See https://docs.cohere.com/docs/tool-use for more information about Cohere's function schema.
 
     :param schema: The OpenAPI specification to convert.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each representing a Cohere style function definition.
     """
     jsonref_import.check()
     resolved_schema = jsonref.replace_refs(schema.spec_dict)
     return _openapi_to_functions(
-        resolved_schema, "not important for cohere", _parse_endpoint_spec_cohere
+        resolved_schema,
+        "not important for cohere",
+        _parse_endpoint_spec_cohere,
+        operation_filter,
     )
 
 
@@ -75,23 +86,23 @@ def _openapi_to_functions(
     service_openapi_spec: Dict[str, Any],
     parameters_name: str,
     parse_endpoint_fn: Callable[[Dict[str, Any], str], Dict[str, Any]],
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Extracts functions from the OpenAPI specification, converts them into a function schema.
+    Extracts operations from the OpenAPI specification, converts them into a function schema.
 
-    :param service_openapi_spec: The OpenAPI specification to extract functions from.
+    :param service_openapi_spec: The OpenAPI specification to extract operations from.
     :param parameters_name: The name of the parameters field in the function schema.
     :param parse_endpoint_fn: The function to parse the endpoint specification.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each dictionary representing a function schema.
     """
 
     # Doesn't enforce rigid spec validation because that would require a lot of dependencies
-    # We check the version and require minimal fields to be present, so we can extract functions
+    # We check the version and require minimal fields to be present, so we can extract operations
     spec_version = service_openapi_spec.get("openapi")
     if not spec_version:
-        raise ValueError(
-            f"Invalid OpenAPI spec provided. Could not extract version from {service_openapi_spec}"
-        )
+        raise ValueError(f"Invalid OpenAPI spec provided. Could not extract version from {service_openapi_spec}")
     service_openapi_spec_version = int(spec_version.split(".")[0])
     # Compare the versions
     if service_openapi_spec_version < MIN_REQUIRED_OPENAPI_SPEC_VERSION:
@@ -99,7 +110,7 @@ def _openapi_to_functions(
             f"Invalid OpenAPI spec version {service_openapi_spec_version}. Must be "
             f"at least {MIN_REQUIRED_OPENAPI_SPEC_VERSION}."
         )
-    functions: List[Dict[str, Any]] = []
+    operations: List[Dict[str, Any]] = []
     for path, path_value in service_openapi_spec["paths"].items():
         for path_key, operation_spec in path_value.items():
             if path_key.lower() in VALID_HTTP_METHODS:
@@ -107,13 +118,26 @@ def _openapi_to_functions(
                     operation_spec["operationId"] = path_to_operation_id(path, path_key)
                 function_dict = parse_endpoint_fn(operation_spec, parameters_name)
                 if function_dict:
-                    functions.append(function_dict)
-    return functions
+                    operations.append(function_dict)
+
+    # Filter operations to register with LLMs
+    if operation_filter:
+        len_prior = len(operations)
+        operations = [f for f in operations if operation_filter(f)]
+        logger.info(
+            "Registering {op_count} operations out of {len_prior} found in OpenAPI spec.",
+            op_count=len(operations),
+            len_prior=len_prior,
+        )
+        if len(operations) == 0 and len_prior > 0:
+            logger.warning(
+                f"Filtered all operations for "
+                f"LLM registration in {service_openapi_spec['info']['title']}. Relax the filter criteria."
+            )
+    return operations
 
 
-def _parse_endpoint_spec_openai(
-    resolved_spec: Dict[str, Any], parameters_name: str
-) -> Dict[str, Any]:
+def _parse_endpoint_spec_openai(resolved_spec: Dict[str, Any], parameters_name: str) -> Dict[str, Any]:
     """
     Parses an OpenAPI endpoint specification for OpenAI.
 
@@ -122,19 +146,14 @@ def _parse_endpoint_spec_openai(
     :returns: A dictionary containing the parsed function schema.
     """
     if not isinstance(resolved_spec, dict):
-        logger.warning(
-            "Invalid OpenAPI spec format provided. Could not extract function."
-        )
+        logger.warning("Invalid OpenAPI spec format provided. Could not extract function.")
         return {}
     function_name = resolved_spec.get("operationId")
     description = resolved_spec.get("description") or resolved_spec.get("summary", "")
     schema: Dict[str, Any] = {"type": "object", "properties": {}}
     # requestBody section
     req_body_schema = (
-        resolved_spec.get("requestBody", {})
-        .get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
+        resolved_spec.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {})
     )
     if "properties" in req_body_schema:
         for prop_name, prop_schema in req_body_schema["properties"].items():
@@ -148,9 +167,7 @@ def _parse_endpoint_spec_openai(
             schema_dict = _parse_property_attributes(param["schema"])
             # these attributes are not in param[schema] level but on param level
             useful_attributes = ["description", "pattern", "enum"]
-            schema_dict.update(
-                {key: param[key] for key in useful_attributes if param.get(key)}
-            )
+            schema_dict.update({key: param[key] for key in useful_attributes if param.get(key)})
             schema["properties"][param["name"]] = schema_dict
             if param.get("required", False):
                 schema.setdefault("required", []).append(param["name"])
@@ -187,8 +204,7 @@ def _parse_property_attributes(
     if schema_type == "object":
         properties = property_schema.get("properties", {})
         parsed_properties = {
-            prop_name: _parse_property_attributes(prop, include_attributes)
-            for prop_name, prop in properties.items()
+            prop_name: _parse_property_attributes(prop, include_attributes) for prop_name, prop in properties.items()
         }
         parsed_schema["properties"] = parsed_properties
         if "required" in property_schema:
@@ -199,9 +215,7 @@ def _parse_property_attributes(
     return parsed_schema
 
 
-def _parse_endpoint_spec_cohere(
-    operation: Dict[str, Any], ignored_param: str
-) -> Dict[str, Any]:
+def _parse_endpoint_spec_cohere(operation: Dict[str, Any], ignored_param: str) -> Dict[str, Any]:
     """
     Parses an endpoint specification for Cohere.
 
@@ -238,22 +252,16 @@ def _parse_parameters(operation: Dict[str, Any]) -> Dict[str, Any]:
                 param.get("description", ""),
             )
     if "requestBody" in operation:
-        content = (
-            operation["requestBody"].get("content", {}).get("application/json", {})
-        )
+        content = operation["requestBody"].get("content", {}).get("application/json", {})
         if "schema" in content:
             schema_properties = content["schema"].get("properties", {})
             required_properties = content["schema"].get("required", [])
             for name, schema in schema_properties.items():
-                parameters[name] = _parse_schema(
-                    schema, name in required_properties, schema.get("description", "")
-                )
+                parameters[name] = _parse_schema(schema, name in required_properties, schema.get("description", ""))
     return parameters
 
 
-def _parse_schema(
-    schema: Dict[str, Any], required: bool, description: str
-) -> Dict[str, Any]:  # noqa: FBT001
+def _parse_schema(schema: Dict[str, Any], required: bool, description: str) -> Dict[str, Any]:  # noqa: FBT001
     """
     Parses a schema part of an operation specification.
 
