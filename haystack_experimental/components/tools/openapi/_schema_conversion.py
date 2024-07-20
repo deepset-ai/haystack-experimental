@@ -11,6 +11,7 @@ from haystack_experimental.components.tools.openapi.types import (
     VALID_HTTP_METHODS,
     OpenAPISpecification,
     path_to_operation_id,
+    sanitize,
 )
 
 with LazyImport("Run 'pip install jsonref'") as jsonref_import:
@@ -128,7 +129,7 @@ def _openapi_to_functions(
                 function_dict = parse_endpoint_fn(operation_spec, parameters_name)
                 if function_dict:
                     operations.append(function_dict)
-    return operations
+    return [sanitize(op) for op in operations]
 
 
 def _parse_endpoint_spec_openai(

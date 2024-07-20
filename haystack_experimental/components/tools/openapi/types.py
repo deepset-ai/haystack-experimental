@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -33,7 +34,43 @@ def path_to_operation_id(path: str, http_method: str = "get") -> str:
     """
     if http_method.lower() not in VALID_HTTP_METHODS:
         raise ValueError(f"Invalid HTTP method: {http_method}")
-    return path.replace("/", "_").lstrip("_").rstrip("_") + "_" + http_method.lower()
+    return sanitize_function_name(path + "_" + http_method.lower())
+
+
+def sanitize(data: Dict[str, Any]) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+    """
+    Sanitizes the given function calling definition(s) by adjusting its properties to LLM requirements.
+
+    :param data: The function calling definition(s) to sanitize.
+    :return: A sanitized function calling definition.
+    """
+    if isinstance(data, dict):
+        sanitized_data = {}
+        for key, value in data.items():
+            if key == "name" and isinstance(value, str):
+                sanitized_data[key] = sanitize_function_name(value)
+            elif key == "description" and isinstance(value, str):
+                sanitized_data[key] = value[:1024]
+            else:
+                sanitized_data[key] = sanitize(value)
+        return sanitized_data
+    elif isinstance(data, list):
+        return [sanitize(item) for item in data]
+    else:
+        return data
+
+
+def sanitize_function_name(name: str) -> str:
+    """
+    Sanitizes the function name to match the LLM function naming pattern ^[a-zA-Z0-9_-]+$.
+
+    :param name: The original function name.
+    :return: A sanitized function name that matches the allowed pattern.
+    """
+    # Replace characters not allowed in the pattern with underscores
+    sanitized = re.sub(r"[^a-zA-Z0-9_]+", "_", name)
+    # Remove leading and trailing underscores
+    return sanitized.strip("_")
 
 
 class LLMProvider(Enum):
@@ -231,12 +268,8 @@ class OpenAPISpecification:
             }
 
             for method, operation_dict in operations.items():
-                if (
-                    operation_dict.get(
-                        "operationId", path_to_operation_id(path, method)
-                    )
-                    == op_id
-                ):
+                operation_id = operation_dict.get("operationId", path_to_operation_id(path, method))
+                if operation_id == op_id:
                     return Operation(path, method, operation_dict, self.spec_dict)
         raise ValueError(f"No operation found with operationId {op_id}")
 
