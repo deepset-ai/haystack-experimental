@@ -5,18 +5,11 @@
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
-from haystack.lazy_imports import LazyImport
-
 from haystack_experimental.components.tools.openapi.types import (
     VALID_HTTP_METHODS,
     OpenAPISpecification,
     path_to_operation_id,
 )
-
-with LazyImport("Run 'pip install jsonref'") as jsonref_import:
-    # pylint: disable=import-error
-    import jsonref
-
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 
@@ -31,10 +24,8 @@ def openai_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     :param schema: The OpenAPI specification to convert.
     :returns: A list of dictionaries, each dictionary representing an OpenAI function definition.
     """
-    jsonref_import.check()
-    resolved_schema = jsonref.replace_refs(schema.spec_dict)
     fn_definitions = _openapi_to_functions(
-        resolved_schema, "parameters", _parse_endpoint_spec_openai
+        schema.spec_dict, "parameters", _parse_endpoint_spec_openai
     )
     return [{"type": "function", "function": fn} for fn in fn_definitions]
 
@@ -48,10 +39,9 @@ def anthropic_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     :param schema: The OpenAPI specification to convert.
     :returns: A list of dictionaries, each dictionary representing Anthropic function definition.
     """
-    jsonref_import.check()
-    resolved_schema = jsonref.replace_refs(schema.spec_dict)
+
     return _openapi_to_functions(
-        resolved_schema, "input_schema", _parse_endpoint_spec_openai
+        schema.spec_dict, "input_schema", _parse_endpoint_spec_openai
     )
 
 
@@ -64,10 +54,8 @@ def cohere_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
     :param schema: The OpenAPI specification to convert.
     :returns: A list of dictionaries, each representing a Cohere style function definition.
     """
-    jsonref_import.check()
-    resolved_schema = jsonref.replace_refs(schema.spec_dict)
     return _openapi_to_functions(
-        resolved_schema, "not important for cohere", _parse_endpoint_spec_cohere
+        schema.spec_dict,"not important for cohere",_parse_endpoint_spec_cohere
     )
 
 
