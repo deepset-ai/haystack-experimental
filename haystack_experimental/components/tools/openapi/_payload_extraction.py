@@ -4,7 +4,7 @@
 
 import dataclasses
 import json
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 
 def create_function_payload_extractor(
@@ -68,7 +68,8 @@ def _search(payload: Any, arguments_field_name: str) -> Dict[str, Any]:
     if dict_converter := _get_dict_converter(payload):
         payload = dict_converter()
     elif dataclasses.is_dataclass(payload):
-        payload = dataclasses.asdict(payload)
+        # Cast payload to Any to satisfy mypy 1.11.0
+        payload = dataclasses.asdict(cast(Any, payload))
     if isinstance(payload, dict):
         if all(field in payload for field in _required_fields(arguments_field_name)):
             # this is the payload we are looking for

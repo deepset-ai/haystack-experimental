@@ -49,7 +49,9 @@ def anthropic_converter(
     :returns: A list of dictionaries, each dictionary representing Anthropic function definition.
     """
 
-    return _openapi_to_functions(schema.spec_dict, "input_schema", _parse_endpoint_spec_openai, operation_filter)
+    return _openapi_to_functions(
+        schema.spec_dict, "input_schema", _parse_endpoint_spec_openai, operation_filter
+    )
 
 
 def cohere_converter(
@@ -66,7 +68,7 @@ def cohere_converter(
     :returns: A list of dictionaries, each representing a Cohere style function definition.
     """
     return _openapi_to_functions(
-        schema.spec_dict, "not important for cohere", _parse_endpoint_spec_cohere, operation_filter
+        schema.spec_dict,"not important for cohere",_parse_endpoint_spec_cohere, operation_filter
     )
 
 
@@ -90,7 +92,9 @@ def _openapi_to_functions(
     # We check the version and require minimal fields to be present, so we can extract operations
     spec_version = service_openapi_spec.get("openapi")
     if not spec_version:
-        raise ValueError(f"Invalid OpenAPI spec provided. Could not extract version from {service_openapi_spec}")
+        raise ValueError(
+            f"Invalid OpenAPI spec provided. Could not extract version from {service_openapi_spec}"
+        )
     service_openapi_spec_version = int(spec_version.split(".")[0])
     # Compare the versions
     if service_openapi_spec_version < MIN_REQUIRED_OPENAPI_SPEC_VERSION:
@@ -116,7 +120,9 @@ def _openapi_to_functions(
     return [sanitize(op) for op in operations]
 
 
-def _parse_endpoint_spec_openai(resolved_spec: Dict[str, Any], parameters_name: str) -> Dict[str, Any]:
+def _parse_endpoint_spec_openai(
+    resolved_spec: Dict[str, Any], parameters_name: str
+) -> Dict[str, Any]:
     """
     Parses an OpenAPI endpoint specification for OpenAI.
 
@@ -125,14 +131,19 @@ def _parse_endpoint_spec_openai(resolved_spec: Dict[str, Any], parameters_name: 
     :returns: A dictionary containing the parsed function schema.
     """
     if not isinstance(resolved_spec, dict):
-        logger.warning("Invalid OpenAPI spec format provided. Could not extract function.")
+        logger.warning(
+            "Invalid OpenAPI spec format provided. Could not extract function."
+        )
         return {}
     function_name = resolved_spec.get("operationId")
     description = resolved_spec.get("description") or resolved_spec.get("summary", "")
     schema: Dict[str, Any] = {"type": "object", "properties": {}}
     # requestBody section
     req_body_schema = (
-        resolved_spec.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {})
+        resolved_spec.get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
     )
     if "properties" in req_body_schema:
         for prop_name, prop_schema in req_body_schema["properties"].items():
@@ -146,7 +157,9 @@ def _parse_endpoint_spec_openai(resolved_spec: Dict[str, Any], parameters_name: 
             schema_dict = _parse_property_attributes(param["schema"])
             # these attributes are not in param[schema] level but on param level
             useful_attributes = ["description", "pattern", "enum"]
-            schema_dict.update({key: param[key] for key in useful_attributes if param.get(key)})
+            schema_dict.update(
+                {key: param[key] for key in useful_attributes if param.get(key)}
+            )
             schema["properties"][param["name"]] = schema_dict
             if param.get("required", False):
                 schema.setdefault("required", []).append(param["name"])
@@ -183,7 +196,8 @@ def _parse_property_attributes(
     if schema_type == "object":
         properties = property_schema.get("properties", {})
         parsed_properties = {
-            prop_name: _parse_property_attributes(prop, include_attributes) for prop_name, prop in properties.items()
+            prop_name: _parse_property_attributes(prop, include_attributes)
+            for prop_name, prop in properties.items()
         }
         parsed_schema["properties"] = parsed_properties
         if "required" in property_schema:
@@ -194,7 +208,9 @@ def _parse_property_attributes(
     return parsed_schema
 
 
-def _parse_endpoint_spec_cohere(operation: Dict[str, Any], ignored_param: str) -> Dict[str, Any]:
+def _parse_endpoint_spec_cohere(
+    operation: Dict[str, Any], ignored_param: str
+) -> Dict[str, Any]:
     """
     Parses an endpoint specification for Cohere.
 
@@ -231,16 +247,22 @@ def _parse_parameters(operation: Dict[str, Any]) -> Dict[str, Any]:
                 param.get("description", ""),
             )
     if "requestBody" in operation:
-        content = operation["requestBody"].get("content", {}).get("application/json", {})
+        content = (
+            operation["requestBody"].get("content", {}).get("application/json", {})
+        )
         if "schema" in content:
             schema_properties = content["schema"].get("properties", {})
             required_properties = content["schema"].get("required", [])
             for name, schema in schema_properties.items():
-                parameters[name] = _parse_schema(schema, name in required_properties, schema.get("description", ""))
+                parameters[name] = _parse_schema(
+                    schema, name in required_properties, schema.get("description", "")
+                )
     return parameters
 
 
-def _parse_schema(schema: Dict[str, Any], required: bool, description: str) -> Dict[str, Any]:  # noqa: FBT001
+def _parse_schema(
+    schema: Dict[str, Any], required: bool, description: str
+) -> Dict[str, Any]:  # noqa: FBT001
     """
     Parses a schema part of an operation specification.
 
