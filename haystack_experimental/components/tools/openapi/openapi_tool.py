@@ -96,7 +96,7 @@ class OpenAPITool:
                 openapi_spec=openapi_spec,
                 credentials=credentials.resolve_value() if credentials else None,
                 llm_provider=generator_api,
-                operations_filter=(lambda f: f["name"] in allowed_operations) if allowed_operations else None,
+                operations_filter=(lambda f: f["operationId"] in allowed_operations) if allowed_operations else None,
             )
             self.open_api_service = OpenAPIServiceClient(self.config_openapi)
 

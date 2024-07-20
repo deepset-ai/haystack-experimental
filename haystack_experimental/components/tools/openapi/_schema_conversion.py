@@ -119,24 +119,15 @@ def _openapi_to_functions(
             if path_key.lower() in VALID_HTTP_METHODS:
                 if "operationId" not in operation_spec:
                     operation_spec["operationId"] = path_to_operation_id(path, path_key)
+
+                # Apply the filter based on operationId before parsing the endpoint (operation)
+                if operation_filter and not operation_filter(operation_spec):
+                    continue
+
+                # parse (and register) this operation as it passed the filter
                 function_dict = parse_endpoint_fn(operation_spec, parameters_name)
                 if function_dict:
                     operations.append(function_dict)
-
-    # Filter operations to register with LLMs
-    if operation_filter:
-        len_prior = len(operations)
-        operations = [f for f in operations if operation_filter(f)]
-        logger.info(
-            "Registering {op_count} operations out of {len_prior} found in OpenAPI spec.",
-            op_count=len(operations),
-            len_prior=len_prior,
-        )
-        if len(operations) == 0 and len_prior > 0:
-            logger.warning(
-                f"Filtered all operations for "
-                f"LLM registration in {service_openapi_spec['info']['title']}. Relax the filter criteria."
-            )
     return operations
 
 
