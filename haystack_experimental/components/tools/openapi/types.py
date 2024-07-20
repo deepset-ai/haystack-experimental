@@ -11,6 +11,12 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import requests
 import yaml
+from haystack.lazy_imports import LazyImport
+
+with LazyImport("Run 'pip install jsonref'") as jsonref_import:
+    # pylint: disable=import-error
+    import jsonref
+
 
 VALID_HTTP_METHODS = [
     "get",
@@ -90,10 +96,7 @@ class LLMProvider(Enum):
         provider_map = {e.value: e for e in LLMProvider}
         provider = provider_map.get(string)
         if provider is None:
-            msg = (
-                f"Invalid LLMProvider '{string}'"
-                f"Supported LLMProviders are: {list(provider_map.keys())}"
-            )
+            msg = f"Invalid LLMProvider '{string}'" f"Supported LLMProviders are: {list(provider_map.keys())}"
             raise ValueError(msg)
         return provider
 
@@ -127,17 +130,13 @@ class Operation:
         if self.method.lower() not in VALID_HTTP_METHODS:
             raise ValueError(f"Invalid HTTP method: {self.method}")
         self.method = self.method.lower()
-        self.security_requirements = self.operation_dict.get(
-            "security", []
-        ) or self.spec_dict.get("security", [])
+        self.security_requirements = self.operation_dict.get("security", []) or self.spec_dict.get("security", [])
         self.request_body = self.operation_dict.get("requestBody", {})
-        self.parameters = self.operation_dict.get(
-            "parameters", []
-        ) + self.spec_dict.get("paths", {}).get(self.path, {}).get("parameters", [])
+        self.parameters = self.operation_dict.get("parameters", []) + self.spec_dict.get("paths", {}).get(
+            self.path, {}
+        ).get("parameters", [])
 
-    def get_parameters(
-        self, location: Optional[Literal["header", "query", "path"]] = None
-    ) -> List[Dict[str, Any]]:
+    def get_parameters(self, location: Optional[Literal["header", "query", "path"]] = None) -> List[Dict[str, Any]]:
         """
         Get the parameters for the operation.
 
@@ -166,13 +165,8 @@ class Operation:
         if not servers:
             raise ValueError("No servers found in the provided specification.")
         if not 0 <= server_index < len(servers):
-            raise ValueError(
-                f"Server index {server_index} is out of bounds. "
-                f"Only {len(servers)} servers found."
-            )
-        return servers[server_index].get(
-            "url"
-        )  # just use the first server from the list
+            raise ValueError(f"Server index {server_index} is out of bounds. " f"Only {len(servers)} servers found.")
+        return servers[server_index].get("url")  # just use the first server from the list
 
 
 class OpenAPISpecification:
@@ -186,17 +180,16 @@ class OpenAPISpecification:
 
         :param spec_dict: The OpenAPI specification as a dictionary.
         """
+        jsonref_import.check()
         if not isinstance(spec_dict, Dict):
-            raise ValueError(
-                f"Invalid OpenAPI specification, expected a dictionary: {spec_dict}"
-            )
+            raise ValueError(f"Invalid OpenAPI specification, expected a dictionary: {spec_dict}")
         # just a crude sanity check, by no means a full validation
         if "openapi" not in spec_dict or "paths" not in spec_dict:
             raise ValueError(
                 "Invalid OpenAPI specification format. See https://swagger.io/specification/ for details.",
                 spec_dict,
             )
-        self.spec_dict = spec_dict
+        self.spec_dict = jsonref.replace_refs(spec_dict)
 
     @classmethod
     def from_str(cls, content: str) -> "OpenAPISpecification":
@@ -213,9 +206,7 @@ class OpenAPISpecification:
             try:
                 loaded_spec = yaml.safe_load(content)
             except yaml.YAMLError as e:
-                raise ValueError(
-                    "Content cannot be decoded as JSON or YAML: " + str(e)
-                ) from e
+                raise ValueError("Content cannot be decoded as JSON or YAML: " + str(e)) from e
         return cls(loaded_spec)
 
     @classmethod
@@ -247,9 +238,7 @@ class OpenAPISpecification:
             response.raise_for_status()
             content = response.text
         except requests.RequestException as e:
-            raise ConnectionError(
-                f"Failed to fetch the specification from URL: {url}. {e!s}"
-            ) from e
+            raise ConnectionError(f"Failed to fetch the specification from URL: {url}. {e!s}") from e
         return cls.from_str(content)
 
     def find_operation_by_id(self, op_id: str) -> Operation:
