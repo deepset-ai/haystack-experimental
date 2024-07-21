@@ -27,6 +27,7 @@ class TestOpenAPITool:
             },
             spec=openapi_spec_url,
             credentials=Secret.from_env_var("SERPERDEV_API_KEY"),
+            allowed_operations=["someOperationId", "someOtherOperationId"],
         )
 
         data = tool.to_dict()
@@ -40,7 +41,7 @@ class TestOpenAPITool:
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
-                "allowed_operations": None,
+                "allowed_operations": ["someOperationId", "someOtherOperationId"],
             },
         }
 
