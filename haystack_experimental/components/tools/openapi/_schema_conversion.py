@@ -113,9 +113,9 @@ def _openapi_to_functions(
                     continue
 
                 # parse (and register) this operation as it passed the filter
-                function_dict = parse_endpoint_fn(operation_spec, parameters_name)
-                if function_dict:
-                    operations.append(function_dict)
+                ops_dict = parse_endpoint_fn(operation_spec, parameters_name)
+                if ops_dict:
+                    operations.append(ops_dict)
     return operations
 
 
