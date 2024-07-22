@@ -41,7 +41,7 @@ def path_to_operation_id(path: str, http_method: str = "get") -> str:
     return sanitize_function_name(path + "_" + http_method.lower())
 
 
-def sanitize(data: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_function_calling_definition(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Sanitizes the given function calling definition by adjusting its properties to LLM requirements.
 
@@ -56,7 +56,7 @@ def sanitize(data: Dict[str, Any]) -> Dict[str, Any]:
             elif key == "description" and isinstance(value, str):
                 sanitized_data[key] = value[:1024]
             else:
-                sanitized_data[key] = sanitize(value)
+                sanitized_data[key] = sanitize_function_calling_definition(value)
         return sanitized_data
     else:
         return data

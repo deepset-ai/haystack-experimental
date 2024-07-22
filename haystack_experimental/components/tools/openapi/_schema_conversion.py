@@ -9,7 +9,7 @@ from haystack_experimental.components.tools.openapi.types import (
     VALID_HTTP_METHODS,
     OpenAPISpecification,
     path_to_operation_id,
-    sanitize,
+    sanitize_function_calling_definition,
 )
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
@@ -97,7 +97,7 @@ def _openapi_to_functions(
                 function_dict = parse_endpoint_fn(operation_spec, parameters_name)
                 if function_dict:
                     functions.append(function_dict)
-    return [sanitize(f) for f in functions]
+    return [sanitize_function_calling_definition(f) for f in functions]
 
 
 def _parse_endpoint_spec_openai(

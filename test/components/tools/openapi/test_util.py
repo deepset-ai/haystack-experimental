@@ -1,4 +1,4 @@
-from haystack_experimental.components.tools.openapi.types import sanitize_function_name, sanitize
+from haystack_experimental.components.tools.openapi.types import sanitize_function_name, sanitize_function_calling_definition
 
 
 def test_sanitize_function_name():
@@ -29,7 +29,7 @@ def test_sanitize():
             "required": ["location", "format"],
         }
     }
-    sanitized_function = sanitize(function)
+    sanitized_function = sanitize_function_calling_definition(function)
     assert sanitized_function["name"] == "test_function_with_slashes_and_dashes"
     assert len(sanitized_function["description"]) <= 1024
     assert len(sanitized_function["parameters"]["properties"]["location"]["description"]) <= 1024
