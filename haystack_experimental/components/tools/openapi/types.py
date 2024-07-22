@@ -46,7 +46,7 @@ def sanitize(data: Dict[str, Any]) -> Dict[str, Any]:
     Sanitizes the given function calling definition by adjusting its properties to LLM requirements.
 
     :param data: The function calling definition(s) to sanitize.
-    :return: A sanitized function calling definition.
+    :returns: A sanitized function calling definition.
     """
     if isinstance(data, dict):
         sanitized_data: Dict[str, Any] = {}
