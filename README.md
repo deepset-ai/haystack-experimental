@@ -23,11 +23,11 @@ $ pip install -U haystack-experimental
 > The latest version of the experimental package is only tested against the latest version of Haystack. Compatibility
 > with older versions of Haystack is not guaranteed.
 
-
 ## Experiments lifecycle
 
-Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build 
+Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build
 that includes it. Once it reaches the end of its lifespan, the experiment will be either:
+
 - Merged into Haystack core and published in the next minor release, or
 - Released as a Core Integration, or
 - Dropped.
@@ -36,11 +36,11 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 The latest version of the package contains the following experiments:
 
-| Name                     | Type                    | Expected experiment end date | Dependencies |
-| ------------------------ | ----------------------- | ------------------- | ------------------- |
-| [`EvaluationHarness`][1] | Evaluation orchestrator | October 2024         | None
-| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024         | None
-| [`OpenAPITool`][3]       | OpenAPITool component   | October 2024         | jsonref
+| Name                        | Type                       | Expected experiment end date | Dependencies |
+| --------------------------- | -------------------------- | ---------------------------- | ------------ |
+| [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         |
+| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         |
+| [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
@@ -119,3 +119,7 @@ class Pipeline(HaystackPipeline):
 ## Contributing
 
 Direct contributions to `haystack-experimental` are not expected, but Haystack maintainers might ask contributors to move pull requests that target the [core repository](https://github.com/deepset-ai/haystack) to this repository.
+
+## Telemetry
+
+As with the Haystack core package, we rely on anonymous usage statistics to determine the impact and usefulness of the experimental features. For more information on what we collect and how we use the data, as well as instructions to opt-out, please refer to our [documentation](https://docs.haystack.deepset.ai/docs/telemetry).
