@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import time
 from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Union
@@ -15,6 +16,7 @@ from ...util.helpers import (
 )
 from ...util.pipeline_pair import PipelinePair
 from ..evaluation_harness import EvaluationHarness
+from ._telemetry import TelemetryPayload, harness_eval_run_complete
 from .evaluation_pipeline import default_rag_evaluation_pipeline
 from .parameters import (
     RAGEvaluationInput,
@@ -136,6 +138,17 @@ class RAGEvaluationHarness(
         """
         super().__init__()
 
+        self._telemetry_payload = TelemetryPayload(
+            eval_metrics={m: None for m in metrics},
+            num_queries=0,
+            execution_time_sec=0.0,
+            default_architecture=(
+                rag_components
+                if isinstance(rag_components, DefaultRAGArchitecture)
+                else None
+            ),
+        )
+
         if isinstance(rag_components, DefaultRAGArchitecture):
             rag_components = rag_components.expected_components
 
@@ -154,6 +167,8 @@ class RAGEvaluationHarness(
         overrides: Optional[RAGEvaluationOverrides] = None,
         run_name: Optional[str] = "RAG Evaluation",
     ) -> RAGEvaluationOutput:
+        start_time = time.time()
+
         rag_inputs = self._prepare_rag_pipeline_inputs(inputs)
         eval_inputs = self._prepare_eval_pipeline_additional_inputs(inputs)
         pipeline_pair = self._generate_eval_run_pipelines(overrides)
@@ -197,6 +212,8 @@ class RAGEvaluationHarness(
             inputs=result_inputs,
             results=eval_outputs,
         )
+
+        harness_eval_run_complete(self, inputs, time.time() - start_time, overrides)
 
         return RAGEvaluationOutput(
             evaluated_pipeline=pipeline_pair.first.dumps(),
