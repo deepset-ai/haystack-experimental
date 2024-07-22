@@ -67,7 +67,7 @@ def sanitize_function_name(name: str) -> str:
     Sanitizes the function name to match the LLM function naming pattern ^[a-zA-Z0-9_-]+$.
 
     :param name: The original function name.
-    :return: A sanitized function name that matches the allowed pattern.
+    :returns: A sanitized function name that matches the allowed pattern.
     """
     # Replace characters not allowed in the pattern with underscores
     sanitized = re.sub(r"[^a-zA-Z0-9_]+", "_", name)
