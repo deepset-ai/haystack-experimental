@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from typing import Any, Callable, Dict, List, Optional
-from haystack import logging
 
 from haystack_experimental.components.tools.openapi.types import (
     VALID_HTTP_METHODS,

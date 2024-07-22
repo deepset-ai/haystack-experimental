@@ -73,9 +73,9 @@ class OpenAPITool:
         :param spec: OpenAPI specification for the tool/service. This can be a URL, a local file path, or
         an OpenAPI service specification provided as a string.
         :param credentials: Credentials for the tool/service.
-        :param allowed_operations: A list of operations to register with LLMs via the tool definition. Use operationId
-        field in the OpenAPI spec path/operation to specify the operation names to use. If not specified, all
-        operations are found in the OpenAPI spec and registered with LLMs.
+        :param allowed_operations: A list of operations to register with LLMs via the LLM tools parameter. Use
+        operationId field in the OpenAPI spec path/operation to specify the operation names to use. If not specified,
+        all operations found in the OpenAPI spec will be registered with LLMs.
         """
         self.generator_api = generator_api
         self.generator_api_params = generator_api_params or {}  # store the generator API parameters for serialization
