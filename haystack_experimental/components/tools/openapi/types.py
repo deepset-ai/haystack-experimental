@@ -10,6 +10,12 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import requests
 import yaml
+from haystack.lazy_imports import LazyImport
+
+with LazyImport("Run 'pip install jsonref'") as jsonref_import:
+    # pylint: disable=import-error
+    import jsonref
+
 
 VALID_HTTP_METHODS = [
     "get",
@@ -149,6 +155,7 @@ class OpenAPISpecification:
 
         :param spec_dict: The OpenAPI specification as a dictionary.
         """
+        jsonref_import.check()
         if not isinstance(spec_dict, Dict):
             raise ValueError(
                 f"Invalid OpenAPI specification, expected a dictionary: {spec_dict}"
@@ -159,7 +166,7 @@ class OpenAPISpecification:
                 "Invalid OpenAPI specification format. See https://swagger.io/specification/ for details.",
                 spec_dict,
             )
-        self.spec_dict = spec_dict
+        self.spec_dict = jsonref.replace_refs(spec_dict)
 
     @classmethod
     def from_str(cls, content: str) -> "OpenAPISpecification":
