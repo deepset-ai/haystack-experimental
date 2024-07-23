@@ -1,6 +1,7 @@
 import json
+from collections import defaultdict
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat import OpenAIChatGenerator
@@ -11,6 +12,7 @@ from haystack.utils import deserialize_secrets_inplace
 
 from haystack_experimental.components.tools import Tool
 from haystack_experimental.components.tools.openapi import LLMProvider
+from haystack_experimental.components.tools.openapi._payload_extraction import create_function_payload_extractor
 from haystack_experimental.components.tools.types import OpenAPIToolConfig, FunctionToolConfig, ToolConfig
 from haystack_experimental.util import serialize_secrets_inplace
 
@@ -23,6 +25,26 @@ with LazyImport("Run 'pip install cohere-haystack'") as cohere_import:
     from haystack_integrations.components.generators.cohere import CohereChatGenerator
 
 logger = logging.getLogger(__name__)
+
+
+def find_function_name_path(tool_dict: Dict[str, Any]) -> Optional[List[str]]:
+    def search(d: Dict[str, Any], path: List[str]) -> Optional[List[str]]:
+        if isinstance(d, dict):
+            if "name" in d and "description" in d:
+                return path + ["name"]
+            for k, v in d.items():
+                result = search(v, path + [k])
+                if result:
+                    return result
+        return None
+
+    return search(tool_dict, [])
+
+
+def get_nested(d: Dict[str, Any], path: List[str]) -> Any:
+    for key in path:
+        d = d[key]
+    return d
 
 
 @component
@@ -47,11 +69,13 @@ class ToolManager:
                 if not issubclass(tool_handler_class, Tool):
                     logger.warning(f"{tool_handler_class_name} is not a subclass of Tool. Skipping this tool.")
                     continue
-
-                tool: Tool = tool_handler_class(**tool_config.get_config())
+                tool_config = {**tool_config.get_config(), **{"llm_provider":generator_api}}
+                tool: Tool = tool_handler_class(**tool_config)
                 tool_definitions = tool.get_tools_definitions()
                 for tool_def in tool_definitions:
-                    self.function_map[tool_def["function"]["name"]] = tool
+                    path_to_tool_name = find_function_name_path(tool_def)
+                    if path_to_tool_name:
+                        self.function_map[get_nested(tool_def, path_to_tool_name)] = tool
                 self.tools_definitions.extend(tool_definitions)
                 logger.info(f"Successfully initialized tool: {tool_handler_class_name}")
             except Exception as e:
@@ -86,17 +110,32 @@ class ToolManager:
         :param fc_generator_kwargs: Additional arguments for the function calling payload generation process.
         :returns: The response from the service after invoking the function.
         """
+        provider_to_arguments_field_name = defaultdict(
+            lambda: "arguments",
+            {
+                LLMProvider.ANTHROPIC: "input",
+                LLMProvider.COHERE: "parameters",
+            },
+        )
+
         fc_generator_kwargs = fc_generator_kwargs or {}
         fc_generator_kwargs["tools"] = self.tools_definitions
 
         fc_payload = self.chat_generator.run(messages, fc_generator_kwargs)
         try:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
-            function_name = invocation_payload[0].get("function", {}).get("name")
-            if function_name not in self.function_map:
-                raise ValueError(f"Unknown function: {function_name}")
+            resolve_payload_fn = create_function_payload_extractor(provider_to_arguments_field_name[self.generator_api])
+            invocation_payload_resolved = resolve_payload_fn(invocation_payload)
+            if "name" not in invocation_payload_resolved or "arguments" not in invocation_payload_resolved:
+                raise ValueError(
+                    f"Function invocation payload does not contain 'name' or 'arguments' keys: {invocation_payload}, "
+                    f"the payload extraction function may be incorrect."
+                )
 
-            invoker = self.function_map[function_name]
+            if invocation_payload_resolved["name"] not in self.function_map:
+                raise ValueError(f"Unknown function mapping")
+
+            invoker = self.function_map[invocation_payload["name"]]
             service_response = invoker.invoke(invocation_payload)
         except Exception as e:
             service_response = {"error": str(e)}
@@ -132,3 +171,4 @@ class ToolManager:
         generator_api = init_params.get("generator_api")
         data["init_parameters"]["generator_api"] = LLMProvider.from_str(generator_api)
         return default_from_dict(cls, data)
+

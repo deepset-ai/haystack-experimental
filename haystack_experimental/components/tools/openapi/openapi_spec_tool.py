@@ -10,7 +10,7 @@ from haystack_experimental.components.tools.openapi._openapi import (
     ClientConfiguration,
     OpenAPIServiceClient,
 )
-from haystack_experimental.components.tools.openapi.types import OpenAPISpecification
+from haystack_experimental.components.tools.openapi.types import OpenAPISpecification, LLMProvider
 from haystack_experimental.components.tools.types import Tool
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class OpenAPISpecTool(Tool):
     def __init__(
         self,
+        llm_provider: LLMProvider,
         spec: Union[str, Path],
         credentials: Optional[Secret] = None,
         allowed_operations: Optional[List[str]] = None,
@@ -26,6 +27,7 @@ class OpenAPISpecTool(Tool):
         self.spec = spec
         self.credentials = credentials
         self.allowed_operations = allowed_operations
+        self.llm_provider = llm_provider
         self.config_openapi = None
         self.open_api_service = None
 
@@ -39,6 +41,7 @@ class OpenAPISpecTool(Tool):
         self.config_openapi = ClientConfiguration(
             openapi_spec=openapi_spec,
             credentials=credentials.resolve_value() if credentials else None,
+            llm_provider=self.llm_provider,
             operations_filter=(lambda f: f["operationId"] in allowed_operations) if allowed_operations else None,
         )
         self.open_api_service = OpenAPIServiceClient(self.config_openapi)

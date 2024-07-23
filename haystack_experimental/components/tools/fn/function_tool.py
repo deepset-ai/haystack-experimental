@@ -32,10 +32,12 @@ class NoTitleJsonSchemaGenerator(GenerateJsonSchema):
 class FunctionTool(Tool):
     def __init__(
         self,
+        llm_provider: LLMProvider,
         function: Callable,
         name: Optional[str] = None,
         description: Optional[str] = None,
     ):
+        self.llm_provider = llm_provider
         self.function = function
         self.name = name or self.function.__name__
         self.description = description or self.function.__doc__ or ""
@@ -78,14 +80,29 @@ class FunctionTool(Tool):
 
         :returns: The tools definitions passed to the LLM as tools parameter.
         """
-        return [{
-            "type": "function",
-            "function": {
+        if self.llm_provider == LLMProvider.OPENAI:
+            return [{
+                "type": "function",
+                "function": {
+                    "name": self.name,
+                    "description": self.description,
+                    "parameters": self.schema,
+                }
+            }]
+        elif self.llm_provider == LLMProvider.ANTHROPIC:
+            return [{
+                    "name": self.name,
+                    "description": self.description,
+                    "input_schema": self.schema,
+            }]
+        elif self.llm_provider == LLMProvider.COHERE:
+            return [{
                 "name": self.name,
                 "description": self.description,
-                "parameters": self.schema,
-            }
-        }]
+                "parameter_definitions": self.schema,
+            }]
+        else:
+            raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
 
     def get_payload_extractor(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -101,7 +118,7 @@ class FunctionTool(Tool):
                 LLMProvider.COHERE: "parameters",
             },
         )
-        arguments_field_name = provider_to_arguments_field_name[LLMProvider.OPENAI]
+        arguments_field_name = provider_to_arguments_field_name[self.llm_provider]
         return create_function_payload_extractor(arguments_field_name)
 
     def generate_schema_for_type(self, param_type: Type, is_required: Optional[bool] = True) -> Tuple[bool, Dict[str, Any]]:
