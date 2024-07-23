@@ -1,5 +1,6 @@
 import json
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict
+from typing import Any, Dict, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat import OpenAIChatGenerator
@@ -10,6 +11,7 @@ from haystack.utils import deserialize_secrets_inplace
 
 from haystack_experimental.components.tools import Tool
 from haystack_experimental.components.tools.openapi import LLMProvider
+from haystack_experimental.components.tools.types import OpenAPIToolConfig, FunctionToolConfig, ToolConfig
 from haystack_experimental.util import serialize_secrets_inplace
 
 with LazyImport("Run 'pip install anthropic-haystack'") as anthropic_import:
@@ -27,34 +29,35 @@ logger = logging.getLogger(__name__)
 class ToolManager:
     def __init__(
         self,
-        tools: List[Dict[str, Any]],
-        generator_api: LLMProvider,
+        tools: List[ToolConfig],
+        generator_api: LLMProvider = LLMProvider.OPENAI,
         generator_api_params: Optional[Dict[str, Any]] = None,
     ):
-        self.function_map = {}
+        self.function_map: Dict[str, Tool] = {}
         self.tools_definitions: List[Dict[str, Any]] = []
 
         for tool_config in tools:
-            tool_class_name: str = tool_config.pop("type", "")
-            if not tool_class_name:
-                logger.warning(f"Tool type not specified in config: {tool_config}. Skipping this tool.")
+            tool_handler_class_name: str = tool_config.handler
+            if not tool_handler_class_name:
+                logger.warning(f"Tool handler not specified in config: {tool_config}. Skipping this tool.")
                 continue
 
             try:
-                tool_class = import_class_by_name(tool_class_name)
-                if not issubclass(tool_class, Tool):
-                    logger.warning(f"{tool_class_name} is not a subclass of Tool. Skipping this tool.")
+                tool_handler_class = import_class_by_name(tool_handler_class_name)
+                if not issubclass(tool_handler_class, Tool):
+                    logger.warning(f"{tool_handler_class_name} is not a subclass of Tool. Skipping this tool.")
                     continue
 
-                tool: Tool = tool_class(**tool_config)
+                tool: Tool = tool_handler_class(**tool_config.get_config())
                 tool_definitions = tool.get_tools_definitions()
                 for tool_def in tool_definitions:
                     self.function_map[tool_def["function"]["name"]] = tool
                 self.tools_definitions.extend(tool_definitions)
-                logger.info(f"Successfully initialized tool: {tool_class_name}")
+                logger.info(f"Successfully initialized tool: {tool_handler_class_name}")
             except Exception as e:
-                logger.error(f"Failed to initialize tool {tool_class_name}. Error: {str(e)}")
+                logger.error(f"Failed to initialize tool {tool_handler_class_name}. Error: {str(e)}")
 
+        self.tools = tools
         self.generator_api = generator_api
         self.generator_api_params = generator_api_params or {}
         self.chat_generator = self._init_generator(generator_api, self.generator_api_params)
@@ -111,10 +114,7 @@ class ToolManager:
         serialize_secrets_inplace(self.generator_api_params, keys=["api_key"], recursive=True)
         return default_to_dict(
             self,
-            tools=[
-                {"type": type(self.function_map[func_name]).__name__, **self.function_map[func_name].__dict__}
-                for func_name in self.function_map
-            ],
+            tools=[asdict(t) for t in self.tools],
             generator_api=self.generator_api.value,
             generator_api_params=self.generator_api_params,
         )
@@ -128,8 +128,6 @@ class ToolManager:
         :returns:
             The deserialized component instance.
         """
-        deserialize_secrets_inplace(data["init_parameters"], keys=["credentials"])
-        deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         init_params = data.get("init_parameters", {})
         generator_api = init_params.get("generator_api")
         data["init_parameters"]["generator_api"] = LLMProvider.from_str(generator_api)

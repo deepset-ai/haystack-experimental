@@ -1,5 +1,56 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from dataclasses import dataclass, field, fields
+from typing import Any, Dict, List, Callable
+
+from haystack.utils import Secret
+
+
+@dataclass
+class ToolConfig:
+    name: str = field(init=False, metadata={"description": "Fully qualified name of the tool config"})
+    handler: str = field(init=False, metadata={
+        "description": "A class extending "
+                       "haystack_experimental. components. tools. types.Tool that handles the tool invocation"})
+
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Returns a dictionary of non-default fields and their current values.
+        Excludes fields that are marked with init=False and have a default value.
+        """
+        non_default_fields = {}
+        for f in fields(self):
+            # Skip fields that are marked as init=False or have a default value
+            if not f.init or f.default is not field().default:
+                continue
+            # Check if the field has no default and no default factory
+            if f.default is f.default_factory is field().default_factory:
+                non_default_fields[f.name] = getattr(self, f.name)
+        return non_default_fields
+
+    def __post_init__(self):
+        """
+        Automatically set the name attribute to the fully qualified class name.
+        This method is defined once in the superclass and will apply to all subclasses.
+        """
+        self.name = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+
+
+@dataclass
+class OpenAPIToolConfig(ToolConfig):
+    spec: str = field(
+        metadata={"description": "URL or file path to the OpenAPI specification"}
+    )
+    credentials: Secret = field(
+        metadata={"description": "Credentials for accessing the API"}
+    )
+    handler: str = field(default="haystack_experimental.components.tools.openapi.OpenAPISpecTool", init=False)
+
+
+@dataclass
+class FunctionToolConfig(ToolConfig):
+    function: Callable = field(metadata={"description": "Function to invoke"})
+
+    handler: str = field(default="haystack_experimental.components.tools.fn.FunctionTool", init=False)
 
 
 class Tool(ABC):
