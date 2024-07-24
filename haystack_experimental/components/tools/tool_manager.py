@@ -135,7 +135,7 @@ class ToolManager:
             if invocation_payload_resolved["name"] not in self.function_map:
                 raise ValueError(f"Unknown function mapping")
 
-            invoker = self.function_map[invocation_payload["name"]]
+            invoker = self.function_map[invocation_payload_resolved["name"]]
             service_response = invoker.invoke(invocation_payload)
         except Exception as e:
             service_response = {"error": str(e)}
@@ -171,4 +171,3 @@ class ToolManager:
         generator_api = init_params.get("generator_api")
         data["init_parameters"]["generator_api"] = LLMProvider.from_str(generator_api)
         return default_from_dict(cls, data)
-

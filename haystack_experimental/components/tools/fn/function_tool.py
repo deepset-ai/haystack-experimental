@@ -99,7 +99,7 @@ class FunctionTool(Tool):
             return [{
                 "name": self.name,
                 "description": self.description,
-                "parameter_definitions": self.schema,
+                "parameter_definitions": self.fn_parameters_to_cohere_schema(self.function),
             }]
         else:
             raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
@@ -171,3 +171,30 @@ class FunctionTool(Tool):
             return "boolean"
         else:
             raise ValueError(f"Unsupported primitive type: {primitive}")
+
+    def fn_parameters_to_cohere_schema(self, func: Callable) -> Dict[str, Any]:
+        """
+        Convert function parameters to Cohere schema.
+
+        :returns: Cohere schema.
+        """
+        signature = inspect.signature(func)
+        docstring = inspect.getdoc(func) or ""
+        parameters = {}
+        for name, param in signature.parameters.items():
+            param_type = param.annotation.__name__ if param.annotation != inspect.Parameter.empty else "str"
+            description = ""
+            required = param.default == inspect.Parameter.empty
+
+            # Try to extract parameter description from docstring
+            for line in docstring.split('\n'):
+                if line.strip().startswith(f"{name}:"):
+                    description = line.split(':', 1)[1].strip()
+                    break
+
+            parameters[name] = {
+                "type": param_type,
+                "description": description,
+                "required": required
+            }
+        return parameters
