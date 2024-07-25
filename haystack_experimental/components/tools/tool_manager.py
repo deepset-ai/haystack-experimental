@@ -86,16 +86,8 @@ class ToolManager:
         self.generator_api_params = generator_api_params or {}
         self.chat_generator = self._init_generator(generator_api, self.generator_api_params)
 
-    def _init_generator(self, generator_api: LLMProvider, generator_api_params: Dict[str, Any]):
-        if generator_api == LLMProvider.OPENAI:
-            return OpenAIChatGenerator(**generator_api_params)
-        if generator_api == LLMProvider.COHERE:
-            cohere_import.check()
-            return CohereChatGenerator(**generator_api_params)
-        if generator_api == LLMProvider.ANTHROPIC:
-            anthropic_import.check()
-            return AnthropicChatGenerator(**generator_api_params)
-        raise ValueError(f"Unsupported generator API: {generator_api}")
+    def tools_registered(self) -> List[str]:
+        return [tool for tool in self.function_map.keys()]
 
     @component.output_types(service_response=List[ChatMessage])
     def run(
@@ -120,7 +112,8 @@ class ToolManager:
 
         fc_generator_kwargs = fc_generator_kwargs or {}
         fc_generator_kwargs["tools"] = self.tools_definitions
-
+        invocation_payload_resolved = None
+        service_response = None
         fc_payload = self.chat_generator.run(messages, fc_generator_kwargs)
         try:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
@@ -140,8 +133,9 @@ class ToolManager:
         except Exception as e:
             service_response = {"error": str(e)}
 
-        response_messages = [ChatMessage.from_user(json.dumps(service_response))]
-        return {"service_response": response_messages}
+        response = ChatMessage.from_user(json.dumps(service_response))
+        response.meta["tool_name"] = invocation_payload_resolved["name"]
+        return {"service_response": [response]}
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -171,3 +165,14 @@ class ToolManager:
         generator_api = init_params.get("generator_api")
         data["init_parameters"]["generator_api"] = LLMProvider.from_str(generator_api)
         return default_from_dict(cls, data)
+
+    def _init_generator(self, generator_api: LLMProvider, generator_api_params: Dict[str, Any]):
+        if generator_api == LLMProvider.OPENAI:
+            return OpenAIChatGenerator(**generator_api_params)
+        if generator_api == LLMProvider.COHERE:
+            cohere_import.check()
+            return CohereChatGenerator(**generator_api_params)
+        if generator_api == LLMProvider.ANTHROPIC:
+            anthropic_import.check()
+            return AnthropicChatGenerator(**generator_api_params)
+        raise ValueError(f"Unsupported generator API: {generator_api}")
