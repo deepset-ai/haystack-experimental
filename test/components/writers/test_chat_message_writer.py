@@ -8,6 +8,9 @@ from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMess
 
 class TestChatMessageRetriever:
     def test_init(self):
+        """
+        Test that the ChatMessageWriter component can be initialized with a valid message store.
+        """
         messages = [
             ChatMessage.from_user(content="Hello, how can I help you?"),
             ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?")
@@ -21,6 +24,9 @@ class TestChatMessageRetriever:
         assert retriever.run(messages=messages) == {"messages_written": 2}
 
     def test_to_dict(self):
+        """
+        Test that the ChatMessageWriter component can be serialized to a dictionary.
+        """
         message_store = InMemoryChatMessageStore()
         retriever = ChatMessageWriter(message_store)
 
@@ -36,6 +42,9 @@ class TestChatMessageRetriever:
         }
 
     def test_from_dict(self):
+        """
+        Test that the ChatMessageWriter component can be deserialized from a dictionary.
+        """
         data = {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
@@ -52,6 +61,9 @@ class TestChatMessageRetriever:
         }
 
     def test_chat_message_writer_pipeline(self):
+        """
+        Test that the ChatMessageWriter can be used in a pipeline and that it works as expected.
+        """
         store = InMemoryChatMessageStore()
 
         pipe = Pipeline()

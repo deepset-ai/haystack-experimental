@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @component
 class ChatMessageRetriever:
     """
-    Retrieves chat messages.
+    Retrieves chat messages from the underlying ChatMessageStore.
 
     Usage example:
     ```python

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @component
 class ChatMessageWriter:
     """
-    Writes chat messages to a ChatMessageStore.
+    Writes chat messages to an underlying ChatMessageStore.
 
     Usage example:
     ```python
@@ -99,7 +99,7 @@ class ChatMessageWriter:
         :param messages:
             A list of chat messages to write to the store.
         :returns:
-            - `messages_written`: Number of messages written
+            - `messages_written`: Number of messages written to the ChatMessageStore.
 
         :raises ValueError:
             If the specified message store is not found.
