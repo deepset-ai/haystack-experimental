@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .chat_message_store import InMemoryChatMessageStore
+from haystack_experimental.chat_message_stores.in_memory.chat_message_store import InMemoryChatMessageStore
 
 __all__ = ["InMemoryChatMessageStore"]

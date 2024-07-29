@@ -25,8 +25,8 @@ class ChatMessageWriter:
     from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
 
     messages = [
-        ChatMessage(content="Hello, how can I help you?", role="assistant"),
-        ChatMessage(content="I have a question about Python.", role="user"),
+        ChatMessage.from_assistant("Hello, how can I help you?"),
+        ChatMessage.from_user("I have a question about Python."),
     ]
     message_store = InMemoryChatMessageStore()
     writer = ChatMessageWriter(message_store)

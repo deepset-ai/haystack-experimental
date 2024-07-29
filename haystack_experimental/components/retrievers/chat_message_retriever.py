@@ -25,8 +25,8 @@ class ChatMessageRetriever:
     from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
 
     messages = [
-        ChatMessage(content="Hello, how can I help you?", role="assistant", meta={"lang": "en"}),
-        ChatMessage(content="Hallo, wie kann ich Ihnen helfen?", role="assistant", meta={"lang": "de"}),
+        ChatMessage.from_assistant("Hello, how can I help you?"),
+        ChatMessage.from_user("Hi, I have a question about Python. What is a Protocol?"),
     ]
 
     message_store = InMemoryChatMessageStore()

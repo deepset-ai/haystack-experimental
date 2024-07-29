@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .protocol import ChatMessageStore
+from haystack_experimental.chat_message_stores.types.protocol import ChatMessageStore
 
 __all__ = ["ChatMessageStore"]
