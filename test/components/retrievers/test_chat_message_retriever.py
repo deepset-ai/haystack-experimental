@@ -1,3 +1,5 @@
+from haystack import Pipeline
+from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.retrievers import ChatMessageRetriever
@@ -49,3 +51,29 @@ class TestChatMessageRetriever:
             "init_parameters": {},
             "type": "haystack_experimental.chat_message_stores.in_memory.chat_message_store.InMemoryChatMessageStore"
         }
+
+    def test_chat_message_retriever_pipeline(self):
+        store = InMemoryChatMessageStore()
+        store.write_messages([ChatMessage.from_assistant("Hello, how can I help you?")])
+
+        pipe = Pipeline()
+        pipe.add_component("memory_retriever", ChatMessageRetriever(store))
+        pipe.add_component("prompt_builder", ChatPromptBuilder(variables=["query", "memories"]))
+        pipe.connect("memory_retriever", "prompt_builder.memories")
+        user_prompt = """
+        Given the following information, answer the question.
+
+        Context:
+        {% for memory in memories %}
+            {{ memory.content }}
+        {% endfor %}
+
+        Question: {{ query }}
+        Answer:
+        """
+        question = "What is the capital of France?"
+
+        res = pipe.run(data={"prompt_builder": {"template": [ChatMessage.from_user(user_prompt)], "query": question}})
+        resulting_prompt = res["prompt_builder"]["prompt"][0].content
+        assert "France" in resulting_prompt
+        assert "how can I help you" in resulting_prompt
