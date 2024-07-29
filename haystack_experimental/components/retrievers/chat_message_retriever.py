@@ -21,7 +21,7 @@ class ChatMessageRetriever:
     Usage example:
     ```python
     from haystack.dataclasses import ChatMessage
-    from haystack.components.retrievers import ChatMessageRetriever
+    from haystack_experimental.components.retrievers import ChatMessageRetriever
     from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
 
     messages = [
@@ -95,9 +95,9 @@ class ChatMessageRetriever:
     @component.output_types(messages=List[ChatMessage])
     def run(self):
         """
-        Run the ChatMessageRetriever on the given input data.
+        Run the ChatMessageRetriever
 
         :returns:
-            The retrieved chat messages.
+            - `messages` - The retrieved chat messages.
         """
         return {"messages": self.message_store.retrieve()}

@@ -21,8 +21,8 @@ class ChatMessageWriter:
     Usage example:
     ```python
     from haystack.dataclasses import ChatMessage
-    from haystack.components.writers import ChatMessageWriter
-    from haystack.document_stores.in_memory import InMemoryChatMessageStore
+    from haystack_experimental.components.writers import ChatMessageWriter
+    from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
 
     messages = [
         ChatMessage(content="Hello, how can I help you?", role="assistant"),
@@ -99,7 +99,7 @@ class ChatMessageWriter:
         :param messages:
             A list of chat messages to write to the store.
         :returns:
-            Number of messages written
+            - `messages_written`: Number of messages written
 
         :raises ValueError:
             If the specified message store is not found.
