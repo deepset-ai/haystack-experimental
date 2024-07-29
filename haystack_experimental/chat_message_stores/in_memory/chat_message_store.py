@@ -7,10 +7,12 @@ from typing import Any, Dict, Iterable, List
 from haystack import default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage
 
+from haystack_experimental.chat_message_stores.types import ChatMessageStore
+
 logger = logging.getLogger(__name__)
 
 
-class InMemoryChatMessageStore:
+class InMemoryChatMessageStore(ChatMessageStore):
     """
     Stores chat messages in-memory.
     """
@@ -49,6 +51,8 @@ class InMemoryChatMessageStore:
     def count_messages(self) -> int:
         """
         Returns the number of chat messages stored.
+
+        :returns: The number of messages.
         """
         return len(self.messages)
 

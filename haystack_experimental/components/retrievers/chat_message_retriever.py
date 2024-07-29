@@ -22,7 +22,7 @@ class ChatMessageRetriever:
     ```python
     from haystack.dataclasses import ChatMessage
     from haystack.components.retrievers import ChatMessageRetriever
-    from haystack.document_stores.in_memory import InMemoryChatMessageStore
+    from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
 
     messages = [
         ChatMessage(content="Hello, how can I help you?", role="assistant", meta={"lang": "en"}),

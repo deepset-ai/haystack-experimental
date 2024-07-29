@@ -17,8 +17,9 @@ class ChatMessageStore(Protocol):
     """
     Stores ChatMessages to be used by the components of a Pipeline.
 
-    Classes implementing this protocol often store the ChatMessages permanently and allow specialized components to
-    perform retrieval on them, either by embedding, by keyword, hybrid, and so on, depending on the backend used.
+    Classes implementing this protocol might store ChatMessages either in durable storage or in memory. They might
+    allow specialized components (e.g. retrievers) to perform retrieval on them, either by embedding, by keyword,
+    hybrid, and so on, depending on the backend used.
 
     In order to write or retrieve chat messages, consider using a ChatMessageWriter or ChatMessageRetriever.
     """
@@ -26,6 +27,8 @@ class ChatMessageStore(Protocol):
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes this store to a dictionary.
+
+        :returns: The serialized store as a dictionary.
         """
         ...
 
@@ -33,12 +36,17 @@ class ChatMessageStore(Protocol):
     def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageStore":
         """
         Deserializes the store from a dictionary.
+
+        :param data: The dictionary to deserialize from.
+        :returns: The deserialized store.
         """
         ...
 
     def count_messages(self) -> int:
         """
         Returns the number of chat messages stored.
+
+        :returns: The number of messages.
         """
         ...
 
