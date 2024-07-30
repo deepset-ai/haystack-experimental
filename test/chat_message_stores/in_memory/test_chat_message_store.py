@@ -22,7 +22,7 @@ class TestInMemoryChatMessageStore:
         store = InMemoryChatMessageStore()
         assert store.to_dict() == {
             "init_parameters": {},
-            "type": "haystack_experimental.chat_message_stores.in_memory.chat_message_store.InMemoryChatMessageStore"
+            "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
 
     def test_from_dict(self):
@@ -31,7 +31,7 @@ class TestInMemoryChatMessageStore:
         """
         data = {
             "init_parameters": {},
-            "type": "haystack_experimental.chat_message_stores.in_memory.chat_message_store.InMemoryChatMessageStore"
+            "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
         store = InMemoryChatMessageStore.from_dict(data)
         assert store.to_dict() == data
