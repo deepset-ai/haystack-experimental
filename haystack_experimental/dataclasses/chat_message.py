@@ -26,7 +26,7 @@ class ToolCall:
     :param arguments: The arguments to call the Tool with.
     """
 
-    id: str
+    id: str  # ignore
     tool_name: str
     arguments: Dict[str, Any]
 
