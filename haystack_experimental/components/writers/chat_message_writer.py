@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import importlib
 from typing import Any, Dict, List
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
+from haystack.core.serialization import import_class_by_name
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
@@ -43,12 +43,6 @@ class ChatMessageWriter:
         """
         self.message_store = message_store
 
-    def _get_telemetry_data(self) -> Dict[str, Any]:
-        """
-        Data that is sent to Posthog for usage analytics.
-        """
-        return {"message_store": type(self.message_store).__name__}
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes the component to a dictionary.
@@ -76,19 +70,12 @@ class ChatMessageWriter:
             raise DeserializationError("Missing 'message_store' in serialization data")
         if "type" not in init_params["message_store"]:
             raise DeserializationError("Missing 'type' in message store's serialization data")
-
+        message_store_data = init_params["message_store"]
         try:
-            module_name, type_ = init_params["message_store"]["type"].rsplit(".", 1)
-            logger.debug("Trying to import module '{module_name}'", module_name=module_name)
-            module = importlib.import_module(module_name)
-        except (ImportError, DeserializationError) as e:
-            raise DeserializationError(
-                f"ChatMessageStore of type '{init_params['message_store']['type']}' not correctly imported"
-            ) from e
-
-        store_class = getattr(module, type_)
-        store = store_class.from_dict(init_params["message_store"])
-        data["init_parameters"]["message_store"] = store
+            message_store_class = import_class_by_name(message_store_data["type"])
+        except ImportError as e:
+            raise DeserializationError(f"Class '{message_store_data['type']}' not correctly imported") from e
+        data["init_parameters"]["message_store"] = default_from_dict(message_store_class, message_store_data)
         return default_from_dict(cls, data)
 
     @component.output_types(messages_written=int)
