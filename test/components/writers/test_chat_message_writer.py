@@ -18,19 +18,19 @@ class TestChatMessageWriter:
 
         message_store = InMemoryChatMessageStore()
         message_store.write_messages(messages)
-        retriever = ChatMessageWriter(message_store)
+        writer = ChatMessageWriter(message_store)
 
-        assert retriever.message_store == message_store
-        assert retriever.run(messages=messages) == {"messages_written": 2}
+        assert writer.message_store == message_store
+        assert writer.run(messages=messages) == {"messages_written": 2}
 
     def test_to_dict(self):
         """
         Test that the ChatMessageWriter component can be serialized to a dictionary.
         """
         message_store = InMemoryChatMessageStore()
-        retriever = ChatMessageWriter(message_store)
+        writer = ChatMessageWriter(message_store)
 
-        data = retriever.to_dict()
+        data = writer.to_dict()
         assert data == {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
@@ -39,6 +39,19 @@ class TestChatMessageWriter:
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
                 }
             },
+        }
+
+        # write again and serialize
+        writer.run(messages=[ChatMessage.from_user(content="Hello, how can I help you?")])
+        data = writer.to_dict()
+        assert data == {
+            "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
+            "init_parameters": {
+                "message_store": {
+                    "init_parameters": {},
+                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
+                }
+            }
         }
 
     def test_from_dict(self):
@@ -54,11 +67,15 @@ class TestChatMessageWriter:
                 }
             },
         }
-        retriever = ChatMessageWriter.from_dict(data)
-        assert retriever.message_store.to_dict() == {
+        writer = ChatMessageWriter.from_dict(data)
+        assert writer.message_store.to_dict() == {
             "init_parameters": {},
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
+
+        # write to verify that everything is still working
+        results = writer.run(messages=[ChatMessage.from_user(content="Hello, how can I help you?")])
+        assert results["messages_written"] == 1
 
     def test_chat_message_writer_pipeline(self):
         """
