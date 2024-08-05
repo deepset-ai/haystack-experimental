@@ -19,16 +19,19 @@ class ChatRole(str, Enum):
 @dataclass
 class ToolCall:
     """
-    Represents a Tool call prepared by the model, usually wrapped in an assistant message.
+    Represents a tool call prepared by the model.
 
-    :param id: The ID of the Tool call.
-    :param tool_name: The name of the Tool to call.
-    :param arguments: The arguments to call the Tool with.
+    It is usually stored in the `tool_calls` attribute of a message from the assistant.
+
+    :param tool_name: The name of the tool to be invoked.
+    :param arguments: The arguments to pass to the tool.
+    :param id: A unique identifier for the tool call. Some providers, such as OpenAI, generate this ID to associate
+        subsequent tool messages to the corresponding tool calls.
     """
 
-    id: str  # noqa: A003
     tool_name: str
     arguments: Dict[str, Any]
+    id: Optional[str]  # noqa: A003
 
 
 @dataclass
@@ -38,8 +41,8 @@ class ChatMessage:
 
     :param content: The text content of the message.
     :param role: The role of the entity sending the message.
-    :tool_call_id: The ID of the tool call that this message is responding to. Applies only to messages from tools.
-    :tool_calls: List of prepared tool calls. Applies only to messages from the assistant.
+    :tool_call_id: The ID of the tool call that a message from a tool is responding to (for messages from tools only).
+    :tool_calls: List of tool calls prepared by the model (for messages from the assistant only).
     :param meta: Additional metadata associated with the message.
     """
 
@@ -66,7 +69,7 @@ class ChatMessage:
         Create a message from the assistant.
 
         :param content: The text content of the message.
-        :param tool_calls: List of prepared tool calls.
+        :param tool_calls: List of tool calls prepared by the model.
         :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
@@ -95,12 +98,12 @@ class ChatMessage:
         return cls(content=content, role=ChatRole.SYSTEM, tool_call_id=None, tool_calls=[], meta={})
 
     @classmethod
-    def from_tool(cls, content: str, tool_call_id: str) -> "ChatMessage":
+    def from_tool(cls, content: str, tool_call_id: Optional[str] = None) -> "ChatMessage":
         """
         Create a message from a tool.
 
         :param content: Content of the tool message.
-        :param tool_call_id: Tool call that this message is responding to.
+        :param tool_call_id: The ID of the tool call this message is responding to.
         :returns: A new ChatMessage instance.
         """
         return cls(content=content, role=ChatRole.TOOL, tool_call_id=tool_call_id, tool_calls=[], meta={})
