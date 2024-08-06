@@ -171,7 +171,7 @@ class ChatMessage:
     def from_assistant(
         cls,
         text: Optional[str] = None,
-        tool_calls: Optional[Sequence[ToolCall]] = None,
+        tool_calls: Optional[List[ToolCall]] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ChatMessage":
         """
