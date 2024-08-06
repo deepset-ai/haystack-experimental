@@ -11,6 +11,16 @@ class TestChatMessageRetriever:
         """
         Test that the ChatMessageRetriever component can be initialized with a valid message store.
         """
+        message_store = InMemoryChatMessageStore()
+        retriever = ChatMessageRetriever(message_store)
+
+        assert retriever.message_store == message_store
+        assert retriever.run() == {"messages": []}
+
+    def test_retrieve_messages(self):
+        """
+        Test that the ChatMessageRetriever component can retrieve messages from the message store.
+        """
         messages = [
             ChatMessage.from_user(content="Hello, how can I help you?"),
             ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?")
