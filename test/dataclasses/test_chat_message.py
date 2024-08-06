@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from haystack_experimental.dataclasses import ChatMessage, ChatRole, ToolCall
+from haystack_experimental.dataclasses import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent
 
 def test_tool_call_init():
     tc = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
@@ -11,67 +11,145 @@ def test_tool_call_init():
     assert tc.tool_name == "mytool"
     assert tc.arguments == {"a": 1}
 
+def test_tool_call_result_init():
+    tcr = ToolCallResult(result="result", origin=ToolCall(id="123", tool_name="mytool", arguments={"a": 1}))
+    assert tcr.result == "result"
+    assert tcr.origin == ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+
+    basic_tcr = ToolCallResult(result="result")
+    assert basic_tcr.result == "result"
+
+def test_text_content_init():
+    tc = TextContent(text="Hello")
+    assert tc.text == "Hello"
+
+
 def test_from_assistant_with_valid_content():
-    content = "Hello, how can I assist you?"
-    message = ChatMessage.from_assistant(content)
-    assert message.content == content
-    assert message.role == ChatRole.ASSISTANT
+    text = "Hello, how can I assist you?"
+    message = ChatMessage.from_assistant(text)
+
+    assert message._role == ChatRole.ASSISTANT
+    assert message._content == [TextContent(text)]
+
+    assert message.text == text
+    assert message.texts == [text]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
 
 def test_from_assistant_with_tool_calls():
-    content =""
     tool_calls = [ToolCall(id="123", tool_name="mytool", arguments={"a": 1}),
                   ToolCall(id="456", tool_name="mytool2", arguments={"b": 2})]
 
-    message = ChatMessage.from_assistant(content=content, tool_calls=tool_calls)
+    message = ChatMessage.from_assistant(tool_calls=tool_calls)
 
     assert message.role == ChatRole.ASSISTANT
-    assert message.content == content
+    assert message._content == tool_calls
+
     assert message.tool_calls == tool_calls
+    assert message.tool_call == tool_calls[0]
+
+    assert not message.texts
+    assert not message.text
+    assert not message.tool_call_results
+    assert not message.tool_call_result
 
 
 def test_from_user_with_valid_content():
-    content = "I have a question."
-    message = ChatMessage.from_user(content)
-    assert message.content == content
-    assert message.role == ChatRole.USER
+    text = "I have a question."
+    message = ChatMessage.from_user(text=text)
 
+    assert message.role == ChatRole.USER
+    assert message._content == [TextContent(text)]
+
+    assert message.text == text
+    assert message.texts == [text]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
 
 def test_from_system_with_valid_content():
-    content = "System message."
-    message = ChatMessage.from_system(content)
-    assert message.content == content
+    text = "I have a question."
+    message = ChatMessage.from_system(text=text)
+
     assert message.role == ChatRole.SYSTEM
+    assert message._content == [TextContent(text)]
+
+    assert message.text == text
+    assert message.texts == [text]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
 
 def test_from_tool_with_valid_content():
-    content = "Tool message."
-    tool_call_id = "123"
-    message = ChatMessage.from_tool(content, tool_call_id)
+    tool_result = "Tool result"
+    origin = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+    message = ChatMessage.from_tool(tool_result, origin)
 
-    assert message.content == content
+    tcr = ToolCallResult(result=tool_result, origin=origin)
+
+    assert message._content == [tcr]
     assert message.role == ChatRole.TOOL
-    assert message.tool_call_id == tool_call_id
 
+    assert message.tool_call_result == tcr
+    assert message.tool_call_results == [tcr]
 
-def test_with_empty_content():
-    message = ChatMessage.from_user("")
-    assert message.content == ""
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.texts
+    assert not message.text
 
+def test_multiple_text_segments():
+    texts = [TextContent(text="Hello"), TextContent(text="World")]
+    message = ChatMessage(_role=ChatRole.USER, _content=texts)
+
+    assert message.texts == ["Hello", "World"]
+    assert len(message) == 2
+
+def test_mixed_content():
+    content = [
+        TextContent(text="Hello"),
+        ToolCall(id="123", tool_name="mytool", arguments={"a": 1}),
+    ]
+
+    message = ChatMessage(_role=ChatRole.ASSISTANT, _content=content)
+
+    assert len(message) == 2
+    assert message.texts == ["Hello"]
+    assert message.text == "Hello"
+
+    assert message.tool_calls == [content[1]]
+    assert message.tool_call == content[1]
 
 def test_to_dict():
     message = ChatMessage.from_user("content")
     message.meta["some"] = "some"
 
-    assert message.to_dict() == {'content': 'content', 'role': 'user', 'tool_call_id': None, 'tool_calls': [], 'meta': {'some': 'some'}}
+    assert message.to_dict() == {
+        "_content": [{"text": "content"}],
+        "_role": "user",
+        "_meta": {"some": "some"},
+    }
 
 
 def test_from_dict():
-    assert ChatMessage.from_dict(data={"content": "text", "role": "user"}) == ChatMessage.from_user(content="text")
+    assert ChatMessage.from_dict(data={"_content": [{"text": "text"}], "_role": "user"}) == ChatMessage.from_user(text="text")
 
 
 def test_from_dict_with_meta():
-    assert ChatMessage.from_dict(
-        data={"content": "text", "role": "assistant", "meta": {"something": "something"}}
-    ) == ChatMessage.from_assistant(content="text", meta={"something": "something"})
+    data = {
+        "_content": [{"text": "text"}],
+        "_role": "assistant",
+        "_meta": {"something": "something"}
+    }
+
+    assert ChatMessage.from_dict(data=data) == ChatMessage.from_assistant(text="text", meta={"something": "something"})
 
 def test_serde_with_tool_calls():
     tool_call = ToolCall(id="123", tool_name="tool", arguments={"a": 1})
@@ -79,7 +157,10 @@ def test_serde_with_tool_calls():
 
     serialized_message = message.to_dict()
 
-    assert serialized_message=={'content': 'a message', 'role': 'assistant', 'tool_call_id': None, 'tool_calls': [{'id': '123', 'tool_name': 'tool', 'arguments': {'a': 1}}], 'meta': {}}
+    assert serialized_message == {
+        "_content": [{"text": "a message"}, {"tool_call": {"id": "123", "tool_name": "tool", "arguments": {"a": 1}}}],
+        "_role": "assistant",
+        "_meta": {},
+    }
 
-    deserialized_message = ChatMessage.from_dict(serialized_message)
-    assert deserialized_message == message
+    assert ChatMessage.from_dict(serialized_message) == message

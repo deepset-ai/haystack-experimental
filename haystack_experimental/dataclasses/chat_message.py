@@ -4,7 +4,7 @@
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 
 class ChatRole(str, Enum):
@@ -19,19 +19,43 @@ class ChatRole(str, Enum):
 @dataclass
 class ToolCall:
     """
-    Represents a tool call prepared by the model.
+    Represents a Tool call prepared by the model, usually contained in an assistant message.
 
-    It is usually stored in the `tool_calls` attribute of a message from the assistant.
-
-    :param tool_name: The name of the tool to be invoked.
-    :param arguments: The arguments to pass to the tool.
-    :param id: A unique identifier for the tool call. Some providers, such as OpenAI, generate this ID to associate
-        subsequent tool messages to the corresponding tool calls.
+    :param id: The ID of the Tool call.
+    :param tool_name: The name of the Tool to call.
+    :param arguments: The arguments to call the Tool with.
     """
 
+    id: Optional[str]  # noqa: A003
     tool_name: str
     arguments: Dict[str, Any]
-    id: Optional[str]  # noqa: A003
+
+
+@dataclass
+class ToolCallResult:
+    """
+    Represents the result of a Tool invocation.
+
+    :param result: The result of the Tool invocation.
+    :param origin: The Tool call that produced this result.
+    """
+
+    result: str
+    origin: Optional[ToolCall] = None
+
+
+@dataclass
+class TextContent:
+    """
+    The textual content of a chat message.
+
+    :param text: The text content of the message.
+    """
+
+    text: str
+
+
+ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult]
 
 
 @dataclass
@@ -39,18 +63,80 @@ class ChatMessage:
     """
     Represents a message in a LLM chat conversation.
 
-    :param content: The text content of the message.
+    :param content: The content of the message.
+        It is a list containing one or more of the following types: `TextContent`, `ToolCall`, `ToolCallResult`.
     :param role: The role of the entity sending the message.
-    :tool_call_id: The ID of the tool call that a message from a tool is responding to (for messages from tools only).
-    :tool_calls: List of tool calls prepared by the model (for messages from the assistant only).
     :param meta: Additional metadata associated with the message.
     """
 
-    content: str
-    role: ChatRole
-    tool_call_id: Optional[str] = None
-    tool_calls: List[ToolCall] = field(default_factory=list)
-    meta: Dict[str, Any] = field(default_factory=dict, hash=False)
+    _role: ChatRole
+    _content: Sequence[ChatMessageContentT]
+    _meta: Dict[str, Any] = field(default_factory=dict, hash=False)
+
+    def __len__(self):
+        return len(self._content)
+
+    @property
+    def role(self) -> ChatRole:
+        """
+        Returns the role of the entity sending the message.
+        """
+        return self._role
+
+    @property
+    def meta(self) -> Dict[str, Any]:
+        """
+        Returns the metadata associated with the message.
+        """
+        return self._meta
+
+    @property
+    def texts(self) -> List[str]:
+        """
+        Returns the list of all texts contained in the message.
+        """
+        return [content.text for content in self._content if isinstance(content, TextContent)]
+
+    @property
+    def text(self) -> Optional[str]:
+        """
+        Returns the first text contained in the message.
+        """
+        if texts := self.texts:
+            return texts[0]
+        return None
+
+    @property
+    def tool_calls(self) -> List[ToolCall]:
+        """
+        Returns the list of all Tool calls contained in the message.
+        """
+        return [content for content in self._content if isinstance(content, ToolCall)]
+
+    @property
+    def tool_call(self) -> Optional[ToolCall]:
+        """
+        Returns the first Tool call contained in the message.
+        """
+        if tool_calls := self.tool_calls:
+            return tool_calls[0]
+        return None
+
+    @property
+    def tool_call_results(self) -> List[ToolCallResult]:
+        """
+        Returns the list of all Tool call results contained in the message.
+        """
+        return [content for content in self._content if isinstance(content, ToolCallResult)]
+
+    @property
+    def tool_call_result(self) -> Optional[ToolCallResult]:
+        """
+        Returns the first Tool call result contained in the message.
+        """
+        if tool_call_results := self.tool_call_results:
+            return tool_call_results[0]
+        return None
 
     def is_from(self, role: ChatRole) -> bool:
         """
@@ -59,54 +145,64 @@ class ChatMessage:
         :param role: The role to check against.
         :returns: True if the message is from the specified role, False otherwise.
         """
-        return self.role == role
+        return self._role == role
+
+    @classmethod
+    def from_user(cls, text: str) -> "ChatMessage":
+        """
+        Create a message from the user.
+
+        :param text: The text content of the message.
+        :returns: A new ChatMessage instance.
+        """
+        return cls(_role=ChatRole.USER, _content=[TextContent(text=text)])
+
+    @classmethod
+    def from_system(cls, text: str) -> "ChatMessage":
+        """
+        Create a message from the system.
+
+        :param text: The text content of the message.
+        :returns: A new ChatMessage instance.
+        """
+        return cls(_role=ChatRole.SYSTEM, _content=[TextContent(text=text)])
 
     @classmethod
     def from_assistant(
-        cls, content: str, tool_calls: Optional[List[ToolCall]] = None, meta: Optional[Dict[str, Any]] = None
+        cls,
+        text: Optional[str] = None,
+        tool_calls: Optional[Sequence[ToolCall]] = None,
+        meta: Optional[Dict[str, Any]] = None,
     ) -> "ChatMessage":
         """
         Create a message from the assistant.
 
-        :param content: The text content of the message.
-        :param tool_calls: List of tool calls prepared by the model.
+        :param text: The text content of the message.
+        :param tool_calls: The Tool calls to include in the message.
         :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        return cls(
-            content=content, role=ChatRole.ASSISTANT, tool_call_id=None, tool_calls=tool_calls or [], meta=meta or {}
-        )
+        if not text and not tool_calls:
+            raise ValueError("At least one of 'text' or 'tool_calls' must be provided.")
+
+        content: List[ChatMessageContentT] = []
+        if text:
+            content.append(TextContent(text=text))
+        if tool_calls:
+            content.extend(tool_calls)
+
+        return cls(_role=ChatRole.ASSISTANT, _content=content, _meta=meta or {})
 
     @classmethod
-    def from_user(cls, content: str) -> "ChatMessage":
+    def from_tool(cls, result: str, origin: Optional[ToolCall] = None) -> "ChatMessage":
         """
-        Create a message from the user.
+        Create a message from a Tool.
 
-        :param content: The text content of the message.
+        :param result: The result of the Tool invocation.
+        :param origin: The Tool call that produced this result.
         :returns: A new ChatMessage instance.
         """
-        return cls(content=content, role=ChatRole.USER, tool_call_id=None, tool_calls=[], meta={})
-
-    @classmethod
-    def from_system(cls, content: str) -> "ChatMessage":
-        """
-        Create a message from the system.
-
-        :param content: The text content of the message.
-        :returns: A new ChatMessage instance.
-        """
-        return cls(content=content, role=ChatRole.SYSTEM, tool_call_id=None, tool_calls=[], meta={})
-
-    @classmethod
-    def from_tool(cls, content: str, tool_call_id: Optional[str] = None) -> "ChatMessage":
-        """
-        Create a message from a tool.
-
-        :param content: Content of the tool message.
-        :param tool_call_id: The ID of the tool call this message is responding to.
-        :returns: A new ChatMessage instance.
-        """
-        return cls(content=content, role=ChatRole.TOOL, tool_call_id=tool_call_id, tool_calls=[], meta={})
+        return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=result, origin=origin)])
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -115,10 +211,21 @@ class ChatMessage:
         :returns:
             Serialized version of the object.
         """
-        data = asdict(self)
-        data["role"] = self.role.value
+        serialized: dict = {}
+        serialized["_role"] = self._role.value
+        serialized["_meta"] = self._meta
 
-        return data
+        content: List[dict] = []
+        for part in self._content:
+            if isinstance(part, TextContent):
+                content.append({"text": part.text})
+            elif isinstance(part, ToolCall):
+                content.append({"tool_call": asdict(part)})
+            elif isinstance(part, ToolCallResult):
+                content.append({"tool_call_result": asdict(part)})
+
+        serialized["_content"] = content
+        return serialized
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ChatMessage":
@@ -130,10 +237,18 @@ class ChatMessage:
         :returns:
             The created object.
         """
-        data["role"] = ChatRole(data["role"])
+        data["_role"] = ChatRole(data["_role"])
 
-        # deserialize tool_calls
-        if tool_calls := data.get("tool_calls"):
-            data["tool_calls"] = [ToolCall(**tool_call) for tool_call in tool_calls]
+        content: List[ChatMessageContentT] = []
+
+        for part in data["_content"]:
+            if "text" in part:
+                content.append(TextContent(text=part["text"]))
+            elif "tool_call" in part:
+                content.append(ToolCall(**part["tool_call"]))
+            elif "tool_call_result" in part:
+                content.append(ToolCallResult(**part["tool_call_result"]))
+
+        data["_content"] = content
 
         return cls(**data)
