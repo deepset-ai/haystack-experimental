@@ -183,7 +183,7 @@ class ChatMessage:
         :returns: A new ChatMessage instance.
         """
         if not text and not tool_calls:
-            raise ValueError("At least one of 'text' or 'tool_calls' must be provided.")
+            raise ValueError("At least one of `text` or `tool_calls` must be provided.")
 
         content: List[ChatMessageContentT] = []
         if text:
