@@ -1,8 +1,10 @@
+from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict
+
+from haystack.utils import deserialize_callable, serialize_callable
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
-from dataclasses import dataclass, asdict
-from haystack.utils import deserialize_callable, serialize_callable
+
 
 @dataclass
 class Tool:
@@ -31,7 +33,7 @@ class Tool:
         serialized = asdict(self)
         serialized["function"] = serialize_callable(self.function)
         return serialized
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Tool":
         data["function"] = deserialize_callable(data["function"])
