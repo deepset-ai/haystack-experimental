@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List, NotRequired, TypedDict
 
 from haystack.utils import deserialize_callable, serialize_callable
 from jsonschema import Draft202012Validator
