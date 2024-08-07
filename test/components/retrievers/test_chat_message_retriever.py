@@ -98,3 +98,18 @@ class TestChatMessageRetriever:
         resulting_prompt = res["prompt_builder"]["prompt"][0].content
         assert "France" in resulting_prompt
         assert "how can I help you" in resulting_prompt
+
+    def test_chat_message_retriever_pipeline_serde(self):
+        """
+        Test that the ChatMessageRetriever can be used in a pipeline and that it can be serialized and deserialized.
+        """
+        pipe = Pipeline()
+        pipe.add_component("memory_retriever", ChatMessageRetriever(InMemoryChatMessageStore()))
+        pipe.add_component("prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("no template")],
+                                                               variables=["query"]))
+
+        # now serialize and deserialize the pipeline
+        data = pipe.to_dict()
+        new_pipe = Pipeline.from_dict(data)
+
+        assert new_pipe == pipe
