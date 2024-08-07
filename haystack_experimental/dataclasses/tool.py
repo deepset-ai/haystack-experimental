@@ -1,35 +1,25 @@
-from typing import Any, Callable, Dict, Mapping, Sequence, TypedDict, Optional, List
-from typing_extensions import NotRequired
+from typing import Any, Callable, Dict
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
+from dataclasses import dataclass, asdict
+from haystack.utils import deserialize_callable, serialize_callable
 
-class Property(TypedDict):
-  type: str
-  description: str
-  enum: NotRequired[List[str]]  # `enum` is optional and can be a list of strings
-
-
-class Parameters(TypedDict):
-  type: str
-  required: List[str]
-  properties: Dict[str, Property]
-
+@dataclass
 class Tool:
-    def __init__(self, name: str, description: str, parameters: Dict[str, Any], function: Callable):
-        self.name = name
-        self.description = description
+    name: str
+    description: str
+    parameters: Dict[str, Any]
+    function: Callable
 
-        # Validate the parameters
+    def __post_init__(self):
+        # Check that the parameters define a valid JSON schema
         try:
-            Draft202012Validator.check_schema(parameters)
+            Draft202012Validator.check_schema(self.parameters)
         except SchemaError as e:
-            raise ValueError("The provided schema is invalid") from e
-
-        self.parameters = parameters
-        self.function = function
+            raise ValueError("The provided parameters do not define a valid JSON schema") from e
 
     @property
-    def tool_spec(self):
+    def tool_spec(self)-> Dict[str, Any]:
         """Get the tool specification."""
         return {"name": self.name, "description": self.description, "parameters": self.parameters}
 
@@ -37,48 +27,12 @@ class Tool:
         """Invoke the tool."""
         return self.function(**kwargs)
 
-    # "function": {
-    #   "name": "get_current_weather",
-    #   "description": "Get the current weather in a given location",
-    #   "parameters": {
-    #     "type": "object",
-    #     "properties": {
-    #       "location": {
-    #         "type": "string",
-    #         "description": "The city and state, e.g. San Francisco, CA",
-    #       },
-    #       "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
-    #     },
-    #     "required": ["location"],
-    #   },
-
-mytool_parameters  =   {
-        "type": "object",
-        "properties": {
-          "location": {
-            "type": "string",
-            "description": "The city and state, e.g. San Francisco, CA",
-          },
-          "unit": {"type": "string", "enum": ["celsius", "fahrenheit"], "description": "temp unit"},
-        },
-        "required": ["location"],
-      }
-
-mytool_name = "get_current_weather"
-mytool_description = "Get the current weather in a given location"
-
-mytool = Tool(name=mytool_name, description=mytool_description, parameters=mytool_parameters,
-              function=lambda location, unit: f"Current weather in {location} is 72°F")
-
-print(mytool.tool_spec)
-print(mytool.invoke(location="San Francisco, CA", unit="fahrenheit"))
-
-class Movie(TypedDict):
-    name: str
-    year: int
-
-def print_movie_info(movie: Movie) -> None:
-    print(f"{movie['name']} ({movie['year']})")
-
-movie_data = {'name': 'Blade Runner', 'year': 1982}
-print_movie_info(movie_data)
+    def to_dict(self) -> Dict[str, Any]:
+        serialized = asdict(self)
+        serialized["function"] = serialize_callable(self.function)
+        return serialized
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Tool":
+        data["function"] = deserialize_callable(data["function"])
+        return cls(**data)
