@@ -107,10 +107,8 @@ class TestChatMessageWriter:
         """
         Test that the ChatMessageWriter can be serialized and deserialized.
         """
-        store = InMemoryChatMessageStore()
-
         pipe = Pipeline()
-        pipe.add_component("writer", ChatMessageWriter(store))
+        pipe.add_component("writer", ChatMessageWriter(InMemoryChatMessageStore()))
         pipe.add_component("prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("no template")],
                                                                variables=["query"]))
 
