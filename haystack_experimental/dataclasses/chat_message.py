@@ -231,7 +231,7 @@ class ChatMessage:
             elif isinstance(part, ToolCallResult):
                 content.append({"tool_call_result": asdict(part)})
             else:
-                raise TypeError(f"Unsupported type `{type(part).__name__}` for `{part}`.")
+                raise TypeError(f"Unsupported type in ChatMessage content: `{type(part).__name__}` for `{part}`.")
 
         serialized["_content"] = content
         return serialized
@@ -256,9 +256,12 @@ class ChatMessage:
             elif "tool_call" in part:
                 content.append(ToolCall(**part["tool_call"]))
             elif "tool_call_result" in part:
-                content.append(ToolCallResult(**part["tool_call_result"]))
+                result = part["tool_call_result"]["result"]
+                origin = ToolCall(**part["tool_call_result"]["origin"])
+                tcr = ToolCallResult(result=result, origin=origin)
+                content.append(tcr)
             else:
-                raise TypeError(f"Unsupported type `{type(part).__name__}` for `{part}`.")
+                raise ValueError(f"Unsupported content in serialized ChatMessage: `{part}`")
 
         data["_content"] = content
 

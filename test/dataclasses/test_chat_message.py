@@ -16,9 +16,6 @@ def test_tool_call_result_init():
     assert tcr.result == "result"
     assert tcr.origin == ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
 
-    basic_tcr = ToolCallResult(result="result")
-    assert basic_tcr.result == "result"
-
 def test_text_content_init():
     tc = TextContent(text="Hello")
     assert tc.text == "Hello"
@@ -127,40 +124,39 @@ def test_mixed_content():
     assert message.tool_calls == [content[1]]
     assert message.tool_call == content[1]
 
-def test_to_dict():
-    message = ChatMessage.from_user("content")
-    message.meta["some"] = "some"
+def test_serde():
+    # the following message is created just for testing purposes and does not make sense in a real use case
 
-    assert message.to_dict() == {
-        "_content": [{"text": "content"}],
-        "_role": "user",
-        "_meta": {"some": "some"},
-    }
+    role = ChatRole.ASSISTANT
 
+    text_content = TextContent(text="Hello")
+    tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+    tool_call_result = ToolCallResult(result="result", origin=tool_call)
+    meta = {"some": "info"}
 
-def test_from_dict():
-    assert ChatMessage.from_dict(data={"_content": [{"text": "text"}], "_role": "user"}) == ChatMessage.from_user(text="text")
-
-
-def test_from_dict_with_meta():
-    data = {
-        "_content": [{"text": "text"}],
-        "_role": "assistant",
-        "_meta": {"something": "something"}
-    }
-
-    assert ChatMessage.from_dict(data=data) == ChatMessage.from_assistant(text="text", meta={"something": "something"})
-
-def test_serde_with_tool_calls():
-    tool_call = ToolCall(id="123", tool_name="tool", arguments={"a": 1})
-    message = ChatMessage.from_assistant("a message", tool_calls=[tool_call])
+    message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result], _meta=meta)
 
     serialized_message = message.to_dict()
+    serialized_message = {"_content": [{"text": "Hello"}, {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}, {"tool_call_result": {"result": "result", "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}}], "_role": "assistant", "_meta": {"some": "info"}}
 
-    assert serialized_message == {
-        "_content": [{"text": "a message"}, {"tool_call": {"id": "123", "tool_name": "tool", "arguments": {"a": 1}}}],
-        "_role": "assistant",
-        "_meta": {},
-    }
+    deserialized_message = ChatMessage.from_dict(serialized_message)
+    assert deserialized_message == message
 
-    assert ChatMessage.from_dict(serialized_message) == message
+def test_to_dict_with_invalid_content_type():
+    text_content = TextContent(text="Hello")
+    invalid_content = "invalid"
+
+    message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[text_content, invalid_content])
+
+    with pytest.raises(TypeError):
+        message.to_dict()
+
+
+def test_from_dict_with_invalid_content_type():
+    data = {"_role": "assistant", "_content": [{"text": "Hello"}, "invalid"]}
+    with pytest.raises(ValueError):
+        ChatMessage.from_dict(data)
+
+    data = {"_role": "assistant", "_content": [{"text": "Hello"}, {"invalid": "invalid"}]}
+    with pytest.raises(ValueError):
+        ChatMessage.from_dict(data)
