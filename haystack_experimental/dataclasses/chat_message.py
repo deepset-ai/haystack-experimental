@@ -8,11 +8,19 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 
 class ChatRole(str, Enum):
-    """Enumeration representing the roles within a chat."""
+    """
+    Enumeration representing the roles within a chat.
 
-    ASSISTANT = "assistant"
+    - `USER`: The user role. A message from the user contains only text.
+    - `SYSTEM`: The system role. A message from the system contains only text.
+    - `ASSISTANT`: The assistant role. A message from the assistant can contain text and prepared Tool calls.
+        It can also store additional metadata.
+    - `TOOL`: The tool role. A message from a tool contains the result of a Tool invocation.
+    """
+
     USER = "user"
     SYSTEM = "system"
+    ASSISTANT = "assistant"
     TOOL = "tool"
 
 
@@ -41,7 +49,7 @@ class ToolCallResult:
     """
 
     result: str
-    origin: Optional[ToolCall] = None
+    origin: ToolCall
 
 
 @dataclass
@@ -64,7 +72,6 @@ class ChatMessage:
     Represents a message in a LLM chat conversation.
 
     :param content: The content of the message.
-        It is a list containing one or more of the following types: `TextContent`, `ToolCall`, `ToolCallResult`.
     :param role: The role of the entity sending the message.
     :param meta: Additional metadata associated with the message.
     """
@@ -194,15 +201,15 @@ class ChatMessage:
         return cls(_role=ChatRole.ASSISTANT, _content=content, _meta=meta or {})
 
     @classmethod
-    def from_tool(cls, result: str, origin: Optional[ToolCall] = None) -> "ChatMessage":
+    def from_tool(cls, tool_result: str, origin: ToolCall) -> "ChatMessage":
         """
         Create a message from a Tool.
 
-        :param result: The result of the Tool invocation.
+        :param tool_result: The result of the Tool invocation.
         :param origin: The Tool call that produced this result.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=result, origin=origin)])
+        return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=tool_result, origin=origin)])
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -211,11 +218,11 @@ class ChatMessage:
         :returns:
             Serialized version of the object.
         """
-        serialized: dict = {}
+        serialized: Dict[str, Any] = {}
         serialized["_role"] = self._role.value
         serialized["_meta"] = self._meta
 
-        content: List[dict] = []
+        content: List[Dict[str, Any]] = []
         for part in self._content:
             if isinstance(part, TextContent):
                 content.append({"text": part.text})
@@ -223,6 +230,8 @@ class ChatMessage:
                 content.append({"tool_call": asdict(part)})
             elif isinstance(part, ToolCallResult):
                 content.append({"tool_call_result": asdict(part)})
+            else:
+                raise TypeError(f"Unsupported type `{type(part).__name__}` for `{part}`.")
 
         serialized["_content"] = content
         return serialized
@@ -248,6 +257,8 @@ class ChatMessage:
                 content.append(ToolCall(**part["tool_call"]))
             elif "tool_call_result" in part:
                 content.append(ToolCallResult(**part["tool_call_result"]))
+            else:
+                raise TypeError(f"Unsupported type `{type(part).__name__}` for `{part}`.")
 
         data["_content"] = content
 
