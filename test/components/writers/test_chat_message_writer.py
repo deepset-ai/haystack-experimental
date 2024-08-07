@@ -102,3 +102,20 @@ class TestChatMessageWriter:
         Question: What is the capital of France?
         Answer:
         """
+
+    def test_chat_message_writer_pipeline_serde(self):
+        """
+        Test that the ChatMessageWriter can be serialized and deserialized.
+        """
+        store = InMemoryChatMessageStore()
+
+        pipe = Pipeline()
+        pipe.add_component("writer", ChatMessageWriter(store))
+        pipe.add_component("prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("no template")],
+                                                               variables=["query"]))
+
+        # now serialize and deserialize the pipeline
+        data = pipe.to_dict()
+        new_pipe = Pipeline.from_dict(data)
+
+        assert new_pipe == pipe
