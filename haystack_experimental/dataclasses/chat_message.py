@@ -10,17 +10,18 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 class ChatRole(str, Enum):
     """
     Enumeration representing the roles within a chat.
-
-    - `USER`: The user role. A message from the user contains only text.
-    - `SYSTEM`: The system role. A message from the system contains only text.
-    - `ASSISTANT`: The assistant role. A message from the assistant can contain text and prepared Tool calls.
-        It can also store additional metadata.
-    - `TOOL`: The tool role. A message from a tool contains the result of a Tool invocation.
     """
 
+    #: The user role. A message from the user contains only text.
     USER = "user"
+
+    #: The system role. A message from the system contains only text.
     SYSTEM = "system"
+
+    #: The assistant role. A message from the assistant can contain text and Tool calls. It can also store metadata.
     ASSISTANT = "assistant"
+
+    #: The tool role. A message from a tool contains the result of a Tool invocation.
     TOOL = "tool"
 
 
