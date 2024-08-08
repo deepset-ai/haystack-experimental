@@ -10,7 +10,15 @@ from haystack.utils import deserialize_callable, serialize_callable
 
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
-    from jsonschema.exceptions import SchemaError
+    from jsonschema.exceptions import SchemaError, ValidationError
+
+
+class ToolInvocationError(Exception):
+    """
+    Exception raised when a Tool invocation fails.
+    """
+
+    pass
 
 
 @dataclass
@@ -51,7 +59,12 @@ class Tool:
         """
         Invoke the tool with the provided keyword arguments.
         """
-        return self.function(**kwargs)
+
+        try:
+            result = self.function(**kwargs)
+        except Exception as e:
+            raise ToolInvocationError(f"Failed to invoke tool `{self.name}` with parameters {kwargs}") from e
+        return result
 
     def to_dict(self) -> Dict[str, Any]:
         """

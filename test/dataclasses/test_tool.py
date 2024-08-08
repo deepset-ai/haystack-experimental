@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from haystack_experimental.dataclasses import Tool
+from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError
 
 def get_weather_report(city: str) -> str:
     return f"Weather report for {city}: 20°C, sunny"
@@ -45,6 +45,12 @@ class TestTool:
         tool = Tool(name="weather", description="Get weather report", parameters=parameters, function=get_weather_report)
 
         assert tool.invoke(city="Berlin") == "Weather report for Berlin: 20°C, sunny"
+
+    def test_invoke_fail(self):
+        tool = Tool(name="weather", description="Get weather report", parameters=parameters, function=get_weather_report)
+
+        with pytest.raises(ToolInvocationError):
+            tool.invoke()
 
     def test_to_dict(self):
         tool = Tool(name="weather", description="Get weather report", parameters=parameters, function=get_weather_report)
