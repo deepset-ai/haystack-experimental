@@ -10,7 +10,7 @@ from haystack.utils import deserialize_callable, serialize_callable
 
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
-    from jsonschema.exceptions import SchemaError, ValidationError
+    from jsonschema.exceptions import SchemaError
 
 
 class ToolInvocationError(Exception):
