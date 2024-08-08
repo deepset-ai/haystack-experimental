@@ -204,6 +204,7 @@ class TestOpenAPITool:
 
     @pytest.mark.integration
     @pytest.mark.parametrize("provider", ["openai", "anthropic", "cohere"])
+    @pytest.mark.skip(reason="Underlying service gets overloaded often")
     def test_run_live_meteo_forecast(self, provider: str):
         tool = OpenAPITool(
             generator_api=LLMProvider.from_str(provider),
