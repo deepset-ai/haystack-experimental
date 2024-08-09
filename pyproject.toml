@@ -69,7 +69,7 @@ lint = [
   "ruff check {args:haystack_experimental}",
   "pylint -ry -j 0 {args:haystack_experimental}",
 ]
-test-cov = "coverage run -m pytest {args:test}"
+test-cov = "coverage run -m pytest -m \"not unstable\" {args:test}"
 cov-report = ["- coverage combine", "coverage xml"]
 cov = ["test-cov", "cov-report"]
 
@@ -157,7 +157,10 @@ disable = [
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "--strict-markers"
-markers = ["integration: integration tests"]
+markers = [
+  "integration: integration tests",
+  "unstable(reason): Mark tests that are unstable or depend on unreliable services."
+]
 log_cli = true
 
 [tool.mypy]
