@@ -63,6 +63,7 @@ class OpenAPITool:
         generator_api_params: Optional[Dict[str, Any]] = None,
         spec: Optional[Union[str, Path]] = None,
         credentials: Optional[Secret] = None,
+        allowed_operations: Optional[List[str]] = None,
     ):
         """
         Initialize the OpenAPITool component.
@@ -72,6 +73,9 @@ class OpenAPITool:
         :param spec: OpenAPI specification for the tool/service. This can be a URL, a local file path, or
         an OpenAPI service specification provided as a string.
         :param credentials: Credentials for the tool/service.
+        :param allowed_operations: A list of operations to register with LLMs via the LLM tools parameter. Use
+        operationId field in the OpenAPI spec path/operation to specify the operation names to use. If not specified,
+        all operations found in the OpenAPI spec will be registered with LLMs.
         """
         self.generator_api = generator_api
         self.generator_api_params = generator_api_params or {}  # store the generator API parameters for serialization
@@ -80,6 +84,7 @@ class OpenAPITool:
         self.open_api_service: Optional[OpenAPIServiceClient] = None
         self.spec = spec  # store the spec for serialization
         self.credentials = credentials  # store the credentials for serialization
+        self.allowed_operations = allowed_operations
         if spec:
             if os.path.isfile(spec):
                 openapi_spec = OpenAPISpecification.from_file(spec)
@@ -91,6 +96,7 @@ class OpenAPITool:
                 openapi_spec=openapi_spec,
                 credentials=credentials.resolve_value() if credentials else None,
                 llm_provider=generator_api,
+                operations_filter=(lambda f: f["operationId"] in allowed_operations) if allowed_operations else None,
             )
             self.open_api_service = OpenAPIServiceClient(self.config_openapi)
 
@@ -184,6 +190,7 @@ class OpenAPITool:
             generator_api_params=self.generator_api_params,
             spec=self.spec,
             credentials=self.credentials.to_dict() if self.credentials else None,
+            allowed_operations=self.allowed_operations,
         )
 
     @classmethod
