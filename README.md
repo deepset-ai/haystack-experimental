@@ -41,10 +41,12 @@ The latest version of the package contains the following experiments:
 | [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         |
 | [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         |
 | [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      |
+| [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
 [3]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
+[4]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/dataclasses/tool.py
 
 ## Usage
 
