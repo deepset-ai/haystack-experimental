@@ -357,7 +357,8 @@ class OpenAIChatGenerator:
                     arguments = json.loads(arguments_str)
                 except json.JSONDecodeError:
                     arguments = {"_malformed_json": arguments_str}
-                    logger.warning("The ToolCall arguments returned by OpenAI are a malformed JSON")
+                    logger.warning("OpenAI returned a malformed JSON string. "
+                                   "You can find it under the `_malformed_json` key of `ToolCall.arguments`.")
                 tool_calls.append(ToolCall(id=openai_tc.id, tool_name=openai_tc.function.name, arguments=arguments))
 
         chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls)
