@@ -29,10 +29,14 @@ class Tool:
     Accurate definitions of the textual attributes such as `name` and `description`
     are important for the Language Model to correctly prepare the call.
 
-    :param name: Name of the tool.
-    :param description: Description of the tool.
-    :param parameters: A JSON schema defining the parameters expected by the tool.
-    :param function: The callable that will be invoked when the tool is called.
+    :param name:
+        Name of the tool.
+    :param description:
+        Description of the tool.
+    :param parameters:
+        A JSON schema defining the parameters expected by the tool.
+    :param function:
+        The callable that will be invoked when the tool is called.
     """
 
     name: str
