@@ -6,11 +6,13 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 import requests
 import yaml
 from haystack.lazy_imports import LazyImport
+
+from haystack_experimental.components.tools.utils import normalize_function_name
 
 with LazyImport("Run 'pip install jsonref'") as jsonref_import:
     # pylint: disable=import-error
@@ -31,15 +33,13 @@ VALID_HTTP_METHODS = [
 
 def path_to_operation_id(path: str, http_method: str = "get") -> str:
     """
-    Converts a path to an operationId.
+    Converts an OpenAPI spec path to synthetic operationId.
 
-    :param path: The path to convert.
+    :param path: The OpenAPI spec path to convert.
     :param http_method: The HTTP method to use for the operationId.
     :returns: The operationId.
     """
-    if http_method.lower() not in VALID_HTTP_METHODS:
-        raise ValueError(f"Invalid HTTP method: {http_method}")
-    return path.replace("/", "_").lstrip("_").rstrip("_") + "_" + http_method.lower()
+    return normalize_function_name(path + "_" + http_method.lower())
 
 
 class LLMProvider(Enum):
@@ -222,14 +222,26 @@ class OpenAPISpecification:
             ) from e
         return cls.from_str(content)
 
-    def find_operation_by_id(self, op_id: str) -> Operation:
+    def find_operation_by_id(
+            self,
+            op_id: str,
+            op_id_normalization_fn: Optional[Callable[[str], str]] = None
+    ) -> Operation:
         """
         Find an Operation by operationId.
 
         :param op_id: The operationId of the operation.
+        :param op_id_normalization_fn: A function to normalize the operationId.
+        If provided, this function is applied to each operationId from OpenAPI spec before it
+        is compared with the LLM provided op_id (i.e. tool name).
+
+        By default, when no op_id_normalization_fn is provided, we use a built-in function that normalizes
+        tool name to satisfy requirements for OpenAI, Anthropic, and Cohere LLMs:
+            - Tool names are adjusted to match the pattern ^[a-zA-Z0-9_]+$ and truncated to 64 characters
         :returns: The matching operation
         :raises ValueError: If no operation is found with the given operationId.
         """
+        op_id_normalization_fn = op_id_normalization_fn or normalize_function_name
         for path, path_value in self.spec_dict.get("paths", {}).items():
             operations = {
                 method: operation_dict
@@ -238,12 +250,8 @@ class OpenAPISpecification:
             }
 
             for method, operation_dict in operations.items():
-                if (
-                    operation_dict.get(
-                        "operationId", path_to_operation_id(path, method)
-                    )
-                    == op_id
-                ):
+                operation_id = operation_dict.get("operationId", path_to_operation_id(path, method))
+                if op_id_normalization_fn(operation_id) == op_id:
                     return Operation(path, method, operation_dict, self.spec_dict)
         raise ValueError(f"No operation found with operationId {op_id}")
 
