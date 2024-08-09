@@ -10,5 +10,6 @@ from haystack_experimental.dataclasses.chat_message import (
     ToolCall,
     ToolCallResult,
 )
+from haystack_experimental.dataclasses.tool import Tool
 
-__all__ = ["ChatMessage", "ChatRole", "ToolCall", "ToolCallResult", "TextContent", "ChatMessageContentT"]
+__all__ = ["ChatMessage", "ChatRole", "ToolCall", "ToolCallResult", "TextContent", "ChatMessageContentT", "Tool"]

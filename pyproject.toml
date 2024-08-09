@@ -57,6 +57,8 @@ extra-dependencies = [
   "cohere-haystack",
   "anthropic-haystack",
   "fastapi",
+  # Tool
+  "jsonschema",
 ]
 
 [tool.hatch.envs.test.scripts]
