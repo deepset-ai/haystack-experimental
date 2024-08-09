@@ -67,7 +67,7 @@ lint = [
   "ruff check {args:haystack_experimental}",
   "pylint -ry -j 0 {args:haystack_experimental}",
 ]
-test-cov = "coverage run -m pytest {args:test}"
+test-cov = "coverage run -m pytest -m 'not unstable' {args:test}"
 cov-report = ["- coverage combine", "coverage xml"]
 cov = ["test-cov", "cov-report"]
 
