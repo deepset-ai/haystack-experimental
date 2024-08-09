@@ -3,11 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 import os
+import json
 
 import pytest
+from unittest.mock import patch
 from openai import OpenAIError
+from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage, ChatCompletionMessageToolCall
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_message_tool_call import Function
+from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
+from openai.types.chat import ChatCompletionChunk
+from openai.types.chat import chat_completion_chunk
+from datetime import datetime
+from openai import Stream
+from typing import Iterator
+from unittest.mock import MagicMock, patch
 
-from haystack_experimental.components.generators.chat import OpenAIChatGenerator
+from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, _convert_message_to_openai_format
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
@@ -20,6 +32,43 @@ def chat_messages():
         ChatMessage.from_system("You are a helpful assistant"),
         ChatMessage.from_user("What's the capital of France"),
     ]
+
+@pytest.fixture
+def mock_chat_completion_chunk_with_tools():
+    """
+    Mock the OpenAI API completion chunk response and reuse it for tests
+    """
+
+    class MockStream(Stream[ChatCompletionChunk]):
+        def __init__(self, mock_chunk: ChatCompletionChunk, client=None, *args, **kwargs):
+            client = client or MagicMock()
+            super().__init__(client=client, *args, **kwargs)
+            self.mock_chunk = mock_chunk
+
+        def __stream__(self) -> Iterator[ChatCompletionChunk]:
+            # Yielding only one ChatCompletionChunk object
+            yield self.mock_chunk
+
+    with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+        completion = ChatCompletionChunk(
+            id="foo",
+            model="gpt-4",
+            object="chat.completion.chunk",
+            choices=[
+                chat_completion_chunk.Choice(
+                    finish_reason="tool_calls", logprobs=None, index=0, delta=chat_completion_chunk.ChoiceDelta(
+                        role="assistant",
+                        tool_calls=[chat_completion_chunk.ChoiceDeltaToolCall(
+                            index=0,
+                            id="123", type="function", function=chat_completion_chunk.ChoiceDeltaToolCallFunction(name="weather", arguments='{"city": "Paris"}')
+                        )])
+                )
+            ],
+            created=int(datetime.now().timestamp()),
+            usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
+        )
+        mock_chat_completion_create.return_value = MockStream(completion, cast_to=None, response=None, client=None)
+        yield mock_chat_completion_create   
 
 
 class TestOpenAIChatGenerator:
@@ -352,6 +401,73 @@ class TestOpenAIChatGenerator:
         assert callback.counter > 1
         assert "Paris" in callback.responses
 
+    ### NEW TESTS
+
+
+    def test_convert_message_to_openai_format(self):
+        message = ChatMessage.from_system("You are good assistant")
+        assert _convert_message_to_openai_format(message) == {"role": "system", "content": "You are good assistant"}
+
+        message = ChatMessage.from_user("I have a question")
+        assert _convert_message_to_openai_format(message) == {"role": "user", "content": "I have a question"}
+
+        message = ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})
+        assert _convert_message_to_openai_format(message) == {"role": "assistant", "content": "I have an answer"}
+
+        message = ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])
+        assert _convert_message_to_openai_format(message) == {"role": "assistant", "tool_calls": [{"id": "123", "type": "function", "function": {"name": "weather", "arguments": '{"city": "Paris"}'}}]}
+
+        tool_result=json.dumps({"weather": "sunny", "temperature": "25"})
+        message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
+        assert _convert_message_to_openai_format(message) == {"role": "tool", "content": tool_result, "tool_call_id": "123"}
+
+    def test_run_with_tools(self):
+        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+        tool_parameters = {
+    "type": "object",
+    "properties": {
+        "city": {"type": "string"}
+    },
+    "required": ["city"]
+}
+        tool = Tool(name="weather", description="useful to determine the weather in a given location",
+                    parameters=tool_parameters, function=lambda x:x)
+        
+        with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+            completion = ChatCompletion(
+                id="foo",
+                model="gpt-4",
+                object="chat.completion",
+                choices=[
+                    Choice(
+                        finish_reason="tool_calls",
+                        logprobs=None,
+                        index=0,
+                        message=ChatCompletionMessage(role="assistant",
+                                                    tool_calls=[ChatCompletionMessageToolCall(
+                                                        id="123", type="function", function=Function(name="weather", arguments='{"city": "Paris"}'))])
+                    )
+                ],
+                created=int(datetime.now().timestamp()),
+                usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
+            )
+
+            mock_chat_completion_create.return_value = completion        
+
+            component = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"))
+            response = component.run(chat_messages)
+
+        
+        assert len(response["replies"]) == 1
+        message = response["replies"][0]
+
+        assert message.tool_calls
+        tool_call = message.tool_call
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.tool_name == "weather" 
+        assert tool_call.arguments == {"city": "Paris"}
+        assert message.meta["finish_reason"] == "tool_calls"          
+
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
@@ -372,12 +488,55 @@ class TestOpenAIChatGenerator:
         component = OpenAIChatGenerator(tools=[tool])
         results = component.run(chat_messages)
         assert len(results["replies"]) == 1
-        message: ChatMessage = results["replies"][0]
-        print(message)
+        message = results["replies"][0]
+
         assert message.tool_calls
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
-        assert tool_call.tool_name == "weather"
-        assert 
-        assert "gpt-3.5" in message.meta["model"]
-        assert message.meta["finish_reason"] == "tool_calls"        
+        assert tool_call.tool_name == "weather" 
+        assert tool_call.arguments == {"city": "Paris"}
+        assert message.meta["finish_reason"] == "tool_calls"     
+
+    def test_run_with_tools_streaming(self, mock_chat_completion_chunk_with_tools):
+        tool_parameters = {
+    "type": "object",
+    "properties": {
+        "city": {"type": "string"}
+    },
+    "required": ["city"]
+}
+        tool = Tool(name="weather", description="useful to determine the weather in a given location",
+                    parameters=tool_parameters, function=lambda x:x)
+        
+        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+
+        streaming_callback_called = False
+
+        def streaming_callback(chunk: StreamingChunk) -> None:
+            nonlocal streaming_callback_called
+            streaming_callback_called = True
+
+        component = OpenAIChatGenerator(
+            api_key=Secret.from_token("test-api-key"), streaming_callback=streaming_callback
+        )
+        response = component.run(chat_messages, tools=[tool])
+
+        # check we called the streaming callback
+        assert streaming_callback_called
+
+        # check that the component still returns the correct response
+        assert isinstance(response, dict)
+        assert "replies" in response
+        assert isinstance(response["replies"], list)
+        assert len(response["replies"]) == 1
+        assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
+        
+        message = response["replies"][0]
+        # print(message)
+        
+        assert message.tool_calls
+        tool_call = message.tool_call
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.tool_name == "weather" 
+        assert tool_call.arguments == {"city": "Paris"}
+        assert message.meta["finish_reason"] == "tool_calls"                 

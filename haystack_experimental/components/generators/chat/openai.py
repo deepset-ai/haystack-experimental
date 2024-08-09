@@ -34,7 +34,7 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
         elif isinstance(part, ToolCall):
             if part.id is None:
                 raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            openai_tc = {"id": part.id, "type": "function", "function": {"name": part.tool_name, "arguments": part.arguments}}
+            openai_tc = {"id": part.id, "type": "function", "function": {"name": part.tool_name, "arguments": json.dumps(part.arguments)}}
             openai_tool_calls.append(openai_tc)
         elif isinstance(part, ToolCallResult):
             openai_msg["content"] = part.result
@@ -301,32 +301,25 @@ class OpenAIChatGenerator:
         :param chunk: The last chunk returned by the OpenAI API.
         :param chunks: The list of all chunks returned by the OpenAI API.
         """
-        is_tools_call = bool(chunks[0].meta.get("tool_calls"))
+
         # if it's a tool call , we need to build the payload dict from all the chunks
-        if is_tools_call:
+        if bool(chunks[0].meta.get("tool_calls")):
             tools_len = len(chunks[0].meta.get("tool_calls", []))
-            # don't change this approach of building payload dicts, otherwise mypy will complain
-            p_def: Dict[str, Any] = {
-                "index": 0,
-                "id": "",
-                "function": {"arguments": "", "name": ""},
-                "type": "function",
-            }
-            payloads = [copy.deepcopy(p_def) for _ in range(tools_len)]
+
+            payloads = [{"arguments": "", "name": ""} for _ in range(tools_len)]
             for chunk_payload in chunks:
-                if is_tools_call:
-                    deltas = chunk_payload.meta.get("tool_calls") or []
+                deltas = chunk_payload.meta.get("tool_calls") or []
 
                 # deltas is a list of ChoiceDeltaToolCall or ChoiceDeltaFunctionCall
                 for i, delta in enumerate(deltas):
-                    payload = payloads[i]
-                    if is_tools_call:
-                        payload["id"] = delta.id or payload["id"]
-                        payload["type"] = delta.type or payload["type"]
-                        if delta.function:
-                            payload["function"]["name"] += delta.function.name or ""
-                            payload["function"]["arguments"] += delta.function.arguments or ""
-            complete_response = ChatMessage.from_assistant(json.dumps(payloads))
+                    payloads[i]["id"] = delta.id or payloads[i].get("id", "")
+                    if delta.function:
+                        payloads[i]["name"] += delta.function.name or ""
+                        payloads[i]["arguments"] += delta.function.arguments or ""
+
+            # handle potential malformed JSON strings
+            tools_calls = [ToolCall(id=payload["id"], tool_name=payload["name"], arguments=json.loads(payload["arguments"])) for payload in payloads]
+            complete_response = ChatMessage.from_assistant(tool_calls=tools_calls)
         else:
             complete_response = ChatMessage.from_assistant("".join([chunk.content for chunk in chunks]))
         complete_response.meta.update(
