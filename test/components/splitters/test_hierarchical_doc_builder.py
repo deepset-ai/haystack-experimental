@@ -49,9 +49,6 @@ class TestHierarchicalDocumentBuilder:
         assert builder.split_by == "word"
 
     def test_run(self):
-        from haystack import Document
-        from haystack.components.builders.hierarchical_doc_builder import HierarchicalDocumentBuilder
-
         builder = HierarchicalDocumentBuilder(block_sizes=[10, 5, 2], split_overlap=0, split_by="word")
         text = "one two three four five six seven eight nine ten"
         doc = Document(content=text)
