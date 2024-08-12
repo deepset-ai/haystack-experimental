@@ -11,7 +11,6 @@ from openai import OpenAIError
 from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_message_tool_call import Function
-from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat import chat_completion_chunk
 from datetime import datetime
@@ -33,21 +32,68 @@ def chat_messages():
         ChatMessage.from_user("What's the capital of France"),
     ]
 
+class MockStream(Stream[ChatCompletionChunk]):
+    def __init__(self, mock_chunk: ChatCompletionChunk, client=None, *args, **kwargs):
+        client = client or MagicMock()
+        super().__init__(client=client, *args, **kwargs)
+        self.mock_chunk = mock_chunk
+
+    def __stream__(self) -> Iterator[ChatCompletionChunk]:
+        # Yielding only one ChatCompletionChunk object
+        yield self.mock_chunk
+
+@pytest.fixture
+def mock_chat_completion_chunk():
+    """
+    Mock the OpenAI API completion chunk response and reuse it for tests
+    """
+
+    with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+        completion = ChatCompletionChunk(
+            id="foo",
+            model="gpt-4",
+            object="chat.completion.chunk",
+            choices=[
+                chat_completion_chunk.Choice(
+                    finish_reason="stop", logprobs=None, index=0, delta=chat_completion_chunk.ChoiceDelta(content="Hello", role="assistant")
+                )
+            ],
+            created=int(datetime.now().timestamp()),
+            usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
+        )
+        mock_chat_completion_create.return_value = MockStream(completion, cast_to=None, response=None, client=None)
+        yield mock_chat_completion_create
+
+@pytest.fixture
+def mock_chat_completion():
+    """
+    Mock the OpenAI API completion response and reuse it for tests
+    """
+    with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+        completion = ChatCompletion(
+            id="foo",
+            model="gpt-4",
+            object="chat.completion",
+            choices=[
+                Choice(
+                    finish_reason="stop",
+                    logprobs=None,
+                    index=0,
+                    message=ChatCompletionMessage(content="Hello world!", role="assistant"),
+                )
+            ],
+            created=int(datetime.now().timestamp()),
+            usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
+        )
+
+        mock_chat_completion_create.return_value = completion
+        yield mock_chat_completion_create
+
 @pytest.fixture
 def mock_chat_completion_chunk_with_tools():
     """
     Mock the OpenAI API completion chunk response and reuse it for tests
     """
-
-    class MockStream(Stream[ChatCompletionChunk]):
-        def __init__(self, mock_chunk: ChatCompletionChunk, client=None, *args, **kwargs):
-            client = client or MagicMock()
-            super().__init__(client=client, *args, **kwargs)
-            self.mock_chunk = mock_chunk
-
-        def __stream__(self) -> Iterator[ChatCompletionChunk]:
-            # Yielding only one ChatCompletionChunk object
-            yield self.mock_chunk
 
     with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
         completion = ChatCompletionChunk(
@@ -68,7 +114,22 @@ def mock_chat_completion_chunk_with_tools():
             usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
         )
         mock_chat_completion_create.return_value = MockStream(completion, cast_to=None, response=None, client=None)
-        yield mock_chat_completion_create   
+        yield mock_chat_completion_create
+
+@pytest.fixture
+def tools():
+    tool_parameters = {
+    "type": "object",
+    "properties": {
+        "city": {"type": "string"}
+    },
+    "required": ["city"]
+}
+    tool = Tool(name="weather", description="useful to determine the weather in a given location",
+                    parameters=tool_parameters, function=lambda x:x)
+
+    return [tool]
+
 
 
 class TestOpenAIChatGenerator:
@@ -401,9 +462,8 @@ class TestOpenAIChatGenerator:
         assert callback.counter > 1
         assert "Paris" in callback.responses
 
+
     ### NEW TESTS
-
-
     def test_convert_message_to_openai_format(self):
         message = ChatMessage.from_system("You are good assistant")
         assert _convert_message_to_openai_format(message) == {"role": "system", "content": "You are good assistant"}
@@ -421,18 +481,8 @@ class TestOpenAIChatGenerator:
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
         assert _convert_message_to_openai_format(message) == {"role": "tool", "content": tool_result, "tool_call_id": "123"}
 
-    def test_run_with_tools(self):
-        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
-        tool_parameters = {
-    "type": "object",
-    "properties": {
-        "city": {"type": "string"}
-    },
-    "required": ["city"]
-}
-        tool = Tool(name="weather", description="useful to determine the weather in a given location",
-                    parameters=tool_parameters, function=lambda x:x)
-        
+    def test_run_with_tools(self, tools):
+
         with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
             completion = ChatCompletion(
                 id="foo",
@@ -452,63 +502,23 @@ class TestOpenAIChatGenerator:
                 usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
             )
 
-            mock_chat_completion_create.return_value = completion        
+            mock_chat_completion_create.return_value = completion
 
-            component = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"))
-            response = component.run(chat_messages)
+            component = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"), tools=tools)
+            response = component.run([ChatMessage.from_user("What's the weather like in Paris?")])
 
-        
+
         assert len(response["replies"]) == 1
         message = response["replies"][0]
 
         assert message.tool_calls
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
-        assert tool_call.tool_name == "weather" 
+        assert tool_call.tool_name == "weather"
         assert tool_call.arguments == {"city": "Paris"}
-        assert message.meta["finish_reason"] == "tool_calls"          
+        assert message.meta["finish_reason"] == "tool_calls"
 
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
-    @pytest.mark.integration
-    def test_live_run_with_tools(self):
-        tool_parameters = {
-    "type": "object",
-    "properties": {
-        "city": {"type": "string"}
-    },
-    "required": ["city"]
-}
-        tool = Tool(name="weather", description="useful to determine the weather in a given location",
-                    parameters=tool_parameters, function=lambda x:x)
-        
-        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
-        component = OpenAIChatGenerator(tools=[tool])
-        results = component.run(chat_messages)
-        assert len(results["replies"]) == 1
-        message = results["replies"][0]
-
-        assert message.tool_calls
-        tool_call = message.tool_call
-        assert isinstance(tool_call, ToolCall)
-        assert tool_call.tool_name == "weather" 
-        assert tool_call.arguments == {"city": "Paris"}
-        assert message.meta["finish_reason"] == "tool_calls"     
-
-    def test_run_with_tools_streaming(self, mock_chat_completion_chunk_with_tools):
-        tool_parameters = {
-    "type": "object",
-    "properties": {
-        "city": {"type": "string"}
-    },
-    "required": ["city"]
-}
-        tool = Tool(name="weather", description="useful to determine the weather in a given location",
-                    parameters=tool_parameters, function=lambda x:x)
-        
-        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+    def test_run_with_tools_streaming(self, mock_chat_completion_chunk_with_tools, tools):
 
         streaming_callback_called = False
 
@@ -519,7 +529,8 @@ class TestOpenAIChatGenerator:
         component = OpenAIChatGenerator(
             api_key=Secret.from_token("test-api-key"), streaming_callback=streaming_callback
         )
-        response = component.run(chat_messages, tools=[tool])
+        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+        response = component.run(chat_messages, tools=tools)
 
         # check we called the streaming callback
         assert streaming_callback_called
@@ -530,13 +541,32 @@ class TestOpenAIChatGenerator:
         assert isinstance(response["replies"], list)
         assert len(response["replies"]) == 1
         assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
-        
+
         message = response["replies"][0]
-        # print(message)
-        
+
         assert message.tool_calls
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
-        assert tool_call.tool_name == "weather" 
+        assert tool_call.tool_name == "weather"
         assert tool_call.arguments == {"city": "Paris"}
-        assert message.meta["finish_reason"] == "tool_calls"                 
+        assert message.meta["finish_reason"] == "tool_calls"
+
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
+    @pytest.mark.integration
+    def test_live_run_with_tools(self, tools):
+
+        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+        component = OpenAIChatGenerator(tools=tools)
+        results = component.run(chat_messages)
+        assert len(results["replies"]) == 1
+        message = results["replies"][0]
+
+        assert message.tool_calls
+        tool_call = message.tool_call
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.tool_name == "weather"
+        assert tool_call.arguments == {"city": "Paris"}
+        assert message.meta["finish_reason"] == "tool_calls"

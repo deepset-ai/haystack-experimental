@@ -7,18 +7,18 @@ import json
 import os
 from typing import Any, Callable, Dict, List, Optional, Union, cast
 
+from haystack import component, default_from_dict, default_to_dict, logging
+from haystack.dataclasses import StreamingChunk
+from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
 from openai import OpenAI, Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 
-from haystack import component, default_from_dict, default_to_dict, logging
-from haystack.dataclasses import StreamingChunk
-from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
-from haystack_experimental.dataclasses import ChatMessage, TextContent, ToolCall, ToolCallResult, Tool
-
+from haystack_experimental.dataclasses import ChatMessage, TextContent, Tool, ToolCall, ToolCallResult
 
 logger = logging.getLogger(__name__)
+
 
 def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
     """
@@ -34,7 +34,11 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
         elif isinstance(part, ToolCall):
             if part.id is None:
                 raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            openai_tc = {"id": part.id, "type": "function", "function": {"name": part.tool_name, "arguments": json.dumps(part.arguments)}}
+            openai_tc = {
+                "id": part.id,
+                "type": "function",
+                "function": {"name": part.tool_name, "arguments": json.dumps(part.arguments)},
+            }
             openai_tool_calls.append(openai_tc)
         elif isinstance(part, ToolCallResult):
             openai_msg["content"] = part.result
@@ -68,8 +72,8 @@ class OpenAIChatGenerator:
     ### Usage example
 
     ```python
-    from haystack.components.generators.chat import OpenAIChatGenerator
-    from haystack.dataclasses import ChatMessage
+    from haystack_experimental.components.generators.chat import OpenAIChatGenerator
+    from haystack_experimental.dataclasses import ChatMessage
 
     messages = [ChatMessage.from_user("What's Natural Language Processing?")]
 
@@ -79,19 +83,18 @@ class OpenAIChatGenerator:
     ```
     Output:
     ```
-    {'replies':
-        [ChatMessage(content='Natural Language Processing (NLP) is a branch of artificial intelligence
-            that focuses on enabling computers to understand, interpret, and generate human language in
-            a way that is meaningful and useful.',
-         role=<ChatRole.ASSISTANT: 'assistant'>, name=None,
-         meta={'model': 'gpt-3.5-turbo-0613', 'index': 0, 'finish_reason': 'stop',
-         'usage': {'prompt_tokens': 15, 'completion_tokens': 36, 'total_tokens': 51}})
-        ]
+    {'replies': [
+        ChatMessage(_role=<ChatRole.ASSISTANT: 'assistant'>,
+                    _content=[TextContent(text='Natural Language Processing (NLP) is a field of artificial ...')],
+                    _meta={'model': 'gpt-3.5-turbo-0125', 'index': 0, 'finish_reason': 'stop',
+                        'usage': {'completion_tokens': 71, 'prompt_tokens': 13, 'total_tokens': 84}}
+                    )
+                ]
     }
     ```
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         api_key: Secret = Secret.from_env_var("OPENAI_API_KEY"),
         model: str = "gpt-3.5-turbo",
@@ -146,6 +149,11 @@ class OpenAIChatGenerator:
         :param max_retries:
             Maximum number of retries to contact OpenAI after an internal error.
             If not set, it defaults to either the `OPENAI_MAX_RETRIES` environment variable, or set to 5.
+        :param tools:
+            A list of tools for which the model can prepare calls.
+        :param tools_strict:
+            Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
+            the schema provided in the `parameters` field of the tool definition, but this may increase latency.
         """
         self.api_key = api_key
         self.model = model
@@ -209,7 +217,7 @@ class OpenAIChatGenerator:
         serialized_callback_handler = init_params.get("streaming_callback")
         if serialized_callback_handler:
             data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
-        
+
         tools = init_params.get("tools")
         if tools:
             init_params["tools"] = [Tool.from_dict(tool) for tool in tools]
@@ -217,7 +225,7 @@ class OpenAIChatGenerator:
         return default_from_dict(cls, data)
 
     @component.output_types(replies=List[ChatMessage])
-    def run(
+    def run(  # noqa: PLR0913
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[Callable[[StreamingChunk], None]] = None,
@@ -234,6 +242,13 @@ class OpenAIChatGenerator:
                                   override the parameters passed during component initialization.
                                   For details on OpenAI API parameters, see
                                   [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create).
+        :param tools:
+            A list of tools for which the model can prepare calls. If set, it will override the `tools` parameter set
+            during component initialization.
+        :param tools_strict:
+            Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
+            the schema provided in the `parameters` field of the tool definition, but this may increase latency.
+            If set, it will override the `tools_strict` parameter set during component initialization.
 
         :returns:
             A list containing the generated responses as ChatMessage instances.
@@ -253,18 +268,13 @@ class OpenAIChatGenerator:
 
         openai_tools = None
         if tools:
-            openai_tools = [
-    {
-        "type": "function",
-        "function": {**t.tool_spec, "strict": tools_strict}
-    }
-    for t in tools ]
+            openai_tools = [{"type": "function", "function": {**t.tool_spec, "strict": tools_strict}} for t in tools]
 
         chat_completion: Union[Stream[ChatCompletionChunk], ChatCompletion] = self.client.chat.completions.create(
             model=self.model,
             messages=openai_formatted_messages,  # type: ignore[arg-type] # openai expects list of specific message types
             stream=streaming_callback is not None,
-            tools = openai_tools,  # type: ignore[arg-type]
+            tools=openai_tools,  # type: ignore[arg-type]
             **generation_kwargs,
         )
 
@@ -318,7 +328,10 @@ class OpenAIChatGenerator:
                         payloads[i]["arguments"] += delta.function.arguments or ""
 
             # handle potential malformed JSON strings
-            tools_calls = [ToolCall(id=payload["id"], tool_name=payload["name"], arguments=json.loads(payload["arguments"])) for payload in payloads]
+            tools_calls = [
+                ToolCall(id=payload["id"], tool_name=payload["name"], arguments=json.loads(payload["arguments"]))
+                for payload in payloads
+            ]
             complete_response = ChatMessage.from_assistant(tool_calls=tools_calls)
         else:
             complete_response = ChatMessage.from_assistant("".join([chunk.content for chunk in chunks]))
@@ -342,16 +355,18 @@ class OpenAIChatGenerator:
         """
         message: ChatCompletionMessage = choice.message
         text = message.content or ""
-        tool_calls =  []
-        if openai_tool_calls:=message.tool_calls:
+        tool_calls = []
+        if openai_tool_calls := message.tool_calls:
             for openai_tc in openai_tool_calls:
                 arguments_str = openai_tc.function.arguments
                 try:
                     arguments = json.loads(arguments_str)
                 except json.JSONDecodeError:
                     arguments = {"_malformed_json": arguments_str}
-                    logger.warning("OpenAI returned a malformed JSON string. "
-                                   "You can find it under the `_malformed_json` key of `ToolCall.arguments`.")
+                    logger.warning(
+                        "OpenAI returned a malformed JSON string. "
+                        "You can find it under the `_malformed_json` key of `ToolCall.arguments`."
+                    )
                 tool_calls.append(ToolCall(id=openai_tc.id, tool_name=openai_tc.function.name, arguments=arguments))
 
         chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls)
