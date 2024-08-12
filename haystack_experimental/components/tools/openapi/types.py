@@ -10,6 +10,12 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import requests
 import yaml
+from haystack.lazy_imports import LazyImport
+
+with LazyImport("Run 'pip install jsonref'") as jsonref_import:
+    # pylint: disable=import-error
+    import jsonref
+
 
 VALID_HTTP_METHODS = [
     "get",
@@ -23,10 +29,24 @@ VALID_HTTP_METHODS = [
 ]
 
 
+def path_to_operation_id(path: str, http_method: str = "get") -> str:
+    """
+    Converts a path to an operationId.
+
+    :param path: The path to convert.
+    :param http_method: The HTTP method to use for the operationId.
+    :returns: The operationId.
+    """
+    if http_method.lower() not in VALID_HTTP_METHODS:
+        raise ValueError(f"Invalid HTTP method: {http_method}")
+    return path.replace("/", "_").lstrip("_").rstrip("_") + "_" + http_method.lower()
+
+
 class LLMProvider(Enum):
     """
     LLM providers supported by `OpenAPITool`.
     """
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
@@ -50,18 +70,18 @@ class LLMProvider(Enum):
 @dataclass
 class Operation:
     """
-     Represents an operation in an OpenAPI specification
+    Represents an operation in an OpenAPI specification
 
-     See https://spec.openapis.org/oas/latest.html#paths-object for details.
-     Path objects can contain multiple operations, each with a unique combination of path and method.
+    See https://spec.openapis.org/oas/latest.html#paths-object for details.
+    Path objects can contain multiple operations, each with a unique combination of path and method.
 
-     :param path: Path of the operation.
-     :param method: HTTP method of the operation.
-     :param operation_dict: Operation details from OpenAPI spec
-     :param spec_dict: The encompassing OpenAPI specification.
-     :param security_requirements: A list of security requirements for the operation.
-     :param request_body: Request body details.
-     :param parameters: Parameters for the operation.
+    :param path: Path of the operation.
+    :param method: HTTP method of the operation.
+    :param operation_dict: Operation details from OpenAPI spec
+    :param spec_dict: The encompassing OpenAPI specification.
+    :param security_requirements: A list of security requirements for the operation.
+    :param request_body: Request body details.
+    :param parameters: Parameters for the operation.
     """
 
     path: str
@@ -105,8 +125,12 @@ class Operation:
         :returns: The server URL.
         :raises ValueError: If no servers are found in the specification.
         """
-        servers = self.operation_dict.get("servers", []) or self.spec_dict.get(
-            "servers", []
+        # servers can be defined at the operation level, path level, or at the root level
+        # search for servers in the following order: operation, path, root
+        servers = (
+            self.operation_dict.get("servers", [])
+            or self.spec_dict.get("paths", {}).get(self.path, {}).get("servers", [])
+            or self.spec_dict.get("servers", [])
         )
         if not servers:
             raise ValueError("No servers found in the provided specification.")
@@ -131,21 +155,18 @@ class OpenAPISpecification:
 
         :param spec_dict: The OpenAPI specification as a dictionary.
         """
+        jsonref_import.check()
         if not isinstance(spec_dict, Dict):
             raise ValueError(
                 f"Invalid OpenAPI specification, expected a dictionary: {spec_dict}"
             )
         # just a crude sanity check, by no means a full validation
-        if (
-            "openapi" not in spec_dict
-            or "paths" not in spec_dict
-            or "servers" not in spec_dict
-        ):
+        if "openapi" not in spec_dict or "paths" not in spec_dict:
             raise ValueError(
                 "Invalid OpenAPI specification format. See https://swagger.io/specification/ for details.",
                 spec_dict,
             )
-        self.spec_dict = spec_dict
+        self.spec_dict = jsonref.replace_refs(spec_dict)
 
     @classmethod
     def from_str(cls, content: str) -> "OpenAPISpecification":
@@ -201,51 +222,30 @@ class OpenAPISpecification:
             ) from e
         return cls.from_str(content)
 
-    def find_operation_by_id(
-        self, op_id: str, method: Optional[str] = None
-    ) -> Operation:
+    def find_operation_by_id(self, op_id: str) -> Operation:
         """
         Find an Operation by operationId.
 
         :param op_id: The operationId of the operation.
-        :param method: The HTTP method of the operation.
         :returns: The matching operation
         :raises ValueError: If no operation is found with the given operationId.
         """
-        for path, path_item in self.spec_dict.get("paths", {}).items():
-            op: Operation = self.get_operation_item(path, path_item, method)
-            if op_id in op.operation_dict.get("operationId", ""):
-                return self.get_operation_item(path, path_item, method)
-        raise ValueError(
-            f"No operation found with operationId {op_id}, method {method}"
-        )
+        for path, path_value in self.spec_dict.get("paths", {}).items():
+            operations = {
+                method: operation_dict
+                for method, operation_dict in path_value.items()
+                if method.lower() in VALID_HTTP_METHODS
+            }
 
-    def get_operation_item(
-        self, path: str, path_item: Dict[str, Any], method: Optional[str] = None
-    ) -> Operation:
-        """
-        Gets a particular Operation item from the OpenAPI specification given the path and method.
-
-        :param path: The path of the operation.
-        :param path_item: The path item from the OpenAPI specification.
-        :param method: The HTTP method of the operation.
-        :returns: The operation
-        """
-        if method:
-            operation_dict = path_item.get(method.lower(), {})
-            if not operation_dict:
-                raise ValueError(
-                    f"No operation found for method {method} at path {path}"
-                )
-            return Operation(path, method.lower(), operation_dict, self.spec_dict)
-        if len(path_item) == 1:
-            method, operation_dict = next(iter(path_item.items()))
-            return Operation(path, method, operation_dict, self.spec_dict)
-        if len(path_item) > 1:
-            raise ValueError(
-                f"Multiple operations found at path {path}, method parameter is required."
-            )
-        raise ValueError(f"No operations found at path {path} and method {method}")
+            for method, operation_dict in operations.items():
+                if (
+                    operation_dict.get(
+                        "operationId", path_to_operation_id(path, method)
+                    )
+                    == op_id
+                ):
+                    return Operation(path, method, operation_dict, self.spec_dict)
+        raise ValueError(f"No operation found with operationId {op_id}")
 
     def get_security_schemes(self) -> Dict[str, Dict[str, Any]]:
         """

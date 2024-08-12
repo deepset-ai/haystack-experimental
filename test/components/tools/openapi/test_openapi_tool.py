@@ -201,3 +201,25 @@ class TestOpenAPITool:
             assert isinstance(json_response, dict)
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("provider", ["openai", "anthropic", "cohere"])
+    @pytest.mark.unstable("This test can be unstable due to free meteo service being down")
+    def test_run_live_meteo_forecast(self, provider: str):
+        tool = OpenAPITool(
+            generator_api=LLMProvider.from_str(provider),
+            spec="https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi.yml"
+        )
+        results = tool.run(messages=[ChatMessage.from_user(
+            "weather forecast for latitude 52.52 and longitude 13.41 and set hourly=temperature_2m")])
+
+        assert isinstance(results["service_response"], list)
+        assert len(results["service_response"]) == 1
+        assert isinstance(results["service_response"][0], ChatMessage)
+
+        try:
+            json_response = json.loads(results["service_response"][0].content)
+            assert isinstance(json_response, dict)
+            assert "hourly" in json_response
+        except json.JSONDecodeError:
+            pytest.fail("Response content is not valid JSON")
