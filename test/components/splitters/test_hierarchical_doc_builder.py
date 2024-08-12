@@ -5,7 +5,7 @@
 import pytest
 
 from haystack import Document, Pipeline
-from haystack_experimental.components.splitters.hierarchical_doc_builder import HierarchicalDocumentBuilder
+from haystack_experimental.components.splitters import HierarchicalDocumentBuilder
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 
@@ -33,13 +33,13 @@ class TestHierarchicalDocumentBuilder:
         builder = HierarchicalDocumentBuilder(block_sizes=[100, 200, 300], split_overlap=25, split_by="word")
         expected = builder.to_dict()
         assert expected == {
-            "type": "haystack.components.builders.hierarchical_doc_builder.HierarchicalDocumentBuilder",
+            "type": "haystack_experimental.components.splitters.hierarchical_doc_builder.HierarchicalDocumentBuilder",
             "init_parameters": {"block_sizes": [300, 200, 100], "split_overlap": 25, "split_by": "word"},
         }
 
     def test_from_dict(self):
         data = {
-            "type": "haystack.components.builders.hierarchical_doc_builder.HierarchicalDocumentBuilder",
+            "type": "haystack_experimental.components.builders.hierarchical_doc_builder.HierarchicalDocumentBuilder",
             "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
         }
 
@@ -121,14 +121,14 @@ class TestHierarchicalDocumentBuilder:
             "max_loops_allowed": 100,
             "components": {
                 "hierarchical_doc_builder": {
-                    "type": "haystack.components.builders.hierarchical_doc_builder.HierarchicalDocumentBuilder",
+                    "type": "haystack_experimental.components.splitters.hierarchical_doc_builder.HierarchicalDocumentBuilder",
                     "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
                 },
                 "doc_writer": {
                     "type": "haystack.components.writers.document_writer.DocumentWriter",
                     "init_parameters": {
                         "document_store": {
-                            "type": "haystack.document_stores.in_memory.document_store.InMemoryDocumentStore",
+                            "type": "haystack_experimental.document_stores.in_memory.document_store.InMemoryDocumentStore",
                             "init_parameters": {
                                 "bm25_tokenization_regex": "(?u)\\b\\w\\w+\\b",
                                 "bm25_algorithm": "BM25L",
