@@ -39,7 +39,7 @@ class TestHierarchicalDocumentBuilder:
 
     def test_from_dict(self):
         data = {
-            "type": "haystack_experimental.components.builders.hierarchical_doc_builder.HierarchicalDocumentBuilder",
+            "type": "haystack_experimental.components.splitters.hierarchical_doc_builder.HierarchicalDocumentBuilder",
             "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
         }
 
@@ -108,7 +108,7 @@ class TestHierarchicalDocumentBuilder:
         assert expected.keys() == {"metadata", "max_loops_allowed", "components", "connections"}
         assert expected["components"].keys() == {"hierarchical_doc_builder", "doc_writer"}
         assert expected["components"]["hierarchical_doc_builder"] == {
-            "type": "haystack.components.builders.hierarchical_doc_builder.HierarchicalDocumentBuilder",
+            "type": "haystack_experimental.components.splitters.hierarchical_doc_builder.HierarchicalDocumentBuilder",
             "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
         }
 
@@ -125,7 +125,7 @@ class TestHierarchicalDocumentBuilder:
                     "type": "haystack.components.writers.document_writer.DocumentWriter",
                     "init_parameters": {
                         "document_store": {
-                            "type": "haystack_experimental.document_stores.in_memory.document_store.InMemoryDocumentStore",
+                            "type": "haystack.document_stores.in_memory.document_store.InMemoryDocumentStore",
                             "init_parameters": {
                                 "bm25_tokenization_regex": "(?u)\\b\\w\\w+\\b",
                                 "bm25_algorithm": "BM25L",
