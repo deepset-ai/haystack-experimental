@@ -9,12 +9,12 @@ from haystack.components.preprocessors import DocumentSplitter
 
 
 @component
-class HierarchicalDocumentBuilder:
+class HierarchicalDocumentSplitter:
     """
     Splits a documents into different block sizes building a hierarchical tree structure of blocks of different sizes.
 
-    The root node is the original document, the leaf nodes are the smallest blocks. The blocks in between are connected
-    such that the smaller blocks are children of the parent-larger blocks.
+    The root node of the tree is the original document, the leaf nodes are the smallest blocks. The blocks in between
+    are connected such that the smaller blocks are children of the parent-larger blocks.
 
     ## Usage example
     ```python
@@ -74,10 +74,10 @@ class HierarchicalDocumentBuilder:
 
     @staticmethod
     def _add_meta_data(document: Document):
-        document.meta["block_size"] = 0
-        document.meta["parent_id"] = None
-        document.meta["children_ids"] = []
-        document.meta["level"] = 0
+        document.meta["__block_size"] = 0
+        document.meta["__parent_id"] = None
+        document.meta["__children_ids"] = []
+        document.meta["__level"] = 0
         return document
 
     def build_hierarchy_from_doc(self, document: Document) -> List[Document]:
@@ -106,11 +106,11 @@ class HierarchicalDocumentBuilder:
                     continue
                 for child_doc in child_docs:
                     child_doc = self._add_meta_data(child_doc)
-                    child_doc.meta["level"] = doc.meta["level"] + 1
-                    child_doc.meta["block_size"] = block
-                    child_doc.meta["parent_id"] = doc.id
+                    child_doc.meta["__level"] = doc.meta["__level"] + 1
+                    child_doc.meta["__block_size"] = block
+                    child_doc.meta["__parent_id"] = doc.id
                     all_docs.append(child_doc)
-                    doc.meta["children_ids"].append(child_doc.id)
+                    doc.meta["__children_ids"].append(child_doc.id)
                     next_level_nodes.append(child_doc)
             current_level_nodes = next_level_nodes
 
@@ -128,7 +128,7 @@ class HierarchicalDocumentBuilder:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HierarchicalDocumentBuilder":
+    def from_dict(cls, data: Dict[str, Any]) -> "HierarchicalDocumentSplitter":
         """
         Deserialize this component from a dictionary.
 

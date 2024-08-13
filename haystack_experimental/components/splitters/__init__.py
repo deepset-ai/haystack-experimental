@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.splitters.hierarchical_doc_builder import HierarchicalDocumentBuilder
+from haystack_experimental.components.splitters.hierarchical_doc_splitter import HierarchicalDocumentSplitter
 
-_all_ = ["HierarchicalDocumentBuilder"]
+_all_ = ["HierarchicalDocumentSplitter"]
