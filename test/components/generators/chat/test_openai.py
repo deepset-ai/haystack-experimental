@@ -1,28 +1,28 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from unittest.mock import MagicMock, patch
+import pytest
+
+from typing import Iterator
 import logging
 import os
 import json
+from datetime import datetime
 
-import pytest
-from unittest.mock import patch
 from openai import OpenAIError
 from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_message_tool_call import Function
-from openai.types.chat import ChatCompletionChunk
 from openai.types.chat import chat_completion_chunk
-from datetime import datetime
 from openai import Stream
-from typing import Iterator
-from unittest.mock import MagicMock, patch
 
-from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, _convert_message_to_openai_format
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
 from haystack.utils.auth import Secret
+from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
+from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, _convert_message_to_openai_format
+
 
 
 @pytest.fixture
@@ -211,7 +211,7 @@ class TestOpenAIChatGenerator:
         }
 
     def test_to_dict_with_parameters(self, monkeypatch):
-        tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=lambda x: x)
+        tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
 
         monkeypatch.setenv("ENV_VAR", "test-api-key")
         component = OpenAIChatGenerator(
@@ -224,6 +224,7 @@ class TestOpenAIChatGenerator:
             tools_strict=True,
         )
         data = component.to_dict()
+
         assert data == {
             "type": "haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator",
             "init_parameters": {
@@ -236,7 +237,7 @@ class TestOpenAIChatGenerator:
                 'tools': [
                {
                    'description': 'description',
-                   'function': 'test_openai.<lambda>',
+                   'function': 'builtins.print',
                    'name': 'name',
                    'parameters': {
                        'x': {
@@ -283,6 +284,19 @@ class TestOpenAIChatGenerator:
                 "api_base_url": "test-base-url",
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "generation_kwargs": {"max_tokens": 10, "some_test_param": "test-params"},
+                'tools': [
+               {
+                   'description': 'description',
+                   'function': 'builtins.print',
+                   'name': 'name',
+                   'parameters': {
+                       'x': {
+                           'type': 'string',
+                       },
+                   },
+               },
+           ],
+              'tools_strict': True,
             },
         }
         component = OpenAIChatGenerator.from_dict(data)
@@ -291,6 +305,8 @@ class TestOpenAIChatGenerator:
         assert component.api_base_url == "test-base-url"
         assert component.generation_kwargs == {"max_tokens": 10, "some_test_param": "test-params"}
         assert component.api_key == Secret.from_env_var("OPENAI_API_KEY")
+        assert component.tools == [Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)]
+        assert component.tools_strict
 
     def test_from_dict_fail_wo_env_var(self, monkeypatch):
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)

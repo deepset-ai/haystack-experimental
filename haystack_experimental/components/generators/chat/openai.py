@@ -2,15 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import copy
 import json
-import os
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from haystack import component, default_from_dict, default_to_dict, logging
+from haystack import component, logging
+from haystack.components.generators.chat.openai import OpenAIChatGenerator as OpenAIChatGeneratorBase
 from haystack.dataclasses import StreamingChunk
-from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
-from openai import OpenAI, Stream
+from haystack.utils import Secret
+from openai import Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
@@ -53,7 +52,7 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
 
 
 @component
-class OpenAIChatGenerator:
+class OpenAIChatGenerator(OpenAIChatGeneratorBase):
     """
     Completes chats using OpenAI's large language models (LLMs).
 
@@ -155,33 +154,19 @@ class OpenAIChatGenerator:
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
         """
-        self.api_key = api_key
-        self.model = model
-        self.generation_kwargs = generation_kwargs or {}
-        self.streaming_callback = streaming_callback
-        self.api_base_url = api_base_url
-        self.organization = organization
         self.tools = tools
         self.tools_strict = tools_strict
 
-        if timeout is None:
-            timeout = float(os.environ.get("OPENAI_TIMEOUT", 30.0))
-        if max_retries is None:
-            max_retries = int(os.environ.get("OPENAI_MAX_RETRIES", 5))
-
-        self.client = OpenAI(
-            api_key=api_key.resolve_value(),
+        super(OpenAIChatGenerator, self).__init__(
+            api_key=api_key,
+            model=model,
+            streaming_callback=streaming_callback,
+            api_base_url=api_base_url,
             organization=organization,
-            base_url=api_base_url,
+            generation_kwargs=generation_kwargs,
             timeout=timeout,
             max_retries=max_retries,
         )
-
-    def _get_telemetry_data(self) -> Dict[str, Any]:
-        """
-        Data that is sent to Posthog for usage analytics.
-        """
-        return {"model": self.model}
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -190,18 +175,10 @@ class OpenAIChatGenerator:
         :returns:
             The serialized component as a dictionary.
         """
-        callback_name = serialize_callable(self.streaming_callback) if self.streaming_callback else None
-        return default_to_dict(
-            self,
-            model=self.model,
-            streaming_callback=callback_name,
-            api_base_url=self.api_base_url,
-            organization=self.organization,
-            generation_kwargs=self.generation_kwargs,
-            api_key=self.api_key.to_dict(),
-            tools=[tool.to_dict() for tool in self.tools] if self.tools else None,
-            tools_strict=self.tools_strict,
-        )
+        serialized = super(OpenAIChatGenerator, self).to_dict()
+        serialized["init_parameters"]["tools"] = [tool.to_dict() for tool in self.tools] if self.tools else None
+        serialized["init_parameters"]["tools_strict"] = self.tools_strict
+        return serialized
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "OpenAIChatGenerator":
@@ -212,17 +189,14 @@ class OpenAIChatGenerator:
         :returns:
             The deserialized component instance.
         """
-        deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
+        component = super(OpenAIChatGenerator, cls).from_dict(data)
+
         init_params = data.get("init_parameters", {})
-        serialized_callback_handler = init_params.get("streaming_callback")
-        if serialized_callback_handler:
-            data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
+        if tools := init_params.get("tools"):
+            component.tools = [Tool.from_dict(tool) for tool in tools]
+        component.tools_strict = init_params.get("tools_strict", False)
 
-        tools = init_params.get("tools")
-        if tools:
-            init_params["tools"] = [Tool.from_dict(tool) for tool in tools]
-
-        return default_from_dict(cls, data)
+        return component
 
     @component.output_types(replies=List[ChatMessage])
     def run(  # noqa: PLR0913
