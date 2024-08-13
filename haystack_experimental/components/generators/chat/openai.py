@@ -377,24 +377,3 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
             }
         )
         return chunk_message
-
-    def _check_finish_reason(self, message: ChatMessage) -> None:
-        """
-        Check the `finish_reason` returned with the OpenAI completions.
-
-        If the `finish_reason` is `length` or `content_filter`, log a warning.
-        :param message: The message returned by the LLM.
-        """
-        if message.meta["finish_reason"] == "length":
-            logger.warning(
-                "The completion for index {index} has been truncated before reaching a natural stopping point. "
-                "Increase the max_tokens parameter to allow for longer completions.",
-                index=message.meta["index"],
-                finish_reason=message.meta["finish_reason"],
-            )
-        if message.meta["finish_reason"] == "content_filter":
-            logger.warning(
-                "The completion for index {index} has been truncated due to the content filter.",
-                index=message.meta["index"],
-                finish_reason=message.meta["finish_reason"],
-            )
