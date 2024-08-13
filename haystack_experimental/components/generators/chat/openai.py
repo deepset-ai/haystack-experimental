@@ -23,30 +23,54 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
     """
     Convert a message to the format expected by OpenAI's Chat API.
     """
-
     openai_msg: Dict[str, Any] = {"role": message._role.value}
+    text_contents = []
+    tool_calls = []
+    tool_call_results = []
 
-    openai_tool_calls = []
     for part in message._content:
         if isinstance(part, TextContent):
-            openai_msg["content"] = part.text
+            text_contents.append(part.text)
         elif isinstance(part, ToolCall):
             if part.id is None:
                 raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            openai_tc = {
-                "id": part.id,
-                "type": "function",
-                "function": {"name": part.tool_name, "arguments": json.dumps(part.arguments)},
-            }
-            openai_tool_calls.append(openai_tc)
+            tool_calls.append(
+                {
+                    "id": part.id,
+                    "type": "function",
+                    "function": {"name": part.tool_name, "arguments": json.dumps(part.arguments)},
+                }
+            )
         elif isinstance(part, ToolCallResult):
-            openai_msg["content"] = part.result
             if part.origin.id is None:
                 raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            openai_msg["tool_call_id"] = part.origin.id
+            tool_call_results.append(part)
 
-    if openai_tool_calls:
-        openai_msg["tool_calls"] = openai_tool_calls
+    # validation
+    if len(text_contents) > 1 or len(tool_call_results) > 1:
+        raise ValueError(
+            "For compatibility with OpenAI, a `ChatMessage` can only contain "
+            "one `TextContent` or one `ToolCallResult`."
+        )
+
+    if tool_call_results:
+        if text_contents:
+            raise ValueError(
+                "For compatibility with OpenAI, a `ChatMessage` "
+                "cannot contain both `TextContent` and `ToolCallResult`."
+            )
+        result = tool_call_results[0]
+        openai_msg["content"] = result.result
+        openai_msg["tool_call_id"] = result.origin.id
+        return openai_msg
+
+    if not text_contents and not tool_calls:
+        raise ValueError("A ChatMessage must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`.")
+
+    if text_contents:
+        openai_msg["content"] = text_contents[0]
+    if tool_calls:
+        openai_msg["tool_calls"] = tool_calls
 
     return openai_msg
 
