@@ -264,13 +264,16 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
             # pylint: disable=not-an-iterable
             for chunk in chat_completion:
                 if chunk.choices and streaming_callback:
-                    chunk_delta: StreamingChunk = self._build_chunk(chunk)
+                    chunk_delta: StreamingChunk = self._convert_chat_completion_chunk_to_streaming_chunk(chunk)
                     chunks.append(chunk_delta)
                     streaming_callback(chunk_delta)  # invoke callback with the chunk_delta
-            completions = [self._connect_chunks(chunk, chunks)]
+            completions = [self._convert_streaming_chunks_to_chat_message(chunk, chunks)]
         # if streaming is disabled, the completion is a ChatCompletion
         elif isinstance(chat_completion, ChatCompletion):
-            completions = [self._build_message(chat_completion, choice) for choice in chat_completion.choices]
+            completions = [
+                self.convert_chat_completion_to_chat_message(chat_completion, choice)
+                for choice in chat_completion.choices
+            ]
 
         # before returning, do post-processing of the completions
         for message in completions:
@@ -278,7 +281,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
 
         return {"replies": completions}
 
-    def _connect_chunks(self, chunk: Any, chunks: List[StreamingChunk]) -> ChatMessage:
+    def _convert_streaming_chunks_to_chat_message(self, chunk: Any, chunks: List[StreamingChunk]) -> ChatMessage:
         """
         Connects the streaming chunks into a single ChatMessage.
 
@@ -319,7 +322,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         )
         return complete_response
 
-    def _build_message(self, completion: ChatCompletion, choice: Choice) -> ChatMessage:
+    def convert_chat_completion_to_chat_message(self, completion: ChatCompletion, choice: Choice) -> ChatMessage:
         """
         Converts the non-streaming response from the OpenAI API to a ChatMessage.
 
@@ -354,7 +357,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         )
         return chat_message
 
-    def _build_chunk(self, chunk: ChatCompletionChunk) -> StreamingChunk:
+    def _convert_chat_completion_chunk_to_streaming_chunk(self, chunk: ChatCompletionChunk) -> StreamingChunk:
         """
         Converts the streaming response chunk from the OpenAI API to a StreamingChunk.
 
@@ -367,7 +370,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         content = choice.delta.content or ""
         chunk_message = StreamingChunk(content)
         # but save the tool calls and function call in the meta if they are present
-        # and then connect the chunks in the _connect_chunks method
+        # and then connect the chunks in the _convert_streaming_chunks_to_chat_message method
         chunk_message.meta.update(
             {
                 "model": chunk.model,
