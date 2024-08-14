@@ -34,44 +34,31 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
         elif isinstance(part, ToolCall):
             if part.id is None:
                 raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            tool_calls.append(
-                {
-                    "id": part.id,
-                    "type": "function",
-                    "function": {"name": part.tool_name, "arguments": json.dumps(part.arguments)},
-                }
-            )
+            tool_calls.append(part)
         elif isinstance(part, ToolCallResult):
             if part.origin.id is None:
                 raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
             tool_call_results.append(part)
 
-    # validation
-    if len(text_contents) > 1 or len(tool_call_results) > 1:
-        raise ValueError(
-            "For compatibility with OpenAI, a `ChatMessage` can only contain "
-            "one `TextContent` or one `ToolCallResult`."
-        )
+    # Validation
+    if not text_contents and not tool_calls and not tool_call_results:
+        raise ValueError("A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`.")
+    elif len(text_contents) + len(tool_call_results) > 1:
+        raise ValueError("A `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`.")
 
     if tool_call_results:
-        if text_contents:
-            raise ValueError(
-                "For compatibility with OpenAI, a `ChatMessage` "
-                "cannot contain both `TextContent` and `ToolCallResult`."
-            )
         result = tool_call_results[0]
         openai_msg["content"] = result.result
         openai_msg["tool_call_id"] = result.origin.id
         return openai_msg
 
-    if not text_contents and not tool_calls:
-        raise ValueError("A ChatMessage must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`.")
-
     if text_contents:
         openai_msg["content"] = text_contents[0]
     if tool_calls:
-        openai_msg["tool_calls"] = tool_calls
-
+        openai_msg["tool_calls"] = [
+            {"id": tc.id, "type": "function", "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments)}}
+            for tc in tool_calls
+        ]
     return openai_msg
 
 
