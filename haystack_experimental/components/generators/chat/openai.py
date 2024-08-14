@@ -326,11 +326,11 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
                 except json.JSONDecodeError:
                     logger.warning(
                         "OpenAI returned a malformed JSON string for tool call arguments. This tool call "
-                        "will be skipped.To always generate a valid JSON, set `tools_strict` to `True`. "
-                        "Tool call ID: %s, Tool name: %s, Arguments: %s",
-                        payload["id"],
-                        payload["name"],
-                        arguments_str,
+                        "will be skipped. To always generate a valid JSON, set `tools_strict` to `True`. "
+                        "Tool call ID: {_id}, Tool name: {_name}, Arguments: {_arguments}",
+                        _id=payload["id"],
+                        _name=payload["name"],
+                        _arguments=arguments_str,
                     )
 
         meta = {
@@ -362,11 +362,11 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
                 except json.JSONDecodeError:
                     logger.warning(
                         "OpenAI returned a malformed JSON string for tool call arguments. This tool call "
-                        "will be skipped.To always generate a valid JSON, set `tools_strict` to `True`. "
-                        "Tool call ID: %s, Tool name: %s, Arguments: %s",
-                        openai_tc.id,
-                        openai_tc.function.name,
-                        arguments_str,
+                        "will be skipped. To always generate a valid JSON, set `tools_strict` to `True`. "
+                        "Tool call ID: {_id}, Tool name: {_name}, Arguments: {_arguments}",
+                        _id=openai_tc.id,
+                        _name=openai_tc.function.name,
+                        _arguments=arguments_str,
                     )
 
         chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls)

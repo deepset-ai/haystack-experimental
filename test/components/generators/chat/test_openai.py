@@ -20,7 +20,7 @@ from openai import Stream
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
+from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole, TextContent, ToolCallResult
 from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, _convert_message_to_openai_format
 
 
@@ -498,6 +498,25 @@ class TestOpenAIChatGenerator:
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
         assert _convert_message_to_openai_format(message) == {"role": "tool", "content": tool_result, "tool_call_id": "123"}
 
+    def test_convert_message_to_openai_invalid(self):
+        message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
+        with pytest.raises(ValueError):
+            _convert_message_to_openai_format(message)
+
+        message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[TextContent(text="I have an answer"), TextContent(text="I have another answer")])
+        with pytest.raises(ValueError):
+            _convert_message_to_openai_format(message)
+
+        tool_call_null_id = ToolCall(id=None, tool_name="weather", arguments={"city": "Paris"})
+        message = ChatMessage.from_assistant(tool_calls=[tool_call_null_id])
+        with pytest.raises(ValueError):
+            _convert_message_to_openai_format(message)
+
+        message = ChatMessage.from_tool(tool_result="result", origin=tool_call_null_id)
+        with pytest.raises(ValueError):
+            _convert_message_to_openai_format(message)
+
+
     def test_run_with_tools(self, tools):
 
         with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
@@ -567,6 +586,38 @@ class TestOpenAIChatGenerator:
         assert tool_call.tool_name == "weather"
         assert tool_call.arguments == {"city": "Paris"}
         assert message.meta["finish_reason"] == "tool_calls"
+
+    def test_invalid_tool_call_json(self, tools, caplog):
+        caplog.set_level(logging.WARNING)
+
+        with patch("openai.resources.chat.completions.Completions.create") as mock_create:
+            mock_create.return_value = ChatCompletion(
+                id="test",
+                model="gpt-4",
+                object="chat.completion",
+                choices=[
+                    Choice(
+                        finish_reason="tool_calls",
+                        index=0,
+                        message=ChatCompletionMessage(
+                            role="assistant",
+                            tool_calls=[
+                                ChatCompletionMessageToolCall(id="1", type="function", function=Function(name="weather", arguments='"invalid": "json"')),
+                            ]
+                        )
+                    )
+                ],
+                created=1234567890,
+                usage={"prompt_tokens": 50, "completion_tokens": 30, "total_tokens": 80}
+            )
+
+            component = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"), tools=tools)
+            response = component.run([ChatMessage.from_user("What's the weather in Paris?")])
+
+        assert len(response["replies"]) == 1
+        message = response["replies"][0]
+        assert len(message.tool_calls) == 0
+        assert "OpenAI returned a malformed JSON string for tool call arguments" in caplog.text
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
