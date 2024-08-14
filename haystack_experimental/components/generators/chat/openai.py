@@ -297,10 +297,10 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         Connects the streaming chunks into a single ChatMessage.
 
         :param chunk: The last chunk returned by the OpenAI API.
-        :param chunks: The list of all chunks returned by the OpenAI API.
+        :param chunks: The list of all `StreamingChunk` objects.
         """
 
-        ty
+        text = "".join([chunk.content for chunk in chunks])
         tool_calls = []
 
         # if it's a tool call , we need to build the payload dict from all the chunks
@@ -322,32 +322,25 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
                 arguments_str = payload["arguments"]
                 try:
                     arguments = json.loads(arguments_str)
-                    tool_calls.append(ToolCall(id=payload["id"],
-                                               tool_name=payload["name"],
-                                                  arguments=arguments))
+                    tool_calls.append(ToolCall(id=payload["id"], tool_name=payload["name"], arguments=arguments))
                 except json.JSONDecodeError:
-                    logger.warning("OpenAI returned a malformed JSON string for tool call arguments. This tool call will be skipped."
-                                   "To always generate a valid JSON, set `tools_strict` to `True`."
-                                   "Tool call ID: %s, Tool name: %s, Arguments: %s", payload["id"], payload["name"], arguments_str)
-            # handle potential malformed JSON strings
-            tools_calls = [
-                ToolCall(id=payload["id"], tool_name=payload["name"], arguments=json.loads(payload["arguments"]))
-                for payload in payloads
-            ]
-            complete_response = ChatMessage.from_assistant(tool_calls=tools_calls)
-        else:
-            complete_response = ChatMessage.from_assistant("".join([chunk.content for chunk in chunks]))
-        
-        
-        complete_response.meta.update(
-            {
-                "model": chunk.model,
-                "index": 0,
-                "finish_reason": chunk.choices[0].finish_reason,
-                "usage": {},  # we don't have usage data for streaming responses
-            }
-        )
-        return complete_response
+                    logger.warning(
+                        "OpenAI returned a malformed JSON string for tool call arguments. This tool call "
+                        "will be skipped.To always generate a valid JSON, set `tools_strict` to `True`. "
+                        "Tool call ID: %s, Tool name: %s, Arguments: %s",
+                        payload["id"],
+                        payload["name"],
+                        arguments_str,
+                    )
+
+        meta = {
+            "model": chunk.model,
+            "index": 0,
+            "finish_reason": chunk.choices[0].finish_reason,
+            "usage": {},  # we don't have usage data for streaming responses
+        }
+
+        return ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
 
     def convert_chat_completion_to_chat_message(self, completion: ChatCompletion, choice: Choice) -> ChatMessage:
         """
@@ -367,9 +360,14 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
                     arguments = json.loads(arguments_str)
                     tool_calls.append(ToolCall(id=openai_tc.id, tool_name=openai_tc.function.name, arguments=arguments))
                 except json.JSONDecodeError:
-                    logger.warning("OpenAI returned a malformed JSON string for tool call arguments. This tool call will be skipped."
-                                   "To always generate a valid JSON, set `tools_strict` to `True`."
-                                   "Tool call ID: %s, Tool name: %s, Arguments: %s", openai_tc.id, openai_tc.function.name, arguments_str)
+                    logger.warning(
+                        "OpenAI returned a malformed JSON string for tool call arguments. This tool call "
+                        "will be skipped.To always generate a valid JSON, set `tools_strict` to `True`. "
+                        "Tool call ID: %s, Tool name: %s, Arguments: %s",
+                        openai_tc.id,
+                        openai_tc.function.name,
+                        arguments_str,
+                    )
 
         chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls)
         chat_message._meta.update(
