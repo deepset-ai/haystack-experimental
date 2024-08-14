@@ -19,6 +19,30 @@ class TestAutoMergingRetriever:
         with pytest.raises(ValueError):
             AutoMergingRetriever(InMemoryDocumentStore(), threshold=-2)
 
+    def test_to_dict(self):
+        retriever = AutoMergingRetriever(InMemoryDocumentStore(), threshold=0.7)
+        expected = retriever.to_dict()
+        assert expected == {'type': 'haystack_experimental.components.retrievers.auto_merging_retriever.AutoMergingRetriever',
+ 'init_parameters': {'document_store': {'type': 'haystack.document_stores.in_memory.document_store.InMemoryDocumentStore',
+   'init_parameters': {'bm25_tokenization_regex': '(?u)\\b\\w\\w+\\b',
+    'bm25_algorithm': 'BM25L',
+    'bm25_parameters': {},
+    'embedding_similarity_function': 'dot_product',
+    'index': '6b122bb4-211b-465e-804d-77c5857bf4c5'}},
+  'threshold': 0.7}}
+
+    def test_from_dict(self):
+        data = {'type': 'haystack_experimental.components.retrievers.auto_merging_retriever.AutoMergingRetriever',
+ 'init_parameters': {'document_store': {'type': 'haystack.document_stores.in_memory.document_store.InMemoryDocumentStore',
+   'init_parameters': {'bm25_tokenization_regex': '(?u)\\b\\w\\w+\\b',
+    'bm25_algorithm': 'BM25L',
+    'bm25_parameters': {},
+    'embedding_similarity_function': 'dot_product',
+    'index': '6b122bb4-211b-465e-804d-77c5857bf4c5'}},
+  'threshold': 0.7}}
+        retriever = AutoMergingRetriever.from_dict(data)
+        assert retriever.threshold == 0.7
+
     def test_run_return_parent_document(self):
         text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
 

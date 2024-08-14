@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import defaultdict
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from haystack import Document, component, default_to_dict, DeserializationError
-from haystack.core.serialization import import_class_by_name, default_from_dict
+from haystack import DeserializationError, Document, component, default_to_dict
+from haystack.core.serialization import default_from_dict, import_class_by_name
 from haystack.document_stores.types import DocumentStore
 
 
@@ -49,11 +49,11 @@ class AutoMergingRetriever:
     # since it has 3 children and the threshold=0.5, and we retrieved 2 children (2/3 > 0.66(6))
     leaf_docs = [doc for doc in docs["documents"] if not doc.meta["children_ids"]]
     docs = retriever.run(leaf_docs[4:6])
-    >> {'documents': [Document(id=5384f4d58e13beb40ce80ab324a1da24f70ed69c2ec4c4f2a6f64abbc846a794, 
-    >> content: 'warm glow over the trees. Birds began to sing.', 
-    >> meta: {'block_size': 10, 'parent_id': '835b610ae31936739a47ce504674d3e86756688728b8c2b83f83484f3e1e4697', 
-    >> 'children_ids': ['c17e28e4b4577f892aba181a3aaa2880ef7531c8fbc5d267bda709198b3fec0b', '3ffd48a3a273ed72c83240d3f74e40cdebfb5dbc706b198d3be86ce45086593d', '3520de2d4a0c107bce7c84c181663b93b13e1a0cc0e4ea1bcafd0f9b5761ef42'], 
-    >> 'level': 1, 'source_id': '835b610ae31936739a47ce504674d3e86756688728b8c2b83f83484f3e1e4697', 
+    >> {'documents': [Document(id=5384f4d58e13beb40ce80ab324a1da24f70ed69c2ec4c4f2a6f64abbc846a794,
+    >> content: 'warm glow over the trees. Birds began to sing.',
+    >> meta: {'block_size': 10, 'parent_id': '835b610ae31936739a47ce504674d3e86756688728b8c2b83f83484f3e1e4697',
+    >> 'children_ids': ['c17e28e4b4577f892aba181a3aaa2880ef7531c8fbc5d267bda709198b3fec0b', '3ffd48a3a273ed72c83240d3f74e40cdebfb5dbc706b198d3be86ce45086593d', '3520de2d4a0c107bce7c84c181663b93b13e1a0cc0e4ea1bcafd0f9b5761ef42'],
+    >> 'level': 1, 'source_id': '835b610ae31936739a47ce504674d3e86756688728b8c2b83f83484f3e1e4697',
     >> 'page_number': 1, 'split_id': 1, 'split_idx_start': 45})]}
     ```
     """  # noqa: E501
