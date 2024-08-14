@@ -479,7 +479,8 @@ class TestOpenAIChatGenerator:
         assert "Paris" in callback.responses
 
 
-    ### NEW TESTS
+
+
     def test_convert_message_to_openai_format(self):
         message = ChatMessage.from_system("You are good assistant")
         assert _convert_message_to_openai_format(message) == {"role": "system", "content": "You are good assistant"}
