@@ -18,7 +18,7 @@ _FUNCTION_RUN_FAILURE = "Seems there was an error while running the function: {e
 
 @component
 class ToolInvoker:
-    def __init__(self, tools: List[Tool], raise_on_failure: bool = False):
+    def __init__(self, tools: List[Tool], raise_on_failure: bool = True):
         self.tools = tools
         self._tool_names = {tool.name for tool in tools}
         self.raise_on_failure = raise_on_failure
@@ -50,5 +50,5 @@ class ToolInvoker:
                         ChatMessage.from_tool(tool_result=_FUNCTION_RUN_FAILURE.format(error=e), origin=tool_call)
                     )
             else:
-                raise ValueError(f"Tool {tool_name} not found in the list of tools.")
+                raise Exception(f"Tool {tool_name} not found in the list of tools.")
         return {"tool_results": tool_results}
