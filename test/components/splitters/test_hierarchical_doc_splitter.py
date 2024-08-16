@@ -141,7 +141,7 @@ class TestHierarchicalDocumentSplitter:
 
         assert Pipeline.from_dict(data)
 
-     @pytest.mark.integration
+    @pytest.mark.integration
     def test_example_in_pipeline(self):
         pipeline = Pipeline()
         hierarchical_doc_builder = HierarchicalDocumentSplitter(block_sizes=[10, 5, 2], split_overlap=0, split_by="word")
