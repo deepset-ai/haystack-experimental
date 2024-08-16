@@ -71,8 +71,9 @@ class AutoMergingRetriever:
         if threshold > 1 or threshold < 0:
             raise ValueError("The threshold parameter must be between 0 and 1.")
 
-        if document_store.__name__ in UNSUPPORTED_DOCUMENT_STORES:
-            msg = f"The document store type {document_store.__name__} is not supported by the AutoMergingRetriever."
+        if document_store.__class__.__name__ in UNSUPPORTED_DOCUMENT_STORES:
+            msg = (f"The document store type {document_store.__class__.__name__} "
+                   f"is not supported by the AutoMergingRetriever.")
             raise ValueError(msg)
 
         self.document_store = document_store
