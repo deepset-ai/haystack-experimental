@@ -109,7 +109,7 @@ class TestAutoMergingRetriever:
         assert len(result['documents']) == 2
         assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
 
-    def test_unsupported_document_store(self):
+    def test_unsupported_document_store(self, install_dependencies):
         with pytest.raises(ValueError):
             AutoMergingRetriever(ChromaDocumentStore())
 
