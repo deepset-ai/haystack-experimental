@@ -4,8 +4,8 @@ from haystack import Document
 from haystack_experimental.components.splitters import HierarchicalDocumentSplitter
 from haystack_experimental.components.retrievers.auto_merging_retriever import AutoMergingRetriever
 from haystack.document_stores.in_memory import InMemoryDocumentStore
-from integrations.chroma.src.haystack_integrations.document_stores.chroma import ChromaDocumentStore
-from integrations.pinecone.src.haystack_integrations.document_stores.pinecone import PineconeDocumentStore
+from haystack_integrations.document_stores.chroma import ChromaDocumentStore
+from haystack_integrations.document_stores.pinecone import PineconeDocumentStore
 
 
 class TestAutoMergingRetriever:

@@ -10,10 +10,8 @@ from haystack.core.serialization import default_from_dict
 from haystack.document_stores.types import DocumentStore
 from haystack.utils import deserialize_document_store_in_init_parameters
 
-from haystack_integrations.document_stores.chroma import ChromaDocumentStore
-from haystack_integrations.document_stores.pinecone import PineconeDocumentStore
+UNSUPPORTED_DOCUMENT_STORES = ("ChromaDocumentStore", "PineconeDocumentStore")
 
-UNSUPPORTED_DOCUMENT_STORES = (ChromaDocumentStore, PineconeDocumentStore)
 
 @component
 class AutoMergingRetriever:
@@ -73,8 +71,8 @@ class AutoMergingRetriever:
         if threshold > 1 or threshold < 0:
             raise ValueError("The threshold parameter must be between 0 and 1.")
 
-        if isinstance(document_store, UNSUPPORTED_DOCUMENT_STORES):
-            msg = f"The document store type {type(document_store)} is not supported by the AutoMergingRetriever."
+        if document_store.__name__ in UNSUPPORTED_DOCUMENT_STORES:
+            msg = f"The document store type {document_store.__name__} is not supported by the AutoMergingRetriever."
             raise ValueError(msg)
 
         self.document_store = document_store
