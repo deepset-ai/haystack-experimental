@@ -1,11 +1,19 @@
 import pytest
 
+import subprocess
+
 from haystack import Document
 from haystack_experimental.components.splitters import HierarchicalDocumentSplitter
 from haystack_experimental.components.retrievers.auto_merging_retriever import AutoMergingRetriever
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack_integrations.document_stores.chroma import ChromaDocumentStore
 from haystack_integrations.document_stores.pinecone import PineconeDocumentStore
+
+
+@pytest.fixture(scope='session', autouse=True)
+def install_dependencies():
+    subprocess.check_call(['pip', 'install', 'chroma-haystack==0.21.1'])
+    subprocess.check_call(['pip', 'install', 'pinecone_haystack==1.2.1'])
 
 
 class TestAutoMergingRetriever:
