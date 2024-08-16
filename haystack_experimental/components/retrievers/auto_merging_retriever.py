@@ -34,9 +34,9 @@ class AutoMergingRetriever:
 
     text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
 
-    docs = [Document(content=text)]
-    builder = HierarchicalDocumentBuilder(block_sizes=[10, 3], split_overlap=0, split_by="word")
-    docs = builder.run(docs)
+    original_document = Document(content=text)
+    builder = HierarchicalDocumentSplitter(block_sizes=[10, 3], split_overlap=0, split_by="word")
+    docs = builder.run([original_document])["documents"]
 
     # store level-1 parent documents and initialize the retriever
     doc_store_parents = InMemoryDocumentStore()
