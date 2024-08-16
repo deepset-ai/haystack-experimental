@@ -24,10 +24,8 @@ class TestHierarchicalDocumentSplitter:
         assert builder.split_by == "word"
 
     def test_init_with_duplicate_block_sizes(self):
-        try:
+        with pytest.raises(ValueError):
             HierarchicalDocumentSplitter(block_sizes=[100, 200, 200])
-        except ValueError as e:
-            assert str(e) == "block_sizes must not contain duplicates"
 
     def test_to_dict(self):
         builder = HierarchicalDocumentSplitter(block_sizes=[100, 200, 300], split_overlap=25, split_by="word")
