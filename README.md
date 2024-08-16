@@ -37,16 +37,18 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 The latest version of the package contains the following experiments:
 
 | Name                        | Type                       | Expected experiment end date | Dependencies |
-| --------------------------- | -------------------------- | ---------------------------- | ------------ |
-| [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         |
-| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         |
-| [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      |
-| [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   |
+|-----------------------------|----------------------------|------------------------------| ------------ |
+| [`Auto-Merge Retriever`][1] | Retrieval Technique        | November 2024                | None         |
+| [`EvaluationHarness`][2]    | Evaluation orchestrator    | October 2024                 | None         |
+| [`OpenAIFunctionCaller`][3] | Function Calling Component | October 2024                 | None         |
+| [`OpenAPITool`][4]          | OpenAPITool component      | October 2024                 | jsonref      |
+| [`Tool`][5]                 | Tool dataclass             | November 2024                | jsonschema   |
 
-[1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
-[2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
-[3]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
-[4]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/dataclasses/tool.py
+[1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/retrievers/auto_merge_retriever.py
+[2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
+[3]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
+[4]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
+[5]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/dataclasses/tool.py
 
 ## Usage
 
@@ -105,11 +107,11 @@ from haystack.core.pipeline import Pipeline as HaystackPipeline
 
 
 class Pipeline(HaystackPipeline):
-	# Any new experimental method that doesn't exist in the original class
-	def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
-		...
+    # Any new experimental method that doesn't exist in the original class
+    def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
+        ...
 
-	# Existing methods with breaking changes to their signature, like adding a new mandatory param
+    # Existing methods with breaking changes to their signature, like adding a new mandatory param
     def to_dict(new_param: str) -> Dict[str, Any]:
         # do something with the new parameter
         print(new_param)

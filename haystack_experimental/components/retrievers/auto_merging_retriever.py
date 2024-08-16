@@ -5,9 +5,10 @@
 from collections import defaultdict
 from typing import Any, Dict, List
 
-from haystack import DeserializationError, Document, component, default_to_dict
-from haystack.core.serialization import default_from_dict, import_class_by_name
+from haystack import Document, component, default_to_dict
+from haystack.core.serialization import default_from_dict
 from haystack.document_stores.types import DocumentStore
+from haystack.utils import deserialize_document_store_in_init_parameters
 
 
 @component
@@ -26,14 +27,13 @@ class AutoMergingRetriever:
     chunks alone.
 
     ```python
-
     from haystack import Document
-    from haystack_experimental.components.splitters import HierarchicalDocumentBuilder
+    from haystack_experimental.components.splitters import HierarchicalDocumentSplitter
     from haystack_experimental.components.retrievers.auto_merging_retriever import AutoMergingRetriever
     from haystack.document_stores.in_memory import InMemoryDocumentStore
 
+    # create a hierarchical document structure with 2 levels, where the parent document has 3 children
     text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
-
     original_document = Document(content=text)
     builder = HierarchicalDocumentSplitter(block_sizes=[10, 3], split_overlap=0, split_by="word")
     docs = builder.run([original_document])["documents"]
@@ -92,26 +92,7 @@ class AutoMergingRetriever:
         :returns:
             An instance of the component.
         """
-        init_params = data.get("init_parameters", {})
-
-        if "document_store" not in init_params:
-            raise DeserializationError("Missing 'document_store' in serialization data")
-        if "type" not in init_params["document_store"]:
-            raise DeserializationError("Missing 'type' in document store's serialization data")
-
-        # deserialize the document store
-        doc_store_data = data["init_parameters"]["document_store"]
-        try:
-            doc_store_class = import_class_by_name(doc_store_data["type"])
-        except ImportError as e:
-            raise DeserializationError(f"Class '{doc_store_data['type']}' not correctly imported") from e
-
-        if hasattr(doc_store_class, "from_dict"):
-            data["init_parameters"]["document_store"] = doc_store_class.from_dict(doc_store_data)
-        else:
-            data["init_parameters"]["document_store"] = default_from_dict(doc_store_class, doc_store_data)
-
-        # deserialize the component
+        data = deserialize_document_store_in_init_parameters(data)
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document])
