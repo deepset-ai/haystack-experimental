@@ -82,6 +82,19 @@ class TestAutoMergingRetriever:
         assert result['documents'][0].content == 'eastern side of '
         assert result['documents'][0].meta["__parent_id"] == docs["documents"][2].id
 
-
     def test_run_return_leafs_document_different_parents(self):
-        pass
+        docs = [Document(content="The monarch of the wild blue yonder rises from the eastern side of the horizon.")]
+        builder = HierarchicalDocumentSplitter(block_sizes=[10, 3], split_overlap=0, split_by="word")
+        docs = builder.run(docs)
+
+        doc_store_parents = InMemoryDocumentStore()
+        for doc in docs["documents"]:
+            if doc.meta["__level"] == 1:
+                doc_store_parents.write_documents([doc])
+
+        leaf_docs = [doc for doc in docs["documents"] if not doc.meta["__children_ids"]]
+        retriever = AutoMergingRetriever(doc_store_parents, threshold=0.6)
+        result = retriever.run([leaf_docs[4], leaf_docs[3]])
+
+        assert len(result['documents']) == 2
+        assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
