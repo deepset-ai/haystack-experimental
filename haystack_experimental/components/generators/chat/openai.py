@@ -282,7 +282,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         # if streaming is disabled, the completion is a ChatCompletion
         elif isinstance(chat_completion, ChatCompletion):
             completions = [
-                self.convert_chat_completion_to_chat_message(chat_completion, choice)
+                self._convert_chat_completion_to_chat_message(chat_completion, choice)
                 for choice in chat_completion.choices
             ]
 
@@ -342,7 +342,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
 
         return ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
 
-    def convert_chat_completion_to_chat_message(self, completion: ChatCompletion, choice: Choice) -> ChatMessage:
+    def _convert_chat_completion_to_chat_message(self, completion: ChatCompletion, choice: Choice) -> ChatMessage:
         """
         Converts the non-streaming response from the OpenAI API to a ChatMessage.
 
