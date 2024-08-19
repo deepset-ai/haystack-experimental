@@ -14,7 +14,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletio
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 
-from haystack_experimental.dataclasses import ChatMessage, TextContent, Tool, ToolCall, ToolCallResult
+from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -23,31 +23,21 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
     """
     Convert a message to the format expected by OpenAI's Chat API.
     """
-    openai_msg: Dict[str, Any] = {"role": message._role.value}
-    text_contents = []
-    tool_calls = []
-    tool_call_results = []
+    text_contents = message.texts
+    tool_calls = message.tool_calls
+    tool_call_results = message.tool_call_results
 
-    for part in message._content:
-        if isinstance(part, TextContent):
-            text_contents.append(part.text)
-        elif isinstance(part, ToolCall):
-            if part.id is None:
-                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            tool_calls.append(part)
-        elif isinstance(part, ToolCallResult):
-            if part.origin.id is None:
-                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-            tool_call_results.append(part)
-
-    # Validation
     if not text_contents and not tool_calls and not tool_call_results:
         raise ValueError("A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`.")
     elif len(text_contents) + len(tool_call_results) > 1:
         raise ValueError("A `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`.")
 
+    openai_msg: Dict[str, Any] = {"role": message._role.value}
+
     if tool_call_results:
         result = tool_call_results[0]
+        if result.origin.id is None:
+            raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
         openai_msg["content"] = result.result
         openai_msg["tool_call_id"] = result.origin.id
         return openai_msg
@@ -55,10 +45,18 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
     if text_contents:
         openai_msg["content"] = text_contents[0]
     if tool_calls:
-        openai_msg["tool_calls"] = [
-            {"id": tc.id, "type": "function", "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments)}}
-            for tc in tool_calls
-        ]
+        openai_tool_calls = []
+        for tc in tool_calls:
+            if tc.id is None:
+                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
+            openai_tool_calls.append(
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments)},
+                }
+            )
+        openai_msg["tool_calls"] = openai_tool_calls
     return openai_msg
 
 
