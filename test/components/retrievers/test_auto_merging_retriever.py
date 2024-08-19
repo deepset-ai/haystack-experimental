@@ -2,8 +2,6 @@ from unittest import mock
 
 import pytest
 
-import subprocess
-
 from haystack import Document
 from haystack_experimental.components.splitters import HierarchicalDocumentSplitter
 from haystack_experimental.components.retrievers.auto_merging_retriever import AutoMergingRetriever
