@@ -21,7 +21,7 @@ from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
 from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole, TextContent
-from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, _convert_message_to_openai_format
+from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, _convert_message_to_openai_format, OpenAIChatGeneratorBase
 
 
 
@@ -300,6 +300,8 @@ class TestOpenAIChatGenerator:
             },
         }
         component = OpenAIChatGenerator.from_dict(data)
+
+        assert isinstance(component, OpenAIChatGenerator)
         assert component.model == "gpt-4"
         assert component.streaming_callback is print_streaming_chunk
         assert component.api_base_url == "test-base-url"
