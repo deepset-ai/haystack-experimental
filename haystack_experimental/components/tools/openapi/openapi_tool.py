@@ -158,7 +158,7 @@ class OpenAPITool:
             "Invoking chat generator with {message} to generate function calling payload.",
             message=last_message.content,
         )
-        fc_payload = self.chat_generator.run(messages, fc_generator_kwargs)
+        fc_payload = self.chat_generator.run(messages, generation_kwargs=fc_generator_kwargs)
         try:
             invocation_payload = json.loads(fc_payload["replies"][0].content)
             logger.debug("Invoking tool with {payload}", payload=invocation_payload)
