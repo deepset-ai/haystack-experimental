@@ -190,9 +190,6 @@ class ChatMessage:
         :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        if not text and not tool_calls:
-            raise ValueError("At least one of `text` or `tool_calls` must be provided.")
-
         content: List[ChatMessageContentT] = []
         if text:
             content.append(TextContent(text=text))
