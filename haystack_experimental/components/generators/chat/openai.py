@@ -5,10 +5,10 @@
 import json
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from haystack import component, logging
+from haystack import component, default_from_dict, logging
 from haystack.components.generators.chat.openai import OpenAIChatGenerator as OpenAIChatGeneratorBase
 from haystack.dataclasses import StreamingChunk
-from haystack.utils import Secret
+from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace
 from openai import Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 from openai.types.chat.chat_completion import Choice
@@ -198,14 +198,17 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         :returns:
             The deserialized component instance.
         """
-        component = super(OpenAIChatGenerator, cls).from_dict(data)
-
+        deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
         init_params = data.get("init_parameters", {})
-        if tools := init_params.get("tools"):
-            component.tools = [Tool.from_dict(tool) for tool in tools]
-        component.tools_strict = init_params.get("tools_strict", False)
+        serialized_callback_handler = init_params.get("streaming_callback")
+        if serialized_callback_handler:
+            data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
 
-        return component
+        tools = init_params.get("tools")
+        if tools:
+            init_params["tools"] = [Tool.from_dict(tool) for tool in tools]
+
+        return default_from_dict(cls, data)
 
     @component.output_types(replies=List[ChatMessage])
     def run(  # noqa: PLR0913
