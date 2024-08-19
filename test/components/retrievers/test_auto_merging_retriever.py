@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 import subprocess
@@ -102,13 +104,16 @@ class TestAutoMergingRetriever:
         assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
 
     def test_unsupported_document_store(self):
-        subprocess.check_call(['pip', 'install', 'chroma-haystack==0.21.1'])
-        subprocess.check_call(['pip', 'install', 'pinecone_haystack==1.2.1'])
-        from haystack_integrations.document_stores.chroma import ChromaDocumentStore
-        from haystack_integrations.document_stores.pinecone import PineconeDocumentStore
+        mock_chroma_store = mock.MagicMock()
+        mock_chroma_store.__class__.__name__ = 'ChromaDocumentStore'
 
-        with pytest.raises(ValueError):
-            AutoMergingRetriever(ChromaDocumentStore())
+        with mock.patch('haystack_integrations.document_stores.chroma.ChromaDocumentStore', return_value=mock_chroma_store):
+            with pytest.raises(ValueError):
+                AutoMergingRetriever(mock_chroma_store)
 
-        with pytest.raises(ValueError):
-            AutoMergingRetriever(PineconeDocumentStore())
+        mock_pinecone_store = mock.MagicMock()
+        mock_pinecone_store.__class__.__name__ = 'PineconeDocumentStore'
+
+        with mock.patch('haystack_integrations.document_stores.pinecone.PineconeDocumentStore', return_value=mock_pinecone_store):
+            with pytest.raises(ValueError):
+                AutoMergingRetriever(mock_pinecone_store)
