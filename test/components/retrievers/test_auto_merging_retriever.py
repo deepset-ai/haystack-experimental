@@ -110,6 +110,6 @@ class TestAutoMergingRetriever:
 
         mock_pinecone_store = mock.MagicMock()
         mock_pinecone_store.__class__.__name__ = 'PineconeDocumentStore'
-        
+
         with pytest.raises(ValueError):
             AutoMergingRetriever(mock_pinecone_store)
