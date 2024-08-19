@@ -105,13 +105,11 @@ class TestAutoMergingRetriever:
         mock_chroma_store = mock.MagicMock()
         mock_chroma_store.__class__.__name__ = 'ChromaDocumentStore'
 
-        with mock.patch('haystack_integrations.document_stores.chroma.ChromaDocumentStore', return_value=mock_chroma_store):
-            with pytest.raises(ValueError):
-                AutoMergingRetriever(mock_chroma_store)
+        with pytest.raises(ValueError):
+            AutoMergingRetriever(mock_chroma_store)
 
         mock_pinecone_store = mock.MagicMock()
         mock_pinecone_store.__class__.__name__ = 'PineconeDocumentStore'
-
-        with mock.patch('haystack_integrations.document_stores.pinecone.PineconeDocumentStore', return_value=mock_pinecone_store):
-            with pytest.raises(ValueError):
-                AutoMergingRetriever(mock_pinecone_store)
+        
+        with pytest.raises(ValueError):
+            AutoMergingRetriever(mock_pinecone_store)
