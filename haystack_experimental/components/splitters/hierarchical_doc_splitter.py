@@ -86,7 +86,7 @@ class HierarchicalDocumentSplitter:
         as HierarchicalDocument objects.
 
         :param document: Document to split into hierarchical blocks.
-        :return:
+        :returns:
             List of HierarchicalDocument
         """
 
