@@ -35,9 +35,9 @@ class ToolCall:
     :param arguments: The arguments to call the Tool with.
     """
 
-    id: Optional[str]  # noqa: A003
     tool_name: str
     arguments: Dict[str, Any]
+    id: Optional[str] = None  # noqa: A003
 
 
 @dataclass
