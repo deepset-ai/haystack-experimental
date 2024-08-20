@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Set
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.preprocessors import DocumentSplitter
@@ -36,20 +36,18 @@ class HierarchicalDocumentSplitter:
 
     def __init__(
         self,
-        block_sizes: List[int],
+        block_sizes: Set[int],
         split_overlap: int = 0,
         split_by: Literal["word", "sentence", "page", "passage"] = "word",
     ):
         """
         Initialize HierarchicalDocumentBuilder.
 
-        :param block_sizes: List of block sizes to split the document into. The blocks are split in descending order.
+        :param block_sizes: Set of block sizes to split the document into. The blocks are split in descending order.
         :param split_overlap: The number of overlapping units for each split.
         :param split_by: The unit for splitting your documents.
         """
 
-        if len(set(block_sizes)) != len(block_sizes):
-            raise ValueError("block_sizes must not contain duplicates")
         self.block_sizes = sorted(set(block_sizes), reverse=True)
         self.split_overlap = split_overlap
         self.split_by = split_by
