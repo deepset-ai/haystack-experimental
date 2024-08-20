@@ -112,6 +112,8 @@ class AutoMergingRetriever:
         matched leaf documents.
 
         :param matched_leaf_documents: List of leaf documents that were matched by a retriever
+        :returns:
+            List of parent documents or matched leaf documents based on the threshold value
         """
 
         docs_to_return = []
