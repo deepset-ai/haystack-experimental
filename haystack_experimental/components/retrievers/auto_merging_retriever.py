@@ -133,7 +133,7 @@ class AutoMergingRetriever:
                 docs_to_return.append(parent_doc[0])
             else:
                 # return all the matched leaf documents which are child of this parent document
-                leafs_ids = [doc.id for doc in retrieved_child_docs]
+                leafs_ids = {doc.id for doc in retrieved_child_docs}
                 docs_to_return.extend([doc for doc in matched_leaf_documents if doc.id in leafs_ids])
 
         return {"documents": docs_to_return}
