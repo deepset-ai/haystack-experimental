@@ -86,6 +86,9 @@ class ToolInvoker:
             If True, the component will raise exceptions in case the tool is not found or invocation fails.
             If False, the component will return a ChatMessage from the tool, wrapping the error message.
         """
+        if not tools:
+            raise ValueError("ToolInvoker requires at least one tool to be provided.")
+
         self.tools = tools
         self._tools_with_names = {tool.name: tool for tool in tools}
         self.raise_on_failure = raise_on_failure
@@ -104,19 +107,20 @@ class ToolInvoker:
             return json.dumps(result)
         except TypeError as e:
             logger.warning(
-                "Failed to convert tool result to string using `json.dumps`. " "Error: %s. Falling back to `str`.", e
+                "Failed to convert tool result to string using `json.dumps`. Error: {error}. Falling back to `str`.",
+                error=e,
             )
             return str(result)
 
-    @component.output_types(tool_results=List[ChatMessage])
-    def run(self, tool_message: ChatMessage):
+    @component.output_types(tool_messages=List[ChatMessage])
+    def run(self, message: ChatMessage):
         """
         Processes a ChatMessage containing tool calls and invokes the corresponding tools, if available.
 
-        :param tool_message:
+        :param message:
             A ChatMessage from assistant, containing prepared tool calls.
         :returns:
-            A dictionary with the key `tool_results` containing a list of ChatMessage objects with tool role
+            A dictionary with the key `tool_messages` containing a list of ChatMessage objects with tool role
             that contain the results of the tool invocations.
 
         :raises ValueError:
@@ -126,14 +130,14 @@ class ToolInvoker:
         :raises ToolInvocationError:
             If the tool invocation fails.
         """
-        if not tool_message.is_from(ChatRole.ASSISTANT):
+        if not message.is_from(ChatRole.ASSISTANT):
             raise ValueError("ToolInvoker only supports messages from the assistant role.")
 
-        tool_calls = tool_message.tool_calls
+        tool_calls = message.tool_calls
         if not tool_calls:
             raise ValueError("ToolInvoker only supports messages with tool calls.")
 
-        tool_results = []
+        tool_messages = []
 
         for tool_call in tool_calls:
             tool_name = tool_call.tool_name
@@ -143,7 +147,7 @@ class ToolInvoker:
                 msg = _TOOL_NOT_FOUND.format(tool_name=tool_name, available_tools=self._tools_with_names.keys())
                 if self.raise_on_failure:
                     raise ToolNotFoundException(msg)
-                tool_results.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call))
+                tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call))
                 continue
 
             tool_to_invoke = self._tools_with_names[tool_name]
@@ -153,13 +157,13 @@ class ToolInvoker:
                 if self.raise_on_failure:
                     raise e
                 msg = _TOOL_INVOCATION_FAILURE.format(error=e)
-                tool_results.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call))
+                tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call))
                 continue
 
             tool_result_string = self._convert_tool_result_to_string(tool_response)
-            tool_results.append(ChatMessage.from_tool(tool_result=tool_result_string, origin=tool_call))
+            tool_messages.append(ChatMessage.from_tool(tool_result=tool_result_string, origin=tool_call))
 
-        return {"tool_results": tool_results}
+        return {"tool_messages": tool_messages}
 
     def to_dict(self) -> Dict[str, Any]:
         """
