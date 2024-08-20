@@ -61,14 +61,14 @@ class ToolInvoker:
 
     # ToolInvoker initialization and run
     invoker = ToolInvoker(tools=[tool])
-    result = invoker.run(tool_message=message)
+    result = invoker.run(message=message)
 
     print(result)
     ```
 
     ```
     >>  {
-    >>      'tool_results': [
+    >>      'tool_messages': [
     >>          ChatMessage(
     >>              _role=<ChatRole.TOOL: 'tool'>,
     >>              _content=[
