@@ -60,7 +60,7 @@ class HierarchicalDocumentSplitter:
         Builds a hierarchical document structure for each document in a list of documents.
 
         :param documents: List of Documents to split into hierarchical blocks.
-        :return: List of HierarchicalDocument
+        :returns: List of HierarchicalDocument
         """
         hierarchical_docs = []
         for doc in documents:
