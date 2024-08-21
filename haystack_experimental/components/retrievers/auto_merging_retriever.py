@@ -25,10 +25,10 @@ class AutoMergingRetriever:
     The rational is, given that a paragraph is split into multiple chunks represented as leaf documents, and if for
     a given query, multiple chunks are matched, the whole paragraph might be more informative than the individual
     chunks alone.
-    
+
     This component is NOT support by the following DocumentStores:
     - PineconeDocumentStore
-    - ChromaDocumentStore     
+    - ChromaDocumentStore
 
     ```python
     from haystack import Document
@@ -68,7 +68,7 @@ class AutoMergingRetriever:
         :param threshold: Threshold to decide whether the parent instead of the individual documents is returned
         """
 
-        if not (0 < threshold < 1):
+        if not 0 < threshold < 1:
             raise ValueError("The threshold parameter must be between 0 and 1.")
 
         self.document_store = document_store

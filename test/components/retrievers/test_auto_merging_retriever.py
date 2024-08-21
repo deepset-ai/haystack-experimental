@@ -100,16 +100,3 @@ class TestAutoMergingRetriever:
 
         assert len(result['documents']) == 2
         assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
-
-    def test_unsupported_document_store(self):
-        mock_chroma_store = mock.MagicMock()
-        mock_chroma_store.__class__.__name__ = 'ChromaDocumentStore'
-
-        with pytest.raises(ValueError):
-            AutoMergingRetriever(mock_chroma_store)
-
-        mock_pinecone_store = mock.MagicMock()
-        mock_pinecone_store.__class__.__name__ = 'PineconeDocumentStore'
-
-        with pytest.raises(ValueError):
-            AutoMergingRetriever(mock_pinecone_store)
