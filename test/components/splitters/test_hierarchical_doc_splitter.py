@@ -154,3 +154,17 @@ class TestHierarchicalDocumentSplitter:
 
         assert docs["doc_writer"]["documents_written"] == 9
         assert len(doc_store.storage.values()) == 9
+
+    def test_serialization_deserialization_pipeline(self):
+        pipeline = Pipeline()
+        hierarchical_doc_builder = HierarchicalDocumentSplitter(block_sizes={10, 5, 2}, split_overlap=0, split_by="word")
+        doc_store = InMemoryDocumentStore()
+        doc_writer = DocumentWriter(document_store=doc_store)
+
+        pipeline.add_component(name="hierarchical_doc_splitter", instance=hierarchical_doc_builder)
+        pipeline.add_component(name="doc_writer", instance=doc_writer)
+        pipeline.connect("hierarchical_doc_splitter.documents", "doc_writer")
+        pipeline_dict = pipeline.to_dict()
+
+        new_pipeline = Pipeline.from_dict(pipeline_dict)
+        assert new_pipeline == pipeline

@@ -66,7 +66,7 @@ class AutoMergingRetriever:
         :param threshold: Threshold to decide whether the parent instead of the individual documents is returned
         """
 
-        if threshold > 1 or threshold < 0:
+        if not (0 < threshold < 1):
             raise ValueError("The threshold parameter must be between 0 and 1.")
 
         if document_store.__class__.__name__ in UNSUPPORTED_DOCUMENT_STORES:
