@@ -68,7 +68,7 @@ class TestAutoMergingRetriever:
 
     def test_run_return_leafs_document(self):
         docs = [Document(content="The monarch of the wild blue yonder rises from the eastern side of the horizon.")]
-        builder = HierarchicalDocumentSplitter(block_sizes=[10, 3], split_overlap=0, split_by="word")
+        builder = HierarchicalDocumentSplitter(block_sizes={10, 3}, split_overlap=0, split_by="word")
         docs = builder.run(docs)
 
         doc_store_parents = InMemoryDocumentStore()

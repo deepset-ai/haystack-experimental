@@ -27,6 +27,10 @@ class AutoMergingRetriever:
     The rational is, given that a paragraph is split into multiple chunks represented as leaf documents, and if for
     a given query, multiple chunks are matched, the whole paragraph might be more informative than the individual
     chunks alone.
+    
+    This component is NOT support by the following DocumentStores:
+    - PineconeDocumentStore
+    - ChromaDocumentStore     
 
     ```python
     from haystack import Document
@@ -99,6 +103,18 @@ class AutoMergingRetriever:
         """
         data = deserialize_document_store_in_init_parameters(data)
         return default_from_dict(cls, data)
+
+    @staticmethod
+    def _check_valid_documents(matched_leaf_documents: List[Document]):
+        # check if the matched leaf documents have the required meta fields
+        if not all(doc.meta.get("__parent_id") for doc in matched_leaf_documents):
+            raise ValueError("The matched leaf documents do not have the required meta field '__parent_id'")
+
+        if not all(doc.meta.get("__level") for doc in matched_leaf_documents):
+            raise ValueError("The matched leaf documents do not have the required meta field '__level'")
+
+        if not all(doc.meta.get("__block_size") for doc in matched_leaf_documents):
+            raise ValueError("The matched leaf documents do not have the required meta field '__block_size'")
 
     @component.output_types(documents=List[Document])
     def run(self, matched_leaf_documents: List[Document]):
