@@ -26,9 +26,11 @@ class AutoMergingRetriever:
     a given query, multiple chunks are matched, the whole paragraph might be more informative than the individual
     chunks alone.
 
-    This component is NOT support by the following DocumentStores:
-    - PineconeDocumentStore
-    - ChromaDocumentStore
+    Currently the AutoMergingRetriever can only be used by the following DocumentStores:
+    - ElasticSearch
+    - OpenSearch
+    - PGVector
+    - Qdrant
 
     ```python
     from haystack import Document
