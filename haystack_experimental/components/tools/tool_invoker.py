@@ -100,6 +100,8 @@ class ToolInvoker:
         """
         if not tools:
             raise ValueError("ToolInvoker requires at least one tool to be provided.")
+        if len(tools) != len({tool.name for tool in tools}):
+            raise ValueError("Duplicate tool names are not allowed.")
 
         self.tools = tools
         self._tools_with_names = {tool.name: tool for tool in tools}

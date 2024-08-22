@@ -72,6 +72,15 @@ class TestToolInvoker:
         with pytest.raises(ValueError):
             ToolInvoker(tools=[])
 
+    def test_init_fails_with_duplicate_tool_names(self, weather_tool, faulty_tool):
+        with pytest.raises(ValueError):
+            ToolInvoker(tools=[weather_tool, weather_tool])
+
+        new_tool = faulty_tool
+        new_tool.name = "weather_tool"
+        with pytest.raises(ValueError):
+            ToolInvoker(tools=[weather_tool, new_tool])
+
     def test_convert_tool_result_to_string(self):
         result = {"weather": "mostly sunny", "temperature": 7, "unit": "celsius"}
         result_str = ToolInvoker._convert_tool_result_to_string(result)
