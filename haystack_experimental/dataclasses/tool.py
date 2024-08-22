@@ -13,6 +13,15 @@ with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema.exceptions import SchemaError
 
 
+# Names and types of the attributes that are expected in a serialized Tool
+_SERIALIZED_TOOL_NAMES_TYPES = {
+    "name": str,
+    "description": str,
+    "parameters": dict,
+    "function": str,
+}
+
+
 class ToolInvocationError(Exception):
     """
     Exception raised when a Tool invocation fails.
@@ -107,4 +116,24 @@ def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
         The key in the dictionary where the tools are stored.
     """
     if key in data:
-        data[key] = [Tool.from_dict(tool) for tool in data[key]]
+        serialized_tools = data[key]
+
+        for tool in serialized_tools:
+            if not isinstance(tool, dict):
+                raise ValueError(f"Serialized tool '{tool}' is not a dictionary")
+
+            for attr, expected_type in _SERIALIZED_TOOL_NAMES_TYPES.items():
+                if attr not in tool:
+                    raise ValueError(
+                        f"Serialized tool '{tool.get('name', '<unknown>')}' " f"is missing required attribute '{attr}'"
+                    )
+
+                if not isinstance(tool[attr], expected_type):
+                    actual_type = type(tool[attr]).__name__
+                    expected_type_name = expected_type.__name__
+                    raise TypeError(
+                        f"Serialized tool '{tool.get('name', '<unknown>')}' has incorrect type for attribute '{attr}'. "
+                        f"Expected {expected_type_name}, got {actual_type}."
+                    )
+
+            data[key] = [Tool.from_dict(tool) for tool in serialized_tools]

@@ -94,3 +94,18 @@ def test_deserialize_tools_inplace():
     data = {"no_tools": 123}
     deserialize_tools_inplace(data)
     assert data=={"no_tools": 123}
+
+def test_deserialize_tools_inplace_failures():
+    data = {"tools": [1, 2, 3]}
+    with pytest.raises(ValueError):
+        deserialize_tools_inplace(data)
+
+    # missing attribute "parameters"
+    data = {"tools": [{"name": "weather", "description": "Get weather report"}]}
+    with pytest.raises(ValueError):
+        deserialize_tools_inplace(data)
+
+    # attribute "name" has wrong type
+    data = {"tools": [{"name": 123, "description": "Get weather report", "parameters": parameters, "function": "test_tool.get_weather_report"}]}
+    with pytest.raises(TypeError):
+        deserialize_tools_inplace(data)
