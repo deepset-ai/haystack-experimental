@@ -27,10 +27,10 @@ class AutoMergingRetriever:
     chunks alone.
 
     Currently the AutoMergingRetriever can only be used by the following DocumentStores:
-    - ElasticSearch
-    - OpenSearch
-    - PGVector
-    - Qdrant
+    - [ElasticSearch](https://haystack.deepset.ai/docs/latest/documentstore/elasticsearch)
+    - [OpenSearch](https://haystack.deepset.ai/docs/latest/documentstore/opensearch)
+    - [PGVector](https://haystack.deepset.ai/docs/latest/documentstore/pgvector)
+    - [Qdrant](https://haystack.deepset.ai/docs/latest/documentstore/qdrant)
 
     ```python
     from haystack import Document
