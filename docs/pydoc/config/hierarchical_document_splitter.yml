@@ -1,7 +1,7 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.splitters.hierarchical_document_splitter"]
+    modules: ["haystack_experimental.components.splitters.hierarchical_doc_splitter"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
