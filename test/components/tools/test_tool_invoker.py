@@ -2,9 +2,12 @@ import json
 import pytest
 import datetime
 
+from haystack import Pipeline
+
 from haystack_experimental.dataclasses import ChatMessage, ToolCall, ToolCallResult, ChatRole
 from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException
+from haystack_experimental.components.generators.chat import OpenAIChatGenerator
 
 
 def weather_function(location):
@@ -202,3 +205,18 @@ class TestToolInvoker:
         assert invoker.tools == [weather_tool]
         assert invoker._tools_with_names == {'weather_tool': weather_tool}
         assert invoker.raise_on_failure
+
+    def test_serde_in_pipeline(self, invoker, weather_tool, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+        pipeline = Pipeline()
+        pipeline.add_component("invoker", invoker)
+        pipeline.add_component("chatgenerator", OpenAIChatGenerator())
+        pipeline.connect("invoker", "chatgenerator")
+
+        pipeline_dict = pipeline.to_dict()
+        assert pipeline_dict == {'metadata': {}, 'max_loops_allowed': 100, 'components': {'invoker': {'type': 'haystack_experimental.components.tools.tool_invoker.ToolInvoker', 'init_parameters': {'tools': [{'name': 'weather_tool', 'description': 'Provides weather information for a given location.', 'parameters': {'type': 'object', 'properties': {'location': {'type': 'string'}}, 'required': ['location']}, 'function': 'test.components.tools.test_tool_invoker.weather_function'}], 'raise_on_failure': True}}, 'chatgenerator': {'type': 'haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator', 'init_parameters': {'model': 'gpt-3.5-turbo', 'streaming_callback': None, 'api_base_url': None, 'organization': None, 'generation_kwargs': {}, 'api_key': {'type': 'env_var', 'env_vars': ['OPENAI_API_KEY'], 'strict': True}, 'tools': None, 'tools_strict': False}}}, 'connections': [{'sender': 'invoker.tool_messages', 'receiver': 'chatgenerator.messages'}]}
+
+        new_pipeline = Pipeline.from_dict(pipeline_dict)
+
+        assert new_pipeline==pipeline
