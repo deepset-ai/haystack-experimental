@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError
+from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError, deserialize_tools_inplace
 
 def get_weather_report(city: str) -> str:
     return f"Weather report for {city}: 20°C, sunny"
@@ -76,3 +76,21 @@ class TestTool:
         assert tool.description == "Get weather report"
         assert tool.parameters == parameters
         assert tool.function == get_weather_report
+
+
+def test_deserialize_tools_inplace():
+    tool = Tool(name="weather", description="Get weather report", parameters=parameters, function=get_weather_report)
+    serialized_tool = tool.to_dict()
+    print(serialized_tool)
+
+    data = {"tools": [serialized_tool.copy()]}
+    deserialize_tools_inplace(data)
+    assert data["tools"]==[tool]
+
+    data = {"mytools": [serialized_tool.copy()]}
+    deserialize_tools_inplace(data, key="mytools")
+    assert data["mytools"]==[tool]
+
+    data = {"no_tools": 123}
+    deserialize_tools_inplace(data)
+    assert data=={"no_tools": 123}

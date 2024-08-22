@@ -95,3 +95,16 @@ class Tool:
         """
         data["function"] = deserialize_callable(data["function"])
         return cls(**data)
+
+
+def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
+    """
+    Deserialize tools in a dictionary inplace.
+
+    :param data:
+        The dictionary with the serialized data.
+    :param key:
+        The key in the dictionary where the tools are stored.
+    """
+    if key in data:
+        data[key] = [Tool.from_dict(tool) for tool in data[key]]
