@@ -12,9 +12,10 @@ def test_tool_call_init():
     assert tc.arguments == {"a": 1}
 
 def test_tool_call_result_init():
-    tcr = ToolCallResult(result="result", origin=ToolCall(id="123", tool_name="mytool", arguments={"a": 1}))
+    tcr = ToolCallResult(result="result", origin=ToolCall(id="123", tool_name="mytool", arguments={"a": 1}), error=True)
     assert tcr.result == "result"
     assert tcr.origin == ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+    assert tcr.error
 
 def test_text_content_init():
     tc = TextContent(text="Hello")
@@ -87,9 +88,9 @@ def test_from_system_with_valid_content():
 def test_from_tool_with_valid_content():
     tool_result = "Tool result"
     origin = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
-    message = ChatMessage.from_tool(tool_result, origin)
+    message = ChatMessage.from_tool(tool_result, origin, error=False)
 
-    tcr = ToolCallResult(result=tool_result, origin=origin)
+    tcr = ToolCallResult(result=tool_result, origin=origin, error=False)
 
     assert message._content == [tcr]
     assert message.role == ChatRole.TOOL

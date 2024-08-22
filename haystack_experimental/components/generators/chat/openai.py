@@ -40,6 +40,7 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
             raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
         openai_msg["content"] = result.result
         openai_msg["tool_call_id"] = result.origin.id
+        # OpenAI does not provide a way to communicate errors in tool invocations, so we ignore the error field
         return openai_msg
 
     if text_contents:

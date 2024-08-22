@@ -118,6 +118,7 @@ class TestToolInvoker:
         assert isinstance(tool_call_result, ToolCallResult)
         assert tool_call_result.result == json.dumps({"weather": "mostly sunny", "temperature": 7, "unit": "celsius"})
         assert tool_call_result.origin == tool_call
+        assert not tool_call_result.error
 
     def test_run_with_invalid_message(self, invoker):
         message_from_user = ChatMessage.from_user(text="Message from user.")
@@ -153,6 +154,8 @@ class TestToolInvoker:
 
         result = invoker.run(message=tool_call_message)
         tool_message = result["tool_messages"][0]
+
+        assert tool_message.tool_call_results[0].error
         assert "not found" in tool_message.tool_call_results[0].result
 
     def test_tool_invocation_error(self, faulty_invoker):
@@ -180,6 +183,7 @@ class TestToolInvoker:
 
         result = faulty_invoker.run(message=tool_call_message)
         tool_message = result["tool_messages"][0]
+        assert tool_message.tool_call_results[0].error
         assert "invocation failed" in tool_message.tool_call_results[0].result
 
 
@@ -215,7 +219,56 @@ class TestToolInvoker:
         pipeline.connect("invoker", "chatgenerator")
 
         pipeline_dict = pipeline.to_dict()
-        assert pipeline_dict == {'metadata': {}, 'max_loops_allowed': 100, 'components': {'invoker': {'type': 'haystack_experimental.components.tools.tool_invoker.ToolInvoker', 'init_parameters': {'tools': [{'name': 'weather_tool', 'description': 'Provides weather information for a given location.', 'parameters': {'type': 'object', 'properties': {'location': {'type': 'string'}}, 'required': ['location']}, 'function': 'test.components.tools.test_tool_invoker.weather_function'}], 'raise_on_failure': True}}, 'chatgenerator': {'type': 'haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator', 'init_parameters': {'model': 'gpt-3.5-turbo', 'streaming_callback': None, 'api_base_url': None, 'organization': None, 'generation_kwargs': {}, 'api_key': {'type': 'env_var', 'env_vars': ['OPENAI_API_KEY'], 'strict': True}, 'tools': None, 'tools_strict': False}}}, 'connections': [{'sender': 'invoker.tool_messages', 'receiver': 'chatgenerator.messages'}]}
+        assert pipeline_dict == {
+            'metadata': {},
+            'max_loops_allowed': 100,
+            'components': {
+                'invoker': {
+                    'type': 'haystack_experimental.components.tools.tool_invoker.ToolInvoker',
+                    'init_parameters': {
+                        'tools': [
+                            {
+                                'name': 'weather_tool',
+                                'description': 'Provides weather information for a given location.',
+                                'parameters': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'location': {'type': 'string'}
+                                    },
+                                    'required': ['location']
+                                },
+                                'function': 'test.components.tools.test_tool_invoker.weather_function'
+                            }
+                        ],
+                        'raise_on_failure': True
+                    }
+                },
+                'chatgenerator': {
+                    'type': 'haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator',
+                    'init_parameters': {
+                        'model': 'gpt-3.5-turbo',
+                        'streaming_callback': None,
+                        'api_base_url': None,
+                        'organization': None,
+                        'generation_kwargs': {},
+                        'api_key': {
+                            'type': 'env_var',
+                            'env_vars': ['OPENAI_API_KEY'],
+                            'strict': True
+                        },
+                        'tools': None,
+                        'tools_strict': False
+                    }
+                }
+            },
+            'connections': [
+                {
+                    'sender': 'invoker.tool_messages',
+                    'receiver': 'chatgenerator.messages'
+                }
+            ]
+        }
+
 
         new_pipeline = Pipeline.from_dict(pipeline_dict)
 

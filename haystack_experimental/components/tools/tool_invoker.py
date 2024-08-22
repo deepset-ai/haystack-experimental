@@ -161,7 +161,7 @@ class ToolInvoker:
                 msg = _TOOL_NOT_FOUND.format(tool_name=tool_name, available_tools=self._tools_with_names.keys())
                 if self.raise_on_failure:
                     raise ToolNotFoundException(msg)
-                tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call))
+                tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
                 continue
 
             tool_to_invoke = self._tools_with_names[tool_name]
@@ -171,7 +171,7 @@ class ToolInvoker:
                 if self.raise_on_failure:
                     raise e
                 msg = _TOOL_INVOCATION_FAILURE.format(error=e)
-                tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call))
+                tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
                 continue
 
             tool_result_string = self._convert_tool_result_to_string(tool_response)
