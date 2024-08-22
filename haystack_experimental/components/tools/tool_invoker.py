@@ -100,11 +100,13 @@ class ToolInvoker:
         """
         if not tools:
             raise ValueError("ToolInvoker requires at least one tool to be provided.")
-        if len(tools) != len({tool.name for tool in tools}):
-            raise ValueError("Duplicate tool names are not allowed.")
+        tool_names = [tool.name for tool in tools]
+        duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+        if duplicate_tool_names:
+            raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
 
         self.tools = tools
-        self._tools_with_names = {tool.name: tool for tool in tools}
+        self._tools_with_names = dict(zip(tool_names, tools))
         self.raise_on_failure = raise_on_failure
 
     @staticmethod
