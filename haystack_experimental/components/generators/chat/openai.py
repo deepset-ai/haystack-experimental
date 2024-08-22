@@ -163,8 +163,11 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
         """
-        if tools and len(tools) != len({tool.name for tool in tools}):
-            raise ValueError("Duplicate tool names are not allowed.")
+        if tools:
+            tool_names = [tool.name for tool in tools]
+            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+            if duplicate_tool_names:
+                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
         self.tools = tools
         self.tools_strict = tools_strict
 
@@ -252,8 +255,12 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         openai_formatted_messages = [_convert_message_to_openai_format(message) for message in messages]
 
         tools = tools or self.tools
-        if tools and len(tools) != len({tool.name for tool in tools}):
-            raise ValueError("Duplicate tool names are not allowed.")
+        if tools:
+            tool_names = [tool.name for tool in tools]
+            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+            if duplicate_tool_names:
+                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
+
         tools_strict = tools_strict if tools_strict is not None else self.tools_strict
 
         openai_tools = None
