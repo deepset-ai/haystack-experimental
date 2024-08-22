@@ -135,14 +135,12 @@ class AutoMergingRetriever:
         # find total number of children for each parent document
         for doc_id, retrieved_child_docs in parent_documents.items():
             parent_doc = self.document_store.filter_documents({"field": "id", "operator": "==", "value": doc_id})
-
             if len(parent_doc) == 0:
                 raise ValueError(f"Parent document with id {doc_id} not found in the document store.")
             if len(parent_doc) > 1:
                 raise ValueError(f"Multiple parent documents found with id {doc_id} in the document store.")
             if not parent_doc[0].meta.get("__children_ids"):
                 raise ValueError(f"Parent document with id {doc_id} does not have any children.")
-
             parent_children_count = len(parent_doc[0].meta["__children_ids"])
 
             # return either the parent document or the matched leaf documents based on the threshold value
