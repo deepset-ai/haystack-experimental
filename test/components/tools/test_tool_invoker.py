@@ -6,7 +6,7 @@ from haystack import Pipeline
 
 from haystack_experimental.dataclasses import ChatMessage, ToolCall, ToolCallResult, ChatRole
 from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError
-from haystack_experimental.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException
+from haystack_experimental.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException, StringConversionError
 from haystack_experimental.components.generators.chat import OpenAIChatGenerator
 
 
@@ -56,11 +56,11 @@ def faulty_tool():
 
 @pytest.fixture
 def invoker(weather_tool):
-    return ToolInvoker(tools=[weather_tool], raise_on_failure=True)
+    return ToolInvoker(tools=[weather_tool], raise_on_failure=True, convert_result_to_json_string=False)
 
 @pytest.fixture
 def faulty_invoker(faulty_tool):
-    return ToolInvoker(tools=[faulty_tool], raise_on_failure=True)
+    return ToolInvoker(tools=[faulty_tool], raise_on_failure=True, convert_result_to_json_string=False)
 
 class TestToolInvoker:
 
@@ -70,6 +70,7 @@ class TestToolInvoker:
         assert invoker.tools == [weather_tool]
         assert invoker._tools_with_names == {'weather_tool': weather_tool}
         assert invoker.raise_on_failure
+        assert not invoker.convert_result_to_json_string
 
     def test_init_fails_wo_tools(self):
         with pytest.raises(ValueError):
@@ -84,16 +85,6 @@ class TestToolInvoker:
         with pytest.raises(ValueError):
             ToolInvoker(tools=[weather_tool, new_tool])
 
-    def test_convert_tool_result_to_string(self):
-        result = {"weather": "mostly sunny", "temperature": 7, "unit": "celsius"}
-        result_str = ToolInvoker._convert_tool_result_to_string(result)
-        assert result_str == json.dumps(result)
-
-        result = datetime.datetime(2022, 1, 1)
-        result_str = ToolInvoker._convert_tool_result_to_string(result)
-        assert result_str == str(result)
-
-
     def test_run(self, invoker):
 
         tool_call = ToolCall(
@@ -104,7 +95,7 @@ class TestToolInvoker:
             tool_calls=[tool_call]
         )
 
-        result = invoker.run(message=message)
+        result = invoker.run(messages=[message])
         assert "tool_messages" in result
         assert len(result["tool_messages"]) == 1
 
@@ -116,18 +107,45 @@ class TestToolInvoker:
         tool_call_result = tool_message.tool_call_result
 
         assert isinstance(tool_call_result, ToolCallResult)
-        assert tool_call_result.result == json.dumps({"weather": "mostly sunny", "temperature": 7, "unit": "celsius"})
+        assert tool_call_result.result == str({"weather": "mostly sunny", "temperature": 7, "unit": "celsius"})
         assert tool_call_result.origin == tool_call
         assert not tool_call_result.error
 
-    def test_run_with_invalid_message(self, invoker):
-        message_from_user = ChatMessage.from_user(text="Message from user.")
-        with pytest.raises(ValueError):
-            invoker.run(message=message_from_user)
+    def test_run_no_messages(self, invoker):
+        result = invoker.run(messages=[])
+        assert result == {"tool_messages": []}
 
-        message_wo_tool_calls = ChatMessage.from_assistant(text="Message without tool calls.")
-        with pytest.raises(ValueError):
-            invoker.run(message=message_wo_tool_calls)
+    def test_run_no_tool_calls(self, invoker):
+        user_message = ChatMessage.from_user(text="Hello!")
+        assistant_message = ChatMessage.from_assistant(text="How can I help you?")
+
+        result = invoker.run(messages=[user_message, assistant_message])
+        assert result == {"tool_messages": []}
+
+    def test_run_multiple_tool_calls(self, invoker):
+        tool_calls = [
+            ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"}),
+            ToolCall(tool_name="weather_tool", arguments={"location": "Paris"}),
+            ToolCall(tool_name="weather_tool", arguments={"location": "Rome"}),
+        ]
+        message = ChatMessage.from_assistant(tool_calls=tool_calls)
+
+        result = invoker.run(messages=[message])
+        assert "tool_messages" in result
+        assert len(result["tool_messages"]) == 3
+
+        for i,tool_message in enumerate(result["tool_messages"]):
+            assert isinstance(tool_message, ChatMessage)
+            assert tool_message.is_from(ChatRole.TOOL)
+
+            assert tool_message.tool_call_results
+            tool_call_result = tool_message.tool_call_result
+
+            assert isinstance(tool_call_result, ToolCallResult)
+            assert not tool_call_result.error
+            assert tool_call_result.origin == tool_calls[i]
+
+
 
     def test_tool_not_found_error(self, invoker):
         tool_call = ToolCall(
@@ -139,7 +157,7 @@ class TestToolInvoker:
         )
 
         with pytest.raises(ToolNotFoundException):
-            invoker.run(message=tool_call_message)
+            invoker.run(messages=[tool_call_message])
 
     def test_tool_not_found_does_not_raise_exception(self, invoker):
         invoker.raise_on_failure = False
@@ -152,7 +170,7 @@ class TestToolInvoker:
             tool_calls=[tool_call]
         )
 
-        result = invoker.run(message=tool_call_message)
+        result = invoker.run(messages=[tool_call_message])
         tool_message = result["tool_messages"][0]
 
         assert tool_message.tool_call_results[0].error
@@ -168,7 +186,7 @@ class TestToolInvoker:
         )
 
         with pytest.raises(ToolInvocationError):
-            faulty_invoker.run(message=tool_call_message)
+            faulty_invoker.run(messages=[tool_call_message])
 
     def test_tool_invocation_error_does_not_raise_exception(self, faulty_invoker):
         faulty_invoker.raise_on_failure = False
@@ -181,10 +199,37 @@ class TestToolInvoker:
             tool_calls=[tool_call]
         )
 
-        result = faulty_invoker.run(message=tool_call_message)
+        result = faulty_invoker.run(messages=[tool_call_message])
         tool_message = result["tool_messages"][0]
         assert tool_message.tool_call_results[0].error
         assert "invocation failed" in tool_message.tool_call_results[0].result
+
+    def test_string_conversion_error(self, invoker):
+        invoker.convert_result_to_json_string = True
+
+        tool_call = ToolCall(
+            tool_name="weather_tool",
+            arguments={"location": "Berlin"}
+        )
+
+        tool_result = datetime.datetime.now()
+        with pytest.raises(StringConversionError):
+            invoker._prepare_tool_message(result=tool_result, tool_call=tool_call)
+
+    def test_string_conversion_error_does_not_raise_exception(self, invoker):
+        invoker.convert_result_to_json_string = True
+        invoker.raise_on_failure = False
+
+        tool_call = ToolCall(
+            tool_name="weather_tool",
+            arguments={"location": "Berlin"}
+        )
+
+        tool_result = datetime.datetime.now()
+        tool_message = invoker._prepare_tool_message(result=tool_result, tool_call=tool_call)
+
+        assert tool_message.tool_call_results[0].error
+        assert "Failed to convert" in tool_message.tool_call_results[0].result
 
 
     def test_to_dict(self, invoker, weather_tool):
@@ -193,7 +238,8 @@ class TestToolInvoker:
             "type": "haystack_experimental.components.tools.tool_invoker.ToolInvoker",
             "init_parameters": {
                 "tools": [weather_tool.to_dict()],
-                "raise_on_failure": True
+                "raise_on_failure": True,
+                "convert_result_to_json_string": False
             },
         }
 
@@ -202,15 +248,17 @@ class TestToolInvoker:
             "type": "haystack_experimental.components.tools.tool_invoker.ToolInvoker",
             "init_parameters": {
                 "tools": [weather_tool.to_dict()],
-                "raise_on_failure": True
+                "raise_on_failure": True,
+                "convert_result_to_json_string": False
             },
         }
         invoker = ToolInvoker.from_dict(data)
         assert invoker.tools == [weather_tool]
         assert invoker._tools_with_names == {'weather_tool': weather_tool}
         assert invoker.raise_on_failure
+        assert not invoker.convert_result_to_json_string
 
-    def test_serde_in_pipeline(self, invoker, weather_tool, monkeypatch):
+    def test_serde_in_pipeline(self, invoker, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         pipeline = Pipeline()
@@ -240,7 +288,8 @@ class TestToolInvoker:
                                 'function': 'test.components.tools.test_tool_invoker.weather_function'
                             }
                         ],
-                        'raise_on_failure': True
+                        'raise_on_failure': True,
+                        'convert_result_to_json_string': False
                     }
                 },
                 'chatgenerator': {

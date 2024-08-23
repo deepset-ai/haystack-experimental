@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from haystack import component, default_from_dict, default_to_dict, logging
 
-from haystack_experimental.dataclasses import ChatMessage, ChatRole, ToolCall, ToolCallResult
+from haystack_experimental.dataclasses import ChatMessage, ToolCall
 from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError
 
 logger = logging.getLogger(__name__)
@@ -128,14 +128,15 @@ class ToolInvoker:
         self.raise_on_failure = raise_on_failure
         self.convert_result_to_json_string = convert_result_to_json_string
 
-    def _convert_tool_result_to_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
+    def _prepare_tool_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
         """
-        Converts the tool invocation result to a ChatMessage with tool role.
+        Prepares a ChatMessage with the result of a tool invocation.
 
         :param result:
             The tool result.
         :returns:
             A ChatMessage object containing the tool result as a string.
+
         :raises
             StringConversionError: If the conversion of the tool result to a string fails
             and `raise_on_failure` is True.
@@ -145,7 +146,7 @@ class ToolInvoker:
         if self.convert_result_to_json_string:
             try:
                 tool_result_str = json.dumps(result)
-            except TypeError as e:
+            except Exception as e:
                 if self.raise_on_failure:
                     raise StringConversionError("Failed to convert tool result to string using `json.dumps`") from e
                 tool_result_str = _TOOL_RESULT_CONVERSION_FAILURE.format(error=e, conversion_function="json.dumps")
@@ -197,7 +198,7 @@ class ToolInvoker:
 
                     tool_to_invoke = self._tools_with_names[tool_name]
                     try:
-                        tool_response = tool_to_invoke.invoke(**tool_arguments)
+                        tool_result = tool_to_invoke.invoke(**tool_arguments)
                     except ToolInvocationError as e:
                         if self.raise_on_failure:
                             raise e
@@ -205,7 +206,7 @@ class ToolInvoker:
                         tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
                         continue
 
-                    tool_message = self._convert_tool_result_to_message(tool_response, tool_call)
+                    tool_message = self._prepare_tool_message(tool_result, tool_call)
                     tool_messages.append(tool_message)
 
         return {"tool_messages": tool_messages}
@@ -218,7 +219,12 @@ class ToolInvoker:
             Dictionary with serialized data.
         """
         serialized_tools = [tool.to_dict() for tool in self.tools]
-        return default_to_dict(self, tools=serialized_tools, raise_on_failure=self.raise_on_failure)
+        return default_to_dict(
+            self,
+            tools=serialized_tools,
+            raise_on_failure=self.raise_on_failure,
+            convert_result_to_json_string=self.convert_result_to_json_string,
+        )
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ToolInvoker":
