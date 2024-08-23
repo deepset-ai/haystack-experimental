@@ -95,3 +95,30 @@ class Tool:
         """
         data["function"] = deserialize_callable(data["function"])
         return cls(**data)
+
+
+def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
+    """
+    Deserialize tools in a dictionary inplace.
+
+    :param data:
+        The dictionary with the serialized data.
+    :param key:
+        The key in the dictionary where the tools are stored.
+    """
+    if key in data:
+        serialized_tools = data[key]
+
+        if serialized_tools is None:
+            return
+
+        if not isinstance(serialized_tools, list):
+            raise TypeError(f"The value of '{key}' is not a list")
+
+        deserialized_tools = []
+        for tool in serialized_tools:
+            if not isinstance(tool, dict):
+                raise TypeError(f"Serialized tool '{tool}' is not a dictionary")
+            deserialized_tools.append(Tool.from_dict(tool))
+
+        data[key] = deserialized_tools

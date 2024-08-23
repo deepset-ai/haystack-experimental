@@ -14,7 +14,8 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletio
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
+from haystack_experimental.dataclasses import ChatMessage, ToolCall
+from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,11 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
         """
+        if tools:
+            tool_names = [tool.name for tool in tools]
+            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+            if duplicate_tool_names:
+                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
         self.tools = tools
         self.tools_strict = tools_strict
 
@@ -200,14 +206,11 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
             The deserialized component instance.
         """
         deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
+        deserialize_tools_inplace(data["init_parameters"], key="tools")
         init_params = data.get("init_parameters", {})
         serialized_callback_handler = init_params.get("streaming_callback")
         if serialized_callback_handler:
             data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
-
-        tools = init_params.get("tools")
-        if tools:
-            init_params["tools"] = [Tool.from_dict(tool) for tool in tools]
 
         return default_from_dict(cls, data)
 
@@ -251,6 +254,12 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         openai_formatted_messages = [_convert_message_to_openai_format(message) for message in messages]
 
         tools = tools or self.tools
+        if tools:
+            tool_names = [tool.name for tool in tools]
+            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+            if duplicate_tool_names:
+                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
+
         tools_strict = tools_strict if tools_strict is not None else self.tools_strict
 
         openai_tools = None
