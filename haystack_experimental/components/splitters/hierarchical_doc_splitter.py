@@ -49,8 +49,10 @@ class HierarchicalDocumentSplitter:
         """
 
         self.block_sizes = sorted(set(block_sizes), reverse=True)
+        self.splitters: Dict[int, DocumentSplitter] = {}
         self.split_overlap = split_overlap
         self.split_by = split_by
+        self._build_block_sizes()
 
     @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]):
@@ -65,10 +67,11 @@ class HierarchicalDocumentSplitter:
             hierarchical_docs.extend(self.build_hierarchy_from_doc(doc))
         return {"documents": hierarchical_docs}
 
-    def _split_doc(self, doc: Document, block_size: int) -> List[Document]:
-        splitter = DocumentSplitter(split_length=block_size, split_overlap=self.split_overlap, split_by=self.split_by)
-        split_docs = splitter.run([doc])
-        return split_docs["documents"]
+    def _build_block_sizes(self):
+        for block_size in self.block_sizes:
+            self.splitters[block_size] = DocumentSplitter(
+                split_length=block_size, split_overlap=self.split_overlap, split_by=self.split_by
+            )
 
     @staticmethod
     def _add_meta_data(document: Document):
@@ -97,7 +100,8 @@ class HierarchicalDocumentSplitter:
         for block in self.block_sizes:
             next_level_nodes = []
             for doc in current_level_nodes:
-                child_docs = self._split_doc(doc, block)
+                splitted_docs = self.splitters[block].run([doc])
+                child_docs = splitted_docs["documents"]
                 # if it's only one document skip
                 if len(child_docs) == 1:
                     next_level_nodes.append(doc)
