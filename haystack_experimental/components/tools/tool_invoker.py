@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from haystack import component, default_from_dict, default_to_dict, logging
 
 from haystack_experimental.dataclasses import ChatMessage, ToolCall
-from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError
+from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError, deserialize_tools_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -236,8 +236,5 @@ class ToolInvoker:
         :returns:
             The deserialized component.
         """
-        init_params = data.get("init_parameters", {})
-        serialized_tools = init_params.get("tools", [])
-        deserialized_tools = [Tool.from_dict(tool_data) for tool_data in serialized_tools]
-        data["init_parameters"]["tools"] = deserialized_tools
+        deserialize_tools_inplace(data["init_parameters"], key="tools")
         return default_from_dict(cls, data)
