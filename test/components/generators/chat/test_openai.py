@@ -150,6 +150,13 @@ class TestOpenAIChatGenerator:
         with pytest.raises(ValueError):
             OpenAIChatGenerator()
 
+    def test_init_fail_with_duplicate_tool_names(self, monkeypatch, tools):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+
+        duplicate_tools = [tools[0], tools[0]]
+        with pytest.raises(ValueError):
+            OpenAIChatGenerator(tools=duplicate_tools)
+
     def test_init_with_parameters(self, monkeypatch):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=lambda x: x)
 

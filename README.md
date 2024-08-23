@@ -36,19 +36,25 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 The latest version of the package contains the following experiments:
 
-| Name                        | Type                       | Expected experiment end date | Dependencies |
-|-----------------------------|----------------------------|------------------------------| ------------ |
-| [`Auto-Merge Retriever`][1] | Retrieval Technique        | November 2024                | None         |
-| [`EvaluationHarness`][2]    | Evaluation orchestrator    | October 2024                 | None         |
-| [`OpenAIFunctionCaller`][3] | Function Calling Component | October 2024                 | None         |
-| [`OpenAPITool`][4]          | OpenAPITool component      | October 2024                 | jsonref      |
-| [`Tool`][5]                 | Tool dataclass             | November 2024                | jsonschema   |
+| --------------------------- | -------------------------- | ---------------------------- | ------------ |
+| [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         |
+| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         |
+| [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      |
+| [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   |
+| [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         |
+| [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         |
+| [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         |
+| [`Auto-Merge Retriever`][8] | Retrieval Technique        | November 2024                | None         |
 
-[1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/retrievers/auto_merge_retriever.py
-[2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
-[3]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
-[4]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
-[5]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/dataclasses/tool.py
+[1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
+[2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
+[3]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
+[4]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/dataclasses/tool.py
+[5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
+[6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
+[7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
+[8]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/retrievers/auto_merge_retriever.py
+
 
 ## Usage
 
