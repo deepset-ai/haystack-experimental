@@ -14,7 +14,8 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletio
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
+from haystack_experimental.dataclasses import ChatMessage, ToolCall
+from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -204,14 +205,11 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
             The deserialized component instance.
         """
         deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
+        deserialize_tools_inplace(data["init_parameters"], key="tools")
         init_params = data.get("init_parameters", {})
         serialized_callback_handler = init_params.get("streaming_callback")
         if serialized_callback_handler:
             data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
-
-        tools = init_params.get("tools")
-        if tools:
-            init_params["tools"] = [Tool.from_dict(tool) for tool in tools]
 
         return default_from_dict(cls, data)
 
