@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 _TOOL_INVOCATION_FAILURE = "Tool invocation failed with error: {error}."
 _TOOL_NOT_FOUND = "Tool {tool_name} not found in the list of tools. Available tools are: {available_tools}."
 _TOOL_RESULT_CONVERSION_FAILURE = (
-    "Failed to convert tool result to string using '{conversion_function}'. " "Error: {error}."
+    "Failed to convert tool result to string using '{conversion_function}'. Error: {error}."
 )
 
 
