@@ -1,6 +1,7 @@
 import pytest
 
-from haystack import Document
+from haystack import Document, Pipeline
+from haystack.components.retrievers import InMemoryBM25Retriever
 from haystack_experimental.components.splitters import HierarchicalDocumentSplitter
 from haystack_experimental.components.retrievers.auto_merging_retriever import AutoMergingRetriever
 from haystack.document_stores.in_memory import InMemoryDocumentStore
@@ -98,3 +99,17 @@ class TestAutoMergingRetriever:
 
         assert len(result['documents']) == 2
         assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
+
+    def test_serialization_deserialization_pipeline(self):
+        pipeline = Pipeline()
+        doc_store_parents = InMemoryDocumentStore()
+        bm_25_retriever = InMemoryBM25Retriever(doc_store_parents)
+        auto_merging_retriever = AutoMergingRetriever(doc_store_parents, threshold=0.5)
+
+        pipeline.add_component(name="bm_25_retriever", instance=bm_25_retriever)
+        pipeline.add_component(name="auto_merging_retriever", instance=auto_merging_retriever)
+        pipeline.connect("bm_25_retriever.documents", "auto_merging_retriever.matched_leaf_documents")
+        pipeline_dict = pipeline.to_dict()
+
+        new_pipeline = Pipeline.from_dict(pipeline_dict)
+        assert new_pipeline == pipeline
