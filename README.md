@@ -37,14 +37,15 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 The latest version of the package contains the following experiments:
 
 | Name                        | Type                       | Expected experiment end date | Dependencies |
-| --------------------------- | -------------------------- | ---------------------------- | ------------ |
+| --------------------------- | -------------------------- | ---------------------------- | ------------ 
 | [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         |
 | [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         |
 | [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      |
 | [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   |
-| [`ChatMessageWriter`][5] | Memory Component | November 2024                | None         |
+| [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         |
 | [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         |
 | [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         |
+| [`Auto-Merge Retriever`][8] | Retrieval Technique        | November 2024                | None        |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
@@ -53,6 +54,8 @@ The latest version of the package contains the following experiments:
 [5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
 [6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
 [7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
+[8]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/retrievers/auto_merge_retriever.py
+
 
 ## Usage
 
@@ -111,11 +114,11 @@ from haystack.core.pipeline import Pipeline as HaystackPipeline
 
 
 class Pipeline(HaystackPipeline):
-	# Any new experimental method that doesn't exist in the original class
-	def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
-		...
+    # Any new experimental method that doesn't exist in the original class
+    def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
+        ...
 
-	# Existing methods with breaking changes to their signature, like adding a new mandatory param
+    # Existing methods with breaking changes to their signature, like adding a new mandatory param
     def to_dict(new_param: str) -> Dict[str, Any]:
         # do something with the new parameter
         print(new_param)
