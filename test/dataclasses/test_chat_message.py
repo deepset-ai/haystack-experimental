@@ -132,13 +132,18 @@ def test_serde():
 
     text_content = TextContent(text="Hello")
     tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
-    tool_call_result = ToolCallResult(result="result", origin=tool_call)
+    tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
     meta = {"some": "info"}
 
     message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result], _meta=meta)
 
     serialized_message = message.to_dict()
-    serialized_message = {"_content": [{"text": "Hello"}, {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}, {"tool_call_result": {"result": "result", "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}}], "_role": "assistant", "_meta": {"some": "info"}}
+    assert serialized_message == {"_content":
+                                  [{"text": "Hello"},
+                                   {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}},
+                                   {"tool_call_result": {"result": "result", "error":False,
+                                                         "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}}],
+                                                         "_role": "assistant", "_meta": {"some": "info"}}
 
     deserialized_message = ChatMessage.from_dict(serialized_message)
     assert deserialized_message == message

@@ -128,7 +128,7 @@ class ToolInvoker:
         self.raise_on_failure = raise_on_failure
         self.convert_result_to_json_string = convert_result_to_json_string
 
-    def _prepare_tool_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
+    def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
         """
         Prepares a ChatMessage with the result of a tool invocation.
 
@@ -163,7 +163,7 @@ class ToolInvoker:
         return ChatMessage.from_tool(tool_result=tool_result_str, error=error, origin=tool_call)
 
     @component.output_types(tool_messages=List[ChatMessage])
-    def run(self, messages: List[ChatMessage]):
+    def run(self, messages: List[ChatMessage]) -> Dict[str, Any]:
         """
         Processes ChatMessage objects containing tool calls and invokes the corresponding tools, if available.
 
@@ -184,30 +184,31 @@ class ToolInvoker:
 
         for message in messages:
             tool_calls = message.tool_calls
-            if tool_calls:
-                for tool_call in tool_calls:
-                    tool_name = tool_call.tool_name
-                    tool_arguments = tool_call.arguments
+            if not tool_calls:
+                continue
+            for tool_call in tool_calls:
+                tool_name = tool_call.tool_name
+                tool_arguments = tool_call.arguments
 
-                    if not tool_name in self._tools_with_names:
-                        msg = _TOOL_NOT_FOUND.format(tool_name=tool_name, available_tools=self._tools_with_names.keys())
-                        if self.raise_on_failure:
-                            raise ToolNotFoundException(msg)
-                        tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
-                        continue
+                if not tool_name in self._tools_with_names:
+                    msg = _TOOL_NOT_FOUND.format(tool_name=tool_name, available_tools=self._tools_with_names.keys())
+                    if self.raise_on_failure:
+                        raise ToolNotFoundException(msg)
+                    tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
+                    continue
 
-                    tool_to_invoke = self._tools_with_names[tool_name]
-                    try:
-                        tool_result = tool_to_invoke.invoke(**tool_arguments)
-                    except ToolInvocationError as e:
-                        if self.raise_on_failure:
-                            raise e
-                        msg = _TOOL_INVOCATION_FAILURE.format(error=e)
-                        tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
-                        continue
+                tool_to_invoke = self._tools_with_names[tool_name]
+                try:
+                    tool_result = tool_to_invoke.invoke(**tool_arguments)
+                except ToolInvocationError as e:
+                    if self.raise_on_failure:
+                        raise e
+                    msg = _TOOL_INVOCATION_FAILURE.format(error=e)
+                    tool_messages.append(ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True))
+                    continue
 
-                    tool_message = self._prepare_tool_message(tool_result, tool_call)
-                    tool_messages.append(tool_message)
+                tool_message = self._prepare_tool_result_message(tool_result, tool_call)
+                tool_messages.append(tool_message)
 
         return {"tool_messages": tool_messages}
 

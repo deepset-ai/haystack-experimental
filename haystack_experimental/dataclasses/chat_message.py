@@ -52,7 +52,7 @@ class ToolCallResult:
 
     result: str
     origin: ToolCall
-    error: bool = False
+    error: bool
 
 
 @dataclass
@@ -257,9 +257,11 @@ class ChatMessage:
             elif "tool_call" in part:
                 content.append(ToolCall(**part["tool_call"]))
             elif "tool_call_result" in part:
+                print(part)
                 result = part["tool_call_result"]["result"]
                 origin = ToolCall(**part["tool_call_result"]["origin"])
-                tcr = ToolCallResult(result=result, origin=origin)
+                error = part["tool_call_result"]["error"]
+                tcr = ToolCallResult(result=result, origin=origin, error=error)
                 content.append(tcr)
             else:
                 raise ValueError(f"Unsupported content in serialized ChatMessage: `{part}`")
