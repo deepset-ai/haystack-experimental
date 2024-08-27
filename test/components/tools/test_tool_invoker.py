@@ -266,50 +266,59 @@ class TestToolInvoker:
         pipeline.add_component("chatgenerator", OpenAIChatGenerator())
         pipeline.connect("invoker", "chatgenerator")
 
+        pipeline_dict = pipeline.to_dict()
+        assert pipeline_dict == {
+            'metadata': {},
+            'max_loops_allowed': 100,
+            'components': {
+                'invoker': {
+                    'type': 'haystack_experimental.components.tools.tool_invoker.ToolInvoker',
+                    'init_parameters': {
+                        'tools': [
+                            {
+                                'name': 'weather_tool',
+                                'description': 'Provides weather information for a given location.',
+                                'parameters': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'location': {'type': 'string'}
+                                    },
+                                    'required': ['location']
+                                },
+                                'function': 'test.components.tools.test_tool_invoker.weather_function'
+                            }
+                        ],
+                        'raise_on_failure': True,
+                        'convert_result_to_json_string': False
+                    }
+                },
+                'chatgenerator': {
+                    'type': 'haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator',
+                    'init_parameters': {
+                        'model': 'gpt-3.5-turbo',
+                        'streaming_callback': None,
+                        'api_base_url': None,
+                        'organization': None,
+                        'generation_kwargs': {},
+                        'api_key': {
+                            'type': 'env_var',
+                            'env_vars': ['OPENAI_API_KEY'],
+                            'strict': True
+                        },
+                        'tools': None,
+                        'tools_strict': False
+                    }
+                }
+            },
+            'connections': [
+                {
+                    'sender': 'invoker.tool_messages',
+                    'receiver': 'chatgenerator.messages'
+                }
+            ]
+        }
+
         pipeline_yaml = pipeline.dumps()
 
-
-        expected_yaml = """components:
-  chatgenerator:
-    init_parameters:
-      api_base_url: null
-      api_key:
-        env_vars:
-        - OPENAI_API_KEY
-        strict: true
-        type: env_var
-      generation_kwargs: {}
-      model: gpt-3.5-turbo
-      organization: null
-      streaming_callback: null
-      tools: null
-      tools_strict: false
-    type: haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator
-  invoker:
-    init_parameters:
-      convert_result_to_json_string: false
-      raise_on_failure: true
-      tools:
-      - description: Provides weather information for a given location.
-        function: test.components.tools.test_tool_invoker.weather_function
-        name: weather_tool
-        parameters:
-          properties:
-            location:
-              type: string
-          required:
-          - location
-          type: object
-    type: haystack_experimental.components.tools.tool_invoker.ToolInvoker
-connections:
-- receiver: chatgenerator.messages
-  sender: invoker.tool_messages
-max_loops_allowed: 100
-metadata: {}
-"""
-
-        assert pipeline_yaml == expected_yaml
-
         new_pipeline = Pipeline.loads(pipeline_yaml)
-
         assert new_pipeline==pipeline
