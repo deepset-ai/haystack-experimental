@@ -257,7 +257,6 @@ class ChatMessage:
             elif "tool_call" in part:
                 content.append(ToolCall(**part["tool_call"]))
             elif "tool_call_result" in part:
-                print(part)
                 result = part["tool_call_result"]["result"]
                 origin = ToolCall(**part["tool_call_result"]["origin"])
                 error = part["tool_call_result"]["error"]
