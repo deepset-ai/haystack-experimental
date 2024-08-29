@@ -12,9 +12,10 @@ def test_tool_call_init():
     assert tc.arguments == {"a": 1}
 
 def test_tool_call_result_init():
-    tcr = ToolCallResult(result="result", origin=ToolCall(id="123", tool_name="mytool", arguments={"a": 1}))
+    tcr = ToolCallResult(result="result", origin=ToolCall(id="123", tool_name="mytool", arguments={"a": 1}), error=True)
     assert tcr.result == "result"
     assert tcr.origin == ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+    assert tcr.error
 
 def test_text_content_init():
     tc = TextContent(text="Hello")
@@ -87,9 +88,9 @@ def test_from_system_with_valid_content():
 def test_from_tool_with_valid_content():
     tool_result = "Tool result"
     origin = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
-    message = ChatMessage.from_tool(tool_result, origin)
+    message = ChatMessage.from_tool(tool_result, origin, error=False)
 
-    tcr = ToolCallResult(result=tool_result, origin=origin)
+    tcr = ToolCallResult(result=tool_result, origin=origin, error=False)
 
     assert message._content == [tcr]
     assert message.role == ChatRole.TOOL
@@ -131,13 +132,18 @@ def test_serde():
 
     text_content = TextContent(text="Hello")
     tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
-    tool_call_result = ToolCallResult(result="result", origin=tool_call)
+    tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
     meta = {"some": "info"}
 
     message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result], _meta=meta)
 
     serialized_message = message.to_dict()
-    serialized_message = {"_content": [{"text": "Hello"}, {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}, {"tool_call_result": {"result": "result", "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}}], "_role": "assistant", "_meta": {"some": "info"}}
+    assert serialized_message == {"_content":
+                                  [{"text": "Hello"},
+                                   {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}},
+                                   {"tool_call_result": {"result": "result", "error":False,
+                                                         "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}}],
+                                                         "_role": "assistant", "_meta": {"some": "info"}}
 
     deserialized_message = ChatMessage.from_dict(serialized_message)
     assert deserialized_message == message

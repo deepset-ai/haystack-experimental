@@ -35,9 +35,9 @@ class ToolCall:
     :param arguments: The arguments to call the Tool with.
     """
 
-    id: Optional[str]  # noqa: A003
     tool_name: str
     arguments: Dict[str, Any]
+    id: Optional[str] = None  # noqa: A003
 
 
 @dataclass
@@ -47,10 +47,12 @@ class ToolCallResult:
 
     :param result: The result of the Tool invocation.
     :param origin: The Tool call that produced this result.
+    :param error: Whether the Tool invocation resulted in an error.
     """
 
     result: str
     origin: ToolCall
+    error: bool
 
 
 @dataclass
@@ -199,15 +201,16 @@ class ChatMessage:
         return cls(_role=ChatRole.ASSISTANT, _content=content, _meta=meta or {})
 
     @classmethod
-    def from_tool(cls, tool_result: str, origin: ToolCall) -> "ChatMessage":
+    def from_tool(cls, tool_result: str, origin: ToolCall, error: bool = False) -> "ChatMessage":
         """
         Create a message from a Tool.
 
         :param tool_result: The result of the Tool invocation.
         :param origin: The Tool call that produced this result.
+        :param error: Whether the Tool invocation resulted in an error.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=tool_result, origin=origin)])
+        return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=tool_result, origin=origin, error=error)])
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -256,7 +259,8 @@ class ChatMessage:
             elif "tool_call_result" in part:
                 result = part["tool_call_result"]["result"]
                 origin = ToolCall(**part["tool_call_result"]["origin"])
-                tcr = ToolCallResult(result=result, origin=origin)
+                error = part["tool_call_result"]["error"]
+                tcr = ToolCallResult(result=result, origin=origin, error=error)
                 content.append(tcr)
             else:
                 raise ValueError(f"Unsupported content in serialized ChatMessage: `{part}`")
