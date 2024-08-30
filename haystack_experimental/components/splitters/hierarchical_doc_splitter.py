@@ -19,11 +19,11 @@ class HierarchicalDocumentSplitter:
     ## Usage example
     ```python
     from haystack import Document
-    from haystack.components.builders import HierarchicalDocumentBuilder
+    from haystack_experimental.components.splitters import HierarchicalDocumentSplitter
 
     doc = Document(content="This is a simple test document")
-    builder = HierarchicalDocumentBuilder(block_sizes=[3, 2], split_overlap=0, split_by="word")
-    builder.run([doc])
+    splitter = HierarchicalDocumentSplitter(block_sizes=[3, 2], split_overlap=0, split_by="word")
+    splitter.run([doc])
     >> {'documents': [Document(id=3f7..., content: 'This is a simple test document', meta: {'block_size': 0, 'parent_id': None, 'children_ids': ['5ff..', '8dc..'], 'level': 0}),
     >> Document(id=5ff.., content: 'This is a ', meta: {'block_size': 3, 'parent_id': '3f7..', 'children_ids': ['f19..', '52c..'], 'level': 1, 'source_id': '3f7..', 'page_number': 1, 'split_id': 0, 'split_idx_start': 0}),
     >> Document(id=8dc.., content: 'simple test document', meta: {'block_size': 3, 'parent_id': '3f7..', 'children_ids': ['39d..', 'e23..'], 'level': 1, 'source_id': '3f7..', 'page_number': 1, 'split_id': 1, 'split_idx_start': 10}),
@@ -41,7 +41,7 @@ class HierarchicalDocumentSplitter:
         split_by: Literal["word", "sentence", "page", "passage"] = "word",
     ):
         """
-        Initialize HierarchicalDocumentBuilder.
+        Initialize HierarchicalDocumentSplitter.
 
         :param block_sizes: Set of block sizes to split the document into. The blocks are split in descending order.
         :param split_overlap: The number of overlapping units for each split.
