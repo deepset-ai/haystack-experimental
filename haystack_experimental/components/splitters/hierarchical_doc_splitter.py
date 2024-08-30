@@ -41,7 +41,7 @@ class HierarchicalDocumentSplitter:
         split_by: Literal["word", "sentence", "page", "passage"] = "word",
     ):
         """
-        Initialize HierarchicalDocumentBuilder.
+        Initialize HierarchicalDocumentSplitter.
 
         :param block_sizes: Set of block sizes to split the document into. The blocks are split in descending order.
         :param split_overlap: The number of overlapping units for each split.
