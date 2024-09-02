@@ -46,7 +46,7 @@ class ChatMessageRetriever:
         :param message_store:
             An instance of a ChatMessageStore.
         :param top_k:
-            The number of messages to retrieve.
+            The number of messages to retrieve. Defaults to 10 messages if not specified.
         """
         self.message_store = message_store
         if top_k <= 0:
@@ -93,7 +93,9 @@ class ChatMessageRetriever:
         """
         Run the ChatMessageRetriever
 
-        :param top_k: The number of messages to retrieve. If None all messages will be retrieved.
+        :param top_k: The number of messages to retrieve. This parameter takes precedence over the top_k parameter
+            passed to the ChatMessageRetriever constructor. If unspecified, the top_k parameter passed to the
+            constructor will be used.
         :returns:
             - `messages` - The retrieved chat messages.
         :raises ValueError: If top_k is not None and is less than 1
