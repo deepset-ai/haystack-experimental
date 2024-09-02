@@ -73,6 +73,34 @@ class TestChatMessageRetriever:
         with pytest.raises(ValueError):
             retriever.run(top_k=-1)
 
+    def test_retrieve_messages_topk_init(self):
+        """
+        Test that the ChatMessageRetriever component can retrieve top_k messages from the message store
+        by testing the init top_k parameter and the run top_k parameter logic
+        """
+        messages = [
+            ChatMessage.from_user(content="Hello, how can I help you?"),
+            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+            ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+        ]
+
+        message_store = InMemoryChatMessageStore()
+        message_store.write_messages(messages)
+        retriever = ChatMessageRetriever(message_store, top_k=2)
+
+        assert retriever.message_store == message_store
+
+        # top_k is 1 here from run parameter, overrides init of 2
+        assert retriever.run(top_k=1) == {
+            "messages": [ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")]}
+
+        # top_k is 2 here from init
+        assert retriever.run() == {
+            "messages": [ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+                         ]}
+
     def test_to_dict(self):
         """
         Test that the ChatMessageRetriever component can be serialized to a dictionary.
