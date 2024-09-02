@@ -1,3 +1,5 @@
+
+import pytest
 from haystack import Pipeline
 from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
@@ -32,6 +34,44 @@ class TestChatMessageRetriever:
 
         assert retriever.message_store == message_store
         assert retriever.run() == {"messages": messages}
+
+    def test_retrieve_messages_topk(self):
+        """
+        Test that the ChatMessageRetriever component can retrieve top_k messages from the message store.
+        """
+        messages = [
+            ChatMessage.from_user(content="Hello, how can I help you?"),
+            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+            ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+        ]
+
+        message_store = InMemoryChatMessageStore()
+        message_store.write_messages(messages)
+        retriever = ChatMessageRetriever(message_store)
+
+        assert retriever.message_store == message_store
+        assert retriever.run(top_k=1) == {
+            "messages": [ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")]}
+
+        assert retriever.run(top_k=2) == {
+            "messages": [ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+                         ]}
+
+        # outliers
+        assert retriever.run(top_k=10) == {
+            "messages": [ChatMessage.from_user(content="Hello, how can I help you?"),
+                         ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
+                         ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+                         ]}
+
+        with pytest.raises(ValueError):
+            retriever.run(top_k=0)
+
+        with pytest.raises(ValueError):
+            retriever.run(top_k=-1)
 
     def test_to_dict(self):
         """

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.core.serialization import import_class_by_name
@@ -84,11 +84,16 @@ class ChatMessageRetriever:
         return default_from_dict(cls, data)
 
     @component.output_types(messages=List[ChatMessage])
-    def run(self):
+    def run(self, top_k: Optional[int] = None):
         """
         Run the ChatMessageRetriever
 
+        :param top_k: The number of messages to retrieve. If None all messages will be retrieved.
         :returns:
             - `messages` - The retrieved chat messages.
+        :raises ValueError: If top_k is not None and is less than 1
         """
-        return {"messages": self.message_store.retrieve()}
+        if top_k is not None and top_k <= 0:
+            raise ValueError("top_k must be greater than 0")
+
+        return {"messages": self.message_store.retrieve()[-top_k:]}
