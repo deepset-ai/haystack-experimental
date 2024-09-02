@@ -78,7 +78,7 @@ class TestChatMessageRetriever:
         Test that the ChatMessageRetriever component can be serialized to a dictionary.
         """
         message_store = InMemoryChatMessageStore()
-        retriever = ChatMessageRetriever(message_store)
+        retriever = ChatMessageRetriever(message_store, top_k=4)
 
         data = retriever.to_dict()
         assert data == {
@@ -87,7 +87,8 @@ class TestChatMessageRetriever:
                 "message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
-                }
+                },
+                "top_k": 4,
             },
         }
 
@@ -101,7 +102,8 @@ class TestChatMessageRetriever:
                 "message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
-                }
+                },
+                "top_k": 4,
             },
         }
         retriever = ChatMessageRetriever.from_dict(data)
@@ -109,6 +111,7 @@ class TestChatMessageRetriever:
             "init_parameters": {},
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
+        assert retriever.top_k == 4
 
     def test_chat_message_retriever_pipeline(self):
         """

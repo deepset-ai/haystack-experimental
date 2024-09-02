@@ -39,14 +39,19 @@ class ChatMessageRetriever:
     ```
     """
 
-    def __init__(self, message_store: ChatMessageStore):
+    def __init__(self, message_store: ChatMessageStore, top_k: int = 10):
         """
         Create the ChatMessageRetriever component.
 
         :param message_store:
             An instance of a ChatMessageStore.
+        :param top_k:
+            The number of messages to retrieve.
         """
         self.message_store = message_store
+        if top_k <= 0:
+            raise ValueError(f"top_k must be greater than 0. Currently, the top_k is {top_k}")
+        self.top_k = top_k
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -56,7 +61,7 @@ class ChatMessageRetriever:
             Dictionary with serialized data.
         """
         message_store = self.message_store.to_dict()
-        return default_to_dict(self, message_store=message_store)
+        return default_to_dict(self, message_store=message_store, top_k=self.top_k)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageRetriever":
@@ -95,5 +100,7 @@ class ChatMessageRetriever:
         """
         if top_k is not None and top_k <= 0:
             raise ValueError("top_k must be greater than 0")
+
+        top_k = top_k or self.top_k
 
         return {"messages": self.message_store.retrieve()[-top_k:]}
