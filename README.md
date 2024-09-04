@@ -46,6 +46,7 @@ The latest version of the package contains the following experiments:
 | [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         |
 | [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         |
 | [`Auto-Merge Retriever`][8] | Retrieval Technique        | November 2024                | None        |
+| [`ToolInvoker`][9] | Tool Invocation Component        | November 2024                | None        |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
@@ -55,6 +56,7 @@ The latest version of the package contains the following experiments:
 [6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
 [7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [8]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/retrievers/auto_merge_retriever.py
+[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/tools/tool_invoker.py
 
 
 ## Usage
