@@ -45,7 +45,7 @@ The latest version of the package contains the following experiments:
 | [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | |
 | [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | |
 | [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | | 
-| [`Auto-Merge Retriever`][8] | Retrieval Technique        | November 2024                | None        | | |
+| [`Auto-Merging Retriever`][8] | Retrieval Technique        | November 2024                | None        | | |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
