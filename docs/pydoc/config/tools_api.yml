@@ -1,7 +1,12 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.splitters.hierarchical_doc_splitter"]
+    modules:
+      [
+        "haystack_experimental.components.tools.tool_invoker",
+        "haystack_experimental.components.tools.openai.function_caller",
+        "haystack_experimental.components.tools.openapi.openapi_tool"
+      ]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
@@ -12,16 +17,16 @@ processors:
   - type: smart
   - type: crossref
 renderer:
-  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: Hierarchical Document Splitter for Haystack.
+  type: haystack_pydoc_tools.renderers.ReadmeIntegrationRenderer
+  excerpt: Haystack experimental tools.
   category_slug: experiments-api
-  title: Split documents into hierarchical chunks.
-  slug: hierarchical-document-splitter
-  order: 70
+  title: Tools
+  slug: tools-api
+  order: 120
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: data_classess_api.md
+    filename: tools_api.md
