@@ -39,19 +39,19 @@ class ChatMessageRetriever:
     ```
     """
 
-    def __init__(self, message_store: ChatMessageStore, top_k: int = 10):
+    def __init__(self, message_store: ChatMessageStore, last_k: int = 10):
         """
         Create the ChatMessageRetriever component.
 
         :param message_store:
             An instance of a ChatMessageStore.
-        :param top_k:
-            The number of messages to retrieve. Defaults to 10 messages if not specified.
+        :param last_k:
+            The number of last messages to retrieve. Defaults to 10 messages if not specified.
         """
         self.message_store = message_store
-        if top_k <= 0:
-            raise ValueError(f"top_k must be greater than 0. Currently, the top_k is {top_k}")
-        self.top_k = top_k
+        if last_k <= 0:
+            raise ValueError(f"last_k must be greater than 0. Currently, the last_k is {last_k}")
+        self.last_k = last_k
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -61,7 +61,7 @@ class ChatMessageRetriever:
             Dictionary with serialized data.
         """
         message_store = self.message_store.to_dict()
-        return default_to_dict(self, message_store=message_store, top_k=self.top_k)
+        return default_to_dict(self, message_store=message_store, last_k=self.last_k)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageRetriever":
@@ -89,20 +89,20 @@ class ChatMessageRetriever:
         return default_from_dict(cls, data)
 
     @component.output_types(messages=List[ChatMessage])
-    def run(self, top_k: Optional[int] = None):
+    def run(self, last_k: Optional[int] = None):
         """
         Run the ChatMessageRetriever
 
-        :param top_k: The number of messages to retrieve. This parameter takes precedence over the top_k parameter
-            passed to the ChatMessageRetriever constructor. If unspecified, the top_k parameter passed to the
-            constructor will be used.
+        :param last_k: The number of last messages to retrieve. This parameter takes precedence over the last_k
+            parameter passed to the ChatMessageRetriever constructor. If unspecified, the last_k parameter passed
+            to the constructor will be used.
         :returns:
             - `messages` - The retrieved chat messages.
-        :raises ValueError: If top_k is not None and is less than 1
+        :raises ValueError: If last_k is not None and is less than 1
         """
-        if top_k is not None and top_k <= 0:
-            raise ValueError("top_k must be greater than 0")
+        if last_k is not None and last_k <= 0:
+            raise ValueError("last_k must be greater than 0")
 
-        top_k = top_k or self.top_k
+        last_k = last_k or self.last_k
 
-        return {"messages": self.message_store.retrieve()[-top_k:]}
+        return {"messages": self.message_store.retrieve()[-last_k:]}
