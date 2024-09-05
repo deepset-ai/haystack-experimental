@@ -36,16 +36,16 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 The latest version of the package contains the following experiments:
 
-| Name                        | Type                       | Expected experiment end date | Dependencies |
-| --------------------------- | -------------------------- | ---------------------------- | ------------ 
-| [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         |
-| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         |
-| [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      |
-| [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   |
-| [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         |
-| [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         |
-| [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         |
-| [`Auto-Merge Retriever`][8] | Retrieval Technique        | November 2024                | None        |
+| Name                        | Type                       | Expected experiment end date | Dependencies | Cookbook | Discussion |
+| --------------------------- | -------------------------- | ---------------------------- | ------------ | -------- | ---------- |
+| [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/rag_eval_harness.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | |
+| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         | | |
+| [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/openapitool.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | |
+| [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   | | |
+| [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | |
+| [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | |
+| [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | | 
+| [`Auto-Merge Retriever`][8] | Retrieval Technique        | November 2024                | None        | | |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
