@@ -17,7 +17,7 @@ processors:
   - type: smart
   - type: crossref
 renderer:
-  type: haystack_pydoc_tools.renderers.ReadmeIntegrationRenderer
+  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
   excerpt: Haystack experimental tools.
   category_slug: experiments-api
   title: Tools
