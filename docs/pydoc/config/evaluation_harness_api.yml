@@ -18,7 +18,7 @@ renderer:
   excerpt: Evaluation harness for Haystack.
   category_slug: experiments-api
   title: Evaluation Harness
-  slug: evaluation-harness-api
+  slug: experimental-evaluation-harness-api
   order: 40
   markdown:
     descriptive_class_title: false
@@ -26,4 +26,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: evaluation_harness_api.md
+    filename: experimental_evaluation_harness_api.md

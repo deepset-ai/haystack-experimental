@@ -20,7 +20,7 @@ renderer:
   excerpt: Sweep through Document Stores and return a set of candidate documents that are relevant to the query.
   category_slug: experiments-api
   title: Retrievers
-  slug: retrievers-api
+  slug: experimental-retrievers-api
   order: 80
   markdown:
     descriptive_class_title: false
@@ -28,4 +28,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: retrievers_api.md
+    filename: experimental_retrievers_api.md

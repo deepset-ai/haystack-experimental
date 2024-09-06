@@ -21,7 +21,7 @@ renderer:
   excerpt: Haystack experimental tools.
   category_slug: experiments-api
   title: Tools
-  slug: tools-api
+  slug: experimental-tools-api
   order: 120
   markdown:
     descriptive_class_title: false
@@ -29,4 +29,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: tools_api.md
+    filename: experimental_tools_api.md
