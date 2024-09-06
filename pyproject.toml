@@ -42,6 +42,8 @@ dependencies = [
   "pytest",
   "pytest-rerunfailures",
   "pytest-cov",
+  "pytest-bdd",
+  "pytest-asyncio",
   # Linting
   "pylint",
   "ruff",
@@ -161,9 +163,10 @@ minversion = "6.0"
 addopts = "--strict-markers"
 markers = [
   "integration: integration tests",
-  "unstable(reason): Mark tests that are unstable or depend on unreliable services."
+  "unstable(reason): Mark tests that are unstable or depend on unreliable services.",
 ]
 log_cli = true
+asyncio_mode = "auto"
 
 [tool.mypy]
 warn_return_any = false
