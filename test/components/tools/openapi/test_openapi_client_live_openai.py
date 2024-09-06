@@ -13,8 +13,8 @@ from test.components.tools.openapi.conftest import create_openapi_spec
 
 class TestClientLiveOpenAPI:
 
-    @pytest.mark.skipif("SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set")
-    @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", "").strip(), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", "").strip(), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
 
@@ -37,7 +37,7 @@ class TestClientLiveOpenAPI:
         service_response = service_api.invoke(response)
         assert "American" in str(service_response)
 
-    @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", "").strip(), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
     @pytest.mark.unstable("This test hits rate limit on Github API.")
     def test_github(self, test_files_path):
@@ -58,8 +58,8 @@ class TestClientLiveOpenAPI:
         service_response = service_api.invoke(response)
         assert "deepset" in str(service_response)
 
-    @pytest.mark.skipif("FIRECRAWL_API_KEY" not in os.environ, reason="FIRECRAWL_API_KEY not set")
-    @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("FIRECRAWL_API_KEY", "").strip(), reason="FIRECRAWL_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", "").strip(), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
     @pytest.mark.unstable("This test is flaky likely due to load on the popular Firecrawl API")
     def test_firecrawl(self):
