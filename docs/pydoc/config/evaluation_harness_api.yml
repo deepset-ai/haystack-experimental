@@ -1,7 +1,9 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.tools.tool_invoker"]
+    modules: ["haystack_experimental.evaluation.harness.evaluation_harness",
+              "haystack_experimental.evaluation.harness.rag.harness",
+              "haystack_experimental.evaluation.harness.rag.parameters"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
@@ -12,16 +14,16 @@ processors:
   - type: smart
   - type: crossref
 renderer:
-  type: haystack_pydoc_tools.renderers.ReadmeIntegrationRenderer
-  excerpt: ToolInvoker invokes Tools based on a ChatMessage containing tool calls
+  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
+  excerpt: Evaluation harness for Haystack.
   category_slug: experiments-api
-  title: Tool Invoker
-  slug: tool-invoker-api
-  order: 110
+  title: Evaluation Harness
+  slug: evaluation-harness-api
+  order: 40
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: tool_invoker_api.md
+    filename: evaluation_harness_api.md
