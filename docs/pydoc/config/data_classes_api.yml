@@ -17,11 +17,11 @@ renderer:
   category_slug: experiments-api
   title: Data Classes
   slug: data-classes-api
-  order: 30
+  order: 20
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: data_classess_api.md
+    filename: data_classes_api.md
