@@ -16,7 +16,7 @@ renderer:
   excerpt: Core classes that carry data through the system.
   category_slug: experiments-api
   title: Data Classes
-  slug: data-classes-api
+  slug: experimental-data-classes-api
   order: 20
   markdown:
     descriptive_class_title: false
@@ -24,4 +24,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: data_classes_api.md
+    filename: experimental_data_classes_api.md
