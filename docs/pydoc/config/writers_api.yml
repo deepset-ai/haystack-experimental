@@ -16,7 +16,7 @@ renderer:
   excerpt: Writers for Haystack.
   category_slug: experiments-api
   title: Writers
-  slug: writers-api
+  slug: experimental-writers-api
   order: 140
   markdown:
     descriptive_class_title: false
@@ -24,4 +24,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: writers_api.md
+    filename: experimental_writers_api.md
