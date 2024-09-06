@@ -110,8 +110,8 @@ class TestOpenAPITool:
         assert tool.config_openapi is not None
         assert tool.open_api_service is not None
 
-    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", "").strip(), reason="SERPERDEV_API_KEY not set or empty")
-    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", "").strip(), reason="OPENAI_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", ""), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
     def test_run_live_openai(self):
         tool = OpenAPITool(
@@ -136,8 +136,8 @@ class TestOpenAPITool:
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
 
-    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", "").strip(), reason="SERPERDEV_API_KEY not set or empty")
-    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY", "").strip(), reason="ANTHROPIC_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY", ""), reason="ANTHROPIC_API_KEY not set or empty")
     @pytest.mark.integration
     def test_run_live_anthropic(self):
         tool = OpenAPITool(
@@ -163,8 +163,8 @@ class TestOpenAPITool:
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
 
-    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", "").strip(), reason="SERPERDEV_API_KEY not set or empty")
-    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", "").strip(), reason="COHERE_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", ""), reason="COHERE_API_KEY not set or empty")
     @pytest.mark.integration
     def test_run_live_cohere(self):
         tool = OpenAPITool(

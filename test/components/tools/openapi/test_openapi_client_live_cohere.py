@@ -26,8 +26,8 @@ Unless the user asks for a different style of answer, you should answer in full 
 
 class TestClientLiveCohere:
 
-    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", "").strip(), reason="SERPERDEV_API_KEY not set or empty")
-    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", "").strip(), reason="COHERE_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", ""), reason="COHERE_API_KEY not set or empty")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "serper.yml"),
@@ -51,7 +51,7 @@ class TestClientLiveCohere:
         service_response = service_api.invoke(response)
         assert "American" in str(service_response)
 
-    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", "").strip(), reason="COHERE_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", ""), reason="COHERE_API_KEY not set or empty")
     @pytest.mark.integration
     @pytest.mark.unstable("This test hits rate limit on Github API.")
     def test_github(self, test_files_path):

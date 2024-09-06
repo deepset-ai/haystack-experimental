@@ -13,7 +13,7 @@ from test.components.tools.openapi.conftest import create_openapi_spec
 
 class TestClientLive:
 
-    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", "").strip(), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "serper.yml"), credentials=os.getenv("SERPERDEV_API_KEY"))
