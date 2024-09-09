@@ -224,32 +224,32 @@ class TestOpenAPITool:
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
-            allowed_operations=["scrapeAndExtractFromUrl"],
+            allowed_operations=["scrape"],
         )
         tools = tool.config_openapi.get_tools_definitions()
         assert len(tools) == 1
-        assert tools[0]["function"]["name"] == "scrapeAndExtractFromUrl"
+        assert tools[0]["function"]["name"] == "scrape"
 
         # test two operations
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
-            allowed_operations=["scrapeAndExtractFromUrl", "crawlUrls"],
+            allowed_operations=["scrape", "crawlUrls"],
         )
         tools = tool.config_openapi.get_tools_definitions()
         assert len(tools) == 2
-        assert tools[0]["function"]["name"] == "scrapeAndExtractFromUrl"
+        assert tools[0]["function"]["name"] == "scrape"
         assert tools[1]["function"]["name"] == "crawlUrls"
 
         # test non-existent operation
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
-            allowed_operations=["scrapeAndExtractFromUrl", "non-existent-operation"],
+            allowed_operations=["scrape", "non-existent-operation"],
         )
         tools = tool.config_openapi.get_tools_definitions()
         assert len(tools) == 1
-        assert tools[0]["function"]["name"] == "scrapeAndExtractFromUrl"
+        assert tools[0]["function"]["name"] == "scrape"
 
         # test all non-existent operations
         tool = OpenAPITool(
