@@ -14,8 +14,8 @@ from test.components.tools.openapi.conftest import create_openapi_spec
 
 class TestClientLiveAnthropic:
 
-    @pytest.mark.skipif("SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set")
-    @pytest.mark.skipif("ANTHROPIC_API_KEY" not in os.environ, reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY", ""), reason="ANTHROPIC_API_KEY not set or empty")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "serper.yml"),
@@ -39,9 +39,9 @@ class TestClientLiveAnthropic:
         service_response = service_api.invoke(response)
         assert "American" in str(service_response)
 
-    @pytest.mark.skipif("ANTHROPIC_API_KEY" not in os.environ, reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY", ""), reason="ANTHROPIC_API_KEY not set or empty")
     @pytest.mark.integration
-    @pytest.mark.skip("This test hits rate limit on Github API. Skip for now.")
+    @pytest.mark.unstable("This test hits rate limit on Github API.")
     def test_github(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "github_compare.yml"),
                                      llm_provider=LLMProvider.ANTHROPIC)

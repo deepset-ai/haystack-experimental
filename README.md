@@ -23,11 +23,11 @@ $ pip install -U haystack-experimental
 > The latest version of the experimental package is only tested against the latest version of Haystack. Compatibility
 > with older versions of Haystack is not guaranteed.
 
-
 ## Experiments lifecycle
 
-Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build 
+Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build
 that includes it. Once it reaches the end of its lifespan, the experiment will be either:
+
 - Merged into Haystack core and published in the next minor release, or
 - Released as a Core Integration, or
 - Dropped.
@@ -36,15 +36,27 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 The latest version of the package contains the following experiments:
 
-| Name                     | Type                    | Expected experiment end date | Dependencies |
-| ------------------------ | ----------------------- | ------------------- | ------------------- |
-| [`EvaluationHarness`][1] | Evaluation orchestrator | October 2024         | None
-| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024         | None
-| [`OpenAPITool`][3]       | OpenAPITool component   | October 2024         | jsonref
+| Name                        | Type                       | Expected experiment end date | Dependencies | Cookbook | Discussion |
+| --------------------------- | -------------------------- | ---------------------------- | ------------ | -------- | ---------- |
+| [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/rag_eval_harness.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/74) |
+| [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         | 🔜 | |
+| [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/openapitool.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/79)|
+| [`Tool`][4]                 | Tool dataclass             | November 2024                | jsonschema   | 🔜 | |
+| [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75) |
+| [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75) |
+| [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  | 
+| [`Auto-Merging Retriever`][8] & [`HierarchicalDocumentSplitter`][9]| Document Splitting & Retrieval Technique        | November 2024                | None        | 🔜 | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/78) |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
 [3]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openapi
+[4]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/dataclasses/tool.py
+[5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
+[6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
+[7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
+[8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/auto_merging_retriever.py
+[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/splitters/hierarchical_doc_splitter.py
+
 
 ## Usage
 
@@ -103,11 +115,11 @@ from haystack.core.pipeline import Pipeline as HaystackPipeline
 
 
 class Pipeline(HaystackPipeline):
-	# Any new experimental method that doesn't exist in the original class
-	def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
-		...
+    # Any new experimental method that doesn't exist in the original class
+    def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
+        ...
 
-	# Existing methods with breaking changes to their signature, like adding a new mandatory param
+    # Existing methods with breaking changes to their signature, like adding a new mandatory param
     def to_dict(new_param: str) -> Dict[str, Any]:
         # do something with the new parameter
         print(new_param)
@@ -119,3 +131,7 @@ class Pipeline(HaystackPipeline):
 ## Contributing
 
 Direct contributions to `haystack-experimental` are not expected, but Haystack maintainers might ask contributors to move pull requests that target the [core repository](https://github.com/deepset-ai/haystack) to this repository.
+
+## Telemetry
+
+As with the Haystack core package, we rely on anonymous usage statistics to determine the impact and usefulness of the experimental features. For more information on what we collect and how we use the data, as well as instructions to opt-out, please refer to our [documentation](https://docs.haystack.deepset.ai/docs/telemetry).
