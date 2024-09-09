@@ -13,8 +13,8 @@ from test.components.tools.openapi.conftest import create_openapi_spec
 
 class TestClientLiveOpenAPI:
 
-    @pytest.mark.skipif("SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set")
-    @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", ""), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
     def test_serperdev(self, test_files_path):
 
@@ -37,9 +37,9 @@ class TestClientLiveOpenAPI:
         service_response = service_api.invoke(response)
         assert "American" in str(service_response)
 
-    @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", ""), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
-    @pytest.mark.skip("This test hits rate limit on Github API. Skip for now.")
+    @pytest.mark.unstable("This test hits rate limit on Github API.")
     def test_github(self, test_files_path):
         config = ClientConfiguration(openapi_spec=create_openapi_spec(test_files_path / "yaml" / "github_compare.yml"))
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -58,10 +58,10 @@ class TestClientLiveOpenAPI:
         service_response = service_api.invoke(response)
         assert "deepset" in str(service_response)
 
-    @pytest.mark.skipif("FIRECRAWL_API_KEY" not in os.environ, reason="FIRECRAWL_API_KEY not set")
-    @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set")
+    @pytest.mark.skipif(not os.environ.get("FIRECRAWL_API_KEY", ""), reason="FIRECRAWL_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", ""), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
-    @pytest.mark.skip("This test is flaky likely due to load on the popular Firecrawl API. Skip for now.")
+    @pytest.mark.unstable("This test is flaky likely due to load on the popular Firecrawl API")
     def test_firecrawl(self):
         openapi_spec_url = "https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json"
         config = ClientConfiguration(openapi_spec=create_openapi_spec(openapi_spec_url), credentials=os.getenv("FIRECRAWL_API_KEY"))
