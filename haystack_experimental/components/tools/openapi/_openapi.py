@@ -135,6 +135,7 @@ class ClientConfiguration:
         credentials: Optional[str] = None,
         request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         llm_provider: LLMProvider = LLMProvider.OPENAI,
+        operations_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
     ):  # noqa: PLR0913
         """
         Initialize a ClientConfiguration instance.
@@ -143,12 +144,14 @@ class ClientConfiguration:
         :param credentials: The credentials to use for authentication.
         :param request_sender: The function to use for sending requests.
         :param llm_provider: The LLM provider to use for generating tools definitions.
+        :param operations_filter: A function to filter the functions to register with LLMs.
         :raises ValueError: If the OpenAPI specification format is invalid.
         """
         self.openapi_spec = openapi_spec
         self.credentials = credentials
         self.request_sender = request_sender or send_request
         self.llm_provider: LLMProvider = llm_provider
+        self.operation_filter = operations_filter
 
     def get_auth_function(self) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         """
@@ -180,10 +183,10 @@ class ClientConfiguration:
             {
                 LLMProvider.ANTHROPIC: anthropic_converter,
                 LLMProvider.COHERE: cohere_converter,
-            }
+            },
         )
         converter = provider_to_converter[self.llm_provider]
-        return converter(self.openapi_spec)
+        return converter(self.openapi_spec, self.operation_filter)
 
     def get_payload_extractor(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -197,7 +200,7 @@ class ClientConfiguration:
             {
                 LLMProvider.ANTHROPIC: "input",
                 LLMProvider.COHERE: "parameters",
-            }
+            },
         )
         arguments_field_name = provider_to_arguments_field_name[self.llm_provider]
         return create_function_payload_extractor(arguments_field_name)

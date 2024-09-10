@@ -27,6 +27,7 @@ class TestOpenAPITool:
             },
             spec=openapi_spec_url,
             credentials=Secret.from_env_var("SERPERDEV_API_KEY"),
+            allowed_operations=["someOperationId", "someOtherOperationId"],
         )
 
         data = tool.to_dict()
@@ -40,6 +41,7 @@ class TestOpenAPITool:
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+                "allowed_operations": ["someOperationId", "someOtherOperationId"],
             },
         }
 
@@ -57,6 +59,7 @@ class TestOpenAPITool:
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+                "allowed_operations": None,
             },
         }
 
@@ -211,3 +214,48 @@ class TestOpenAPITool:
             assert "hourly" in json_response
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
+
+    @pytest.mark.integration
+    def test_allowed_operations(self):
+        """
+        Although the tool definition is generated from the OpenAPI spec and firecrawl's API has multiple operations,
+        only the ones we specify in the allowed_operations list are registered with LLMs via the tool definition.
+        """
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrape"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "scrape"
+
+        # test two operations
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrape", "crawlUrls"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 2
+        assert tools[0]["function"]["name"] == "scrape"
+        assert tools[1]["function"]["name"] == "crawlUrls"
+
+        # test non-existent operation
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrape", "non-existent-operation"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "scrape"
+
+        # test all non-existent operations
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["non-existent-operation", "non-existent-operation-2"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 0
