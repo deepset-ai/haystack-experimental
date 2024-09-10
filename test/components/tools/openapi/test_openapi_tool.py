@@ -216,6 +216,31 @@ class TestOpenAPITool:
             pytest.fail("Response content is not valid JSON")
 
     @pytest.mark.integration
+    @pytest.mark.parametrize("provider", ["openai", "anthropic", "cohere"])
+    def test_run_live_meteo_forecast_with_non_normalized_operation_id(self, provider: str):
+        """
+        Test that OpenAPITool can handle non-normalized operationIds (function names not accepted by LLMs).
+        Here we test all the supported LLMs.
+        """
+        tool = OpenAPITool(
+            generator_api=LLMProvider.from_str(provider),
+            spec="https://bit.ly/meteo_with_non_normalized_operationId"
+        )
+        results = tool.run(messages=[ChatMessage.from_user(
+            "weather forecast for latitude 52.52 and longitude 13.41 and set hourly=temperature_2m")])
+
+        assert isinstance(results["service_response"], list)
+        assert len(results["service_response"]) == 1
+        assert isinstance(results["service_response"][0], ChatMessage)
+
+        try:
+            json_response = json.loads(results["service_response"][0].content)
+            assert isinstance(json_response, dict)
+            assert "hourly" in json_response
+        except json.JSONDecodeError:
+            pytest.fail("Response content is not valid JSON")
+
+
     def test_allowed_operations(self):
         """
         Although the tool definition is generated from the OpenAPI spec and firecrawl's API has multiple operations,

@@ -17,6 +17,7 @@ from haystack_experimental.components.tools.openapi._schema_conversion import (
     openai_converter,
 )
 from haystack_experimental.components.tools.openapi.types import LLMProvider, OpenAPISpecification, Operation
+from haystack_experimental.components.tools.utils import normalize_tool_definition
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ class ClientConfiguration:
         """
         Get the tools definitions used as tools LLM parameter.
 
-        :returns: The tools definitions passed to the LLM as tools parameter.
+        :returns: The tools definitions ready to be passed to the LLM as tools parameter.
         """
         provider_to_converter = defaultdict(
             lambda: openai_converter,
@@ -186,7 +187,8 @@ class ClientConfiguration:
             },
         )
         converter = provider_to_converter[self.llm_provider]
-        return converter(self.openapi_spec, self.operation_filter)
+        tools_definitions = converter(self.openapi_spec, self.operation_filter)
+        return [normalize_tool_definition(t) for t in tools_definitions]
 
     def get_payload_extractor(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -206,7 +208,7 @@ class ClientConfiguration:
         return create_function_payload_extractor(arguments_field_name)
 
     def _create_authentication_from_string(
-            self, credentials: str, security_schemes: Dict[str, Any]
+        self, credentials: str, security_schemes: Dict[str, Any]
     ) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         for scheme in security_schemes.values():
             if scheme["type"] == "apiKey":
@@ -219,7 +221,6 @@ class ClientConfiguration:
         raise ValueError(
             f"Unable to create authentication from provided credentials: {credentials}"
         )
-
 
 def build_request(operation: Operation, **kwargs) -> Dict[str, Any]:
     """
