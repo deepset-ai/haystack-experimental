@@ -1,3 +1,5 @@
+
+import pytest
 from haystack import Pipeline
 from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
@@ -33,12 +35,78 @@ class TestChatMessageRetriever:
         assert retriever.message_store == message_store
         assert retriever.run() == {"messages": messages}
 
+    def test_retrieve_messages_last_k(self):
+        """
+        Test that the ChatMessageRetriever component can retrieve last_k messages from the message store.
+        """
+        messages = [
+            ChatMessage.from_user(content="Hello, how can I help you?"),
+            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+            ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+        ]
+
+        message_store = InMemoryChatMessageStore()
+        message_store.write_messages(messages)
+        retriever = ChatMessageRetriever(message_store)
+
+        assert retriever.message_store == message_store
+        assert retriever.run(last_k=1) == {
+            "messages": [ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")]}
+
+        assert retriever.run(last_k=2) == {
+            "messages": [ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+                         ]}
+
+        # outliers
+        assert retriever.run(last_k=10) == {
+            "messages": [ChatMessage.from_user(content="Hello, how can I help you?"),
+                         ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
+                         ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+                         ]}
+
+        with pytest.raises(ValueError):
+            retriever.run(last_k=0)
+
+        with pytest.raises(ValueError):
+            retriever.run(last_k=-1)
+
+    def test_retrieve_messages_last_k_init(self):
+        """
+        Test that the ChatMessageRetriever component can retrieve last_k messages from the message store
+        by testing the init last_k parameter and the run last_k parameter logic
+        """
+        messages = [
+            ChatMessage.from_user(content="Hello, how can I help you?"),
+            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+            ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+        ]
+
+        message_store = InMemoryChatMessageStore()
+        message_store.write_messages(messages)
+        retriever = ChatMessageRetriever(message_store, last_k=2)
+
+        assert retriever.message_store == message_store
+
+        # last_k is 1 here from run parameter, overrides init of 2
+        assert retriever.run(last_k=1) == {
+            "messages": [ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")]}
+
+        # last_k is 2 here from init
+        assert retriever.run() == {
+            "messages": [ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+                         ]}
+
     def test_to_dict(self):
         """
         Test that the ChatMessageRetriever component can be serialized to a dictionary.
         """
         message_store = InMemoryChatMessageStore()
-        retriever = ChatMessageRetriever(message_store)
+        retriever = ChatMessageRetriever(message_store, last_k=4)
 
         data = retriever.to_dict()
         assert data == {
@@ -47,7 +115,8 @@ class TestChatMessageRetriever:
                 "message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
-                }
+                },
+                "last_k": 4,
             },
         }
 
@@ -61,7 +130,8 @@ class TestChatMessageRetriever:
                 "message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
-                }
+                },
+                "last_k": 4,
             },
         }
         retriever = ChatMessageRetriever.from_dict(data)
@@ -69,6 +139,7 @@ class TestChatMessageRetriever:
             "init_parameters": {},
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
+        assert retriever.last_k == 4
 
     def test_chat_message_retriever_pipeline(self):
         """
