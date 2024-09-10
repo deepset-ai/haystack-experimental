@@ -173,29 +173,9 @@ class ClientConfiguration:
             )
         raise ValueError(f"Unsupported credentials type: {type(self.credentials)}")
 
-    def get_tools_definitions(
-        self, normalization_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None
-    ) -> List[Dict[str, Any]]:
+    def get_tools_definitions(self) -> List[Dict[str, Any]]:
         """
         Get the tools definitions used as tools LLM parameter.
-
-        :param normalization_fn: An optional function to normalize the tool definitions.
-        If provided, this function is applied to each tool definition before returning it.
-        The input to a normalization function is a dictionary containing the tool definition, and the output should
-        be a dictionary containing the normalized tool definition.
-
-        By default, when no normalization_fn is provided, we use a built-in function that normalizes
-        tool definitions to satisfy requirements for OpenAI, Anthropic, and Cohere LLMs:
-            - Tool names are adjusted to match the pattern ^[a-zA-Z0-9_]+$ and truncated to 64 characters
-            - Parameter descriptions are truncated to 1024 characters
-
-        This default normalization is sufficient for the supported LLMs. Custom normalization
-        should only be necessary for special cases or when using various LLM providers.
-
-        For reference on tool definition formats, see:
-            - https://cookbook.openai.com/examples/how_to_call_functions_with_chat_models#basic-concepts
-            - https://docs.anthropic.com/en/docs/build-with-claude/tool-use
-            - https://docs.cohere.com/docs/tool-use
 
         :returns: The tools definitions ready to be passed to the LLM as tools parameter.
         """
@@ -209,8 +189,7 @@ class ClientConfiguration:
         converter = provider_to_converter[self.llm_provider]
 
         tools_definitions = converter(self.openapi_spec, self.operation_filter)
-        normalization_fn = normalization_fn or normalize_tool_definition
-        return [normalization_fn(t) for t in tools_definitions]
+        return [normalize_tool_definition(t) for t in tools_definitions]
 
     def get_payload_extractor(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
         """

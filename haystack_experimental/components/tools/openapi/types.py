@@ -222,26 +222,14 @@ class OpenAPISpecification:
             ) from e
         return cls.from_str(content)
 
-    def find_operation_by_id(
-            self,
-            op_id: str,
-            op_id_normalization_fn: Optional[Callable[[str], str]] = None
-    ) -> Operation:
+    def find_operation_by_id(self, op_id: str) -> Operation:
         """
         Find an Operation by operationId.
 
         :param op_id: The operationId of the operation.
-        :param op_id_normalization_fn: A function to normalize the operationId.
-        If provided, this function is applied to each operationId from OpenAPI spec before it
-        is compared with the LLM provided op_id (i.e. tool name).
-
-        By default, when no op_id_normalization_fn is provided, we use a built-in function that normalizes
-        tool name to satisfy requirements for OpenAI, Anthropic, and Cohere LLMs:
-            - Tool names are adjusted to match the pattern ^[a-zA-Z0-9_]+$ and truncated to 64 characters
         :returns: The matching operation
         :raises ValueError: If no operation is found with the given operationId.
         """
-        op_id_normalization_fn = op_id_normalization_fn or normalize_function_name
         for path, path_value in self.spec_dict.get("paths", {}).items():
             operations = {
                 method: operation_dict
@@ -251,7 +239,7 @@ class OpenAPISpecification:
 
             for method, operation_dict in operations.items():
                 operation_id = operation_dict.get("operationId", path_to_operation_id(path, method))
-                if op_id_normalization_fn(operation_id) == op_id:
+                if normalize_function_name(operation_id) == op_id:
                     return Operation(path, method, operation_dict, self.spec_dict)
         raise ValueError(f"No operation found with operationId {op_id}")
 
