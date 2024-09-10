@@ -187,7 +187,6 @@ class ClientConfiguration:
             },
         )
         converter = provider_to_converter[self.llm_provider]
-
         tools_definitions = converter(self.openapi_spec, self.operation_filter)
         return [normalize_tool_definition(t) for t in tools_definitions]
 
