@@ -10,6 +10,20 @@ from haystack_experimental.dataclasses.chat_message import (
     ToolCall,
     ToolCallResult,
 )
+from haystack_experimental.dataclasses.streaming_chunk import (
+    AsyncStreamingCallbackT,
+    StreamingCallbackT,
+)
 from haystack_experimental.dataclasses.tool import Tool
 
-__all__ = ["ChatMessage", "ChatRole", "ToolCall", "ToolCallResult", "TextContent", "ChatMessageContentT", "Tool"]
+__all__ = [
+    "AsyncStreamingCallbackT",
+    "ChatMessage",
+    "ChatRole",
+    "StreamingCallbackT",
+    "ToolCall",
+    "ToolCallResult",
+    "TextContent",
+    "ChatMessageContentT",
+    "Tool",
+]
