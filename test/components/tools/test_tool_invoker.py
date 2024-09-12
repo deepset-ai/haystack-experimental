@@ -295,7 +295,7 @@ class TestToolInvoker:
                 'chatgenerator': {
                     'type': 'haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator',
                     'init_parameters': {
-                        'model': 'gpt-3.5-turbo',
+                        'model': 'gpt-4o-mini',
                         'streaming_callback': None,
                         'api_base_url': None,
                         'organization': None,

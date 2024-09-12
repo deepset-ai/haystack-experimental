@@ -445,7 +445,7 @@ class TestOpenAIChatGenerator:
         assert len(results["replies"]) == 1
         message: ChatMessage = results["replies"][0]
         assert "Paris" in message.text
-        assert "gpt-3.5" in message.meta["model"]
+        assert "gpt-4o-mini" in message.meta["model"]
         assert message.meta["finish_reason"] == "stop"
 
     @pytest.mark.skipif(
