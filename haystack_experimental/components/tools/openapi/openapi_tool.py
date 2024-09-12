@@ -45,7 +45,7 @@ class OpenAPITool:
     from haystack.utils import Secret
 
     tool = OpenAPITool(generator_api=LLMProvider.OPENAI,
-                       generator_api_params={"model":"gpt-3.5-turbo"},
+                       generator_api_params={"model":"gpt-4o-mini"},
                        spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
                        credentials=Secret.from_env_var("FIRECRAWL_API_KEY"))
 
