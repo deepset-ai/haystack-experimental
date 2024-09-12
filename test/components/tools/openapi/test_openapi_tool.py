@@ -22,7 +22,7 @@ class TestOpenAPITool:
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             generator_api_params={
-                "model": "gpt-3.5-turbo",
+                "model": "gpt-4o-mini",
                 "api_key": Secret.from_env_var("OPENAI_API_KEY"),
             },
             spec=openapi_spec_url,
@@ -36,7 +36,7 @@ class TestOpenAPITool:
             "init_parameters": {
                 "generator_api": "openai",
                 "generator_api_params": {
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": {"env_vars": ["OPENAI_API_KEY"], "strict": True, "type": "env_var"},
                 },
                 "spec": openapi_spec_url,
@@ -54,7 +54,7 @@ class TestOpenAPITool:
             "init_parameters": {
                 "generator_api": "openai",
                 "generator_api_params": {
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": {"env_vars": ["OPENAI_API_KEY"], "strict": True, "type": "env_var"},
                 },
                 "spec": openapi_spec_url,
@@ -67,7 +67,7 @@ class TestOpenAPITool:
 
         assert tool.generator_api == LLMProvider.OPENAI
         assert tool.generator_api_params == {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4o-mini",
             "api_key": Secret.from_env_var("OPENAI_API_KEY")
         }
         assert tool.spec == openapi_spec_url
@@ -78,7 +78,7 @@ class TestOpenAPITool:
             OpenAPITool(
                 generator_api=LLMProvider.OPENAI,
                 generator_api_params={
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": Secret.from_token("not_needed"),
                 },
                 spec="https://raw.githubusercontent.com/invalid_openapi.json",
@@ -89,7 +89,7 @@ class TestOpenAPITool:
             OpenAPITool(
                 generator_api=LLMProvider.OPENAI,
                 generator_api_params={
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": Secret.from_token("not_needed"),
                 },
                 spec="invalid_openapi.json",
@@ -101,7 +101,7 @@ class TestOpenAPITool:
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             generator_api_params={
-                "model": "gpt-3.5-turbo",
+                "model": "gpt-4o-mini",
                 "api_key": Secret.from_token("not_needed"),
             },
             spec=openapi_spec_url,

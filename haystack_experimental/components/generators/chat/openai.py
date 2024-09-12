@@ -96,7 +96,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
     {'replies': [
         ChatMessage(_role=<ChatRole.ASSISTANT: 'assistant'>,
                     _content=[TextContent(text='Natural Language Processing (NLP) is a field of artificial ...')],
-                    _meta={'model': 'gpt-3.5-turbo-0125', 'index': 0, 'finish_reason': 'stop',
+                    _meta={'model': 'gpt-4o-mini', 'index': 0, 'finish_reason': 'stop',
                         'usage': {'completion_tokens': 71, 'prompt_tokens': 13, 'total_tokens': 84}}
                     )
                 ]
@@ -107,7 +107,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
     def __init__(  # noqa: PLR0913
         self,
         api_key: Secret = Secret.from_env_var("OPENAI_API_KEY"),
-        model: str = "gpt-3.5-turbo",
+        model: str = "gpt-4o-mini",
         streaming_callback: Optional[Callable[[StreamingChunk], None]] = None,
         api_base_url: Optional[str] = None,
         organization: Optional[str] = None,
