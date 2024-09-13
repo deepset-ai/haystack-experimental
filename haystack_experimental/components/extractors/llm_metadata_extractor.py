@@ -62,7 +62,7 @@ class LLMMetadataExtractor:
 
     extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"])
     extractor.run(documents=docs)
-    >> {'documents_meta': [
+    >> {'documents': [
         Document(id=.., content: 'deepset was founded in 2018 in Berlin, and is known for its Haystack framework',
         meta: {'entities': [{'entity': 'deepset', 'entity_type': 'company'}, {'entity': 'Berlin', 'entity_type': 'city'},
               {'entity': 'Haystack', 'entity_type': 'product'}]}),
