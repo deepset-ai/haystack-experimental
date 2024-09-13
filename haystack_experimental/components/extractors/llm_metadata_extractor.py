@@ -1,9 +1,14 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+
 import json
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from warnings import warn
 
-from haystack import Document, component
+from haystack import Document, component, default_to_dict, default_from_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import OpenAIGenerator
 
@@ -12,6 +17,7 @@ from haystack.components.generators import OpenAIGenerator
 class LLMMetadataExtractor:
 
     def __init__(self, prompt: str, expected_keys: List[str], model: Optional[str] = None, raise_on_failure: bool = True):
+        self.prompt = prompt
         self.builder = PromptBuilder(prompt)
         self.generator = OpenAIGenerator() if model is None else OpenAIGenerator(model=model)
         self.expected_keys = expected_keys
@@ -52,7 +58,28 @@ class LLMMetadataExtractor:
 
         return True
 
-    @component.output_types(answers=List[Document])
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the component to a dictionary.
+
+        :returns:
+            Dictionary with serialized data.
+        """
+        return default_to_dict(self, prompt=self.prompt, expected_keys=self.expected_keys, raise_on_failure=self.raise_on_failure, model=self.generator.model)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LLMMetadataExtractor":
+        """
+        Deserializes the component from a dictionary.
+
+        :param data:
+            Dictionary with serialized data.
+        :returns:
+            An instance of the component.
+        """
+        return default_from_dict(cls, data)
+
+    @component.output_types(documents_meta=List[Document])
     def run(self, documents: List[Document]):
         for document in documents:
             prompt_with_doc = self.builder.run(input_text=document.content)
