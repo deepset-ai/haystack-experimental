@@ -113,7 +113,7 @@ class TestLLMMetadataExtractor:
         pipeline = Pipeline()
         pipeline.add_component("extractor", extractor)
         pipeline.add_component("doc_writer", writer)
-        pipeline.connect("extractor.documents_meta", "doc_writer.documents")
+        pipeline.connect("extractor.documents", "doc_writer.documents")
         result = pipeline.run(data={"documents": docs})
 
         assert len(result["documents"]) == 2
