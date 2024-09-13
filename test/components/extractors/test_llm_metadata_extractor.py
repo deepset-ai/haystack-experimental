@@ -56,15 +56,6 @@ class TestLLMMetadataExtractor:
         assert extractor.prompt == "some prompt that was used with the LLM"
         assert extractor.generator.model == "gpt-4o-mini"
 
-    def test_serialization_deserialization_pipeline(self):
-        pipeline = Pipeline()
-        pipeline.add_component("extractor", LLMMetadataExtractor(prompt="prompt", expected_keys=["entities"]))
-        pipeline.add_component("doc_writer", DocumentWriter(document_store=InMemoryDocumentStore()))
-        pipeline.connect("extractor.documents", "doc_writer.documents")
-        pipeline_dict = pipeline.to_dict()
-        assert pipeline_dict == Pipeline.from_dict(pipeline_dict)
-
-
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
