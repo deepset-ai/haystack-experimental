@@ -10,7 +10,7 @@ from haystack_experimental.components import LLMMetadataExtractor
 
 
 NER_PROMPT = """
-Given a news article and a list of entity types, identify all entities of those types from the text.
+Given a text and a list of entity types, identify all entities of those types from the text.
 
 -Steps-
 1. Identify all entities. For each identified entity, extract the following information:

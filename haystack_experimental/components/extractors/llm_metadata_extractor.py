@@ -4,19 +4,86 @@
 
 
 import json
-
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 from warnings import warn
 
-from haystack import Document, component, default_to_dict, default_from_dict
+from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import OpenAIGenerator
 
 
 @component
 class LLMMetadataExtractor:
+    """
+    Extracts metadata from documents using a Large Language Model (LLM) from OpenAI.
 
-    def __init__(self, prompt: str, expected_keys: List[str], model: Optional[str] = None, raise_on_failure: bool = True):
+    The metadata is extracted by providing a prompt to n LLM that generates the metadata.
+
+    ```python
+    from haystack import Document
+    from haystack_experimental.components.extractors import LLMMetadataExtractor
+
+    NER_PROMPT = '''
+    -Goal-
+    Given a news article and a list of entity types, identify all entities of those types from the text.
+
+    -Steps-
+    1. Identify all entities. For each identified entity, extract the following information:
+    - entity_name: Name of the entity, capitalized
+    - entity_type: One of the following types: [organization, person, partnership, financial metric, product, service, industry, investment strategy, market trend]
+    Format each entity as {"entity": <entity_name>, "entity_type": <entity_type>}
+
+    2. Return output in a single list with all the entities identified in steps 1.
+
+    -Examples-
+    ######################
+    Example 1:
+    entity_types: [organization, person, partnership, financial metric, product, service, industry, investment strategy, market trend]
+    text:
+    Another area of strength is our co-brand issuance. Visa is the primary network partner for eight of the top 10 co-brand partnerships in the US today and we are pleased that Visa has finalized a multi-year extension of our successful credit co-branded partnership with Alaska Airlines, a portfolio that benefits from a loyal customer base and high cross-border usage.
+    We have also had significant co-brand momentum in CEMEA. First, we launched a new co-brand card in partnership with Qatar Airways, British Airways and the National Bank of Kuwait. Second, we expanded our strong global Marriott relationship to launch Qatar's first hospitality co-branded card with Qatar Islamic Bank. Across the United Arab Emirates, we now have exclusive agreements with all the leading airlines marked by a recent agreement with Emirates Skywards.
+    And we also signed an inaugural Airline co-brand agreement in Morocco with Royal Air Maroc. Now newer digital issuers are equally
+    ------------------------
+    output:
+    {"entities": [{"entity": "Visa", "entity_type": "company"}, {"entity": "Alaska Airlines", "entity_type": "company"}, {"entity": "Qatar Airways", "entity_type": "company"}, {"entity": "British Airways", "entity_type": "company"}, {"entity": "National Bank of Kuwait", "entity_type": "company"}, {"entity": "Marriott", "entity_type": "company"}, {"entity": "Qatar Islamic Bank", "entity_type": "company"}, {"entity": "Emirates Skywards", "entity_type": "company"}, {"entity": "Royal Air Maroc", "entity_type": "company"}]}
+    #############################
+    -Real Data-
+    ######################
+    entity_types: [company, organization, person, country, product, service]
+    text: {{input_text}}
+    ######################
+    output:
+    '''
+
+    docs = [
+        Document(content="deepset was founded in 2018 in Berlin, and is known for its Haystack framework"),
+        Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
+    ]
+
+    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"])
+    extractor.run(documents=docs)
+    >> {'documents_meta': [
+        Document(id=.., content: 'deepset was founded in 2018 in Berlin, and is known for its Haystack framework',
+        meta: {'entities': [{'entity': 'deepset', 'entity_type': 'company'}, {'entity': 'Berlin', 'entity_type': 'city'},
+              {'entity': 'Haystack', 'entity_type': 'product'}]}),
+        Document(id=.., content: 'Hugging Face is a company founded in Paris, France and is known for its Transformers library',
+        meta: {'entities': [
+                {'entity': 'Hugging Face', 'entity_type': 'company'}, {'entity': 'Paris', 'entity_type': 'city'},
+                {'entity': 'France', 'entity_type': 'country'}, {'entity': 'Transformers', 'entity_type': 'product'}
+                ]})
+           ]
+       }
+    >>
+    ```
+
+    """
+    def __init__(
+            self,
+            prompt: str,
+            expected_keys: List[str],
+            model: Optional[str] = None,
+            raise_on_failure: bool = True
+    ):
         self.prompt = prompt
         self.builder = PromptBuilder(prompt)
         self.generator = OpenAIGenerator() if model is None else OpenAIGenerator(model=model)
@@ -65,7 +132,13 @@ class LLMMetadataExtractor:
         :returns:
             Dictionary with serialized data.
         """
-        return default_to_dict(self, prompt=self.prompt, expected_keys=self.expected_keys, raise_on_failure=self.raise_on_failure, model=self.generator.model)
+        return default_to_dict(
+            self,
+            prompt=self.prompt,
+            expected_keys=self.expected_keys,
+            raise_on_failure=self.raise_on_failure,
+            model=self.generator.model
+        )
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LLMMetadataExtractor":
@@ -81,12 +154,20 @@ class LLMMetadataExtractor:
 
     @component.output_types(documents_meta=List[Document])
     def run(self, documents: List[Document]):
+        """
+        Extract metadata from documents using a Language Model.
+
+        :param documents: List of documents to extract metadata from.
+        :returns:
+            A dictionary with the key "documents_meta" containing the documents with extracted metadata.
+        """
         for document in documents:
             prompt_with_doc = self.builder.run(input_text=document.content)
-            result = self.generator.run(prompt=prompt_with_doc['prompt'])
+            result = self.generator.run(prompt=prompt_with_doc["prompt"])
             llm_answer = result["replies"][0]
             if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
                 extracted_metadata = json.loads(llm_answer)
                 for k in self.expected_keys:
                     document.meta[k] = extracted_metadata[k]
+
         return {"documents_meta": documents}
