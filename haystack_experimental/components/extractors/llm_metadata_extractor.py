@@ -25,12 +25,12 @@ class LLMMetadataExtractor:
 
     NER_PROMPT = '''
     -Goal-
-    Given a news article and a list of entity types, identify all entities of those types from the text.
+    Given text and a list of entity types, identify all entities of those types from the text.
 
     -Steps-
     1. Identify all entities. For each identified entity, extract the following information:
     - entity_name: Name of the entity, capitalized
-    - entity_type: One of the following types: [organization, person, partnership, financial metric, product, service, industry, investment strategy, market trend]
+    - entity_type: One of the following types: [organization, product, service, industry]
     Format each entity as {"entity": <entity_name>, "entity_type": <entity_type>}
 
     2. Return output in a single list with all the entities identified in steps 1.
@@ -151,7 +151,7 @@ class LLMMetadataExtractor:
         """
         return default_from_dict(cls, data)
 
-    @component.output_types(documents_meta=List[Document])
+    @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]):
         """
         Extract metadata from documents using a Language Model.
@@ -169,4 +169,4 @@ class LLMMetadataExtractor:
                 for k in self.expected_keys:
                     document.meta[k] = extracted_metadata[k]
 
-        return {"documents_meta": documents}
+        return {"documents": documents}

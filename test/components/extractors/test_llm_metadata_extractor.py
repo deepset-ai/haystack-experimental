@@ -58,7 +58,7 @@ class TestLLMMetadataExtractor:
 
     def test_serialization_deserialization_pipeline(self):
         pipeline = Pipeline()
-        pipeline.add_component("extractor", LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"]))
+        pipeline.add_component("extractor", LLMMetadataExtractor(prompt="prompt", expected_keys=["entities"]))
         pipeline.add_component("doc_writer", DocumentWriter(document_store=InMemoryDocumentStore()))
         pipeline.connect("extractor.documents_meta", "doc_writer.documents")
         pipeline_dict = pipeline.to_dict()
