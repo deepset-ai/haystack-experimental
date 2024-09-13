@@ -75,8 +75,7 @@ class LLMMetadataExtractor:
        }
     >>
     ```
-
-    """
+    """ # noqa: E501
     def __init__(
             self,
             prompt: str,
