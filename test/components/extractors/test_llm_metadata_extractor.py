@@ -60,7 +60,7 @@ class TestLLMMetadataExtractor:
         pipeline = Pipeline()
         pipeline.add_component("extractor", LLMMetadataExtractor(prompt="prompt", expected_keys=["entities"]))
         pipeline.add_component("doc_writer", DocumentWriter(document_store=InMemoryDocumentStore()))
-        pipeline.connect("extractor.documents_meta", "doc_writer.documents")
+        pipeline.connect("extractor.documents", "doc_writer.documents")
         pipeline_dict = pipeline.to_dict()
         assert pipeline_dict == Pipeline.from_dict(pipeline_dict)
 
@@ -114,7 +114,7 @@ class TestLLMMetadataExtractor:
         pipeline.add_component("extractor", extractor)
         pipeline.add_component("doc_writer", writer)
         pipeline.connect("extractor.documents", "doc_writer.documents")
-        result = pipeline.run(data={"documents": docs})
+        pipeline.run(data={"documents": docs})
 
         doc_store_docs = doc_store.filter_documents()
         assert len(doc_store_docs) == 2
