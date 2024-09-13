@@ -116,6 +116,7 @@ class TestLLMMetadataExtractor:
         pipeline.connect("extractor.documents", "doc_writer.documents")
         result = pipeline.run(data={"documents": docs})
 
-        assert len(result["documents"]) == 2
-        assert "entities" in result["documents"][0].meta
-        assert "entities" in result["documents"][1].meta
+        doc_store_docs = doc_store.filter_documents()
+        assert len(doc_store_docs) == 2
+        assert "entities" in doc_store_docs[0].meta
+        assert "entities" in doc_store_docs[1].meta
