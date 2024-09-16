@@ -4,6 +4,7 @@
 
 from .generators.chat import OpenAIChatGenerator
 from .retrievers.auto_merging_retriever import AutoMergingRetriever
+from .retrievers.chat_message_retriever import ChatMessageRetriever
 from .splitters import HierarchicalDocumentSplitter
 from .tools import OpenAIFunctionCaller, ToolInvoker
 from .writers import ChatMessageWriter
@@ -12,6 +13,7 @@ from .writers import ChatMessageWriter
 _all_ = [
     "AutoMergingRetriever",
     "ChatMessageWriter",
+    "ChatMessageRetriever",
     "OpenAIChatGenerator",
     "HierarchicalDocumentSplitter",
     "OpenAIFunctionCaller",
