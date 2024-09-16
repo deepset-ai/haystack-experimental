@@ -12,7 +12,7 @@ from .writers import ChatMessageWriter
 _all_ = [
     "AutoMergingRetriever",
     "ChatMessageWriter",
-    "ChatbotGenerator",
+    "OpenAIChatGenerator",
     "HierarchicalDocumentSplitter",
     "OpenAIFunctionCaller",
     "ToolInvoker"
