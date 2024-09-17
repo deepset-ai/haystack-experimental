@@ -5,13 +5,14 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Tuple, Union
 from warnings import warn
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
-from haystack.components.generators import OpenAIGenerator, AzureOpenAIGenerator
+from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
+from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ class LLMMetadataExtractor:
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator: Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator],
+        generator: Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator],
         raise_on_failure: bool = True,
     ):
         """
@@ -114,8 +115,10 @@ class LLMMetadataExtractor:
             raise ValueError(f"{self.input_text} must be in the prompt.")
 
     def _check_llm(self):
-        if not isinstance(self.generator, (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator)):
-            raise ValueError("Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, or AmazonBedrockGenerator.")
+        if not isinstance(self.generator,
+                          (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator)
+                          ):
+            raise ValueError("Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, or AmazonBedrockGenerator.") # noqa: E501
 
     def is_valid_json_and_has_expected_keys(self, expected: List[str], received: str) -> bool:
         """
