@@ -14,7 +14,7 @@ from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
 from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
 
-from haystack.utils import deserialize_document_store_in_init_params_inplace
+from haystack.utils import deserialize_component_in_init_params_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +192,7 @@ class LLMMetadataExtractor:
         :returns:
             An instance of the component.
         """
-        deserialize_document_store_in_init_params_inplace(data, key="generator")
+        deserialize_component_in_init_params_inplace(data, key="generator")
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
