@@ -5,7 +5,7 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Type
 from warnings import warn
 
 from haystack import Document, component, default_from_dict, default_to_dict
@@ -14,7 +14,15 @@ from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
 from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
 
+from haystack.utils import deserialize_document_store_in_init_params_inplace
+
 logger = logging.getLogger(__name__)
+
+SUPPORTED_GENERATORS = (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator)
+
+SUPPORTED_GENERATORS_TYPES: List[
+    Type[Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]]] = \
+    [OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]
 
 
 @component
@@ -87,8 +95,8 @@ class LLMMetadataExtractor:
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator: Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator],
-        raise_on_failure: bool = True,
+        generator: SUPPORTED_GENERATORS_TYPES,
+        raise_on_failure: bool = False,
     ):
         """
         Initializes the LLMMetadataExtractor.
@@ -115,10 +123,11 @@ class LLMMetadataExtractor:
             raise ValueError(f"{self.input_text} must be in the prompt.")
 
     def _check_llm(self):
-        if not isinstance(self.generator,
-                          (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator)
-                          ):
-            raise ValueError("Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, or AmazonBedrockGenerator.") # noqa: E501
+        if not isinstance(self.generator, SUPPORTED_GENERATORS):
+            raise ValueError(
+                "Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, "
+                "AmazonBedrockGenerator or VertexAIGeminiGenerator."
+            )
 
     def is_valid_json_and_has_expected_keys(self, expected: List[str], received: str) -> bool:
         """
@@ -167,9 +176,10 @@ class LLMMetadataExtractor:
         return default_to_dict(
             self,
             prompt=self.prompt,
+            input_text=self.input_text,
             expected_keys=self.expected_keys,
             raise_on_failure=self.raise_on_failure,
-            model=self.generator.model
+            generator=self.generator.to_dict(),
         )
 
     @classmethod
@@ -182,6 +192,7 @@ class LLMMetadataExtractor:
         :returns:
             An instance of the component.
         """
+        deserialize_document_store_in_init_params_inplace(data, key="generator")
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
