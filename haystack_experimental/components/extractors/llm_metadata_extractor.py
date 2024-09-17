@@ -4,12 +4,16 @@
 
 
 import json
-from typing import Any, Dict, List, Optional
+import logging
+from typing import Any, Dict, List, Optional, Union, Tuple
 from warnings import warn
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
-from haystack.components.generators import OpenAIGenerator
+from haystack.components.generators import OpenAIGenerator, AzureOpenAIGenerator
+from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
+
+logger = logging.getLogger(__name__)
 
 
 @component
@@ -21,6 +25,7 @@ class LLMMetadataExtractor:
 
     ```python
     from haystack import Document
+    from haystack.components.generators import OpenAIGenerator
     from haystack_experimental.components.extractors import LLMMetadataExtractor
 
     NER_PROMPT = '''
@@ -60,7 +65,7 @@ class LLMMetadataExtractor:
         Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
     ]
 
-    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"])
+    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator=OpenAIGenerator(), input_text='input_text')
     extractor.run(documents=docs)
     >> {'documents': [
         Document(id=.., content: 'deepset was founded in 2018 in Berlin, and is known for its Haystack framework',
@@ -77,17 +82,40 @@ class LLMMetadataExtractor:
     ```
     """ # noqa: E501
     def __init__(
-            self,
-            prompt: str,
-            expected_keys: List[str],
-            model: Optional[str] = None,
-            raise_on_failure: bool = True
+        self,
+        prompt: str,
+        input_text: str,
+        expected_keys: List[str],
+        generator: Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator],
+        raise_on_failure: bool = True,
     ):
+        """
+        Initializes the LLMMetadataExtractor.
+
+        :param prompt: The prompt to be used for the LLM.
+        :param input_text: The input text to be processed by the PromptBuilder.
+        :param expected_keys: The keys expected in the JSON output from the LLM.
+        :param generator: The generator to be used for generating responses from the LLM. Currently, supports OpenAI,
+                          Azure OpenAI, and Amazon Bedrock.
+        :param raise_on_failure: Whether to raise an error on failure to validate JSON output.
+        :returns:
+
+        """
         self.prompt = prompt
-        self.builder = PromptBuilder(prompt)
-        self.generator = OpenAIGenerator() if model is None else OpenAIGenerator(model=model)
-        self.expected_keys = expected_keys
+        self.input_text = input_text
+        self.builder = PromptBuilder(prompt, required_variables=[input_text])
         self.raise_on_failure = raise_on_failure
+        self.expected_keys = expected_keys
+        self.generator = generator
+        self._check_llm()
+
+    def _check_prompt(self):
+        if self.input_text not in self.prompt:
+            raise ValueError(f"{self.input_text} must be in the prompt.")
+
+    def _check_llm(self):
+        if not isinstance(self.generator, (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator)):
+            raise ValueError("Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, or AmazonBedrockGenerator.")
 
     def is_valid_json_and_has_expected_keys(self, expected: List[str], received: str) -> bool:
         """
@@ -113,6 +141,7 @@ class LLMMetadataExtractor:
             if self.raise_on_failure:
                 raise ValueError(msg)
             warn(msg)
+            logger.warning(msg)
             return False
 
         if not all(output in parsed_output for output in expected):
@@ -120,6 +149,7 @@ class LLMMetadataExtractor:
             if self.raise_on_failure:
                 raise ValueError(msg)
             warn(msg)
+            logger.warning(msg)
             return False
 
         return True
@@ -151,8 +181,8 @@ class LLMMetadataExtractor:
         """
         return default_from_dict(cls, data)
 
-    @component.output_types(documents=List[Document])
-    def run(self, documents: List[Document]):
+    @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
+    def run(self, documents: List[Document]) -> Dict[str, Union[List[Document], List[Tuple[str, Any]]]]:
         """
         Extract metadata from documents using a Language Model.
 
@@ -160,6 +190,7 @@ class LLMMetadataExtractor:
         :returns:
             A dictionary with the key "documents_meta" containing the documents with extracted metadata.
         """
+        errors = []
         for document in documents:
             prompt_with_doc = self.builder.run(input_text=document.content)
             result = self.generator.run(prompt=prompt_with_doc["prompt"])
@@ -168,5 +199,8 @@ class LLMMetadataExtractor:
                 extracted_metadata = json.loads(llm_answer)
                 for k in self.expected_keys:
                     document.meta[k] = extracted_metadata[k]
+                errors.append((document.id, None))
+            else:
+                errors.append((document.id, llm_answer))
 
-        return {"documents": documents}
+        return {"documents": documents, "errors": errors}
