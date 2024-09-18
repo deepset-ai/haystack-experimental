@@ -31,7 +31,7 @@ class AsyncPipeline(PipelineBase):
     Asynchronous version of the orchestration engine.
 
     The primary difference between this and the synchronous version is that this version
-    will attempt to execute a component's async `async_run` method if it exists. If it doesn't,
+    will attempt to execute a component's async `run_async` method if it exists. If it doesn't,
     the synchronous `run` method is executed as an awaitable task on a thread pool executor. This
     version also eagerly yields the output of each component as soon as it is available.
     """
@@ -39,8 +39,9 @@ class AsyncPipeline(PipelineBase):
     def __init__(
         self,
         metadata: Optional[Dict[str, Any]] = None,
-        max_loops_allowed: int = 100,
+        max_loops_allowed: Optional[int] = None,
         debug_path: Union[Path, str] = Path(".haystack_debug/"),
+        max_runs_per_component: int = 100,
         async_executor: Optional[ThreadPoolExecutor] = None,
     ):
         """
@@ -57,12 +58,20 @@ class AsyncPipeline(PipelineBase):
         :param async_executor:
             Optional ThreadPoolExecutor to use for running synchronous components. If not provided, a single-threaded
             executor will initialized and used.
+        :param max_runs_per_component:
+            How many times the `Pipeline` can run the same Component.
+            If this limit is reached a `PipelineMaxComponentRuns` exception is raised.
+            If not set defaults to 100 runs per Component.
         """
-        super().__init__(metadata, max_loops_allowed, debug_path)
+        super().__init__(
+            metadata, max_loops_allowed, debug_path, max_runs_per_component
+        )
 
         # We only need one thread as we'll immediately block after launching it.
         self.executor = (
-            ThreadPoolExecutor(thread_name_prefix=f"async-pipeline-executor-{id(self)}", max_workers=1)
+            ThreadPoolExecutor(
+                thread_name_prefix=f"async-pipeline-executor-{id(self)}", max_workers=1
+            )
             if async_executor is None
             else async_executor
         )
@@ -83,17 +92,27 @@ class AsyncPipeline(PipelineBase):
             tags={
                 "haystack.component.name": name,
                 "haystack.component.type": instance.__class__.__name__,
-                "haystack.component.input_types": {k: type(v).__name__ for k, v in inputs.items()},
+                "haystack.component.input_types": {
+                    k: type(v).__name__ for k, v in inputs.items()
+                },
                 "haystack.component.input_spec": {
                     key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                        "type": (
+                            value.type.__name__
+                            if isinstance(value.type, type)
+                            else str(value.type)
+                        ),
                         "senders": value.senders,
                     }
                     for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
                 },
                 "haystack.component.output_spec": {
                     key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                        "type": (
+                            value.type.__name__
+                            if isinstance(value.type, type)
+                            else str(value.type)
+                        ),
                         "receivers": value.receivers,
                     }
                     for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
@@ -103,15 +122,19 @@ class AsyncPipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", inputs)
 
             res: Dict[str, Any]
-            if hasattr(instance, "async_run"):
-                logger.info("Running async component {component_name}", component_name=name)
-                res = await instance.async_run(**inputs)  # type: ignore
+            if instance.__haystack_supports_async__:  # type: ignore
+                logger.info(
+                    "Running async component {component_name}", component_name=name
+                )
+                res = await instance.run_async(**inputs)  # type: ignore
             else:
                 logger.info(
                     "Running sync component {component_name} on executor",
                     component_name=name,
                 )
-                res = await asyncio.get_event_loop().run_in_executor(self.executor, lambda: instance.run(**inputs))
+                res = await asyncio.get_event_loop().run_in_executor(
+                    self.executor, lambda: instance.run(**inputs)
+                )
 
             self.graph.nodes[name]["visits"] += 1
 
@@ -251,7 +274,9 @@ class AsyncPipeline(PipelineBase):
             while len(run_queue) > 0:
                 name, comp = run_queue.pop(0)
 
-                if _is_lazy_variadic(comp) and not all(_is_lazy_variadic(comp) for _, comp in run_queue):
+                if _is_lazy_variadic(comp) and not all(
+                    _is_lazy_variadic(comp) for _, comp in run_queue
+                ):
                     # We run Components with lazy variadic inputs only if there only Components with
                     # lazy variadic inputs left to run
                     _enqueue_waiting_component((name, comp), waiting_queue)
@@ -273,9 +298,13 @@ class AsyncPipeline(PipelineBase):
                     # This happens when a component was put in the waiting list but we reached it from another edge.
                     _dequeue_waiting_component((name, comp), waiting_queue)
 
-                    for pair in self._find_components_that_will_receive_no_input(name, res):
+                    for pair in self._find_components_that_will_receive_no_input(
+                        name, res, components_inputs
+                    ):
                         _dequeue_component(pair, run_queue, waiting_queue)
-                    res = self._distribute_output(name, res, components_inputs, run_queue, waiting_queue)
+                    res = self._distribute_output(
+                        name, res, components_inputs, run_queue, waiting_queue
+                    )
 
                     if len(res) > 0:
                         final_outputs[name] = res
@@ -301,15 +330,25 @@ class AsyncPipeline(PipelineBase):
                             warn(RuntimeWarning(msg))
                             break
 
-                        (name, comp) = self._find_next_runnable_lazy_variadic_or_default_component(waiting_queue)
+                        (name, comp) = (
+                            self._find_next_runnable_lazy_variadic_or_default_component(
+                                waiting_queue
+                            )
+                        )
                         _add_missing_input_defaults(name, comp, components_inputs)
                         _enqueue_component((name, comp), run_queue, waiting_queue)
                         continue
 
-                    before_last_waiting_queue = last_waiting_queue.copy() if last_waiting_queue is not None else None
+                    before_last_waiting_queue = (
+                        last_waiting_queue.copy()
+                        if last_waiting_queue is not None
+                        else None
+                    )
                     last_waiting_queue = {item[0] for item in waiting_queue}
 
-                    (name, comp) = self._find_next_runnable_component(components_inputs, waiting_queue)
+                    (name, comp) = self._find_next_runnable_component(
+                        components_inputs, waiting_queue
+                    )
                     _add_missing_input_defaults(name, comp, components_inputs)
                     _enqueue_component((name, comp), run_queue, waiting_queue)
 
@@ -345,7 +384,10 @@ async def run_async_pipeline(
     outputs = [x async for x in pipeline.run(data)]
 
     intermediate_outputs = {
-        k: v for d in outputs[:-1] for k, v in d.items() if include_outputs_from is None or k in include_outputs_from
+        k: v
+        for d in outputs[:-1]
+        for k, v in d.items()
+        if include_outputs_from is None or k in include_outputs_from
     }
     final_output = outputs[-1]
 

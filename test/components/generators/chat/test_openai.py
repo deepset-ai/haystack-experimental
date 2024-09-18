@@ -576,7 +576,7 @@ class TestOpenAIChatGenerator:
     async def test_live_run_async(self):
         chat_messages = [ChatMessage.from_user("What's the capital of France")]
         component = OpenAIChatGenerator(generation_kwargs={"n": 1})
-        results = await component.async_run(chat_messages)
+        results = await component.run_async(chat_messages)
         assert len(results["replies"]) == 1
         message: ChatMessage = results["replies"][0]
         assert "Paris" in message.text
@@ -602,7 +602,7 @@ class TestOpenAIChatGenerator:
     async def test_live_run_wrong_model_async(self, chat_messages):
         component = OpenAIChatGenerator(model="something-obviously-wrong")
         with pytest.raises(OpenAIError):
-            await component.async_run(chat_messages)
+            await component.run_async(chat_messages)
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
@@ -652,7 +652,7 @@ class TestOpenAIChatGenerator:
             responses += chunk.content if chunk.content else ""
 
         component = OpenAIChatGenerator(streaming_callback=callback)
-        results = await component.async_run(
+        results = await component.run_async(
             [ChatMessage.from_user("What's the capital of France?")]
         )
 
@@ -678,15 +678,15 @@ class TestOpenAIChatGenerator:
 
         with pytest.raises(ValueError, match="init callback must be async compatible"):
             gen = OpenAIChatGenerator(streaming_callback=sync_callback)
-            await gen.async_run([])
+            await gen.run_async([])
 
         with pytest.raises(
             ValueError, match="runtime callback must be async compatible"
         ):
             gen = OpenAIChatGenerator(streaming_callback=async_callback)
-            await gen.async_run([], streaming_callback=sync_callback)
+            await gen.run_async([], streaming_callback=sync_callback)
 
-        await gen.async_run([])
+        await gen.run_async([])
 
         with pytest.raises(ValueError, match="init callback cannot be a coroutine"):
             gen = OpenAIChatGenerator(streaming_callback=async_callback)
@@ -944,7 +944,7 @@ class TestOpenAIChatGenerator:
 
         chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
         component = OpenAIChatGenerator(tools=tools)
-        results = await component.async_run(chat_messages)
+        results = await component.run_async(chat_messages)
         assert len(results["replies"]) == 1
         message = results["replies"][0]
 
