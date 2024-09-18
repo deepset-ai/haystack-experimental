@@ -95,7 +95,7 @@ class LLMMetadataExtractor:
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator: List[Any],
+        generator: List[Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]],
         raise_on_failure: bool = False,
     ):
         """
@@ -112,9 +112,9 @@ class LLMMetadataExtractor:
         """
         amazon_bedrock_generator.check()
         vertex_ai_gemini_generator.check()
-
-        SUPPORTED_GENERATORS = (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator)
-
+        self.SUPPORTED_GENERATORS = (
+            OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator
+        )
         self.prompt = prompt
         self.input_text = input_text
         self.builder = PromptBuilder(prompt, required_variables=[input_text])
@@ -128,7 +128,7 @@ class LLMMetadataExtractor:
             raise ValueError(f"{self.input_text} must be in the prompt.")
 
     def _check_llm(self):
-        if not isinstance(self.generator, SUPPORTED_GENERATORS):
+        if not isinstance(self.generator, self.SUPPORTED_GENERATORS):
             raise ValueError(
                 "Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, "
                 "AmazonBedrockGenerator or VertexAIGeminiGenerator."
