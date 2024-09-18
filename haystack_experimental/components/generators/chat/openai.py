@@ -338,7 +338,7 @@ class OpenAIChatGenerator:
         return {"replies": completions}
 
     @component.output_types(replies=List[ChatMessage])
-    async def async_run(  # noqa: PLR0913
+    async def run_async(  # noqa: PLR0913
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[
