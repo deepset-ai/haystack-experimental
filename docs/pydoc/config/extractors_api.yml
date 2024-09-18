@@ -13,7 +13,7 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: Extracting information from Documents.
+  excerpt: Extracting information from documents.
   category_slug: experiments-api
   title: EXtractors
   slug: experimental-generators-api
