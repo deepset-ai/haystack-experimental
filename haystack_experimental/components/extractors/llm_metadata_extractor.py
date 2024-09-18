@@ -12,7 +12,7 @@ from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.lazy_imports import LazyImport
-from haystack.utils import deserialize_component_in_init_params_inplace
+from haystack.utils import deserialize_document_store_in_init_params_inplace
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
@@ -197,7 +197,7 @@ class LLMMetadataExtractor:
         :returns:
             An instance of the component.
         """
-        deserialize_component_in_init_params_inplace(data, key="generator")
+        deserialize_document_store_in_init_params_inplace(data, key="generator")
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
