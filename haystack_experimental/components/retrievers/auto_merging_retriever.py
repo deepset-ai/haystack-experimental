@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from haystack import Document, component, default_to_dict
 from haystack.core.serialization import default_from_dict
 from haystack.document_stores.types import DocumentStore
-from haystack.utils import deserialize_component_in_init_params_inplace
+from haystack.utils import deserialize_document_store_in_init_params_inplace
 
 
 @component
@@ -96,7 +96,7 @@ class AutoMergingRetriever:
         :returns:
             An instance of the component.
         """
-        deserialize_component_in_init_params_inplace(data)
+        deserialize_document_store_in_init_params_inplace(data)
         return default_from_dict(cls, data)
 
     @staticmethod
