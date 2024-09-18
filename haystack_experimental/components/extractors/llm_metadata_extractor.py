@@ -5,13 +5,14 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Tuple, Union, Type
+from typing import Any, Dict, List, Tuple, Union
 from warnings import warn
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.lazy_imports import LazyImport
+from haystack.utils import deserialize_component_in_init_params_inplace
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
@@ -19,7 +20,6 @@ with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"") a
 with LazyImport(message="Run 'pip install \"google-vertex-haystack==2.0.0\"") as vertex_ai_gemini_generator:
     from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
 
-from haystack.utils import deserialize_component_in_init_params_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class LLMMetadataExtractor:
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator: List[Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]],
+        generator,  # type: ignore
         raise_on_failure: bool = False,
     ):
         """
