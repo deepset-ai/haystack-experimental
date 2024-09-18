@@ -263,7 +263,7 @@ class TestToolInvoker:
         pipeline_dict = pipeline.to_dict()
         assert pipeline_dict == {
             "metadata": {},
-            "max_loops_allowed": 100,
+            "max_runs_per_component": 100,
             "components": {
                 "invoker": {
                     "type": "haystack_experimental.components.tools.tool_invoker.ToolInvoker",

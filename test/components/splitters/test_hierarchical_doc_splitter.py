@@ -18,23 +18,35 @@ class TestHierarchicalDocumentSplitter:
         assert builder.split_by == "word"
 
     def test_init_with_custom_params(self):
-        builder = HierarchicalDocumentSplitter(block_sizes={100, 200, 300}, split_overlap=25, split_by="word")
+        builder = HierarchicalDocumentSplitter(
+            block_sizes={100, 200, 300}, split_overlap=25, split_by="word"
+        )
         assert builder.block_sizes == [300, 200, 100]
         assert builder.split_overlap == 25
         assert builder.split_by == "word"
 
     def test_to_dict(self):
-        builder = HierarchicalDocumentSplitter(block_sizes={100, 200, 300}, split_overlap=25, split_by="word")
+        builder = HierarchicalDocumentSplitter(
+            block_sizes={100, 200, 300}, split_overlap=25, split_by="word"
+        )
         expected = builder.to_dict()
         assert expected == {
             "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
-            "init_parameters": {"block_sizes": [300, 200, 100], "split_overlap": 25, "split_by": "word"},
+            "init_parameters": {
+                "block_sizes": [300, 200, 100],
+                "split_overlap": 25,
+                "split_by": "word",
+            },
         }
 
     def test_from_dict(self):
         data = {
             "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
-            "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
+            "init_parameters": {
+                "block_sizes": [10, 5, 2],
+                "split_overlap": 0,
+                "split_by": "word",
+            },
         }
 
         builder = HierarchicalDocumentSplitter.from_dict(data)
@@ -43,7 +55,9 @@ class TestHierarchicalDocumentSplitter:
         assert builder.split_by == "word"
 
     def test_run(self):
-        builder = HierarchicalDocumentSplitter(block_sizes={10, 5, 2}, split_overlap=0, split_by="word")
+        builder = HierarchicalDocumentSplitter(
+            block_sizes={10, 5, 2}, split_overlap=0, split_by="word"
+        )
         text = "one two three four five six seven eight nine ten"
         doc = Document(content=text)
         output = builder.run([doc])
@@ -94,16 +108,30 @@ class TestHierarchicalDocumentSplitter:
         hierarchical_doc_builder = HierarchicalDocumentSplitter(block_sizes={10, 5, 2})
         doc_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=doc_store)
-        pipeline.add_component(name="hierarchical_doc_splitter", instance=hierarchical_doc_builder)
+        pipeline.add_component(
+            name="hierarchical_doc_splitter", instance=hierarchical_doc_builder
+        )
         pipeline.add_component(name="doc_writer", instance=doc_writer)
         pipeline.connect("hierarchical_doc_splitter", "doc_writer")
         expected = pipeline.to_dict()
 
-        assert expected.keys() == {"metadata", "max_loops_allowed", "components", "connections"}
-        assert expected["components"].keys() == {"hierarchical_doc_splitter", "doc_writer"}
+        assert expected.keys() == {
+            "metadata",
+            "max_runs_per_component",
+            "components",
+            "connections",
+        }
+        assert expected["components"].keys() == {
+            "hierarchical_doc_splitter",
+            "doc_writer",
+        }
         assert expected["components"]["hierarchical_doc_splitter"] == {
             "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
-            "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
+            "init_parameters": {
+                "block_sizes": [10, 5, 2],
+                "split_overlap": 0,
+                "split_by": "word",
+            },
         }
 
     def test_from_dict_in_pipeline(self):
@@ -113,7 +141,11 @@ class TestHierarchicalDocumentSplitter:
             "components": {
                 "hierarchical_doc_splitter": {
                     "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
-                    "init_parameters": {"block_sizes": [10, 5, 2], "split_overlap": 0, "split_by": "word"},
+                    "init_parameters": {
+                        "block_sizes": [10, 5, 2],
+                        "split_overlap": 0,
+                        "split_by": "word",
+                    },
                 },
                 "doc_writer": {
                     "type": "haystack.components.writers.document_writer.DocumentWriter",
@@ -132,7 +164,12 @@ class TestHierarchicalDocumentSplitter:
                     },
                 },
             },
-            "connections": [{"sender": "hierarchical_doc_splitter.documents", "receiver": "doc_writer.documents"}],
+            "connections": [
+                {
+                    "sender": "hierarchical_doc_splitter.documents",
+                    "receiver": "doc_writer.documents",
+                }
+            ],
         }
 
         assert Pipeline.from_dict(data)
@@ -140,11 +177,15 @@ class TestHierarchicalDocumentSplitter:
     @pytest.mark.integration
     def test_example_in_pipeline(self):
         pipeline = Pipeline()
-        hierarchical_doc_builder = HierarchicalDocumentSplitter(block_sizes={10, 5, 2}, split_overlap=0, split_by="word")
+        hierarchical_doc_builder = HierarchicalDocumentSplitter(
+            block_sizes={10, 5, 2}, split_overlap=0, split_by="word"
+        )
         doc_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=doc_store)
 
-        pipeline.add_component(name="hierarchical_doc_splitter", instance=hierarchical_doc_builder)
+        pipeline.add_component(
+            name="hierarchical_doc_splitter", instance=hierarchical_doc_builder
+        )
         pipeline.add_component(name="doc_writer", instance=doc_writer)
         pipeline.connect("hierarchical_doc_splitter.documents", "doc_writer")
 
@@ -157,11 +198,15 @@ class TestHierarchicalDocumentSplitter:
 
     def test_serialization_deserialization_pipeline(self):
         pipeline = Pipeline()
-        hierarchical_doc_builder = HierarchicalDocumentSplitter(block_sizes={10, 5, 2}, split_overlap=0, split_by="word")
+        hierarchical_doc_builder = HierarchicalDocumentSplitter(
+            block_sizes={10, 5, 2}, split_overlap=0, split_by="word"
+        )
         doc_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=doc_store)
 
-        pipeline.add_component(name="hierarchical_doc_splitter", instance=hierarchical_doc_builder)
+        pipeline.add_component(
+            name="hierarchical_doc_splitter", instance=hierarchical_doc_builder
+        )
         pipeline.add_component(name="doc_writer", instance=doc_writer)
         pipeline.connect("hierarchical_doc_splitter.documents", "doc_writer")
         pipeline_dict = pipeline.to_dict()

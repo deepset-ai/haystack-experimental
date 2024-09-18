@@ -8,7 +8,7 @@ from typing import Callable
 
 def is_callable_async_compatible(func: Callable) -> bool:
     """
-    Returns if the given callable is usable inside a component's `async_run` method.
+    Returns if the given callable is usable inside a component's `run_async` method.
 
     :param callable:
         The callable to check.

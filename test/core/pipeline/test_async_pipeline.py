@@ -23,7 +23,7 @@ class AsyncDoubleWithOriginal:
         raise NotImplementedError()
 
     @component.output_types(value=int, original=int)
-    async def async_run(self, value: int):
+    async def run_async(self, value: int):
         self.async_executed = True
         return {"value": value * 2, "original": value}
 
