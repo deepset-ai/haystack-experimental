@@ -33,7 +33,7 @@ class TestLLMMetadataExtractor:
         extractor = LLMMetadataExtractor(
             prompt="some prompt that was used with the LLM",
             expected_keys=["key1", "key2"],
-            generator=OpenAIGenerator(),
+            generator=OpenAIGenerator(model="gpt-4o-mini"),
             input_text="test",
             raise_on_failure=True)
         extractor_dict = extractor.to_dict()

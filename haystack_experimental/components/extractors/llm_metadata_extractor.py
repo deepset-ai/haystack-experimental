@@ -14,10 +14,10 @@ from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_document_store_in_init_params_inplace
 
-with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"") as amazon_bedrock_generator:
+with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"'") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
 
-with LazyImport(message="Run 'pip install \"google-vertex-haystack==2.0.0\"") as vertex_ai_gemini_generator:
+with LazyImport(message="Run 'pip install \"google-vertex-haystack==2.0.0\"'") as vertex_ai_gemini_generator:
     from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
 
 
