@@ -11,18 +11,17 @@ from warnings import warn
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
-from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
-from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
+from haystack.lazy_imports import LazyImport
+
+with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"") as amazon_bedrock_generator:
+    from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
+
+with LazyImport(message="Run 'pip install \"google-vertex-haystack==2.0.0\"") as vertex_ai_gemini_generator:
+    from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
 
 from haystack.utils import deserialize_component_in_init_params_inplace
 
 logger = logging.getLogger(__name__)
-
-SUPPORTED_GENERATORS = (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator)
-
-SUPPORTED_GENERATORS_TYPES: List[
-    Type[Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]]] = \
-    [OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]
 
 
 @component
@@ -90,12 +89,13 @@ class LLMMetadataExtractor:
     >>
     ```
     """ # noqa: E501
+
     def __init__(
         self,
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator: SUPPORTED_GENERATORS_TYPES,
+        generator: List[Any],
         raise_on_failure: bool = False,
     ):
         """
@@ -110,6 +110,11 @@ class LLMMetadataExtractor:
         :returns:
 
         """
+        amazon_bedrock_generator.check()
+        vertex_ai_gemini_generator.check()
+
+        SUPPORTED_GENERATORS = (OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator)
+
         self.prompt = prompt
         self.input_text = input_text
         self.builder = PromptBuilder(prompt, required_variables=[input_text])
