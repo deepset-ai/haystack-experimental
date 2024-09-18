@@ -15,7 +15,7 @@ renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
   excerpt: Extracting information from documents.
   category_slug: experiments-api
-  title: EXtractors
+  title: Extractors
   slug: experimental-generators-api
   order: 50
   markdown:
