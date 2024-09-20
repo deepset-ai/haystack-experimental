@@ -2,17 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
 import json
 import logging
-from typing import Any, Dict, List, Tuple, Union
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.lazy_imports import LazyImport
-from haystack.utils import deserialize_document_store_in_init_params_inplace
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"'") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
@@ -22,6 +21,32 @@ with LazyImport(message="Run 'pip install \"google-vertex-haystack==2.0.0\"'") a
 
 
 logger = logging.getLogger(__name__)
+
+
+class LLMProvider(Enum):
+    """
+    Currently LLM providers supported by `LLMMetadataExtractor`.
+    """
+
+    OPENAI = "openai"
+    OPENAI_AZURE = "openai_azure"
+    AWS_BEDROCK = "aws_bedrock"
+    GOOGLE_VERTEX = "google_vertex"
+
+    @staticmethod
+    def from_str(string: str) -> "LLMProvider":
+        """
+        Convert a string to a LLMProvider enum.
+        """
+        provider_map = {e.value: e for e in LLMProvider}
+        provider = provider_map.get(string)
+        if provider is None:
+            msg = (
+                f"Invalid LLMProvider '{string}'"
+                f"Supported LLMProviders are: {list(provider_map.keys())}"
+            )
+            raise ValueError(msg)
+        return provider
 
 
 @component
@@ -95,7 +120,8 @@ class LLMMetadataExtractor:
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator,  # type: ignore
+        generator_api: LLMProvider,
+        generator_api_params: Optional[Dict[str, Any]] = None,
         raise_on_failure: bool = False,
     ):
         """
@@ -104,35 +130,40 @@ class LLMMetadataExtractor:
         :param prompt: The prompt to be used for the LLM.
         :param input_text: The input text to be processed by the PromptBuilder.
         :param expected_keys: The keys expected in the JSON output from the LLM.
-        :param generator: The generator to be used for generating responses from the LLM. Currently, supports OpenAI,
-                          Azure OpenAI, and Amazon Bedrock.
+        :param generator_api: The API provider for the LLM.
+        :param generator_api_params: The parameters for the LLM generator.
         :param raise_on_failure: Whether to raise an error on failure to validate JSON output.
         :returns:
 
         """
-        amazon_bedrock_generator.check()
-        vertex_ai_gemini_generator.check()
-        self.SUPPORTED_GENERATORS = (
-            OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator
-        )
         self.prompt = prompt
         self.input_text = input_text
         self.builder = PromptBuilder(prompt, required_variables=[input_text])
         self.raise_on_failure = raise_on_failure
         self.expected_keys = expected_keys
-        self.generator = generator
-        self._check_llm()
+        self.generator_api = generator_api
+        self.generator_api_params = generator_api_params or {}
 
     def _check_prompt(self):
         if self.input_text not in self.prompt:
             raise ValueError(f"{self.input_text} must be in the prompt.")
 
-    def _check_llm(self):
-        if not isinstance(self.generator, self.SUPPORTED_GENERATORS):
-            raise ValueError(
-                "Generator must be an instance of OpenAIGenerator, AzureOpenAIGenerator, "
-                "AmazonBedrockGenerator or VertexAIGeminiGenerator."
-            )
+    @staticmethod
+    def _init_generator(generator_api: LLMProvider, generator_api_params: Dict[str, Any]):
+        """
+        Initialize the chat generator based on the specified API provider and parameters.
+        """
+        if generator_api == LLMProvider.OPENAI:
+            return OpenAIGenerator(**generator_api_params)
+        if generator_api == LLMProvider.OPENAI_AZURE:
+            return AzureOpenAIGenerator(**generator_api_params)
+        if generator_api == LLMProvider.AWS_BEDROCK:
+            amazon_bedrock_generator.check()
+            return AmazonBedrockGenerator(**generator_api_params)
+        if generator_api == LLMProvider.GOOGLE_VERTEX:
+            vertex_ai_gemini_generator.check()
+            return VertexAIGeminiGenerator(**generator_api_params)
+        raise ValueError(f"Unsupported generator API: {generator_api}")
 
     def is_valid_json_and_has_expected_keys(self, expected: List[str], received: str) -> bool:
         """
@@ -184,7 +215,8 @@ class LLMMetadataExtractor:
             input_text=self.input_text,
             expected_keys=self.expected_keys,
             raise_on_failure=self.raise_on_failure,
-            generator=self.generator.to_dict(),
+            generator_api=self.generator_api.value,
+            generator_api_params=self.generator_api_params,
         )
 
     @classmethod
@@ -197,7 +229,6 @@ class LLMMetadataExtractor:
         :returns:
             An instance of the component.
         """
-        deserialize_document_store_in_init_params_inplace(data, key="generator")
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
@@ -212,7 +243,8 @@ class LLMMetadataExtractor:
         errors = []
         for document in documents:
             prompt_with_doc = self.builder.run(input_text=document.content)
-            result = self.generator.run(prompt=prompt_with_doc["prompt"])
+            llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
+            result = llm_provider.run(prompt=prompt_with_doc["prompt"])
             llm_answer = result["replies"][0]
             if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
                 extracted_metadata = json.loads(llm_answer)

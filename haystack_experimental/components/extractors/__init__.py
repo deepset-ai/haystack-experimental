@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.extractors.llm_metadata_extractor import LLMMetadataExtractor
+from haystack_experimental.components.extractors.llm_metadata_extractor import LLMMetadataExtractor, LLMProvider
 
-_all_ = ["LLMMetadataExtractor"]
+_all_ = ["LLMMetadataExtractor", "LLMProvider"]
