@@ -16,7 +16,7 @@ _all_ = [
     "ChatMessageWriter",
     "ChatMessageRetriever",
     "OpenAIChatGenerator",
-    "LLMMetadataExtractor"
+    "LLMMetadataExtractor",
     "HierarchicalDocumentSplitter",
     "OpenAIFunctionCaller",
     "ToolInvoker"
