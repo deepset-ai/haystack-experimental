@@ -59,6 +59,11 @@ def main():
     splitter = NLTKDocumentSplitter(split_overlap=0, split_by="sentence")
     graph_builder = BuildGraph()
 
+    # ToDo:
+    #   connect chunks where the same entity is mentioned
+    #   embed the chunks
+    #   index nodes and edges in a graph database, neo4j or dgl
+
     pipeline = Pipeline()
     pipeline.add_component("splitter", splitter)
     pipeline.add_component("ner_extractor", ner_extractor)
