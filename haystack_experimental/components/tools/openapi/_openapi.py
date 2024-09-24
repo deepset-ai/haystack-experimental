@@ -108,17 +108,11 @@ def create_http_auth_function(token: str) -> Callable[[Dict[str, Any], Dict[str,
             if security_scheme["scheme"].lower() == "bearer":
                 if not token:
                     raise ValueError("Token must be provided for Bearer Auth.")
-                request.setdefault("headers", {})[
-                    "Authorization"
-                ] = f"Bearer {token}"
+                request.setdefault("headers", {})["Authorization"] = f"Bearer {token}"
             else:
-                raise ValueError(
-                    f"Unsupported HTTP authentication scheme: {security_scheme['scheme']}"
-                )
+                raise ValueError(f"Unsupported HTTP authentication scheme: {security_scheme['scheme']}")
         else:
-            raise ValueError(
-                "HTTPAuthentication strategy received a non-HTTP security scheme."
-            )
+            raise ValueError("HTTPAuthentication strategy received a non-HTTP security scheme.")
 
     return apply_auth
 
@@ -137,7 +131,7 @@ class ClientConfiguration:
         request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         llm_provider: LLMProvider = LLMProvider.OPENAI,
         operations_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
-    ):  # noqa: PLR0913
+    ):  # noqa: PLR0913 # pylint: disable=too-many-positional-arguments
         """
         Initialize a ClientConfiguration instance.
 
@@ -168,9 +162,7 @@ class ClientConfiguration:
         if not self.credentials:
             return lambda security_scheme, request: None  # No-op function
         if isinstance(self.credentials, str):
-            return self._create_authentication_from_string(
-                self.credentials, security_schemes
-            )
+            return self._create_authentication_from_string(self.credentials, security_schemes)
         raise ValueError(f"Unsupported credentials type: {type(self.credentials)}")
 
     def get_tools_definitions(self) -> List[Dict[str, Any]]:
@@ -215,12 +207,9 @@ class ClientConfiguration:
                 return create_api_key_auth_function(api_key=credentials)
             if scheme["type"] == "http":
                 return create_http_auth_function(token=credentials)
-            raise ValueError(
-                f"Unsupported authentication type '{scheme['type']}' provided."
-            )
-        raise ValueError(
-            f"Unable to create authentication from provided credentials: {credentials}"
-        )
+            raise ValueError(f"Unsupported authentication type '{scheme['type']}' provided.")
+        raise ValueError(f"Unable to create authentication from provided credentials: {credentials}")
+
 
 def build_request(operation: Operation, **kwargs) -> Dict[str, Any]:
     """
@@ -291,9 +280,7 @@ def apply_authentication(
     :param request: The request to apply the authentication to.
     """
     security_requirements = operation.security_requirements
-    security_schemes = operation.spec_dict.get("components", {}).get(
-        "securitySchemes", {}
-    )
+    security_schemes = operation.spec_dict.get("components", {}).get("securitySchemes", {})
     if security_requirements:
         for requirement in security_requirements:
             for scheme_name in requirement:
@@ -325,9 +312,7 @@ class OpenAPIServiceClient:
             fn_extractor = self.client_config.get_payload_extractor()
             fn_invocation_payload = fn_extractor(function_payload)
         except Exception as e:
-            raise OpenAPIClientError(
-                f"Error extracting function invocation payload: {str(e)}"
-            ) from e
+            raise OpenAPIClientError(f"Error extracting function invocation payload: {str(e)}") from e
 
         if "name" not in fn_invocation_payload or "arguments" not in fn_invocation_payload:
             raise OpenAPIClientError(
