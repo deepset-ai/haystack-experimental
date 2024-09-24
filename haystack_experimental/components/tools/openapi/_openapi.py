@@ -131,7 +131,7 @@ class ClientConfiguration:
         request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         llm_provider: LLMProvider = LLMProvider.OPENAI,
         operations_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
-    ):  # noqa: PLR0913, R0917
+    ):  # noqa: PLR0913 # pylint: disable=too-many-positional-arguments
         """
         Initialize a ClientConfiguration instance.
 
