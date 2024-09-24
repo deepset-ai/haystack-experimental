@@ -1,7 +1,7 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.tools.openapi.openapi_tool"]
+    modules: ["haystack_experimental.components.splitters.hierarchical_doc_splitter"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
@@ -12,11 +12,11 @@ processors:
   - type: smart
   - type: crossref
 renderer:
-  type: haystack_pydoc_tools.renderers.ReadmeIntegrationRenderer
-  excerpt: Allows Haystack to interact with OpenAPI specified services.
+  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
+  excerpt: Split documents into hierarchical chunks.
   category_slug: experiments-api
-  title: OpenAPI
-  slug: openapi-api
+  title: Splitters
+  slug: experimental-splitters-api
   order: 100
   markdown:
     descriptive_class_title: false
@@ -24,4 +24,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: openapi_api.md
+    filename: experimental_splitters_api.md

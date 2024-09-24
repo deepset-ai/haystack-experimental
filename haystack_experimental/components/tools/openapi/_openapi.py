@@ -17,6 +17,7 @@ from haystack_experimental.components.tools.openapi._schema_conversion import (
     openai_converter,
 )
 from haystack_experimental.components.tools.openapi.types import LLMProvider, OpenAPISpecification, Operation
+from haystack_experimental.components.tools.utils import normalize_tool_definition
 
 MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
@@ -135,6 +136,7 @@ class ClientConfiguration:
         credentials: Optional[str] = None,
         request_sender: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         llm_provider: LLMProvider = LLMProvider.OPENAI,
+        operations_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
     ):  # noqa: PLR0913
         """
         Initialize a ClientConfiguration instance.
@@ -143,12 +145,14 @@ class ClientConfiguration:
         :param credentials: The credentials to use for authentication.
         :param request_sender: The function to use for sending requests.
         :param llm_provider: The LLM provider to use for generating tools definitions.
+        :param operations_filter: A function to filter the functions to register with LLMs.
         :raises ValueError: If the OpenAPI specification format is invalid.
         """
         self.openapi_spec = openapi_spec
         self.credentials = credentials
         self.request_sender = request_sender or send_request
         self.llm_provider: LLMProvider = llm_provider
+        self.operation_filter = operations_filter
 
     def get_auth_function(self) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         """
@@ -173,17 +177,18 @@ class ClientConfiguration:
         """
         Get the tools definitions used as tools LLM parameter.
 
-        :returns: The tools definitions passed to the LLM as tools parameter.
+        :returns: The tools definitions ready to be passed to the LLM as tools parameter.
         """
         provider_to_converter = defaultdict(
             lambda: openai_converter,
             {
                 LLMProvider.ANTHROPIC: anthropic_converter,
                 LLMProvider.COHERE: cohere_converter,
-            }
+            },
         )
         converter = provider_to_converter[self.llm_provider]
-        return converter(self.openapi_spec)
+        tools_definitions = converter(self.openapi_spec, self.operation_filter)
+        return [normalize_tool_definition(t) for t in tools_definitions]
 
     def get_payload_extractor(self) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -197,13 +202,13 @@ class ClientConfiguration:
             {
                 LLMProvider.ANTHROPIC: "input",
                 LLMProvider.COHERE: "parameters",
-            }
+            },
         )
         arguments_field_name = provider_to_arguments_field_name[self.llm_provider]
         return create_function_payload_extractor(arguments_field_name)
 
     def _create_authentication_from_string(
-            self, credentials: str, security_schemes: Dict[str, Any]
+        self, credentials: str, security_schemes: Dict[str, Any]
     ) -> Callable[[Dict[str, Any], Dict[str, Any]], Any]:
         for scheme in security_schemes.values():
             if scheme["type"] == "apiKey":
@@ -216,7 +221,6 @@ class ClientConfiguration:
         raise ValueError(
             f"Unable to create authentication from provided credentials: {credentials}"
         )
-
 
 def build_request(operation: Operation, **kwargs) -> Dict[str, Any]:
     """

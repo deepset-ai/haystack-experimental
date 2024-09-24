@@ -16,46 +16,58 @@ MIN_REQUIRED_OPENAPI_SPEC_VERSION = 3
 logger = logging.getLogger(__name__)
 
 
-def openai_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
+def openai_converter(
+    schema: OpenAPISpecification,
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
     """
     Converts OpenAPI specification to a list of function suitable for OpenAI LLM function calling.
 
     See https://platform.openai.com/docs/guides/function-calling for more information about OpenAI's function schema.
     :param schema: The OpenAPI specification to convert.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each dictionary representing an OpenAI function definition.
     """
     fn_definitions = _openapi_to_functions(
-        schema.spec_dict, "parameters", _parse_endpoint_spec_openai
+        schema.spec_dict, "parameters", _parse_endpoint_spec_openai, operation_filter
     )
     return [{"type": "function", "function": fn} for fn in fn_definitions]
 
 
-def anthropic_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
+def anthropic_converter(
+    schema: OpenAPISpecification,
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Anthropic LLM function calling.
 
     See https://docs.anthropic.com/en/docs/tool-use for more information about Anthropic's function schema.
 
     :param schema: The OpenAPI specification to convert.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each dictionary representing Anthropic function definition.
     """
 
     return _openapi_to_functions(
-        schema.spec_dict, "input_schema", _parse_endpoint_spec_openai
+        schema.spec_dict, "input_schema", _parse_endpoint_spec_openai, operation_filter
     )
 
 
-def cohere_converter(schema: OpenAPISpecification) -> List[Dict[str, Any]]:
+def cohere_converter(
+    schema: OpenAPISpecification,
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
+) -> List[Dict[str, Any]]:
     """
     Converts an OpenAPI specification to a list of function definitions for Cohere LLM function calling.
 
     See https://docs.cohere.com/docs/tool-use for more information about Cohere's function schema.
 
     :param schema: The OpenAPI specification to convert.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each representing a Cohere style function definition.
     """
     return _openapi_to_functions(
-        schema.spec_dict,"not important for cohere",_parse_endpoint_spec_cohere
+        schema.spec_dict,"not important for cohere",_parse_endpoint_spec_cohere, operation_filter
     )
 
 
@@ -63,18 +75,20 @@ def _openapi_to_functions(
     service_openapi_spec: Dict[str, Any],
     parameters_name: str,
     parse_endpoint_fn: Callable[[Dict[str, Any], str], Dict[str, Any]],
+    operation_filter: Optional[Callable[[Dict[str, Any]], bool]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Extracts functions from the OpenAPI specification, converts them into a function schema.
+    Extracts operations from the OpenAPI specification, converts them into a function schema.
 
-    :param service_openapi_spec: The OpenAPI specification to extract functions from.
+    :param service_openapi_spec: The OpenAPI specification to extract operations from.
     :param parameters_name: The name of the parameters field in the function schema.
     :param parse_endpoint_fn: The function to parse the endpoint specification.
+    :param operation_filter: A function to filter operations to register with LLMs.
     :returns: A list of dictionaries, each dictionary representing a function schema.
     """
 
     # Doesn't enforce rigid spec validation because that would require a lot of dependencies
-    # We check the version and require minimal fields to be present, so we can extract functions
+    # We check the version and require minimal fields to be present, so we can extract operations
     spec_version = service_openapi_spec.get("openapi")
     if not spec_version:
         raise ValueError(
@@ -87,16 +101,22 @@ def _openapi_to_functions(
             f"Invalid OpenAPI spec version {service_openapi_spec_version}. Must be "
             f"at least {MIN_REQUIRED_OPENAPI_SPEC_VERSION}."
         )
-    functions: List[Dict[str, Any]] = []
+    operations: List[Dict[str, Any]] = []
     for path, path_value in service_openapi_spec["paths"].items():
         for path_key, operation_spec in path_value.items():
             if path_key.lower() in VALID_HTTP_METHODS:
                 if "operationId" not in operation_spec:
                     operation_spec["operationId"] = path_to_operation_id(path, path_key)
-                function_dict = parse_endpoint_fn(operation_spec, parameters_name)
-                if function_dict:
-                    functions.append(function_dict)
-    return functions
+
+                # Apply the filter based on operationId before parsing the endpoint (operation)
+                if operation_filter and not operation_filter(operation_spec):
+                    continue
+
+                # parse (and register) this operation as it passed the filter
+                ops_dict = parse_endpoint_fn(operation_spec, parameters_name)
+                if ops_dict:
+                    operations.append(ops_dict)
+    return operations
 
 
 def _parse_endpoint_spec_openai(

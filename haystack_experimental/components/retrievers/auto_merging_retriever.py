@@ -27,6 +27,7 @@ class AutoMergingRetriever:
     chunks alone.
 
     Currently the AutoMergingRetriever can only be used by the following DocumentStores:
+    - [AstraDB](https://haystack.deepset.ai/integrations/astradb)
     - [ElasticSearch](https://haystack.deepset.ai/docs/latest/documentstore/elasticsearch)
     - [OpenSearch](https://haystack.deepset.ai/docs/latest/documentstore/opensearch)
     - [PGVector](https://haystack.deepset.ai/docs/latest/documentstore/pgvector)

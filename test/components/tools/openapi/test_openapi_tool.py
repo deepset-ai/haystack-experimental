@@ -22,11 +22,12 @@ class TestOpenAPITool:
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             generator_api_params={
-                "model": "gpt-3.5-turbo",
+                "model": "gpt-4o-mini",
                 "api_key": Secret.from_env_var("OPENAI_API_KEY"),
             },
             spec=openapi_spec_url,
             credentials=Secret.from_env_var("SERPERDEV_API_KEY"),
+            allowed_operations=["someOperationId", "someOtherOperationId"],
         )
 
         data = tool.to_dict()
@@ -35,11 +36,12 @@ class TestOpenAPITool:
             "init_parameters": {
                 "generator_api": "openai",
                 "generator_api_params": {
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": {"env_vars": ["OPENAI_API_KEY"], "strict": True, "type": "env_var"},
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+                "allowed_operations": ["someOperationId", "someOtherOperationId"],
             },
         }
 
@@ -52,11 +54,12 @@ class TestOpenAPITool:
             "init_parameters": {
                 "generator_api": "openai",
                 "generator_api_params": {
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": {"env_vars": ["OPENAI_API_KEY"], "strict": True, "type": "env_var"},
                 },
                 "spec": openapi_spec_url,
                 "credentials": {"env_vars": ["SERPERDEV_API_KEY"], "strict": True, "type": "env_var"},
+                "allowed_operations": None,
             },
         }
 
@@ -64,7 +67,7 @@ class TestOpenAPITool:
 
         assert tool.generator_api == LLMProvider.OPENAI
         assert tool.generator_api_params == {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4o-mini",
             "api_key": Secret.from_env_var("OPENAI_API_KEY")
         }
         assert tool.spec == openapi_spec_url
@@ -75,7 +78,7 @@ class TestOpenAPITool:
             OpenAPITool(
                 generator_api=LLMProvider.OPENAI,
                 generator_api_params={
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": Secret.from_token("not_needed"),
                 },
                 spec="https://raw.githubusercontent.com/invalid_openapi.json",
@@ -86,7 +89,7 @@ class TestOpenAPITool:
             OpenAPITool(
                 generator_api=LLMProvider.OPENAI,
                 generator_api_params={
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "api_key": Secret.from_token("not_needed"),
                 },
                 spec="invalid_openapi.json",
@@ -98,7 +101,7 @@ class TestOpenAPITool:
         tool = OpenAPITool(
             generator_api=LLMProvider.OPENAI,
             generator_api_params={
-                "model": "gpt-3.5-turbo",
+                "model": "gpt-4o-mini",
                 "api_key": Secret.from_token("not_needed"),
             },
             spec=openapi_spec_url,
@@ -110,12 +113,8 @@ class TestOpenAPITool:
         assert tool.config_openapi is not None
         assert tool.open_api_service is not None
 
-    @pytest.mark.skipif(
-        "SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set"
-    )
-    @pytest.mark.skipif(
-        "OPENAI_API_KEY" not in os.environ, reason="OPENAI_API_KEY not set"
-    )
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", ""), reason="OPENAI_API_KEY not set or empty")
     @pytest.mark.integration
     def test_run_live_openai(self):
         tool = OpenAPITool(
@@ -140,12 +139,8 @@ class TestOpenAPITool:
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
 
-    @pytest.mark.skipif(
-        "SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set"
-    )
-    @pytest.mark.skipif(
-        "ANTHROPIC_API_KEY" not in os.environ, reason="ANTHROPIC_API_KEY not set"
-    )
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY", ""), reason="ANTHROPIC_API_KEY not set or empty")
     @pytest.mark.integration
     def test_run_live_anthropic(self):
         tool = OpenAPITool(
@@ -171,12 +166,8 @@ class TestOpenAPITool:
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
 
-    @pytest.mark.skipif(
-        "SERPERDEV_API_KEY" not in os.environ, reason="SERPERDEV_API_KEY not set"
-    )
-    @pytest.mark.skipif(
-        "COHERE_API_KEY" not in os.environ, reason="COHERE_API_KEY not set"
-    )
+    @pytest.mark.skipif(not os.environ.get("SERPERDEV_API_KEY", ""), reason="SERPERDEV_API_KEY not set or empty")
+    @pytest.mark.skipif(not os.environ.get("COHERE_API_KEY", ""), reason="COHERE_API_KEY not set or empty")
     @pytest.mark.integration
     def test_run_live_cohere(self):
         tool = OpenAPITool(
@@ -223,3 +214,73 @@ class TestOpenAPITool:
             assert "hourly" in json_response
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("provider", ["openai", "anthropic", "cohere"])
+    def test_run_live_meteo_forecast_with_non_normalized_operation_id(self, provider: str):
+        """
+        Test that OpenAPITool can handle non-normalized operationIds (function names not accepted by LLMs).
+        Here we test all the supported LLMs.
+        """
+        tool = OpenAPITool(
+            generator_api=LLMProvider.from_str(provider),
+            spec="https://bit.ly/meteo_with_non_normalized_operationId"
+        )
+        results = tool.run(messages=[ChatMessage.from_user(
+            "weather forecast for latitude 52.52 and longitude 13.41 and set hourly=temperature_2m")])
+
+        assert isinstance(results["service_response"], list)
+        assert len(results["service_response"]) == 1
+        assert isinstance(results["service_response"][0], ChatMessage)
+
+        try:
+            json_response = json.loads(results["service_response"][0].content)
+            assert isinstance(json_response, dict)
+            assert "hourly" in json_response
+        except json.JSONDecodeError:
+            pytest.fail("Response content is not valid JSON")
+
+
+    def test_allowed_operations(self):
+        """
+        Although the tool definition is generated from the OpenAPI spec and firecrawl's API has multiple operations,
+        only the ones we specify in the allowed_operations list are registered with LLMs via the tool definition.
+        """
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrape"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "scrape"
+
+        # test two operations
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrape", "crawlUrls"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 2
+        assert tools[0]["function"]["name"] == "scrape"
+        assert tools[1]["function"]["name"] == "crawlUrls"
+
+        # test non-existent operation
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["scrape", "non-existent-operation"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 1
+        assert tools[0]["function"]["name"] == "scrape"
+
+        # test all non-existent operations
+        tool = OpenAPITool(
+            generator_api=LLMProvider.OPENAI,
+            spec="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/openapi.json",
+            allowed_operations=["non-existent-operation", "non-existent-operation-2"],
+        )
+        tools = tool.config_openapi.get_tools_definitions()
+        assert len(tools) == 0

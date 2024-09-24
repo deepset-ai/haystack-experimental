@@ -12,6 +12,8 @@ import requests
 import yaml
 from haystack.lazy_imports import LazyImport
 
+from haystack_experimental.components.tools.utils import normalize_function_name
+
 with LazyImport("Run 'pip install jsonref'") as jsonref_import:
     # pylint: disable=import-error
     import jsonref
@@ -31,15 +33,13 @@ VALID_HTTP_METHODS = [
 
 def path_to_operation_id(path: str, http_method: str = "get") -> str:
     """
-    Converts a path to an operationId.
+    Converts an OpenAPI spec path to synthetic operationId.
 
-    :param path: The path to convert.
+    :param path: The OpenAPI spec path to convert.
     :param http_method: The HTTP method to use for the operationId.
     :returns: The operationId.
     """
-    if http_method.lower() not in VALID_HTTP_METHODS:
-        raise ValueError(f"Invalid HTTP method: {http_method}")
-    return path.replace("/", "_").lstrip("_").rstrip("_") + "_" + http_method.lower()
+    return normalize_function_name(path + "_" + http_method.lower())
 
 
 class LLMProvider(Enum):
@@ -238,12 +238,8 @@ class OpenAPISpecification:
             }
 
             for method, operation_dict in operations.items():
-                if (
-                    operation_dict.get(
-                        "operationId", path_to_operation_id(path, method)
-                    )
-                    == op_id
-                ):
+                operation_id = operation_dict.get("operationId", path_to_operation_id(path, method))
+                if normalize_function_name(operation_id) == op_id:
                     return Operation(path, method, operation_dict, self.spec_dict)
         raise ValueError(f"No operation found with operationId {op_id}")
 
