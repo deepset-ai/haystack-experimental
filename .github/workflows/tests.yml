@@ -28,7 +28,6 @@ on:
 env:
   PYTHON_VERSION: "3.8"
   HATCH_VERSION: "1.9.4"
-  PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -52,8 +51,7 @@ jobs:
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
           hatch env find test
-          echo "env=$(hatch env find test | tr -d '\n')" >> "$GITHUB_OUTPUT"
-          echo "$GITHUB_OUTPUT"
+          echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
 
       - name: Check code format
         run: hatch fmt
@@ -93,7 +91,7 @@ jobs:
         shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
-          echo "env=$(hatch env find test | tr -d '\n')" >> "$GITHUB_OUTPUT"
+          echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache/restore@v4
         id: cache
@@ -142,7 +140,7 @@ jobs:
         shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
-          echo "env=$(hatch env find test | tr -d '\n')" >> "$GITHUB_OUTPUT"
+          echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache/restore@v4
         id: cache
