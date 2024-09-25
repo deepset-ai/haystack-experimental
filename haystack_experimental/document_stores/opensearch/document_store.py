@@ -2,8 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from haystack import default_from_dict, default_to_dict
@@ -14,10 +13,6 @@ from haystack.lazy_imports import LazyImport
 from haystack.utils.filters import raise_on_invalid_filter_syntax
 from opensearchpy import AsyncOpenSearch, OpenSearch
 from opensearchpy.helpers import async_bulk, bulk
-
-logger = logging.getLogger(__name__)
-
-Hosts = Union[str, List[Union[str, Mapping[str, Union[str, int]]]]]
 
 
 with LazyImport(
@@ -58,7 +53,7 @@ class OpenSearchDocumentStore:
         """
         Creates a new OpenSearchDocumentStore instance.
 
-        The ``embeddings_dim``, ``method``, ``mappings``, and ``settings`` arguments are only used if the index does not
+        The `embeddings_dim`, `method`, `mappings`, and `settings` arguments are only used if the index does not
         exists and needs to be created. If the index already exists, its current configurations will be used.
 
         For more information on connection parameters, see the [official OpenSearch documentation](https://opensearch.org/docs/latest/clients/python-low-level/#connecting-to-opensearch)
@@ -88,7 +83,7 @@ class OpenSearchDocumentStore:
         :param use_ssl: Whether to use SSL. Defaults to None
         :param verify_certs: Whether to verify certificates. Defaults to None
         :param timeout: Timeout in seconds. Defaults to None
-        :param **kwargs: Optional arguments that ``OpenSearch`` takes. For the full list of supported kwargs,
+        :param **kwargs: Optional arguments that `OpenSearch` takes. For the full list of supported kwargs,
             see the [official OpenSearch reference](https://opensearch-project.github.io/opensearch-py/api-ref/clients/opensearch_client.html)
         """
         self._hosts = hosts
