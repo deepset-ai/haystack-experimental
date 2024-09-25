@@ -27,7 +27,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.8"
-  HATCH_VERSION: "1.9.3"
+  HATCH_VERSION: "1.9.4"
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -47,12 +47,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        id: hatch
-        shell: bash
-        run: |
-          pip install hatch==${{ env.HATCH_VERSION }}
-          hatch env find test
-          echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Check code format
         run: hatch fmt
@@ -63,15 +58,8 @@ jobs:
       - name: Typing
         run: hatch run test:typing
 
-      - uses: actions/cache/save@v4
-        id: cache
-        with:
-          path: ${{ steps.hatch.outputs.env }}
-          key: ${{ runner.os }}-${{ github.sha }}
-
   unit-tests:
     name: Unit / ${{ matrix.os }}
-    needs: linting
     strategy:
       fail-fast: false
       matrix:
@@ -94,14 +82,14 @@ jobs:
           pip install hatch==${{ env.HATCH_VERSION }}
           echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache/restore@v4
+      - name: Run
+        run: hatch run test:unit
+
+      - uses: actions/cache/save@v4
         id: cache
         with:
           path: ${{ steps.hatch.outputs.env }}
           key: ${{ runner.os }}-${{ github.sha }}
-
-      - name: Run
-        run: hatch run test:unit
 
       - name: Coveralls
         # We upload only coverage for ubuntu as handling both os
@@ -120,7 +108,7 @@ jobs:
 
   integration-tests:
     name: Integration / ${{ matrix.os }}
-    needs: linting
+    needs: unit-tests
     strategy:
       fail-fast: false
       matrix:
