@@ -3,7 +3,6 @@ import pytest
 
 from haystack import Pipeline, Document
 from haystack.components.builders import PromptBuilder
-from haystack.components.generators import OpenAIGenerator
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack_experimental.components import LLMMetadataExtractor
@@ -26,13 +25,19 @@ class TestLLMMetadataExtractor:
             expected_keys=["key1", "key2"],
             raise_on_failure=True,
             generator_api=LLMProvider.OPENAI,
-            generator_api_params={"temperature": 0.5},
+            generator_api_params={
+                'model': 'gpt-3.5-turbo',
+                'generation_kwargs': {"temperature": 0.5}
+            },
             input_text="test")
         assert isinstance(extractor.builder, PromptBuilder)
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.raise_on_failure is True
         assert extractor.generator_api == LLMProvider.OPENAI
-        assert extractor.generator_api_params == {"temperature": 0.5}
+        assert extractor.generator_api_params == {
+                'model': 'gpt-3.5-turbo',
+                'generation_kwargs': {"temperature": 0.5}
+            }
 
     def test_to_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
@@ -51,7 +56,15 @@ class TestLLMMetadataExtractor:
                 'raise_on_failure': True,
                 'input_text': 'test',
                 'generator_api': 'openai',
-                'generator_api_params': {}
+                'generator_api_params': {
+                      'api_base_url': None,
+                      'api_key': {'env_vars': ['OPENAI_API_KEY'],'strict': True,'type': 'env_var'},
+                      'generation_kwargs': {},
+                      'model': 'gpt-4o-mini',
+                      'organization': None,
+                      'streaming_callback': None,
+                      'system_prompt': None,
+                  },
                 }
         }
 
@@ -65,14 +78,22 @@ class TestLLMMetadataExtractor:
                 'raise_on_failure': True,
                 'input_text': 'test',
                 'generator_api': 'openai',
-                'generator_api_params': {}
+                'generator_api_params': {
+                      'api_base_url': None,
+                      'api_key': {'env_vars': ['OPENAI_API_KEY'], 'strict': True, 'type': 'env_var'},
+                      'generation_kwargs': {},
+                      'model': 'gpt-4o-mini',
+                      'organization': None,
+                      'streaming_callback': None,
+                      'system_prompt': None,
+                  }
                 }
         }
         extractor = LLMMetadataExtractor.from_dict(extractor_dict)
         assert extractor.raise_on_failure is True
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.prompt == "some prompt that was used with the LLM"
-        assert extractor.generator_api == 'openai'
+        assert extractor.generator_api == LLMProvider.OPENAI
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),

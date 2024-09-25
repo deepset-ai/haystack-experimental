@@ -12,6 +12,7 @@ from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.lazy_imports import LazyImport
+from haystack.utils import deserialize_secrets_inplace
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"'") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
@@ -47,6 +48,18 @@ class LLMProvider(Enum):
             )
             raise ValueError(msg)
         return provider
+
+    @classmethod
+    def from_dict(cls, data: str) -> "LLMProvider":
+        """
+        Deserializes the component from a dictionary.
+
+        :param data:
+            Dictionary with serialized data.
+        :returns:
+            An instance of the component.
+        """
+        return cls.from_str(data)
 
 
 @component
@@ -143,13 +156,14 @@ class LLMMetadataExtractor:
         self.expected_keys = expected_keys
         self.generator_api = generator_api
         self.generator_api_params = generator_api_params or {}
+        self.llm_provider = self._init_generator(generator_api, self.generator_api_params)
 
     def _check_prompt(self):
         if self.input_text not in self.prompt:
             raise ValueError(f"{self.input_text} must be in the prompt.")
 
     @staticmethod
-    def _init_generator(generator_api: LLMProvider, generator_api_params: Dict[str, Any]):
+    def _init_generator(generator_api: LLMProvider, generator_api_params: Optional[Dict[str, Any]]):
         """
         Initialize the chat generator based on the specified API provider and parameters.
         """
@@ -209,6 +223,9 @@ class LLMMetadataExtractor:
         :returns:
             Dictionary with serialized data.
         """
+
+        llm_provider = self.llm_provider.to_dict()
+
         return default_to_dict(
             self,
             prompt=self.prompt,
@@ -216,7 +233,7 @@ class LLMMetadataExtractor:
             expected_keys=self.expected_keys,
             raise_on_failure=self.raise_on_failure,
             generator_api=self.generator_api.value,
-            generator_api_params=self.generator_api_params,
+            generator_api_params=llm_provider["init_parameters"],
         )
 
     @classmethod
@@ -229,7 +246,11 @@ class LLMMetadataExtractor:
         :returns:
             An instance of the component.
         """
+
+        data["init_parameters"]["generator_api"] = LLMProvider.from_str(data["init_parameters"]["generator_api"])
+        deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
+
 
     @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
     def run(self, documents: List[Document]) -> Dict[str, Union[List[Document], List[Tuple[str, Any]]]]:
@@ -243,8 +264,7 @@ class LLMMetadataExtractor:
         errors = []
         for document in documents:
             prompt_with_doc = self.builder.run(input_text=document.content)
-            llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
-            result = llm_provider.run(prompt=prompt_with_doc["prompt"])
+            result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
             llm_answer = result["replies"][0]
             if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
                 extracted_metadata = json.loads(llm_answer)
