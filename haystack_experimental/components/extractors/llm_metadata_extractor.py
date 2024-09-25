@@ -126,7 +126,7 @@ class LLMMetadataExtractor:
        }
     >>
     ```
-    """ # noqa: E501
+    """ # noqa: E501, R0917
 
     def __init__(
         self,
