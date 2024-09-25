@@ -61,6 +61,9 @@ extra-dependencies = [
   "fastapi",
   # Tool
   "jsonschema",
+  # Async
+  "opensearch-haystack",
+  "opensearch-py[async]",
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -154,8 +157,8 @@ disable = [
   "cyclic-import",
   "import-outside-toplevel",
   "deprecated-method",
-  "too-many-arguments",   # sometimes we need to pass more than 5 arguments
-  "too-many-instance-attributes"  # sometimes we need to have a class with more than 7 attributes
+  "too-many-arguments",           # sometimes we need to pass more than 5 arguments
+  "too-many-instance-attributes", # sometimes we need to have a class with more than 7 attributes
 ]
 
 [tool.pytest.ini_options]
