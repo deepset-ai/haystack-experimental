@@ -63,6 +63,7 @@ extra-dependencies = [
   "jsonschema",
   # Async
   "opensearch-haystack",
+  "opensearch-py[async]",
 ]
 
 [tool.hatch.envs.test.scripts]
