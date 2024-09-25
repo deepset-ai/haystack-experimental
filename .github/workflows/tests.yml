@@ -76,20 +76,10 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        id: hatch
-        shell: bash
-        run: |
-          pip install hatch==${{ env.HATCH_VERSION }}
-          echo "hatch_env_location=$(hatch env find test | tr -d '\n')" >> "$GITHUB_ENV"
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Run
         run: hatch run test:unit
-
-      - uses: actions/cache/save@v4
-        id: cache
-        with:
-          path: ${{ env.hatch_env_location }}
-          key: ${{ runner.os }}-${{ github.sha }}
 
       - name: Coveralls
         # We upload only coverage for ubuntu as handling both os
@@ -108,7 +98,7 @@ jobs:
 
   integration-tests:
     name: Integration / ${{ matrix.os }}
-    needs: unit-tests
+    needs: linting
     strategy:
       fail-fast: false
       matrix:
@@ -125,17 +115,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        id: hatch
-        shell: bash
-        run: |
-          pip install hatch==${{ env.HATCH_VERSION }}
-          echo "hatch_env_location=$(hatch env find test | tr -d '\n')" >> "$GITHUB_ENV"
-
-      - uses: actions/cache/restore@v4
-        id: cache
-        with:
-          path: ${{ env.hatch_env_location }}
-          key: ${{ runner.os }}-${{ github.sha }}
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Run
         run: hatch run test:integration
