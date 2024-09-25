@@ -44,6 +44,7 @@ jobs:
 
       - name: Install Hatch
         id: hatch
+        shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
           echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
@@ -83,6 +84,7 @@ jobs:
 
       - name: Install Hatch
         id: hatch
+        shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
           echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
@@ -113,7 +115,7 @@ jobs:
 
   integration-tests:
     name: Integration / ${{ matrix.os }}
-    needs: unit-tests
+    needs: linting
     strategy:
       fail-fast: false
       matrix:
@@ -131,6 +133,7 @@ jobs:
 
       - name: Install Hatch
         id: hatch
+        shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
           echo "env=$(hatch env find test)" >> "$GITHUB_OUTPUT"
