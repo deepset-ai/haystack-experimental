@@ -126,9 +126,9 @@ class LLMMetadataExtractor:
        }
     >>
     ```
-    """ # noqa: E501, R0917
+    """ # noqa: E501
 
-    def __init__(
+    def __init__( # pylint: disable=R0917
         self,
         prompt: str,
         input_text: str,
