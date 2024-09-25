@@ -43,6 +43,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Hatch
+        id: hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Check code format
@@ -54,8 +55,15 @@ jobs:
       - name: Typing
         run: hatch run test:typing
 
+      - uses: actions/cache/save@v4
+        id: cache
+        with:
+          path: ${{ steps.hatch.outputs.env }}
+          key: ${{ runner.os }}-${{ github.sha }}
+
   unit-tests:
     name: Unit / ${{ matrix.os }}
+    needs: linting
     strategy:
       fail-fast: false
       matrix:
@@ -72,7 +80,14 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
+        id: hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
+
+      - uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: ${{ steps.hatch.outputs.env }}
+          key: ${{ runner.os }}-${{ github.sha }}
 
       - name: Run
         run: hatch run test:unit
@@ -111,7 +126,14 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
+        id: hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
+
+      - uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: ${{ steps.hatch.outputs.env }}
+          key: ${{ runner.os }}-${{ github.sha }}
 
       - name: Run
         run: hatch run test:integration
