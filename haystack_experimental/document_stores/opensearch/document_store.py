@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Any, Dict, List, Optional
+import math
 
-import numpy as np
-from haystack import default_from_dict, default_to_dict
+from haystack import default_from_dict, default_to_dict, logging
 from haystack.dataclasses import Document
 from haystack.document_stores.errors import DocumentStoreError, DuplicateDocumentError
 from haystack.document_stores.types import DuplicatePolicy
@@ -14,6 +14,8 @@ from haystack.utils.filters import raise_on_invalid_filter_syntax
 from opensearchpy import AsyncOpenSearch, OpenSearch
 from opensearchpy.helpers import async_bulk, bulk
 
+
+logger = logging.getLogger(__name__)
 
 with LazyImport(
     "Run 'pip install opensearch-haystack opensearch-py[async]'"
@@ -188,9 +190,9 @@ class OpenSearchDocumentStore:
 
         if self._client.indices.exists(index=self._index):
             logger.debug(
-                "The index '%s' already exists. The `embedding_dim`, `method`, `mappings`, and "
+                "The index '{index}' already exists. The `embedding_dim`, `method`, `mappings`, and "
                 "`settings` values will be ignored.",
-                self._index,
+                index=self._index,
             )
         elif self._create_index:
             # Create the index if it doesn't exist
@@ -503,7 +505,7 @@ class OpenSearchDocumentStore:
         for doc in results:
             assert doc.score is not None
             doc.score = float(
-                1 / (1 + np.exp(-np.asarray(doc.score / BM25_SCALING_FACTOR)))
+                1 / (1 + math.exp(-(doc.score / float(BM25_SCALING_FACTOR))))
             )
 
     def _bm25_retrieval(
