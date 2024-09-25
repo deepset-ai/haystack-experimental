@@ -80,11 +80,7 @@ jobs:
         shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
-          {
-            echo 'HATCH_ENV_LOCATION<<EOF'
-            hatch env find test
-            echo 'EOF'
-          } >> "$GITHUB_ENV"
+          echo "hatch_env_location=$(hatch env find test | tr -d '\n')" >> "$GITHUB_ENV"
 
       - name: Run
         run: hatch run test:unit
@@ -92,7 +88,7 @@ jobs:
       - uses: actions/cache/save@v4
         id: cache
         with:
-          path: ${{ env.HATCH_ENV_LOCATION }}
+          path: ${{ env.hatch_env_location }}
           key: ${{ runner.os }}-${{ github.sha }}
 
       - name: Coveralls
@@ -133,16 +129,12 @@ jobs:
         shell: bash
         run: |
           pip install hatch==${{ env.HATCH_VERSION }}
-          {
-            echo 'HATCH_ENV_LOCATION<<EOF'
-            hatch env find test
-            echo 'EOF'
-          } >> "$GITHUB_ENV"
+          echo "hatch_env_location=$(hatch env find test | tr -d '\n')" >> "$GITHUB_ENV"
 
       - uses: actions/cache/restore@v4
         id: cache
         with:
-          path: ${{ env.HATCH_ENV_LOCATION }}
+          path: ${{ env.hatch_env_location }}
           key: ${{ runner.os }}-${{ github.sha }}
 
       - name: Run
