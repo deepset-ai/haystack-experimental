@@ -50,7 +50,7 @@ dependencies = [
 [tool.hatch.envs.test]
 extra-dependencies = [
   # RAG evaluation harness (SAS evaluator)
-  "sentence-transformers>=2.2.0",
+  "sentence-transformers>=3.0.0",
   # OpenAPI dependencies
   "jsonref",
   # OpenAPI tests
