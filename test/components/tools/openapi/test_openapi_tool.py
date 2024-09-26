@@ -284,3 +284,5 @@ class TestOpenAPITool:
         )
         tools = tool.config_openapi.get_tools_definitions()
         assert len(tools) == 0
+
+        # just another line so I can commit this file and open a PR
