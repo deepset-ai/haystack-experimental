@@ -1,5 +1,6 @@
+import csv
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Set
 
 from haystack import Pipeline, component
 from haystack.components.preprocessors import DocumentSplitter
@@ -7,10 +8,19 @@ from haystack.dataclasses import Document
 from haystack.components.extractors import NamedEntityExtractor
 from neo4j import GraphDatabase
 
+
 @dataclass
 class Entity:
     e_type: str
     surface_string: str
+
+    def __eq__(self, other):
+        if not isinstance(other, Entity):
+            return False
+        return self.e_type == other.e_type and self.surface_string == other.surface_string
+
+    def __hash__(self):
+        return hash((self.e_type, self.surface_string))
 
 @dataclass
 class Relationship:
@@ -84,6 +94,33 @@ class Neo4jHandler:
 
 
 
+def read_documents(file: str) -> List[Document]:
+    with open(file, "r") as file:
+        reader = csv.reader(file, delimiter="\t")
+        next(reader, None)  # skip the headers
+        documents = []
+        for row in reader:
+            category = row[0].strip()
+            title = row[2].strip()
+            text = row[3].strip()
+            documents.append(Document(content=text, meta={"category": category, "title": title}))
+
+    return documents
+
+def entity_normalizer(entities: List[Entity]) -> Set[Entity]:
+    """
+    Simple approach, same surface string -> same entity
+    """
+    seen = set()
+    for entity in entities:
+        if entity not in seen:
+            seen.add(entity)
+        else:
+            print(f"Duplicated entity: {entity}")
+
+    return seen
+
+
 def main():
 
     ner_extractor = NamedEntityExtractor(backend="hugging_face", model="dslim/bert-base-NER")
@@ -104,6 +141,15 @@ def main():
     #   embed the chunks
     #   index nodes and edges in a graph database, neo4j or dgl
 
+    # 1. Documents to Named Entities and Relationships
+
+    # https://huggingface.co/EmergentMethods/Phi-3-mini-4k-instruct-graph
+    # LLM to do information extraction
+
+    # 2. Named Entities and Relationships are summarized by the LLM into descriptive text blocks for each element.
+    # 3. Graph Communities detection
+    # 4. Graph Communities to Community Summaries
+
     pipeline = Pipeline()
     pipeline.add_component("splitter", splitter)
     pipeline.add_component("ner_extractor", ner_extractor)
@@ -112,12 +158,29 @@ def main():
     pipeline.connect("splitter", "ner_extractor")
     pipeline.connect("ner_extractor", "entity_builder")
 
-    docs = [Document(content="My name is Clara and I live in Berkeley, California."),
-            Document(content="I'm Merlin, the happy pig!"),
-            Document(content="New York State is home to the Empire State Building.")
-            ]
+    # maybe filter for only certain categories
+    docs = read_documents("bbc-news-data.csv")
+
+    result = pipeline.run(data={'documents': docs})
+
+    entities_normalised = entity_normalizer(result["entity_builder"]["entities"])
 
     neo4j = Neo4jHandler(user='neo4j', password='xpto1234', uri='neo4j://localhost/:7687')
+
+    for entity in result["entity_builder"]["entities"]:
+        neo4j.create_node(label=entity.e_type, properties={"surface_string": entity.surface_string})
+
+    for relationship in result["entity_builder"]["relationships"]:
+        neo4j.create_relationship(
+            label1=relationship.ent1.e_type,
+            properties1={"surface_string": relationship.ent1.surface_string},
+            label2=relationship.ent2.e_type,
+            properties2={"surface_string": relationship.ent2.surface_string},
+            rel_type="RELATED",
+            rel_properties={"relationship": relationship.relationship}
+        )
+
+
 
 if __name__ == '__main__':
     main()
