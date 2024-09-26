@@ -247,8 +247,11 @@ class LLMMetadataExtractor:
             An instance of the component.
         """
 
-        data["init_parameters"]["generator_api"] = LLMProvider.from_str(data["init_parameters"]["generator_api"])
-        deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
+        init_parameters = data.get("init_parameters", {})
+        if "generator_api" in init_parameters:
+            data["init_parameters"]["generator_api"] = LLMProvider.from_str(data["init_parameters"]["generator_api"])
+        if "generator_api_params" in init_parameters:
+            deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
 
