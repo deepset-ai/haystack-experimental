@@ -157,6 +157,7 @@ class LLMMetadataExtractor:
         self.generator_api = generator_api
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(generator_api, self.generator_api_params)
+        self._check_prompt()
 
     def _check_prompt(self):
         if self.input_text not in self.prompt:
