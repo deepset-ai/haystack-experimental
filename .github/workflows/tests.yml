@@ -42,6 +42,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
 
@@ -75,7 +79,7 @@ jobs:
         run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Run
-        run: hatch run test:cov
+        run: hatch run test:unit
 
       - name: Coveralls
         # We upload only coverage for ubuntu as handling both os
@@ -91,3 +95,27 @@ jobs:
         run: |
           hatch run pip install git+https://github.com/deepset-ai/haystack.git
           hatch run test:unit
+
+  integration-tests:
+    name: Integration / ${{ matrix.os }}
+    needs: linting
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
+      - name: Install Hatch
+        run: pip install hatch==${{ env.HATCH_VERSION }}
+
+      - name: Run
+        run: hatch run test:integration
