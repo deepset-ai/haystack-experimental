@@ -6,7 +6,6 @@ from typing import List
 from unittest.mock import patch
 
 import pytest
-import pytest_asyncio
 from haystack.dataclasses.document import Document
 from haystack.document_stores.errors import DocumentStoreError, DuplicateDocumentError
 from haystack.document_stores.types import DuplicatePolicy
@@ -19,6 +18,25 @@ from haystack_integrations.document_stores.opensearch.auth import AWSAuth
 from haystack_integrations.document_stores.opensearch.document_store import (
     DEFAULT_MAX_CHUNK_BYTES,
 )
+
+
+OPENSEARCH_URL = "https://localhost:9200"
+
+
+def opensearch_backend_active() -> bool:
+    try:
+        store = OpenSearchDocumentStore(
+            hosts=[OPENSEARCH_URL],
+            index="test",
+            http_auth=("admin", "admin"),
+            verify_certs=False,
+            embedding_dim=768,
+            create_index=False,
+        )
+        store._ensure_initialized()
+        return True
+    except Exception as e:
+        return False
 
 
 @patch("haystack_experimental.document_stores.opensearch.document_store.OpenSearch")
@@ -329,6 +347,9 @@ class TestAuth:
         }
 
 
+@pytest.mark.skipif(
+    not opensearch_backend_active(), reason="OpenSearch backend is not active"
+)
 @pytest.mark.integration
 class TestDocumentStore(DocumentStoreBaseTests):
     """
@@ -342,7 +363,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -365,7 +386,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -395,7 +416,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -906,7 +927,7 @@ class TestDocumentStore(DocumentStoreBaseTests):
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -960,6 +981,9 @@ class TestDocumentStore(DocumentStoreBaseTests):
 
 
 # Needs to a separate class due to the fixtures requiring async.
+@pytest.mark.skipif(
+    not opensearch_backend_active(), reason="OpenSearch backend is not active"
+)
 @pytest.mark.integration
 class TestDocumentStoreAsync:
 
@@ -969,7 +993,7 @@ class TestDocumentStoreAsync:
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -993,7 +1017,7 @@ class TestDocumentStoreAsync:
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -1024,7 +1048,7 @@ class TestDocumentStoreAsync:
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
@@ -1048,7 +1072,7 @@ class TestDocumentStoreAsync:
         This is the most basic requirement for the child class: provide
         an instance of this document store so the base class can use it.
         """
-        hosts = ["https://localhost:9200"]
+        hosts = [OPENSEARCH_URL]
         # Use a different index for each test so we can run them in parallel
         index = f"{request.node.name}"
 
