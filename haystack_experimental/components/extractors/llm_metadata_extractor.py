@@ -161,7 +161,7 @@ class LLMMetadataExtractor:
 
     def _check_prompt(self):
         if self.input_text not in self.prompt:
-            raise ValueError(f"{self.input_text} must be in the prompt.")
+            raise ValueError(f"Input text '{self.input_text}' must be in the prompt.")
 
     @staticmethod
     def _init_generator(generator_api: LLMProvider, generator_api_params: Optional[Dict[str, Any]]):
