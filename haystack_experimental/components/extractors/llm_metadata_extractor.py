@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from haystack import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
-from haystack import Document, component, default_from_dict, default_to_dict
+from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.lazy_imports import LazyImport
@@ -48,18 +47,6 @@ class LLMProvider(Enum):
             )
             raise ValueError(msg)
         return provider
-
-    @classmethod
-    def from_dict(cls, data: str) -> "LLMProvider":
-        """
-        Deserializes the component from a dictionary.
-
-        :param data:
-            Dictionary with serialized data.
-        :returns:
-            An instance of the component.
-        """
-        return cls.from_str(data)
 
 
 @component
@@ -157,14 +144,14 @@ class LLMMetadataExtractor:
         self.generator_api = generator_api
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(generator_api, self.generator_api_params)
-        self._check_prompt()
-
-    def _check_prompt(self):
         if self.input_text not in self.prompt:
             raise ValueError(f"Input text '{self.input_text}' must be in the prompt.")
 
     @staticmethod
-    def _init_generator(generator_api: LLMProvider, generator_api_params: Optional[Dict[str, Any]]):
+    def _init_generator(
+            generator_api: LLMProvider,
+            generator_api_params: Optional[Dict[str, Any]]
+    ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]:
         """
         Initialize the chat generator based on the specified API provider and parameters.
         """
@@ -200,18 +187,16 @@ class LLMMetadataExtractor:
         try:
             parsed_output = json.loads(received)
         except json.JSONDecodeError:
-            msg = "Response from LLM evaluator is not a valid JSON."
+            msg = "Response from LLM is not a valid JSON."
             if self.raise_on_failure:
                 raise ValueError(msg)
-            warn(msg)
             logger.warning(msg)
             return False
 
         if not all(output in parsed_output for output in expected):
-            msg = f"Expected response from LLM evaluator to be JSON with keys {expected}, got {received}."
+            msg = f"Expected response from LLM to be a JSON with keys {expected}, got {received}."
             if self.raise_on_failure:
                 raise ValueError(msg)
-            warn(msg)
             logger.warning(msg)
             return False
 
@@ -263,7 +248,9 @@ class LLMMetadataExtractor:
 
         :param documents: List of documents to extract metadata from.
         :returns:
-            A dictionary with the key "documents_meta" containing the documents with extracted metadata.
+            A dictionary with the keys:
+            - "documents": List of documents with extracted metadata.
+            - "errors": List of tuples with document ID and error message or None if successful.
         """
         errors = []
         for document in documents:

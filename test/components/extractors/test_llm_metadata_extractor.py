@@ -101,6 +101,7 @@ class TestLLMMetadataExtractor:
         assert extractor.prompt == "some prompt that was used with the LLM {{test}}"
         assert extractor.generator_api == LLMProvider.OPENAI
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
