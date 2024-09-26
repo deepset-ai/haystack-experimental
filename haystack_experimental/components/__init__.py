@@ -9,7 +9,6 @@ from .splitters import HierarchicalDocumentSplitter
 from .tools import OpenAIFunctionCaller, ToolInvoker
 from .writers import ChatMessageWriter
 
-
 _all_ = [
     "AutoMergingRetriever",
     "ChatMessageWriter",
@@ -17,5 +16,5 @@ _all_ = [
     "OpenAIChatGenerator",
     "HierarchicalDocumentSplitter",
     "OpenAIFunctionCaller",
-    "ToolInvoker"
+    "ToolInvoker",
 ]
