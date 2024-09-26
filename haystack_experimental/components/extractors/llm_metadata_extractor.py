@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import logging
+from haystack import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
