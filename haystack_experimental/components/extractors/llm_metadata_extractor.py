@@ -5,7 +5,6 @@
 import json
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
-from warnings import warn
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder

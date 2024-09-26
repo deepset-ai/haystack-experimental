@@ -11,7 +11,8 @@ from haystack_experimental.components.extractors import LLMProvider
 
 class TestLLMMetadataExtractor:
 
-    def test_init_default(self):
+    def test_init_default(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
             prompt="prompt {{test}}",
             expected_keys=["key1", "key2"],
@@ -24,7 +25,8 @@ class TestLLMMetadataExtractor:
         assert extractor.raise_on_failure is False
         assert extractor.input_text == "test"
 
-    def test_init_with_parameters(self):
+    def test_init_with_parameters(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
             prompt="prompt {{test}}",
             expected_keys=["key1", "key2"],
