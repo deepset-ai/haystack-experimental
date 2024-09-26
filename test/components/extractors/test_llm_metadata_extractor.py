@@ -12,7 +12,12 @@ from haystack_experimental.components.extractors import LLMProvider
 class TestLLMMetadataExtractor:
 
     def test_init_default(self):
-        extractor = LLMMetadataExtractor(prompt="prompt", expected_keys=["key1", "key2"], generator_api=LLMProvider.OPENAI, input_text="test")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{test}}",
+            expected_keys=["key1", "key2"],
+            generator_api=LLMProvider.OPENAI,
+            input_text="test"
+        )
         assert isinstance(extractor.builder, PromptBuilder)
         assert extractor.generator_api == LLMProvider.OPENAI
         assert extractor.expected_keys == ["key1", "key2"]
@@ -21,7 +26,7 @@ class TestLLMMetadataExtractor:
 
     def test_init_with_parameters(self):
         extractor = LLMMetadataExtractor(
-            prompt="prompt",
+            prompt="prompt {{test}}",
             expected_keys=["key1", "key2"],
             raise_on_failure=True,
             generator_api=LLMProvider.OPENAI,
@@ -42,7 +47,7 @@ class TestLLMMetadataExtractor:
     def test_to_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
-            prompt="some prompt that was used with the LLM",
+            prompt="some prompt that was used with the LLM {{test}}",
             expected_keys=["key1", "key2"],
             generator_api=LLMProvider.OPENAI,
             input_text="test",
@@ -52,7 +57,7 @@ class TestLLMMetadataExtractor:
         assert extractor_dict == {
             'type': 'haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor',
             'init_parameters': {
-                'prompt': 'some prompt that was used with the LLM',
+                'prompt': 'some prompt that was used with the LLM {{test}}',
                 'expected_keys': ['key1', 'key2'],
                 'raise_on_failure': True,
                 'input_text': 'test',
@@ -74,7 +79,7 @@ class TestLLMMetadataExtractor:
         extractor_dict = {
             'type': 'haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor',
             'init_parameters': {
-                'prompt': 'some prompt that was used with the LLM',
+                'prompt': 'some prompt that was used with the LLM {{test}}',
                 'expected_keys': ['key1', 'key2'],
                 'raise_on_failure': True,
                 'input_text': 'test',
@@ -93,7 +98,7 @@ class TestLLMMetadataExtractor:
         extractor = LLMMetadataExtractor.from_dict(extractor_dict)
         assert extractor.raise_on_failure is True
         assert extractor.expected_keys == ["key1", "key2"]
-        assert extractor.prompt == "some prompt that was used with the LLM"
+        assert extractor.prompt == "some prompt that was used with the LLM {{test}}"
         assert extractor.generator_api == LLMProvider.OPENAI
 
     @pytest.mark.skipif(
