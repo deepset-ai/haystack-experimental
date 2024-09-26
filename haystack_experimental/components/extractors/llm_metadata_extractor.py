@@ -257,7 +257,7 @@ class LLMMetadataExtractor:
 
 
     @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
-    def run(self, documents: List[Document]) -> Dict[str, Union[List[Document], List[Tuple[str, Any]]]]:
+    def run(self, documents: List[Document]) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
 
