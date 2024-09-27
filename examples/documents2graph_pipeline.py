@@ -4,9 +4,13 @@ from typing import List, Tuple, Set
 
 from haystack import Pipeline, component
 from haystack.components.preprocessors import DocumentSplitter
+from haystack.components.writers import DocumentWriter
 from haystack.dataclasses import Document
 from haystack.components.extractors import NamedEntityExtractor
 from neo4j import GraphDatabase
+
+from haystack.document_stores.in_memory import InMemoryDocumentStore
+from haystack.document_stores.types import DuplicatePolicy
 
 
 @dataclass
@@ -92,6 +96,13 @@ class Neo4jHandler:
         params = {**{f'a_{k}': v for k, v in properties1.items()}, **{f'b_{k}': v for k, v in properties2.items()}, **{f'r_{k}': v for k, v in rel_properties.items()}}
         tx.run(query, **params)
 
+    def clean_database(self):
+        with self.driver.session() as session:
+            session.execute_write(self._clean_database)
+
+    @staticmethod
+    def _clean_database(tx):
+        tx.run("MATCH (n) DETACH DELETE n")
 
 
 def read_documents(file: str) -> List[Document]:
@@ -123,10 +134,6 @@ def entity_normalizer(entities: List[Entity]) -> Set[Entity]:
 
 def main():
 
-    ner_extractor = NamedEntityExtractor(backend="hugging_face", model="dslim/bert-base-NER")
-    splitter = DocumentSplitter(split_overlap=0, split_by="sentence")
-    graph_builder = BuildGraph()
-
     """
     https://hub.docker.com/_/neo4j
     
@@ -150,26 +157,45 @@ def main():
     # 3. Graph Communities detection
     # 4. Graph Communities to Community Summaries
 
+    ner_extractor = NamedEntityExtractor(backend="hugging_face", model="dslim/bert-base-NER")
+    splitter = DocumentSplitter(split_overlap=0, split_by="sentence", split_length=1)
+    graph_builder = BuildGraph()
+    doc_store = InMemoryDocumentStore()
+    doc_writer = DocumentWriter(doc_store, policy=DuplicatePolicy.OVERWRITE)
+
     pipeline = Pipeline()
     pipeline.add_component("splitter", splitter)
+    pipeline.add_component("doc_writer", doc_writer)
     pipeline.add_component("ner_extractor", ner_extractor)
     pipeline.add_component("entity_builder", graph_builder)
 
     pipeline.connect("splitter", "ner_extractor")
+    pipeline.connect("splitter", "doc_writer")
     pipeline.connect("ner_extractor", "entity_builder")
 
-    # maybe filter for only certain categories
     docs = read_documents("bbc-news-data.csv")
 
+    """
+    'sport': 511,
+    'business': 510,
+    'politics': 417,
+    'tech': 401,
+    'entertainment': 386
+    """
+
+    docs = [doc for doc in docs if doc.meta['category'] == 'business' ]
     result = pipeline.run(data={'documents': docs})
 
     entities_normalised = entity_normalizer(result["entity_builder"]["entities"])
 
     neo4j = Neo4jHandler(user='neo4j', password='xpto1234', uri='neo4j://localhost/:7687')
+    neo4j.clean_database()
 
-    for entity in result["entity_builder"]["entities"]:
+    print("Creating nodes")
+    for entity in entities_normalised:
         neo4j.create_node(label=entity.e_type, properties={"surface_string": entity.surface_string})
 
+    print("Creating edges")
     for relationship in result["entity_builder"]["relationships"]:
         neo4j.create_relationship(
             label1=relationship.ent1.e_type,
