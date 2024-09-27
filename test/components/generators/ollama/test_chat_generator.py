@@ -1,5 +1,6 @@
 from typing import List
 from unittest.mock import Mock
+import sys
 
 import pytest
 from haystack.components.generators.utils import print_streaming_chunk
@@ -98,6 +99,10 @@ class TestOllamaChatGenerator:
         assert observed.text == "Hello! How are you today?"
 
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        sys.platform != "linux",
+        reason="For simplicity, we only run the integration tests on Linux.",
+    )
     def test_run(self):
         chat_generator = OllamaChatGenerator(model="qwen2.5:3b")
 
@@ -117,6 +122,10 @@ class TestOllamaChatGenerator:
             assert answer in response["replies"][0].text
 
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        sys.platform != "linux",
+        reason="For simplicity, we only run the integration tests on Linux.",
+    )
     def test_run_with_chat_history(self):
         chat_generator = OllamaChatGenerator(model="qwen2.5:3b")
 
@@ -134,6 +143,10 @@ class TestOllamaChatGenerator:
         assert any(city in response["replies"][-1].text for city in ["Manchester", "Birmingham", "Glasgow"])
 
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        sys.platform != "linux",
+        reason="For simplicity, we only run the integration tests on Linux.",
+    )
     def test_run_model_unavailable(self):
         component = OllamaChatGenerator(model="unknown_model")
 
@@ -142,9 +155,13 @@ class TestOllamaChatGenerator:
             component.run([message])
 
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        sys.platform != "linux",
+        reason="For simplicity, we only run the integration tests on Linux.",
+    )
     def test_run_with_streaming(self):
         streaming_callback = Mock()
-        chat_generator = OllamaChatGenerator(streaming_callback=streaming_callback)
+        chat_generator = OllamaChatGenerator(model="qwen2.5:3b", streaming_callback=streaming_callback)
 
         chat_messages = [
             ChatMessage.from_user("What is the largest city in the United Kingdom by population?"),
