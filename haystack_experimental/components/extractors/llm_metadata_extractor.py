@@ -140,7 +140,8 @@ class LLMMetadataExtractor:
         self.builder = PromptBuilder(prompt, required_variables=[input_text])
         self.raise_on_failure = raise_on_failure
         self.expected_keys = expected_keys
-        self.generator_api = generator_api
+        self.generator_api = generator_api if isinstance(generator_api, LLMProvider) \
+            else LLMProvider.from_str(generator_api)
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(generator_api, self.generator_api_params)
         if self.input_text not in self.prompt:
@@ -148,7 +149,7 @@ class LLMMetadataExtractor:
 
     @staticmethod
     def _init_generator(
-            generator_api: LLMProvider,
+            generator_api: Union[str,LLMProvider],
             generator_api_params: Optional[Dict[str, Any]]
     ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]:
         """
