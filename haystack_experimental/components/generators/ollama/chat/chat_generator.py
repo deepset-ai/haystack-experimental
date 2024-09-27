@@ -17,6 +17,12 @@ with LazyImport("Run 'pip install ollama-haystack'") as ollama_integration_impor
     from haystack_integrations.components.generators.ollama import OllamaChatGenerator as OllamaChatGeneratorBase
 
 
+if ollama_integration_import.is_successful():
+    chatgenerator_base_class: Type[OllamaChatGeneratorBase] = OllamaChatGeneratorBase
+else:
+    chatgenerator_base_class: Type[object] = object  # type: ignore[no-redef]
+
+
 def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
     """
     Convert a message to the format expected by Ollama Chat API.
@@ -52,12 +58,6 @@ def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
             )
         ollama_msg["tool_calls"] = ollama_tool_calls
     return ollama_msg
-
-
-if ollama_integration_import.is_successful():
-    chatgenerator_base_class: Type[OllamaChatGeneratorBase] = OllamaChatGeneratorBase
-else:
-    chatgenerator_base_class: Type[object] = object  # type: ignore[no-redef]
 
 
 @component()
