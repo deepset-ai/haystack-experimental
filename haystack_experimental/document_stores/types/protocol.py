@@ -38,7 +38,8 @@ class DocumentStore(Protocol):
         """
         ...
 
-    async def count_documents_async(self) -> int: ...  # noqa: D102
+    async def count_documents_async(self) -> int:  # noqa: D102
+        ...
 
     def filter_documents(
         self, filters: Optional[Dict[str, Any]] = None
