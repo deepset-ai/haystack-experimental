@@ -35,7 +35,7 @@ env:
   COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
   FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
   SERPERDEV_API_KEY: ${{ secrets.SERPERDEV_API_KEY }}
-  OLLAMA_LLM_FOR_TESTS: "qwen2.5:3b"
+  OLLAMA_LLM_FOR_TESTS: "llama3.2:3b"
 
 jobs:
   linting:

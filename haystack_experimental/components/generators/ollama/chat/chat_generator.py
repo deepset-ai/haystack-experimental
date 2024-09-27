@@ -212,6 +212,7 @@ class OllamaChatGenerator(base_class):
         stream = self.streaming_callback is not None
 
         tools = tools or self.tools
+        ollama_tools = None
         if tools:
             if stream:
                 raise ValueError("Ollama does not support tools and streaming at the same time. Please choose one.")
@@ -219,14 +220,11 @@ class OllamaChatGenerator(base_class):
             duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
             if duplicate_tool_names:
                 raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
-
-        # ollama_tools = None
-        # if tools:
-        #     ollama_tools = [{"type": "function", "function": {**t.tool_spec}} for t in tools]
+            ollama_tools = [{"type": "function", "function": {**t.tool_spec}} for t in tools]
 
         ollama_messages = [_convert_message_to_ollama_format(msg) for msg in messages]
         response = self._client.chat(
-            model=self.model, messages=ollama_messages, stream=stream, options=generation_kwargs
+            model=self.model, messages=ollama_messages, tools=ollama_tools, stream=stream, options=generation_kwargs
         )
 
         if stream:
