@@ -240,7 +240,7 @@ class LLMMetadataExtractor:
         return default_from_dict(cls, data)
 
 
-    @component.output_types(documents=List[Document], errors=List[Tuple[str,Any]])
+    @component.output_types(documents=List[Document], errors=List[Optional[str]])
     def run(self, documents: List[Document]) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
@@ -249,7 +249,8 @@ class LLMMetadataExtractor:
         :returns:
             A dictionary with the keys:
             - "documents": List of documents with extracted metadata.
-            - "errors": List of tuples with document ID and error message or None if successful.
+            - "errors": List aligned with the list of documents with either an error message or None if successful the
+                        call to the LLM was successful.
         """
         errors = []
         for document in documents:
@@ -260,8 +261,8 @@ class LLMMetadataExtractor:
                 extracted_metadata = json.loads(llm_answer)
                 for k in self.expected_keys:
                     document.meta[k] = extracted_metadata[k]
-                errors.append((document.id, None))
+                errors.append(None)
             else:
-                errors.append((document.id, llm_answer))
+                errors.append(llm_answer)
 
         return {"documents": documents, "errors": errors}
