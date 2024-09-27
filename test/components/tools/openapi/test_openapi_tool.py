@@ -217,6 +217,7 @@ class TestOpenAPITool:
 
     @pytest.mark.integration
     @pytest.mark.parametrize("provider", ["openai", "anthropic", "cohere"])
+    @pytest.mark.unstable("This test can be unstable due to free meteo service being down")
     def test_run_live_meteo_forecast_with_non_normalized_operation_id(self, provider: str):
         """
         Test that OpenAPITool can handle non-normalized operationIds (function names not accepted by LLMs).
@@ -240,7 +241,7 @@ class TestOpenAPITool:
         except json.JSONDecodeError:
             pytest.fail("Response content is not valid JSON")
 
-
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY", ""), reason="OPENAI_API_KEY not set or empty")
     def test_allowed_operations(self):
         """
         Although the tool definition is generated from the OpenAPI spec and firecrawl's API has multiple operations,
