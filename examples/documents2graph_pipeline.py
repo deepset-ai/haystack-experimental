@@ -1,3 +1,5 @@
+import time
+
 import csv
 from dataclasses import dataclass
 from typing import List, Tuple, Set
@@ -12,6 +14,12 @@ from neo4j import GraphDatabase
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 
+import requests
+import spacy
+import claucy
+
+nlp = spacy.load("en_core_web_sm")
+claucy.add_to_pipe(nlp)
 
 @dataclass
 class Entity:
@@ -132,22 +140,77 @@ def entity_normalizer(entities: List[Entity]) -> Set[Entity]:
     return seen
 
 
+def extract_relationship_clausie(documents: List[Document]) -> List[Relationship]:
+    # spacy NLP process a batch of sentences
+    texts = [doc.content for doc in documents]
+    spacy_docs = list(nlp.pipe(texts))
+
+    for doc in spacy_docs:
+        if not doc._.clauses:
+            continue
+        print(doc)
+        for ent in doc.ents:
+            print(ent.text, ent.label_)
+        print(doc._.clauses[0].to_propositions(as_text=False, inflect=None))
+        print()
+        print("-" * 100)
+
+
+
+def measure_time():
+    """Measure the time it takes to run a given function. Can be used as a decorator."""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            result = func(*args, **kwargs)
+            print(f"Function {func.__name__} took {time.time() - start:.2f} seconds.")
+            return result
+        return wrapper
+    return decorator
+
+
+@measure_time()
+def extract_relationships(data):
+    url = 'http://localhost:11434/api/generate'
+    response = requests.post(url, json=data)
+    return response
+
+def extract_relationships_llm(documents: List[Document]):
+
+    from .prompt import ENTITY_RELATIONSHIPS_GENERATION_JSON_PROMPT
+    prompt = ENTITY_RELATIONSHIPS_GENERATION_JSON_PROMPT
+    entity_types = ["PERSON", "ORG", "GPE", "LOC", "PRODUCT", "EVENT", "WORK_OF_ART", "LAW", "LANGUAGE", "DATE", "TIME", "PERCENT", "MONEY", "QUANTITY", "ORDINAL", "CARDINAL"]
+
+    for doc in docs:
+        data = {
+            # "model": "llama3.2",
+            "model": "phi",
+            "prompt": prompt.format(language='English', input_text=doc.content, entity_types=entity_types),
+            "stream": False
+        }
+        response = extract_relationships(data)
+        resp_json = response.json()
+        if response.status_code != 200:
+            print(f"Error: {response.status_code}")
+            print(resp_json)
+        print("\n\n")
+        print("source text:")
+        print(doc.content)
+        print("----------------")
+        print(resp_json['response'])
+        print("=" * 80)
+        print("\n\n")
+
+
+
+
 def main():
 
     """
-    https://hub.docker.com/_/neo4j
-    
     docker run --publish=7474:7474 --publish=7687:7687 --volume=$HOME/neo4j/data:/data neo4j
-    
-    This binds two ports (7474 and 7687) for HTTP and Bolt access to the Neo4j API. A volume is bound to /data to allow the database to be persisted outside the container.
-    By default, this requires you to login with neo4j/neo4j and change the password. You can, for development purposes, disable authentication by passing --env=NEO4J_AUTH=none to docker run.
     """
 
     # ToDo:
-    #   connect chunks where the same entity is mentioned
-    #   embed the chunks
-    #   index nodes and edges in a graph database, neo4j or dgl
-
     # 1. Documents to Named Entities and Relationships
 
     # https://huggingface.co/EmergentMethods/Phi-3-mini-4k-instruct-graph
@@ -169,9 +232,9 @@ def main():
     pipeline.add_component("ner_extractor", ner_extractor)
     pipeline.add_component("entity_builder", graph_builder)
 
-    pipeline.connect("splitter", "ner_extractor")
+    # pipeline.connect("splitter", "ner_extractor")
     pipeline.connect("splitter", "doc_writer")
-    pipeline.connect("ner_extractor", "entity_builder")
+    # pipeline.connect("ner_extractor", "entity_builder")
 
     docs = read_documents("bbc-news-data.csv")
 
