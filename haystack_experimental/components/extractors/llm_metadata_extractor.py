@@ -119,7 +119,7 @@ class LLMMetadataExtractor:
         prompt: str,
         input_text: str,
         expected_keys: List[str],
-        generator_api: LLMProvider,
+        generator_api: Union[str,LLMProvider],
         generator_api_params: Optional[Dict[str, Any]] = None,
         raise_on_failure: bool = False,
     ):
