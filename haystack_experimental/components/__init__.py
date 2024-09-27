@@ -13,7 +13,8 @@ from .writers import ChatMessageWriter
 _all_ = [
     "AutoMergingRetriever",
     "ChatMessageWriter",
-    "ChatMessageRetriever" "OllamaChatGenerator",
+    "ChatMessageRetriever",
+    "OllamaChatGenerator",
     "OpenAIChatGenerator",
     "HierarchicalDocumentSplitter",
     "OpenAIFunctionCaller",
