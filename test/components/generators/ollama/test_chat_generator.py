@@ -48,19 +48,20 @@ class TestOllamaChatGenerator:
         )
         data = component.to_dict()
         assert data == {
-            "type": "haystack_integrations.components.generators.ollama.chat.chat_generator.OllamaChatGenerator",
+            "type": "haystack_experimental.components.generators.ollama.chat.chat_generator.OllamaChatGenerator",
             "init_parameters": {
                 "timeout": 120,
                 "model": "llama2",
                 "url": "custom_url",
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "generation_kwargs": {"max_tokens": 10, "some_test_param": "test-params"},
+                "tools": None,
             },
         }
 
     def test_from_dict(self):
         data = {
-            "type": "haystack_integrations.components.generators.ollama.chat.chat_generator.OllamaChatGenerator",
+            "type": "haystack_experimental.components.generators.ollama.chat.chat_generator.OllamaChatGenerator",
             "init_parameters": {
                 "timeout": 120,
                 "model": "llama2",
@@ -93,12 +94,12 @@ class TestOllamaChatGenerator:
 
         observed = OllamaChatGenerator(model=model)._build_message_from_ollama_response(ollama_response)
 
-        assert observed.role == "assistant"
-        assert observed.content == "Hello! How are you today?"
+        assert observed._role == "assistant"
+        assert observed.text == "Hello! How are you today?"
 
     @pytest.mark.integration
     def test_run(self):
-        chat_generator = OllamaChatGenerator(model="llama3.2:1b")
+        chat_generator = OllamaChatGenerator(model="qwen2.5:3b")
 
         user_questions_and_assistant_answers = [
             ("What's the capital of France?", "Paris"),
@@ -117,32 +118,27 @@ class TestOllamaChatGenerator:
 
     @pytest.mark.integration
     def test_run_with_chat_history(self):
-        chat_generator = OllamaChatGenerator(model="llama3.2:1b")
-
-        chat_history = [
-            {"role": "user", "content": "What is the largest city in the United Kingdom by population?"},
-            {"role": "assistant", "content": "London is the largest city in the United Kingdom by population"},
-            {"role": "user", "content": "And what is the second largest?"},
-        ]
+        chat_generator = OllamaChatGenerator(model="qwen2.5:3b")
 
         chat_messages = [
-            ChatMessage(_role=ChatRole(message["role"]), _content=TextContent(message["content"]))
-            for message in chat_history
+            ChatMessage.from_user("What is the largest city in the United Kingdom by population?"),
+            ChatMessage.from_assistant("London is the largest city in the United Kingdom by population"),
+            ChatMessage.from_user("And what is the second largest?"),
         ]
+
         response = chat_generator.run(chat_messages)
 
         assert isinstance(response, dict)
         assert isinstance(response["replies"], list)
-        assert "Manchester" in response["replies"][-1].text or "Glasgow" in response["replies"][-1].text
+
+        assert any(city in response["replies"][-1].text for city in ["Manchester", "Birmingham", "Glasgow"])
 
     @pytest.mark.integration
     def test_run_model_unavailable(self):
-        component = OllamaChatGenerator(model="Alistair_and_Stefano_are_great")
+        component = OllamaChatGenerator(model="unknown_model")
 
         with pytest.raises(ResponseError):
-            message = ChatMessage.from_user(
-                "Based on your infinite wisdom, can you tell me why Alistair and Stefano are so great?"
-            )
+            message = ChatMessage.from_user("irrelevant")
             component.run([message])
 
     @pytest.mark.integration
@@ -150,15 +146,10 @@ class TestOllamaChatGenerator:
         streaming_callback = Mock()
         chat_generator = OllamaChatGenerator(streaming_callback=streaming_callback)
 
-        chat_history = [
-            {"role": "user", "content": "What is the largest city in the United Kingdom by population?"},
-            {"role": "assistant", "content": "London is the largest city in the United Kingdom by population"},
-            {"role": "user", "content": "And what is the second largest?"},
-        ]
-
         chat_messages = [
-            ChatMessage(_role=ChatRole(message["role"]), _content=TextContent(message["content"]))
-            for message in chat_history
+            ChatMessage.from_user("What is the largest city in the United Kingdom by population?"),
+            ChatMessage.from_assistant("London is the largest city in the United Kingdom by population"),
+            ChatMessage.from_user("And what is the second largest?"),
         ]
 
         response = chat_generator.run(chat_messages)
@@ -167,4 +158,4 @@ class TestOllamaChatGenerator:
 
         assert isinstance(response, dict)
         assert isinstance(response["replies"], list)
-        assert "Manchester" in response["replies"][-1].text or "Glasgow" in response["replies"][-1].text
+        assert any(city in response["replies"][-1].text for city in ["Manchester", "Birmingham", "Glasgow"])

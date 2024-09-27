@@ -1,4 +1,9 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # from haystack.dataclasses import ChatMessage, StreamingChunk
+import json
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from haystack import component, default_from_dict
@@ -13,9 +18,47 @@ with LazyImport("Run 'pip install ollama-haystack'") as ollama_integration_impor
     # pylint: disable=import-error
     from haystack_integrations.components.generators.ollama import OllamaChatGenerator as OllamaChatGeneratorBase
 
-base_class: Union[Type[object], Type["OllamaChatGeneratorBase"]] = object
+
+def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
+    """
+    Convert a message to the format expected by Ollama Chat API.
+    """
+    text_contents = message.texts
+    tool_calls = message.tool_calls
+    tool_call_results = message.tool_call_results
+
+    if not text_contents and not tool_calls and not tool_call_results:
+        raise ValueError("A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`.")
+    elif len(text_contents) + len(tool_call_results) > 1:
+        raise ValueError("A `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`.")
+
+    ollama_msg: Dict[str, Any] = {"role": message._role.value}
+
+    if tool_call_results:
+        result = tool_call_results[0]
+        ollama_msg["content"] = result.result
+        # OpenAI does not provide a way to communicate errors in tool invocations, so we ignore the error field
+        return ollama_msg
+
+    if text_contents:
+        ollama_msg["content"] = text_contents[0]
+    if tool_calls:
+        ollama_tool_calls = []
+        for tc in tool_calls:
+            ollama_tool_calls.append(
+                {
+                    "type": "function",
+                    "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments)},
+                }
+            )
+        ollama_msg["tool_calls"] = ollama_tool_calls
+    return ollama_msg
+
+
 if ollama_integration_import.is_successful():
-    base_class = OllamaChatGeneratorBase
+    base_class: Type[OllamaChatGeneratorBase] = OllamaChatGeneratorBase
+else:
+    base_class: Type[object] = object  # type: ignore[no-redef]
 
 print(base_class)
 
@@ -122,10 +165,6 @@ class OllamaChatGenerator(base_class):
         return default_from_dict(cls, data)
 
     # TODO: rework
-    def _message_to_dict(self, message: ChatMessage) -> Dict[str, str]:
-        return {"role": message.role.value, "content": message.text or ""}
-
-    # TODO: rework
     def _build_message_from_ollama_response(self, ollama_response: Dict[str, Any]) -> ChatMessage:
         """
         Converts the non-streaming response from the Ollama API to a ChatMessage.
@@ -133,6 +172,18 @@ class OllamaChatGenerator(base_class):
         message = ChatMessage.from_assistant(text=ollama_response["message"]["content"])
         message.meta.update({key: value for key, value in ollama_response.items() if key != "message"})
         return message
+
+    def _convert_to_streaming_response(self, chunks: List[StreamingChunk]) -> Dict[str, List[Any]]:
+        """
+        Converts a list of chunks response required Haystack format.
+        """
+
+        # Unaltered from the integration code. Overridden to use experimental ChatMessage
+
+        replies = [ChatMessage.from_assistant("".join([c.content for c in chunks]))]
+        meta = {key: value for key, value in chunks[0].meta.items() if key != "message"}
+
+        return {"replies": replies, "meta": [meta]}
 
     @component.output_types(replies=List[ChatMessage])
     def run(
@@ -173,8 +224,10 @@ class OllamaChatGenerator(base_class):
         # if tools:
         #     ollama_tools = [{"type": "function", "function": {**t.tool_spec}} for t in tools]
 
-        messages = [self._message_to_dict(message) for message in messages]
-        response = self._client.chat(model=self.model, messages=messages, stream=stream, options=generation_kwargs)
+        ollama_messages = [_convert_message_to_ollama_format(msg) for msg in messages]
+        response = self._client.chat(
+            model=self.model, messages=ollama_messages, stream=stream, options=generation_kwargs
+        )
 
         if stream:
             chunks: List[StreamingChunk] = self._handle_streaming_response(response)
