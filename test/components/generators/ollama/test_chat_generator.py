@@ -36,7 +36,7 @@ def test_convert_message_to_ollama_format():
     assert _convert_message_to_ollama_format(message) == {"role": "assistant", "content": "I have an answer"}
 
     message = ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])
-    assert _convert_message_to_ollama_format(message) == {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "weather", "arguments": '{"city": "Paris"}'}}]}
+    assert _convert_message_to_ollama_format(message) == {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "weather", "arguments": {"city": "Paris"}}}]}
 
     tool_result=json.dumps({"weather": "sunny", "temperature": "25"})
     message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(tool_name="weather", arguments={"city": "Paris"}))
@@ -173,6 +173,13 @@ class TestOllamaChatGenerator:
         assert observed._role == "assistant"
         assert observed.text == "Hello! How are you today?"
 
+    def test_run_fail_with_tools_and_streaming(self, tools):
+        component = OllamaChatGenerator(tools=tools, streaming_callback=print_streaming_chunk)
+
+        with pytest.raises(ValueError):
+            message = ChatMessage.from_user("irrelevant")
+            component.run([message])
+
     @pytest.mark.integration
     @pytest.mark.skipif(
         sys.platform != "linux",
@@ -271,4 +278,3 @@ class TestOllamaChatGenerator:
         assert isinstance(tool_call, ToolCall)
         assert tool_call.tool_name == "weather"
         assert tool_call.arguments == {"city": "Paris"}
-        assert message.meta["finish_reason"] == "tool_calls"

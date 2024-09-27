@@ -37,7 +37,7 @@ def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
     if tool_call_results:
         result = tool_call_results[0]
         ollama_msg["content"] = result.result
-        # OpenAI does not provide a way to communicate errors in tool invocations, so we ignore the error field
+        # Ollama does not provide a way to communicate errors in tool invocations, so we ignore the error field
         return ollama_msg
 
     if text_contents:
@@ -45,10 +45,11 @@ def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
     if tool_calls:
         ollama_tool_calls = []
         for tc in tool_calls:
+            # Ollama does not support tool call id, so we ignore it
             ollama_tool_calls.append(
                 {
                     "type": "function",
-                    "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments)},
+                    "function": {"name": tc.tool_name, "arguments": tc.arguments},
                 }
             )
         ollama_msg["tool_calls"] = ollama_tool_calls
@@ -169,7 +170,19 @@ class OllamaChatGenerator(base_class):
         """
         Converts the non-streaming response from the Ollama API to a ChatMessage.
         """
-        message = ChatMessage.from_assistant(text=ollama_response["message"]["content"])
+        ollama_message = ollama_response["message"]
+
+        text = ollama_message["content"]
+
+        tool_calls = []
+        if ollama_tool_calls := ollama_message.get("tool_calls"):
+            for ollama_tc in ollama_tool_calls:
+                tool_calls.append(
+                    ToolCall(tool_name=ollama_tc["function"]["name"], arguments=ollama_tc["function"]["arguments"])
+                )
+
+        message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls)
+
         message.meta.update({key: value for key, value in ollama_response.items() if key != "message"})
         return message
 
@@ -210,16 +223,18 @@ class OllamaChatGenerator(base_class):
         generation_kwargs = {**self.generation_kwargs, **(generation_kwargs or {})}
 
         stream = self.streaming_callback is not None
-
         tools = tools or self.tools
+
+        if stream and tools:
+            raise ValueError("Ollama does not support tools and streaming at the same time. Please choose one.")
+
         ollama_tools = None
         if tools:
-            if stream:
-                raise ValueError("Ollama does not support tools and streaming at the same time. Please choose one.")
             tool_names = [tool.name for tool in tools]
             duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
             if duplicate_tool_names:
                 raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
+
             ollama_tools = [{"type": "function", "function": {**t.tool_spec}} for t in tools]
 
         ollama_messages = [_convert_message_to_ollama_format(msg) for msg in messages]
