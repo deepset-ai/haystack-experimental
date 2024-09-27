@@ -42,7 +42,7 @@ def test_convert_message_to_ollama_format():
     message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(tool_name="weather", arguments={"city": "Paris"}))
     assert _convert_message_to_ollama_format(message) == {"role": "tool", "content": tool_result}
 
-def test_convert_message_to_openai_invalid():
+def test_convert_message_to_ollama_invalid():
     message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
     with pytest.raises(ValueError):
         _convert_message_to_ollama_format(message)

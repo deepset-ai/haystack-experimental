@@ -2,14 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# from haystack.dataclasses import ChatMessage, StreamingChunk
-import json
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from haystack import component, default_from_dict
 from haystack.dataclasses import StreamingChunk
 from haystack.lazy_imports import LazyImport
-from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
+from haystack.utils.callable_serialization import deserialize_callable
 
 from haystack_experimental.dataclasses import ChatMessage, ToolCall
 from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
@@ -57,15 +55,13 @@ def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
 
 
 if ollama_integration_import.is_successful():
-    base_class: Type[OllamaChatGeneratorBase] = OllamaChatGeneratorBase
+    chatgenerator_base_class: Type[OllamaChatGeneratorBase] = OllamaChatGeneratorBase
 else:
-    base_class: Type[object] = object  # type: ignore[no-redef]
-
-print(base_class)
+    chatgenerator_base_class: Type[object] = object  # type: ignore[no-redef]
 
 
 @component()
-class OllamaChatGenerator(base_class):
+class OllamaChatGenerator(chatgenerator_base_class):
     """
     Supports models running on Ollama.
 
@@ -165,7 +161,6 @@ class OllamaChatGenerator(base_class):
 
         return default_from_dict(cls, data)
 
-    # TODO: rework
     def _build_message_from_ollama_response(self, ollama_response: Dict[str, Any]) -> ChatMessage:
         """
         Converts the non-streaming response from the Ollama API to a ChatMessage.
@@ -191,7 +186,7 @@ class OllamaChatGenerator(base_class):
         Converts a list of chunks response required Haystack format.
         """
 
-        # Unaltered from the integration code. Overridden to use experimental ChatMessage
+        # Unaltered from the integration code. Overridden to use the experimental ChatMessage dataclass.
 
         replies = [ChatMessage.from_assistant("".join([c.content for c in chunks]))]
         meta = {key: value for key, value in chunks[0].meta.items() if key != "message"}
