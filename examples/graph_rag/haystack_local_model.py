@@ -70,13 +70,14 @@ def huggingface():
     }
 
     output = pipe(messages, **generation_args)
-    print(output[0]['generated_text'])
+    return output[0]['generated_text']
 
 
-def main():
+def haystack():
 
     generator = HuggingFaceLocalChatGenerator(
         token=Secret.from_token("HF_API_TOKEN"),
+        task="text-generation",
         model="EmergentMethods/Phi-3-mini-4k-instruct-graph",
         device=ComponentDevice.from_single(Device.mps()),
         generation_kwargs = {
@@ -88,15 +89,24 @@ def main():
     )
 
     generator.warm_up()
-
     messages[0]['name'] = "foo"
     messages[1]['name'] = "bar"
 
-    # this should also work
     chat_messages = [ChatMessage.from_dict(messages[0]), ChatMessage.from_dict(messages[1])]
+    output = generator.run(chat_messages)
 
-    generator.run(chat_messages)
+    return output['replies'][0]
 
+
+def main():
+    output_original = huggingface()
+    output_haystack = haystack()
+
+    print("Original output:")
+    print(output_original)
+    print("\n\n\n")
+    print("Haystack output:")
+    print(output_haystack)
 
 
 if __name__ == '__main__':
