@@ -50,7 +50,7 @@ dependencies = [
 [tool.hatch.envs.test]
 extra-dependencies = [
   # RAG evaluation harness (SAS evaluator)
-  "sentence-transformers>=2.2.0",
+  "sentence-transformers>=3.0.0",
   # OpenAPI dependencies
   "jsonref",
   # OpenAPI tests
@@ -59,11 +59,14 @@ extra-dependencies = [
   "fastapi",
   # Tool
   "jsonschema",
+  # LLMMetadataExtractor dependencies
+  "amazon-bedrock-haystack>=1.0.2",
+  "google-vertex-haystack>=2.0.0",
 ]
 
 [tool.hatch.envs.test.scripts]
 unit = 'pytest --cov-report xml:coverage.xml --cov="haystack_experimental" -m "not integration" {args:test}'
-integration = 'pytest --reruns 3 --reruns-delay 60 -x --maxfail=5 -m "integration" {args:test}'
+integration = 'pytest --reruns 3 --reruns-delay 60 -x --maxfail=5 -m "integration and not unstable" {args:test}'
 typing = "mypy --install-types --non-interactive {args:haystack_experimental}"
 lint = [
   "ruff check {args:haystack_experimental}",

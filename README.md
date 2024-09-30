@@ -36,17 +36,19 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 The latest version of the package contains the following experiments:
 
-| Name                        | Type                       | Expected experiment end date | Dependencies | Cookbook | Discussion |
+ 
+=======
+| Name                        | Type                       | Expected End Date | Dependencies | Cookbook | Discussion |
 | --------------------------- | -------------------------- | ---------------------------- | ------------ | -------- | ---------- |
 | [`EvaluationHarness`][1]    | Evaluation orchestrator    | October 2024                 | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/rag_eval_harness.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/74) |
 | [`OpenAIFunctionCaller`][2] | Function Calling Component | October 2024                 | None         | 🔜 | |
 | [`OpenAPITool`][3]          | OpenAPITool component      | October 2024                 | jsonref      | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/openapitool.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/79)|
 | Support for Tools: [refactored `ChatMessage` dataclass][10], [`Tool` dataclass][4], [refactored `OpenAIChatGenerator`][11], [`ToolInvoker` component][12]                | Tool Calling support            | November 2024                | jsonschema   | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/tools_support.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/98)|
-| [`ChatMessageWriter`][5]    | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75) |
-| [`ChatMessageRetriever`][6] | Memory Component | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75) |
-| [`InMemoryChatMessageStore`][7] | Memory Store | November 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  | 
-| [`Auto-Merging Retriever`][8] & [`HierarchicalDocumentSplitter`][9]| Document Splitting & Retrieval Technique        | November 2024                | None        |  <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/auto_merging_retriever.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/78) |
-
+| [`ChatMessageWriter`][5]    | Memory Component | December 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75) |
+| [`ChatMessageRetriever`][6] | Memory Component | December 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75) |
+| [`InMemoryChatMessageStore`][7] | Memory Store | December 2024                | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  | 
+| [`Auto-Merging Retriever`][8] & [`HierarchicalDocumentSplitter`][9]| Document Splitting & Retrieval Technique        | December 2024                | None        |  <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/auto_merging_retriever.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/78) |
+| [`LLMetadataExtractor`][13]                                                                                                                               | Metadata extraction with LLM             | December 2024                | None        |   |  |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 [2]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/components/tools/openai
@@ -60,7 +62,7 @@ The latest version of the package contains the following experiments:
 [10]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/dataclasses/chat_message.py
 [11]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
 [12]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/tools/tool_invoker.py
-
+[13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/extractors/llm_metadata_extractor.py
 
 ## Usage
 
