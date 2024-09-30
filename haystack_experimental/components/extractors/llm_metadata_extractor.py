@@ -149,7 +149,7 @@ class LLMMetadataExtractor:
 
     @staticmethod
     def _init_generator(
-            generator_api: Union[str,LLMProvider],
+            generator_api: LLMProvider,
             generator_api_params: Optional[Dict[str, Any]]
     ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]:
         """
