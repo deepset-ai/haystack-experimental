@@ -93,14 +93,22 @@ def haystack():
 
 
 def main():
-    output_original = huggingface()
-    output_haystack = haystack()
 
-    print("Original output:")
-    print(output_original)
-    print("\n\n\n")
-    print("Haystack output:")
-    print(output_haystack)
+    # disable user warnings
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    for i in range(10):
+        print("Iteration: ", i)
+        # output_original = huggingface()
+        output_haystack = haystack()
+        # print("Original output:")
+        # print(output_original)
+        # print("\n")
+        print("Haystack output:")
+        print(output_haystack)
+        print("\n")
+        print("-" * 100)
 
 
 if __name__ == '__main__':
