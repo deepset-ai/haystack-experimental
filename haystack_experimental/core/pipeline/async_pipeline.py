@@ -11,7 +11,7 @@ from warnings import warn
 
 from haystack import logging, tracing
 from haystack.core.component import Component
-from haystack.core.errors import PipelineMaxLoops, PipelineRuntimeError
+from haystack.core.errors import PipelineMaxComponentRuns, PipelineRuntimeError
 from haystack.core.pipeline.base import (
     PipelineBase,
     _add_missing_input_defaults,
@@ -39,8 +39,6 @@ class AsyncPipeline(PipelineBase):
     def __init__(
         self,
         metadata: Optional[Dict[str, Any]] = None,
-        max_loops_allowed: Optional[int] = None,
-        debug_path: Union[Path, str] = Path(".haystack_debug/"),
         max_runs_per_component: int = 100,
         async_executor: Optional[ThreadPoolExecutor] = None,
     ):
@@ -48,24 +46,17 @@ class AsyncPipeline(PipelineBase):
         Creates the asynchronous Pipeline.
 
         :param metadata:
-            Arbitrary dictionary to store metadata about this pipeline. Make sure all the values contained in
-            this dictionary can be serialized and deserialized if you wish to save this pipeline to file with
-            `save_pipelines()/load_pipelines()`.
-        :param max_loops_allowed:
-            How many times the pipeline can run the same node before throwing an exception.
-        :param debug_path:
-            When debug is enabled in `run()`, where to save the debug data.
-        :param async_executor:
-            Optional ThreadPoolExecutor to use for running synchronous components. If not provided, a single-threaded
-            executor will initialized and used.
+            Arbitrary dictionary to store metadata about this `Pipeline`. Make sure all the values contained in
+            this dictionary can be serialized and deserialized if you wish to save this `Pipeline` to file.
         :param max_runs_per_component:
             How many times the `Pipeline` can run the same Component.
             If this limit is reached a `PipelineMaxComponentRuns` exception is raised.
             If not set defaults to 100 runs per Component.
+        :param async_executor:
+            Optional ThreadPoolExecutor to use for running synchronous components. If not provided, a single-threaded
+            executor will initialized and used.
         """
-        super().__init__(
-            metadata, max_loops_allowed, debug_path, max_runs_per_component
-        )
+        super().__init__(metadata, max_runs_per_component)
 
         # We only need one thread as we'll immediately block after launching it.
         self.executor = (
@@ -148,7 +139,7 @@ class AsyncPipeline(PipelineBase):
             if not isinstance(res, Mapping):
                 raise PipelineRuntimeError(
                     f"Component '{name}' didn't return a dictionary. "
-                    "Components must always return dictionaries: check the the documentation."
+                    "Components must always return dictionaries: check the documentation."
                 )
             span.set_tag("haystack.component.visits", self.graph.nodes[name]["visits"])
             span.set_content_tag("haystack.component.output", res)
@@ -268,7 +259,7 @@ class AsyncPipeline(PipelineBase):
                 "haystack.pipeline.input_data": data,
                 "haystack.pipeline.output_data": final_outputs,
                 "haystack.pipeline.metadata": self.metadata,
-                "haystack.pipeline.max_loops_allowed": self.max_loops_allowed,
+                "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
             },
         ):
             while len(run_queue) > 0:
@@ -283,9 +274,9 @@ class AsyncPipeline(PipelineBase):
                     continue
 
                 if self._component_has_enough_inputs_to_run(name, components_inputs):
-                    if self.graph.nodes[name]["visits"] > self.max_loops_allowed:
-                        msg = f"Maximum loops count ({self.max_loops_allowed}) exceeded for component '{name}'"
-                        raise PipelineMaxLoops(msg)
+                    if self.graph.nodes[name]["visits"] > self._max_runs_per_component:
+                        msg = f"Maximum run count {self._max_runs_per_component} reached for component '{name}'"
+                        raise PipelineMaxComponentRuns(msg)
 
                     res = await self._run_component(name, components_inputs[name])
                     yield {name: deepcopy(res)}
