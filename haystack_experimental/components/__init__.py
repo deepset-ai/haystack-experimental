@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+
+from .extractors import LLMMetadataExtractor
 from .generators.chat import OpenAIChatGenerator
 from .generators.ollama.chat.chat_generator import OllamaChatGenerator
 from .retrievers.auto_merging_retriever import AutoMergingRetriever
@@ -16,6 +18,7 @@ _all_ = [
     "ChatMessageRetriever",
     "OllamaChatGenerator",
     "OpenAIChatGenerator",
+    "LLMMetadataExtractor",
     "HierarchicalDocumentSplitter",
     "OpenAIFunctionCaller",
     "ToolInvoker",
