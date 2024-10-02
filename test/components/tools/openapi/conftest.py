@@ -33,6 +33,17 @@ def create_openapi_spec(openapi_spec: Union[Path, str]) -> OpenAPISpecification:
             "Invalid OpenAPI specification format. Expected file path or dictionary."
         )
 
+def env_var_set(var_name):
+    return var_name in os.environ and os.environ[var_name].strip()
+
+def provider_api_key_set(provider):
+    if provider == "openai":
+        return env_var_set("OPENAI_API_KEY")
+    elif provider == "anthropic":
+        return env_var_set("ANTHROPIC_API_KEY")
+    elif provider == "cohere":
+        return env_var_set("COHERE_API_KEY")
+    return False
 
 class FastAPITestClient:
 
