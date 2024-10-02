@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, get_args, get_origin, get_type_hints
+import inspect
+from pydantic import BaseModel
+
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
@@ -122,3 +125,104 @@ def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
             deserialized_tools.append(Tool.from_dict(tool))
 
         data[key] = deserialized_tools
+
+
+def remove_title_key(data):
+    if isinstance(data, dict):
+        # Remove "title" from the current level
+        if "title" in data:
+            del data["title"]
+
+        # Recursively apply to all values that are dictionaries or lists
+        for key, value in list(data.items()):
+            remove_title_key(value)
+
+    elif isinstance(data, list):
+        # If the current level is a list, apply the same logic to each item
+        for item in data:
+            remove_title_key(item)
+
+    return data
+
+
+def tool_from_function(function: Callable) -> Tool:
+    from pydantic import BaseModel, create_model
+
+    """
+    Create a Tool from a function.
+
+    :param function:
+        The function to be converted to a Tool.
+
+    :returns:
+        The Tool created from the function.
+
+    """
+    print(function.__name__)
+    print(function.__doc__)
+
+    signature = inspect.signature(function)
+
+    # Create a dictionary of fields for create_model
+    fields = {}
+    for name, param in signature.parameters.items():
+        print(name, param)
+        # If the parameter has a default value, include it in the field
+        if name in ["self", "cls"]:
+            # fields[name] = (param.annotation, ...)
+            continue
+        if param.annotation is param.empty:
+            raise ValueError(f"Parameter {name} is missing a type hint in function {function.__name__}")
+
+        # print(param.annotation.__metadata__)
+        if param.default is param.empty:
+            fields[name] = (param.annotation, ...)
+        else:
+            fields[name] = (param.annotation, param.default)
+
+    print("FIELDS")
+    print(fields)
+
+    # # Create a Pydantic model class dynamically using __annotations__
+    # model_attrs = {"__annotations__": fields}
+    # # model = type(f"{function.__name__.capitalize()}Model", (BaseModel,), model_attrs)
+
+    model = create_model(function.__name__, **fields)
+
+    schema = remove_title_key(model.model_json_schema())
+    print("SCHEMA")
+    print(schema)
+
+    # re-add back descriptions from annotations to the generated schema
+    for name, param in signature.parameters.items():
+        if param.annotation is not param.empty and hasattr(param.annotation, "__metadata__"):
+            schema["properties"][name]["description"] = param.annotation.__metadata__[0]
+
+    print("SCHEMA")
+    print(schema)
+
+    return Tool(name=function.__name__, description=function.__doc__, parameters=schema, function=function)
+
+    return
+    # return Tool(name=function.__name__, description=function.__doc__, parameters={}, function=function)
+
+
+# def _convert_type_hints_to_json_schema(func: Callable) -> Dict:
+#     type_hints = get_type_hints(func)
+#     signature = inspect.signature(func)
+#     required = []
+#     for param_name, param in signature.parameters.items():
+#         # if param.annotation == inspect.Parameter.empty:
+#         #     raise TypeHintParsingException(f"Argument {param.name} is missing a type hint in function {func.__name__}")
+#         if param.default == inspect.Parameter.empty:
+#             required.append(param_name)
+
+#     properties = {}
+#     for param_name, param_type in type_hints.items():
+#         properties[param_name] = _parse_type_hint(param_type)
+
+#     schema = {"type": "object", "properties": properties}
+#     if required:
+#         schema["required"] = required
+
+#     return schema
