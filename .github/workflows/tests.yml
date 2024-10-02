@@ -35,6 +35,7 @@ env:
   COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
   FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
   SERPERDEV_API_KEY: ${{ secrets.SERPERDEV_API_KEY }}
+  OLLAMA_LLM_FOR_TESTS: "llama3.2:3b"
 
 jobs:
   linting:
@@ -116,6 +117,27 @@ jobs:
 
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
+
+      - name: Install Ollama and pull the required models
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+
+          # Check if the service is up and running with a timeout of 60 seconds
+          timeout=60
+          while [ $timeout -gt 0 ] && ! curl -sSf http://localhost:11434/ > /dev/null; do
+            echo "Waiting for Ollama service to start..."
+            sleep 5
+            ((timeout-=5))
+          done
+
+          if [ $timeout -eq 0 ]; then
+            echo "Timed out waiting for Ollama service to start."
+            exit 1
+          fi
+
+          ollama pull ${{ env.OLLAMA_LLM_FOR_TESTS }}
 
       - name: Run
         run: hatch run test:integration
