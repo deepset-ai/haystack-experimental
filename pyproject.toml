@@ -57,8 +57,9 @@ extra-dependencies = [
   "cohere-haystack",
   "anthropic-haystack",
   "fastapi",
-  # Tool
+  # Tools support
   "jsonschema",
+  "ollama-haystack>=1.0.0",
   # LLMMetadataExtractor dependencies
   "amazon-bedrock-haystack>=1.0.2",
   "google-vertex-haystack>=2.0.0",
