@@ -17,6 +17,17 @@ with LazyImport("Run 'pip install ollama-haystack'") as ollama_integration_impor
     from haystack_integrations.components.generators.ollama import OllamaChatGenerator as OllamaChatGeneratorBase
 
 
+# The following code block ensures that:
+# - we reuse existing code where possible
+# - people can use haystack-experimental without installing ollama-haystack.
+#
+#
+# If ollama-haystack is installed: all works correctly.
+#
+# If ollama-haystack is not installed:
+# - haystack-experimental package works fine (no import errors).
+# - OllamaChatGenerator fails with ImportError at init (due to ollama_integration_import.check()).
+
 if ollama_integration_import.is_successful():
     chatgenerator_base_class: Type[OllamaChatGeneratorBase] = OllamaChatGeneratorBase
 else:
@@ -39,24 +50,17 @@ def _convert_message_to_ollama_format(message: ChatMessage) -> Dict[str, Any]:
     ollama_msg: Dict[str, Any] = {"role": message._role.value}
 
     if tool_call_results:
-        result = tool_call_results[0]
-        ollama_msg["content"] = result.result
         # Ollama does not provide a way to communicate errors in tool invocations, so we ignore the error field
+        ollama_msg["content"] = tool_call_results[0].result
         return ollama_msg
 
     if text_contents:
         ollama_msg["content"] = text_contents[0]
     if tool_calls:
-        ollama_tool_calls = []
-        for tc in tool_calls:
-            # Ollama does not support tool call id, so we ignore it
-            ollama_tool_calls.append(
-                {
-                    "type": "function",
-                    "function": {"name": tc.tool_name, "arguments": tc.arguments},
-                }
-            )
-        ollama_msg["tool_calls"] = ollama_tool_calls
+        # Ollama does not support tool call id, so we ignore it
+        ollama_msg["tool_calls"] = [
+            {"type": "function", "function": {"name": tc.tool_name, "arguments": tc.arguments}} for tc in tool_calls
+        ]
     return ollama_msg
 
 
