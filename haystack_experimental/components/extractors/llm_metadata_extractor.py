@@ -151,7 +151,7 @@ class LLMMetadataExtractor:
     def _init_generator(
             generator_api: LLMProvider,
             generator_api_params: Optional[Dict[str, Any]]
-    ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, AmazonBedrockGenerator, VertexAIGeminiGenerator]:
+    ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, "AmazonBedrockGenerator", "VertexAIGeminiGenerator"]:
         """
         Initialize the chat generator based on the specified API provider and parameters.
         """
