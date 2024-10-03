@@ -2,14 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, get_args, get_origin, get_type_hints
 import inspect
-from pydantic import BaseModel
-
+from dataclasses import asdict, dataclass
+from typing import Any, Callable, Dict
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
+from pydantic import create_model
 
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
@@ -19,6 +18,14 @@ with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
 class ToolInvocationError(Exception):
     """
     Exception raised when a Tool invocation fails.
+    """
+
+    pass
+
+
+class SchemaGenerationError(Exception):
+    """
+    Exception raised when automatic schema generation fails.
     """
 
     pass
@@ -39,7 +46,7 @@ class Tool:
     :param parameters:
         A JSON schema defining the parameters expected by the tool.
     :param function:
-        The callable that will be invoked when the tool is called.
+        The function that will be invoked when the tool is called.
     """
 
     name: str
@@ -75,10 +82,10 @@ class Tool:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert the Tool to a dictionary.
+        Serializes the Tool to a dictionary.
 
         :returns:
-            Serialized version of the Tool.
+            Dictionary with serialized data.
         """
 
         serialized = asdict(self)
@@ -88,16 +95,86 @@ class Tool:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Tool":
         """
-        Create a Tool from a dictionary.
+        Deserializes the Tool from a dictionary.
 
         :param data:
-            The serialized version of the Tool.
-
+            Dictionary to deserialize from.
         :returns:
-            The deserialized Tool.
+            Deserialized Tool.
         """
         data["function"] = deserialize_callable(data["function"])
         return cls(**data)
+
+    @classmethod
+    def from_function(cls, function: Callable, use_docstring_as_tool_description: bool = True) -> "Tool":
+        """
+        Create a Tool instance from a function.
+
+        :param function:
+            The function to be converted into a Tool.
+            The function must include type hints for all parameters.
+            If a parameter is annotated using `typing.Annotated`, its metadata will be used as parameter description.
+        :param use_docstring_as_tool_description:
+            Whether to use the function's docstring as the tool description.
+
+        :returns:
+            The Tool created from the function.
+
+        :raises ValueError:
+            If any parameter of the function lacks a type hint.
+        :raises SchemaGenerationError:
+            If there is an error generating the JSON schema for the Tool.
+        """
+        tool_description = ""
+        if use_docstring_as_tool_description and function.__doc__:
+            tool_description = function.__doc__
+
+        signature = inspect.signature(function)
+
+        # collect fields (types and defaults) and descriptions from function parameters
+        fields: Dict[str, Any] = {}
+        descriptions = {}
+
+        for name, param in signature.parameters.items():
+            if param.annotation is param.empty:
+                raise ValueError(f"Function '{function.__name__}': parameter '{name}' does not have a type hint.")
+            default = param.default if param.default is not param.empty else ...
+            fields[name] = (param.annotation, default)
+
+            if hasattr(param.annotation, "__metadata__"):
+                descriptions[name] = param.annotation.__metadata__[0]
+
+        # create Pydantic model and generate JSON schema
+        try:
+            model = create_model(function.__name__, **fields)
+            schema = model.model_json_schema()
+        except Exception as e:
+            raise SchemaGenerationError(f"Failed to create JSON schema for function '{function.__name__}'") from e
+
+        # remove title keywords from schema: they contain redundant information
+        _remove_title_from_schema(schema)
+
+        # add parameters descriptions to the schema
+        for name, description in descriptions.items():
+            if name in schema["properties"]:
+                schema["properties"][name]["description"] = description
+
+        return Tool(name=function.__name__, description=tool_description, parameters=schema, function=function)
+
+
+def _remove_title_from_schema(schema: Dict[str, Any]):
+    """
+    Remove the 'title' keyword from JSON schema and contained property schemas.
+
+    :param schema:
+        The JSON schema to remove the 'title' keyword from.
+    """
+    schema.pop("title", None)
+
+    for property_schema in schema["properties"].values():
+        for key in list(property_schema.keys()):
+            if key == "title":
+                del property_schema[key]
 
 
 def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
@@ -125,104 +202,3 @@ def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
             deserialized_tools.append(Tool.from_dict(tool))
 
         data[key] = deserialized_tools
-
-
-def remove_title_key(data):
-    if isinstance(data, dict):
-        # Remove "title" from the current level
-        if "title" in data:
-            del data["title"]
-
-        # Recursively apply to all values that are dictionaries or lists
-        for key, value in list(data.items()):
-            remove_title_key(value)
-
-    elif isinstance(data, list):
-        # If the current level is a list, apply the same logic to each item
-        for item in data:
-            remove_title_key(item)
-
-    return data
-
-
-def tool_from_function(function: Callable) -> Tool:
-    from pydantic import BaseModel, create_model
-
-    """
-    Create a Tool from a function.
-
-    :param function:
-        The function to be converted to a Tool.
-
-    :returns:
-        The Tool created from the function.
-
-    """
-    print(function.__name__)
-    print(function.__doc__)
-
-    signature = inspect.signature(function)
-
-    # Create a dictionary of fields for create_model
-    fields = {}
-    for name, param in signature.parameters.items():
-        print(name, param)
-        # If the parameter has a default value, include it in the field
-        if name in ["self", "cls"]:
-            # fields[name] = (param.annotation, ...)
-            continue
-        if param.annotation is param.empty:
-            raise ValueError(f"Parameter {name} is missing a type hint in function {function.__name__}")
-
-        # print(param.annotation.__metadata__)
-        if param.default is param.empty:
-            fields[name] = (param.annotation, ...)
-        else:
-            fields[name] = (param.annotation, param.default)
-
-    print("FIELDS")
-    print(fields)
-
-    # # Create a Pydantic model class dynamically using __annotations__
-    # model_attrs = {"__annotations__": fields}
-    # # model = type(f"{function.__name__.capitalize()}Model", (BaseModel,), model_attrs)
-
-    model = create_model(function.__name__, **fields)
-
-    schema = remove_title_key(model.model_json_schema())
-    print("SCHEMA")
-    print(schema)
-
-    # re-add back descriptions from annotations to the generated schema
-    for name, param in signature.parameters.items():
-        if param.annotation is not param.empty and hasattr(param.annotation, "__metadata__"):
-            schema["properties"][name]["description"] = param.annotation.__metadata__[0]
-
-    print("SCHEMA")
-    print(schema)
-
-    return Tool(name=function.__name__, description=function.__doc__, parameters=schema, function=function)
-
-    return
-    # return Tool(name=function.__name__, description=function.__doc__, parameters={}, function=function)
-
-
-# def _convert_type_hints_to_json_schema(func: Callable) -> Dict:
-#     type_hints = get_type_hints(func)
-#     signature = inspect.signature(func)
-#     required = []
-#     for param_name, param in signature.parameters.items():
-#         # if param.annotation == inspect.Parameter.empty:
-#         #     raise TypeHintParsingException(f"Argument {param.name} is missing a type hint in function {func.__name__}")
-#         if param.default == inspect.Parameter.empty:
-#             required.append(param_name)
-
-#     properties = {}
-#     for param_name, param_type in type_hints.items():
-#         properties[param_name] = _parse_type_hint(param_type)
-
-#     schema = {"type": "object", "properties": properties}
-#     if required:
-#         schema["required"] = required
-
-#     return schema
