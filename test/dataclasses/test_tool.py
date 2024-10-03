@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError, deserialize_tools_inplace
+from haystack_experimental.dataclasses.tool import Tool, ToolInvocationError, deserialize_tools_inplace, _remove_title_from_schema
 
 def get_weather_report(city: str) -> str:
     return f"Weather report for {city}: 20°C, sunny"
@@ -111,3 +111,28 @@ def test_deserialize_tools_inplace_failures():
     data = {"tools": ["not a dictionary"]}
     with pytest.raises(TypeError):
         deserialize_tools_inplace(data)
+
+def test_remove_title_from_schema():
+    complex_schema = {'properties': {'parameter1': {'anyOf': [{'type': 'string'}, {'type': 'integer'}], 'default': 'default_value', 'title': 'Parameter1'}, 'parameter2': {'default': [1, 2, 3], 'items': {'anyOf': [{'type': 'string'}, {'type': 'integer'}]}, 'title': 'Parameter2', 'type': 'array'}, 'parameter3': {'anyOf': [{'type': 'string'}, {'type': 'integer'}, {'items': {'anyOf': [{'type': 'string'}, {'type': 'integer'}]}, 'type': 'array'}], 'default': 42, 'title': 'Parameter3'}, 'parameter4': {'anyOf': [{'type': 'string'}, {'items': {'type': 'integer'}, 'type': 'array'}, {'type': 'object'}], 'default': {'key': 'value'}, 'title': 'Parameter4'}}, 'title': 'complex_function', 'type': 'object'}
+
+    _remove_title_from_schema(complex_schema)
+
+    assert complex_schema == {'properties': {'parameter1': {'anyOf': [{'type': 'string'}, {'type': 'integer'}], 'default': 'default_value'}, 'parameter2': {'default': [1, 2, 3], 'items': {'anyOf': [{'type': 'string'}, {'type': 'integer'}]}, 'type': 'array'}, 'parameter3': {'anyOf': [{'type': 'string'}, {'type': 'integer'}, {'items': {'anyOf': [{'type': 'string'}, {'type': 'integer'}]}, 'type': 'array'}], 'default': 42}, 'parameter4': {'anyOf': [{'type': 'string'}, {'items': {'type': 'integer'}, 'type': 'array'}, {'type': 'object'}], 'default': {'key': 'value'}}}, 'type': 'object'}
+
+def test_remove_title_from_schema_do_not_remove_title_property():
+    """Test that the utility function only removes the 'title' keywords and not the 'title' property (if present)."""
+    schema = {'properties': {'parameter1': {'type': 'string', 'title': 'Parameter1'},
+                             "title": {"type": "string", "title": "Title"}},
+                             'title': 'complex_function', 'type': 'object'}
+
+    _remove_title_from_schema(schema)
+
+    assert schema == {'properties': {'parameter1': {'type': 'string'}, "title": {"type": "string"}}, 'type': 'object'}
+
+def test_remove_title_from_schema_handle_no_title_in_top_level():
+    schema = {'properties': {'parameter1': {'type': 'string', 'title': 'Parameter1'},
+                             'parameter2': {'type': 'integer', 'title': 'Parameter2'}}, 'type': 'object'}
+
+    _remove_title_from_schema(schema)
+
+    assert schema == {'properties': {'parameter1': {'type': 'string'}, 'parameter2': {'type': 'integer'}}, 'type': 'object'}
