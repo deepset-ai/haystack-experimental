@@ -2,14 +2,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Literal, Optional
+
 import pytest
 
 from haystack_experimental.dataclasses.tool import (
+    SchemaGenerationError,
     Tool,
     ToolInvocationError,
     _remove_title_from_schema,
     deserialize_tools_inplace,
 )
+
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated
 
 
 def get_weather_report(city: str) -> str:
@@ -87,6 +95,90 @@ class TestTool:
         assert tool.description == "Get weather report"
         assert tool.parameters == parameters
         assert tool.function == get_weather_report
+
+    def test_from_function_use_docstring_as_tool_description(self):
+        def function_with_docstring(city: str) -> str:
+            """Get weather report for a city."""
+            return f"Weather report for {city}: 20°C, sunny"
+
+        tool = Tool.from_function(
+            function=function_with_docstring,
+            use_docstring_as_tool_description=True,
+        )
+
+        assert tool.name == "function_with_docstring"
+        assert tool.description == "Get weather report for a city."
+        assert tool.parameters == {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        }
+        assert tool.function == function_with_docstring
+
+        another_tool = Tool.from_function(
+            function=function_with_docstring,
+            use_docstring_as_tool_description=False,
+        )
+
+        assert another_tool.name == "function_with_docstring"
+        assert another_tool.description == ""
+        assert another_tool.parameters == {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        }
+        assert another_tool.function == function_with_docstring
+
+    def test_from_function_missing_type_hint(self):
+        def function_missing_type_hint(city) -> str:
+            return f"Weather report for {city}: 20°C, sunny"
+
+        with pytest.raises(ValueError):
+            Tool.from_function(
+                function=function_missing_type_hint,
+            )
+
+    def test_from_function_schema_generation_error(self):
+        def function_with_invalid_type_hint(city: "invalid") -> str:
+            return f"Weather report for {city}: 20°C, sunny"
+
+        with pytest.raises(SchemaGenerationError):
+            Tool.from_function(
+                function=function_with_invalid_type_hint,
+            )
+
+    def test_from_function_annotated(self):
+        def function_with_annotations(
+            city: Annotated[str, "the city for which to get the weather"] = "Munich",
+            unit: Annotated[Literal["Celsius", "Fahrenheit"], "the unit for the temperature"] = "Celsius",
+            nullable_param: Annotated[Optional[str], "a nullable parameter"] = None,
+        ) -> str:
+            """A simple function to get the current weather for a location."""
+            return f"Weather report for {city}: 20 {unit}, sunny"
+
+        tool = Tool.from_function(
+            function=function_with_annotations,
+        )
+
+        assert tool.name == "function_with_annotations"
+        assert tool.description == "A simple function to get the current weather for a location."
+        assert tool.parameters == {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string", "description": "the city for which to get the weather", "default": "Munich"},
+                "unit": {
+                    "type": "string",
+                    "enum": ["Celsius", "Fahrenheit"],
+                    "description": "the unit for the temperature",
+                    "default": "Celsius",
+                },
+                "nullable_param": {
+                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                    "description": "a nullable parameter",
+                    "default": None,
+                },
+            },
+        }
 
 
 def test_deserialize_tools_inplace():

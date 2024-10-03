@@ -110,6 +110,36 @@ class Tool:
         """
         Create a Tool instance from a function.
 
+        Usage example:
+        ```python
+        from typing import Annotated, Literal
+        from haystack_experimental.dataclasses import Tool
+
+        def get_weather(
+            city: Annotated[str, "the city for which to get the weather"] = "Munich",
+            unit: Annotated[Literal["Celsius", "Fahrenheit"], "the unit for the temperature"] = "Celsius"):
+            '''A simple function to get the current weather for a location.'''
+            return f"Weather report for {city}: 20 {unit}, sunny"
+
+        tool = Tool.from_function(get_weather)
+
+        print(tool)
+        >>> Tool(name='get_weather', description='A simple function to get the current weather for a location.',
+        >>> parameters={
+        >>> 'type': 'object',
+        >>> 'properties': {
+        >>>     'city': {'type': 'string', 'description': 'the city for which to get the weather', 'default': 'Munich'},
+        >>>     'unit': {
+        >>>         'type': 'string',
+        >>>         'enum': ['Celsius', 'Fahrenheit'],
+        >>>         'description': 'the unit for the temperature',
+        >>>         'default': 'Celsius',
+        >>>     },
+        >>>     }
+        >>> },
+        >>> function=<function get_weather at 0x7f7b3a8a9b80>)
+        ```
+
         :param function:
             The function to be converted into a Tool.
             The function must include type hints for all parameters.
