@@ -99,7 +99,7 @@ class TestHierarchicalDocumentSplitter:
         pipeline.connect("hierarchical_doc_splitter", "doc_writer")
         expected = pipeline.to_dict()
 
-        assert expected.keys() == {"metadata", "max_loops_allowed", "components", "connections"}
+        assert expected.keys() == {"metadata", "max_runs_per_component", "components", "connections"}
         assert expected["components"].keys() == {"hierarchical_doc_splitter", "doc_writer"}
         assert expected["components"]["hierarchical_doc_splitter"] == {
             "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
@@ -109,7 +109,7 @@ class TestHierarchicalDocumentSplitter:
     def test_from_dict_in_pipeline(self):
         data = {
             "metadata": {},
-            "max_loops_allowed": 100,
+            "max_runs_per_component": 100,
             "components": {
                 "hierarchical_doc_splitter": {
                     "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
