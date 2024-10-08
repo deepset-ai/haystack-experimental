@@ -10,6 +10,7 @@ from haystack_experimental.components.tools.openapi.openapi_tool import OpenAPIT
 
 import pytest
 
+from .conftest import provider_api_key_set
 
 class TestOpenAPITool:
 
@@ -197,6 +198,9 @@ class TestOpenAPITool:
     @pytest.mark.parametrize("provider", ["openai", "anthropic", "cohere"])
     @pytest.mark.unstable("This test can be unstable due to free meteo service being down")
     def test_run_live_meteo_forecast(self, provider: str):
+        if not provider_api_key_set(provider):
+            pytest.skip(f"API key for {provider} is not set")
+
         tool = OpenAPITool(
             generator_api=LLMProvider.from_str(provider),
             spec="https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi.yml"
@@ -223,6 +227,8 @@ class TestOpenAPITool:
         Test that OpenAPITool can handle non-normalized operationIds (function names not accepted by LLMs).
         Here we test all the supported LLMs.
         """
+        if not provider_api_key_set(provider):
+            pytest.skip(f"API key for {provider} is not set")
         tool = OpenAPITool(
             generator_api=LLMProvider.from_str(provider),
             spec="https://bit.ly/meteo_with_non_normalized_operationId"

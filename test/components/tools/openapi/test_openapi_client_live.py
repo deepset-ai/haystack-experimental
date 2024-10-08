@@ -40,7 +40,7 @@ class TestClientLive:
             "id": "call_NJr1NBz2Th7iUWJpRIJZoJIA",
             "function": {
                 "arguments": json.dumps(params),
-                "name": "compare",
+                "name": "compare_branches",
             },
             "type": "function",
         }
