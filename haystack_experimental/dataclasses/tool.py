@@ -106,7 +106,7 @@ class Tool:
         return cls(**data)
 
     @classmethod
-    def from_function(cls, function: Callable, use_docstring_as_tool_description: bool = True) -> "Tool":
+    def from_function(cls, function: Callable, docstring_as_desc: bool = True) -> "Tool":
         """
         Create a Tool instance from a function.
 
@@ -144,7 +144,7 @@ class Tool:
             The function to be converted into a Tool.
             The function must include type hints for all parameters.
             If a parameter is annotated using `typing.Annotated`, its metadata will be used as parameter description.
-        :param use_docstring_as_tool_description:
+        :param docstring_as_desc:
             Whether to use the function's docstring as the tool description.
 
         :returns:
@@ -156,7 +156,7 @@ class Tool:
             If there is an error generating the JSON schema for the Tool.
         """
         tool_description = ""
-        if use_docstring_as_tool_description and function.__doc__:
+        if docstring_as_desc and function.__doc__:
             tool_description = function.__doc__
 
         signature = inspect.signature(function)
@@ -168,6 +168,9 @@ class Tool:
         for name, param in signature.parameters.items():
             if param.annotation is param.empty:
                 raise ValueError(f"Function '{function.__name__}': parameter '{name}' does not have a type hint.")
+
+            # if the parameter has not a default value, Pydantic requires an Ellipsis (...)
+            # to explicitly indicate that the parameter is required
             default = param.default if param.default is not param.empty else ...
             fields[name] = (param.annotation, default)
 
@@ -181,7 +184,9 @@ class Tool:
         except Exception as e:
             raise SchemaGenerationError(f"Failed to create JSON schema for function '{function.__name__}'") from e
 
-        # remove title keywords from schema: they contain redundant information
+        # we don't want to include title keywords in the schema, as they contain redundant information
+        # there is no programmatic way to prevent Pydantic from adding them, so we remove them later
+        # see https://github.com/pydantic/pydantic/discussions/8504
         _remove_title_from_schema(schema)
 
         # add parameters descriptions to the schema

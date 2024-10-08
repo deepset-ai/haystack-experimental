@@ -96,14 +96,14 @@ class TestTool:
         assert tool.parameters == parameters
         assert tool.function == get_weather_report
 
-    def test_from_function_use_docstring_as_tool_description(self):
+    def test_from_function_docstring_as_desc(self):
         def function_with_docstring(city: str) -> str:
             """Get weather report for a city."""
             return f"Weather report for {city}: 20°C, sunny"
 
         tool = Tool.from_function(
             function=function_with_docstring,
-            use_docstring_as_tool_description=True,
+            docstring_as_desc=True,
         )
 
         assert tool.name == "function_with_docstring"
@@ -117,7 +117,7 @@ class TestTool:
 
         another_tool = Tool.from_function(
             function=function_with_docstring,
-            use_docstring_as_tool_description=False,
+            docstring_as_desc=False,
         )
 
         assert another_tool.name == "function_with_docstring"
