@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import inspect
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
+from pydantic import create_model
 
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
@@ -16,6 +18,14 @@ with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
 class ToolInvocationError(Exception):
     """
     Exception raised when a Tool invocation fails.
+    """
+
+    pass
+
+
+class SchemaGenerationError(Exception):
+    """
+    Exception raised when automatic schema generation fails.
     """
 
     pass
@@ -36,7 +46,7 @@ class Tool:
     :param parameters:
         A JSON schema defining the parameters expected by the tool.
     :param function:
-        The callable that will be invoked when the tool is called.
+        The function that will be invoked when the tool is called.
     """
 
     name: str
@@ -72,10 +82,10 @@ class Tool:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert the Tool to a dictionary.
+        Serializes the Tool to a dictionary.
 
         :returns:
-            Serialized version of the Tool.
+            Dictionary with serialized data.
         """
 
         serialized = asdict(self)
@@ -85,16 +95,121 @@ class Tool:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Tool":
         """
-        Create a Tool from a dictionary.
+        Deserializes the Tool from a dictionary.
 
         :param data:
-            The serialized version of the Tool.
-
+            Dictionary to deserialize from.
         :returns:
-            The deserialized Tool.
+            Deserialized Tool.
         """
         data["function"] = deserialize_callable(data["function"])
         return cls(**data)
+
+    @classmethod
+    def from_function(cls, function: Callable, docstring_as_desc: bool = True) -> "Tool":
+        """
+        Create a Tool instance from a function.
+
+        Usage example:
+        ```python
+        from typing import Annotated, Literal
+        from haystack_experimental.dataclasses import Tool
+
+        def get_weather(
+            city: Annotated[str, "the city for which to get the weather"] = "Munich",
+            unit: Annotated[Literal["Celsius", "Fahrenheit"], "the unit for the temperature"] = "Celsius"):
+            '''A simple function to get the current weather for a location.'''
+            return f"Weather report for {city}: 20 {unit}, sunny"
+
+        tool = Tool.from_function(get_weather)
+
+        print(tool)
+        >>> Tool(name='get_weather', description='A simple function to get the current weather for a location.',
+        >>> parameters={
+        >>> 'type': 'object',
+        >>> 'properties': {
+        >>>     'city': {'type': 'string', 'description': 'the city for which to get the weather', 'default': 'Munich'},
+        >>>     'unit': {
+        >>>         'type': 'string',
+        >>>         'enum': ['Celsius', 'Fahrenheit'],
+        >>>         'description': 'the unit for the temperature',
+        >>>         'default': 'Celsius',
+        >>>     },
+        >>>     }
+        >>> },
+        >>> function=<function get_weather at 0x7f7b3a8a9b80>)
+        ```
+
+        :param function:
+            The function to be converted into a Tool.
+            The function must include type hints for all parameters.
+            If a parameter is annotated using `typing.Annotated`, its metadata will be used as parameter description.
+        :param docstring_as_desc:
+            Whether to use the function's docstring as the tool description.
+
+        :returns:
+            The Tool created from the function.
+
+        :raises ValueError:
+            If any parameter of the function lacks a type hint.
+        :raises SchemaGenerationError:
+            If there is an error generating the JSON schema for the Tool.
+        """
+        tool_description = ""
+        if docstring_as_desc and function.__doc__:
+            tool_description = function.__doc__
+
+        signature = inspect.signature(function)
+
+        # collect fields (types and defaults) and descriptions from function parameters
+        fields: Dict[str, Any] = {}
+        descriptions = {}
+
+        for name, param in signature.parameters.items():
+            if param.annotation is param.empty:
+                raise ValueError(f"Function '{function.__name__}': parameter '{name}' does not have a type hint.")
+
+            # if the parameter has not a default value, Pydantic requires an Ellipsis (...)
+            # to explicitly indicate that the parameter is required
+            default = param.default if param.default is not param.empty else ...
+            fields[name] = (param.annotation, default)
+
+            if hasattr(param.annotation, "__metadata__"):
+                descriptions[name] = param.annotation.__metadata__[0]
+
+        # create Pydantic model and generate JSON schema
+        try:
+            model = create_model(function.__name__, **fields)
+            schema = model.model_json_schema()
+        except Exception as e:
+            raise SchemaGenerationError(f"Failed to create JSON schema for function '{function.__name__}'") from e
+
+        # we don't want to include title keywords in the schema, as they contain redundant information
+        # there is no programmatic way to prevent Pydantic from adding them, so we remove them later
+        # see https://github.com/pydantic/pydantic/discussions/8504
+        _remove_title_from_schema(schema)
+
+        # add parameters descriptions to the schema
+        for name, description in descriptions.items():
+            if name in schema["properties"]:
+                schema["properties"][name]["description"] = description
+
+        return Tool(name=function.__name__, description=tool_description, parameters=schema, function=function)
+
+
+def _remove_title_from_schema(schema: Dict[str, Any]):
+    """
+    Remove the 'title' keyword from JSON schema and contained property schemas.
+
+    :param schema:
+        The JSON schema to remove the 'title' keyword from.
+    """
+    schema.pop("title", None)
+
+    for property_schema in schema["properties"].values():
+        for key in list(property_schema.keys()):
+            if key == "title":
+                del property_schema[key]
 
 
 def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
