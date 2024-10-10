@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 @component
 class OpenSearchBM25Retriever:
     """
-    Fetches documents from OpenSearchDocumentStore using the keyword-based BM25 algorithm.
-
-    BM25 computes a weighted word overlap between the query string and a document to determine its similarity.
+    OpenSearch BM25 retriever with async support.
     """
 
     def __init__(
@@ -231,8 +229,8 @@ class OpenSearchBM25Retriever:
                 raise e
             else:
                 logger.warning(
-                    "An error during BM25 retrieval occurred and will be ignored by returning empty results: %s",
-                    str(e),
+                    "An error during BM25 retrieval occurred and will be ignored by returning empty results: {error}",
+                    error=str(e),
                     exc_info=True,
                 )
 
@@ -287,8 +285,8 @@ class OpenSearchBM25Retriever:
                 raise e
             else:
                 logger.warning(
-                    "An error during BM25 retrieval occurred and will be ignored by returning empty results: %s",
-                    str(e),
+                    "An error during BM25 retrieval occurred and will be ignored by returning empty results: {error}",
+                    error=str(e),
                     exc_info=True,
                 )
 
