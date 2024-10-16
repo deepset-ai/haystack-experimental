@@ -11,7 +11,10 @@ from haystack.utils.hf import HFGenerationAPIType
 from huggingface_hub import (
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
+    ChatCompletionOutputFunctionDefinition,
     ChatCompletionOutputMessage,
+    ChatCompletionOutputToolCall,
+    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     ChatCompletionStreamOutputChoice,
     ChatCompletionStreamOutputDelta,
@@ -70,7 +73,11 @@ def mock_chat_completion():
             id="some_id",
             model="some_model",
             system_fingerprint="some_fingerprint",
-            usage={"completion_tokens": 10, "prompt_tokens": 5, "total_tokens": 15},
+            usage=ChatCompletionOutputUsage(
+        completion_tokens=8,
+        prompt_tokens=17,
+        total_tokens=25
+    ),
             created=1710498360,
         )
 
@@ -357,7 +364,40 @@ class TestHuggingFaceAPIChatGenerator:
         assert len(response["replies"]) > 0
         assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
 
-    @pytest.mark.flaky(reruns=5, reruns_delay=5)
+    def test_run_with_tools(self, mock_check_valid_model, tools):
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+            api_params={"model": "meta-llama/Llama-3.1-70B-Instruct"},
+            tools=tools,
+        )
+
+        with patch("huggingface_hub.InferenceClient.chat_completion", autospec=True) as mock_chat_completion:
+            completion = ChatCompletionOutput(
+                choices=[
+                    ChatCompletionOutputComplete(
+                        finish_reason="stop",
+                        index=0,
+                        message=ChatCompletionOutputMessage(role="assistant",
+                                                            content=None,
+                                                            tool_calls=[ChatCompletionOutputToolCall(function=ChatCompletionOutputFunctionDefinition(arguments={"city": "Paris"}, name="weather", description=None), id="0", type="function")]), logprobs=None)], created=1729074760, id="", model="meta-llama/Llama-3.1-70B-Instruct", system_fingerprint="2.3.2-dev0-sha-28bb7ae", usage=ChatCompletionOutputUsage(completion_tokens=30, prompt_tokens=426, total_tokens=456))
+            mock_chat_completion.return_value = completion
+
+            messages = [ChatMessage.from_user("What is the weather in Paris?")]
+            response = generator.run(messages=messages)
+
+        assert isinstance(response, dict)
+        assert "replies" in response
+        assert isinstance(response["replies"], list)
+        assert len(response["replies"]) == 1
+        assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
+        assert response["replies"][0].tool_calls[0].tool_name == "weather"
+        assert response["replies"][0].tool_calls[0].arguments == {"city": "Paris"}
+        assert response["replies"][0].tool_calls[0].id == "0"
+        assert response["replies"][0].meta == {"finish_reason": "stop", "index": 0,
+                                               "model": "meta-llama/Llama-3.1-70B-Instruct",
+                                                "usage": {"completion_tokens": 30, "prompt_tokens": 426}}
+
+
     @pytest.mark.integration
     @pytest.mark.skipif(
         not os.environ.get("HF_API_TOKEN", None),
@@ -381,7 +421,6 @@ class TestHuggingFaceAPIChatGenerator:
         assert "prompt_tokens" in response["replies"][0].meta["usage"]
         assert "completion_tokens" in response["replies"][0].meta["usage"]
 
-    @pytest.mark.flaky(reruns=5, reruns_delay=5)
     @pytest.mark.integration
     @pytest.mark.skipif(
         not os.environ.get("HF_API_TOKEN", None),
@@ -405,3 +444,46 @@ class TestHuggingFaceAPIChatGenerator:
         assert "usage" in response["replies"][0].meta
         assert "prompt_tokens" in response["replies"][0].meta["usage"]
         assert "completion_tokens" in response["replies"][0].meta["usage"]
+
+
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        not os.environ.get("HF_API_TOKEN", None),
+        reason="Export an env var called HF_API_TOKEN containing the Hugging Face token to run this test.",
+    )
+    @pytest.mark.integration
+    def test_live_run_with_tools(self, tools):
+        """
+        We test the round trip: generate tool call, pass tool message, generate response.
+
+        The model used here does not officially support tool calls, but it is always available and not gated.
+        """
+
+        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+        )
+
+        results = generator.run(chat_messages, tools=tools)
+        assert len(results["replies"]) == 1
+        message = results["replies"][0]
+
+        assert message.tool_calls
+        tool_call = message.tool_call
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.tool_name == "weather"
+        assert tool_call.arguments == {"city": "Paris"}
+        assert message.meta["finish_reason"] == "stop"
+
+
+        new_messages = chat_messages + [message, ChatMessage.from_tool(tool_result="fake result", origin=tool_call)]
+
+        # the model tends to make tool calls if provided with tools, so we don't pass them here
+        results = generator.run(new_messages, generation_kwargs={"max_tokens": 50})
+
+        assert len(results["replies"]) == 1
+        final_message = results["replies"][0]
+        assert not final_message.tool_calls
+        assert len(final_message.text) > 0
+        assert "paris" in final_message.text.lower()

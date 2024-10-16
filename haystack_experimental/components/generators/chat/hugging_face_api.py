@@ -66,6 +66,8 @@ def _convert_message_to_hfapi_format(message: ChatMessage) -> Dict[str, Any]:
                 hfapi_tool_call["id"] = tc.id
             hfapi_tool_calls.append(hfapi_tool_call)
         hfapi_msg["tool_calls"] = hfapi_tool_calls
+
+    print("hfapi_msg", hfapi_msg)
     return hfapi_msg
 
 
@@ -236,6 +238,8 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         # update generation kwargs by merging with the default ones
         generation_kwargs = {**self.generation_kwargs, **(generation_kwargs or {})}
 
+        print("messages", messages)
+
         formatted_messages = [_convert_message_to_hfapi_format(message) for message in messages]
 
         tools = tools or self.tools
@@ -254,7 +258,12 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
 
         return self._run_non_streaming(formatted_messages, generation_kwargs, hf_tools)
 
-    def _run_streaming(self, messages: List[Dict[str, str]], generation_kwargs: Dict[str, Any]):
+    def _run_streaming(
+        self,
+        messages: List[Dict[str, str]],
+        generation_kwargs: Dict[str, Any],
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+    ):
         api_output: Iterable[ChatCompletionStreamOutput] = self._client.chat_completion(
             messages, stream=True, **generation_kwargs
         )
@@ -314,8 +323,13 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
                 "model": self._client.model,
                 "finish_reason": choice.finish_reason,
                 "index": choice.index,
-                "usage": api_chat_output.usage or {"prompt_tokens": 0, "completion_tokens": 0},
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0},
             }
+            if api_chat_output.usage:
+                meta["usage"] = {
+                    "prompt_tokens": api_chat_output.usage.prompt_tokens,
+                    "completion_tokens": api_chat_output.usage.completion_tokens,
+                }
 
             chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
             chat_messages.append(chat_message)
