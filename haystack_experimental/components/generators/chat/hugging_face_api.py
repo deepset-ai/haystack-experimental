@@ -13,10 +13,10 @@ from haystack.utils.url_validation import is_valid_http_url
 
 with LazyImport(message="Run 'pip install \"huggingface_hub[inference]>=0.23.0\"'") as huggingface_hub_import:
     from huggingface_hub import (
+        ChatCompletionInputTool,
         ChatCompletionOutput,
         ChatCompletionStreamOutput,
         InferenceClient,
-        ChatCompletionInputTool,
     )
 
 from haystack.components.generators.chat.hugging_face_api import (
@@ -25,7 +25,6 @@ from haystack.components.generators.chat.hugging_face_api import (
 
 from haystack_experimental.dataclasses import ChatMessage, ToolCall
 from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
-
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +177,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
             if duplicate_tool_names:
                 raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
+        self.tools = tools
 
         # the base class __init__ also checks the hugingface_hub lazy import
         super(HuggingFaceAPIChatGenerator, self).__init__(
@@ -293,17 +293,31 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
     ) -> Dict[str, List[ChatMessage]]:
         chat_messages: List[ChatMessage] = []
 
-        api_chat_output: ChatCompletionOutput = self._client.chat_completion(messages, **generation_kwargs)
+        api_chat_output: ChatCompletionOutput = self._client.chat_completion(
+            messages=messages, tools=tools, **generation_kwargs
+        )
+
         for choice in api_chat_output.choices:
-            message = ChatMessage.from_assistant(choice.message.content)
-            message.meta.update(
-                {
-                    "model": self._client.model,
-                    "finish_reason": choice.finish_reason,
-                    "index": choice.index,
-                    "usage": api_chat_output.usage or {"prompt_tokens": 0, "completion_tokens": 0},
-                }
-            )
-            chat_messages.append(message)
+            text = choice.message.content
+            tool_calls = []
+
+            if hfapi_tool_calls := choice.message.tool_calls:
+                for hfapi_tc in hfapi_tool_calls:
+                    tool_call = ToolCall(
+                        tool_name=hfapi_tc.function.name,
+                        arguments=hfapi_tc.function.arguments,
+                        id=hfapi_tc.id,
+                    )
+                    tool_calls.append(tool_call)
+
+            meta = {
+                "model": self._client.model,
+                "finish_reason": choice.finish_reason,
+                "index": choice.index,
+                "usage": api_chat_output.usage or {"prompt_tokens": 0, "completion_tokens": 0},
+            }
+
+            chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
+            chat_messages.append(chat_message)
 
         return {"replies": chat_messages}

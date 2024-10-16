@@ -5,12 +5,15 @@ import os
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from haystack.dataclasses import StreamingChunk
+from haystack.utils.auth import Secret
+from haystack.utils.hf import HFGenerationAPIType
 from huggingface_hub import (
     ChatCompletionOutput,
-    ChatCompletionStreamOutput,
     ChatCompletionOutputComplete,
-    ChatCompletionStreamOutputChoice,
     ChatCompletionOutputMessage,
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
     ChatCompletionStreamOutputDelta,
 )
 from huggingface_hub.utils import RepositoryNotFoundError
@@ -19,13 +22,29 @@ from haystack_experimental.components.generators.chat.hugging_face_api import (
     HuggingFaceAPIChatGenerator,
     _convert_message_to_hfapi_format,
 )
-from haystack.dataclasses import StreamingChunk
-from haystack.utils.auth import Secret
-from haystack.utils.hf import HFGenerationAPIType
-
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole, TextContent
+from haystack_experimental.dataclasses import ChatMessage, ChatRole, TextContent, Tool, ToolCall
 
 
+@pytest.fixture
+def tools():
+    tool_parameters = {
+    "type": "object",
+    "properties": {
+        "city": {"type": "string"}
+    },
+    "required": ["city"]
+}
+    tool = Tool(name="weather", description="useful to determine the weather in a given location",
+                    parameters=tool_parameters, function=lambda x:x)
+
+    return [tool]
+
+@pytest.fixture
+def chat_messages():
+    return [
+        ChatMessage.from_system("You are a helpful assistant speaking A2 level of English"),
+        ChatMessage.from_user("Tell me about Berlin"),
+    ]
 
 @pytest.fixture
 def mock_check_valid_model():
@@ -98,7 +117,7 @@ def test_convert_message_to_hfapi_invalid():
         _convert_message_to_hfapi_format(message)
 
 
-class TestHuggingFaceAPIGenerator:
+class TestHuggingFaceAPIChatGenerator:
     def test_init_invalid_api_type(self):
         with pytest.raises(ValueError):
             HuggingFaceAPIChatGenerator(api_type="invalid_api_type", api_params={})
@@ -122,6 +141,29 @@ class TestHuggingFaceAPIGenerator:
         assert generator.api_params == {"model": model}
         assert generator.generation_kwargs == {**generation_kwargs, **{"stop": ["stop"]}, **{"max_tokens": 512}}
         assert generator.streaming_callback == streaming_callback
+        assert generator.tools is None
+
+    def test_init_serverless_with_tools(self, mock_check_valid_model, tools):
+        model = "HuggingFaceH4/zephyr-7b-alpha"
+        generation_kwargs = {"temperature": 0.6}
+        stop_words = ["stop"]
+        streaming_callback = None
+
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+            api_params={"model": model},
+            token=None,
+            generation_kwargs=generation_kwargs,
+            stop_words=stop_words,
+            streaming_callback=streaming_callback,
+            tools=tools
+        )
+
+        assert generator.api_type == HFGenerationAPIType.SERVERLESS_INFERENCE_API
+        assert generator.api_params == {"model": model}
+        assert generator.generation_kwargs == {**generation_kwargs, **{"stop": ["stop"]}, **{"max_tokens": 512}}
+        assert generator.streaming_callback == streaming_callback
+        assert generator.tools == tools
 
     def test_init_serverless_invalid_model(self, mock_check_valid_model):
         mock_check_valid_model.side_effect = RepositoryNotFoundError("Invalid model id")
@@ -155,6 +197,7 @@ class TestHuggingFaceAPIGenerator:
         assert generator.api_params == {"url": url}
         assert generator.generation_kwargs == {**generation_kwargs, **{"stop": ["stop"]}, **{"max_tokens": 512}}
         assert generator.streaming_callback == streaming_callback
+        assert generator.tools is None
 
     def test_init_tgi_invalid_url(self):
         with pytest.raises(ValueError):
@@ -168,12 +211,20 @@ class TestHuggingFaceAPIGenerator:
                 api_type=HFGenerationAPIType.TEXT_GENERATION_INFERENCE, api_params={"param": "irrelevant"}
             )
 
+    def test_init_fail_with_duplicate_tool_names(self, mock_check_valid_model, tools):
+        duplicate_tools = [tools[0], tools[0]]
+        with pytest.raises(ValueError):
+            HuggingFaceAPIChatGenerator(api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API, api_params={"model": "irrelevant"}, tools=duplicate_tools)
+
     def test_to_dict(self, mock_check_valid_model):
+        tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
+
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
             generation_kwargs={"temperature": 0.6},
             stop_words=["stop", "words"],
+            tools=[tool],
         )
 
         result = generator.to_dict()
@@ -183,8 +234,21 @@ class TestHuggingFaceAPIGenerator:
         assert init_params["api_params"] == {"model": "HuggingFaceH4/zephyr-7b-beta"}
         assert init_params["token"] == {"env_vars": ["HF_API_TOKEN", "HF_TOKEN"], "strict": False, "type": "env_var"}
         assert init_params["generation_kwargs"] == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512}
+        assert init_params["streaming_callback"] is None
+        assert init_params["tools"] == [{
+                   "description": "description",
+                   "function": "builtins.print",
+                   "name": "name",
+                   "parameters": {
+                       "x": {
+                           "type": "string",
+                       },
+                   },
+               }]
 
     def test_from_dict(self, mock_check_valid_model):
+        tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
+
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
@@ -192,6 +256,8 @@ class TestHuggingFaceAPIGenerator:
             generation_kwargs={"temperature": 0.6},
             stop_words=["stop", "words"],
             streaming_callback=streaming_callback_handler,
+            tools=[tool],
+
         )
         result = generator.to_dict()
 
@@ -202,6 +268,7 @@ class TestHuggingFaceAPIGenerator:
         assert generator_2.token == Secret.from_env_var("ENV_VAR", strict=False)
         assert generator_2.generation_kwargs == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512}
         assert generator_2.streaming_callback is streaming_callback_handler
+        assert generator_2.tools == [tool]
 
     def test_generate_text_response_with_valid_prompt_and_generation_parameters(
         self, mock_check_valid_model, mock_chat_completion, chat_messages
@@ -216,9 +283,10 @@ class TestHuggingFaceAPIGenerator:
 
         response = generator.run(messages=chat_messages)
 
-        # check kwargs passed to text_generation
+        # check kwargs passed to chat_completion
         _, kwargs = mock_chat_completion.call_args
-        assert kwargs == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512}
+        hf_messages = [{"role": "system", "content": "You are a helpful assistant speaking A2 level of English"}, {"role": "user", "content": "Tell me about Berlin"}]
+        assert kwargs == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512, "tools": None, "messages": hf_messages}
 
         assert isinstance(response, dict)
         assert "replies" in response
