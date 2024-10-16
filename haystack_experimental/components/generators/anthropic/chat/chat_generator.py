@@ -4,6 +4,7 @@
 
 import json
 import logging
+import uuid
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from haystack import component, default_from_dict
@@ -48,7 +49,7 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
     :param message: The ChatMessage to convert.
     :return: A dictionary in the format expected by Anthropic API.
     """
-    anthropic_msg = {"role": message._role.value}
+    anthropic_msg: Dict[str, Any] = {"role": message._role.value}
 
     if message.texts:
         anthropic_msg["content"] = [{"type": "text", "text": message.texts[0]}]
@@ -218,7 +219,9 @@ class AnthropicChatGenerator(chatgenerator_base_class):
 
         return StreamingChunk(content=content, meta=chunk.model_dump())
 
-    def _convert_streaming_chunks_to_chat_message(self, chunks: List[StreamingChunk], model: str) -> ChatMessage:
+    def _convert_streaming_chunks_to_chat_message(
+        self, chunks: List[StreamingChunk], model: Optional[str] = None
+    ) -> ChatMessage:
         """
         Converts a list of StreamingChunks to a ChatMessage.
         """
@@ -226,46 +229,55 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         tool_calls = []
         current_tool_call = None
 
-        for chunk in chunks:
-            if (
-                chunk.meta.get("type") == "content_block_start"
-                and chunk.meta.get("content_block", {}).get("type") == "tool_use"
-            ):
+        # block handling functions
+        def handle_content_block_start(chunk):
+            nonlocal current_tool_call
+            # this is the tool call start, capture the id and name, arguments will be captured in the delta
+            if chunk.meta.get("content_block", {}).get("type") == "tool_use":
+                delta_block = chunk.meta.get("content_block")
                 current_tool_call = {
-                    "id": chunk.meta["content_block"].get("id"),
-                    "name": "",
+                    "id": delta_block.get("id"),
+                    "name": delta_block.get("name"),
                     "arguments": "",
                 }
-            elif (
-                chunk.meta.get("type") == "content_block_delta"
-                and chunk.meta.get("delta", {}).get("type") == "text_delta"
-            ):
-                full_content += chunk.content
-            elif (
-                chunk.meta.get("type") == "content_block_delta"
-                and chunk.meta.get("delta", {}).get("type") == "input_json_delta"
-            ):
-                if current_tool_call:
-                    current_tool_call["arguments"] += chunk.meta["delta"].get("partial_json", "")
-            elif chunk.meta.get("type") == "content_block_stop" and current_tool_call:
+
+        def handle_content_block_delta(chunk):
+            nonlocal full_content, current_tool_call
+            delta = chunk.meta.get("delta", {})
+            if delta.get("type") == "text_delta":
+                full_content += delta.get("text", "")
+            elif delta.get("type") == "input_json_delta" and current_tool_call:
+                current_tool_call["arguments"] += delta.get("partial_json", "")
+
+        def handle_message_delta(chunk):
+            nonlocal current_tool_call, tool_calls
+            if chunk.meta.get("delta", {}).get("stop_reason") == "tool_use" and current_tool_call:
                 try:
-                    arguments = json.loads(current_tool_call["arguments"])
+                    # arguments is a string, convert to json
                     tool_calls.append(
                         ToolCall(
-                            id=current_tool_call["id"],
-                            tool_name=current_tool_call["name"],
-                            arguments=arguments,
+                            id=current_tool_call.get("id"),
+                            tool_name=current_tool_call.get("name"),
+                            arguments=json.loads(current_tool_call.get("arguments", {})),
                         )
                     )
                 except json.JSONDecodeError:
                     logger.warning(
-                        "Anthropic returned a malformed JSON string for tool call arguments. This tool call "
-                        "will be skipped. Tool call ID: %s, Tool name: %s, Arguments: %s",
-                        current_tool_call["id"],
-                        current_tool_call["name"],
-                        current_tool_call["arguments"],
+                        "Anthropic returned a malformed JSON string for tool call arguments. "
+                        "This tool call will be skipped. Arguments: %s",
+                        current_tool_call.get("arguments", ""),
                     )
                 current_tool_call = None
+
+        # loop through chunks and call the appropriate handler
+        for chunk in chunks:
+            chunk_type = chunk.meta.get("type")
+            if chunk_type == "content_block_start":
+                handle_content_block_start(chunk)
+            elif chunk_type == "content_block_delta":
+                handle_content_block_delta(chunk)
+            elif chunk_type == "message_delta":
+                handle_message_delta(chunk)
 
         message = ChatMessage.from_assistant(full_content, tool_calls=tool_calls)
 
@@ -330,11 +342,15 @@ class AnthropicChatGenerator(chatgenerator_base_class):
 
         if isinstance(response, Stream):
             chunks: List[StreamingChunk] = []
-            model = None
+            model: Optional[str] = None
             for chunk in response:
                 if chunk.type == "message_start":
                     model = chunk.message.model
-                elif chunk.type in ["content_block_delta", "message_delta"]:
+                elif chunk.type in [
+                    "content_block_start",
+                    "content_block_delta",
+                    "message_delta",
+                ]:
                     streaming_chunk = self._convert_anthropic_chunk_to_streaming_chunk(chunk)
                     chunks.append(streaming_chunk)
                     if streaming_callback:
@@ -344,16 +360,3 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             return {"replies": [completion]}
         else:
             return {"replies": [self._convert_chat_completion_to_chat_message(response)]}
-
-    def _check_finish_reason(self, message: ChatMessage):
-        """
-        Checks the finish reason of the generated message and logs a warning if necessary.
-        """
-        finish_reason = message._meta.get("finish_reason")
-        if finish_reason == "length":
-            logging.warning(
-                "The completion for this prompt stopped early due to the token limit. "
-                "You may want to consider increasing the 'max_tokens' parameter or shortening your prompt."
-            )
-        elif finish_reason not in [None, "stop", "end_turn"]:
-            logging.warning(f"The completion finished with reason: {finish_reason}")

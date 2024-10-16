@@ -203,50 +203,6 @@ class TestAnthropicChatGenerator:
         with pytest.raises(ValueError):
             AnthropicChatGenerator.from_dict(data)
 
-    # def test_run_with_params_streaming(self, chat_messages, mock_chat_completion_chunk):
-    #     streaming_callback_called = False
-
-    #     def streaming_callback(chunk: StreamingChunk) -> None:
-    #         nonlocal streaming_callback_called
-    #         streaming_callback_called = True
-
-    #     component = AnthropicChatGenerator(
-    #         api_key=Secret.from_token("test-api-key"), streaming_callback=streaming_callback
-    #     )
-    #     response = component.run(chat_messages)
-
-    #     # check we called the streaming callback
-    #     assert streaming_callback_called
-
-    #     # check that the component still returns the correct response
-    #     assert isinstance(response, dict)
-    #     assert "replies" in response
-    #     assert isinstance(response["replies"], list)
-    #     assert len(response["replies"]) == 1
-    #     assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
-    #     assert "Hello" in response["replies"][0].text  # see mock_chat_completion_chunk
-
-    # def test_run_with_streaming_callback_in_run_method(self, chat_messages, mock_chat_completion_chunk):
-    #     streaming_callback_called = False
-
-    #     def streaming_callback(chunk: StreamingChunk) -> None:
-    #         nonlocal streaming_callback_called
-    #         streaming_callback_called = True
-
-    #     component = AnthropicChatGenerator(api_key=Secret.from_token("test-api-key"))
-    #     response = component.run(chat_messages, streaming_callback=streaming_callback)
-
-    #     # check we called the streaming callback
-    #     assert streaming_callback_called
-
-    #     # check that the component still returns the correct response
-    #     assert isinstance(response, dict)
-    #     assert "replies" in response
-    #     assert isinstance(response["replies"], list)
-    #     assert len(response["replies"]) == 1
-    #     assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
-    #     assert "Hello" in response["replies"][0].text  # see mock_chat_completion_chunk
-
     @pytest.mark.skipif(
         not os.environ.get("ANTHROPIC_API_KEY", None),
         reason="Export an env var called ANTHROPIC_API_KEY containing the Anthropic API key to run this test.",
@@ -355,6 +311,12 @@ class TestAnthropicChatGenerator:
         assert len(results["replies"]) == 1
         message = results["replies"][0]
 
+        # this is Antropic thinking message prior to tool call
+        assert message.text is not None
+        assert "weather" in message.text.lower()
+        assert "paris" in message.text.lower()
+
+        # now we have the tool call
         assert message.tool_calls
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
