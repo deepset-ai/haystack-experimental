@@ -59,7 +59,7 @@ extra-dependencies = [
   "fastapi",
   # Tools support
   "jsonschema",
-  "ollama-haystack>=1.0.0",
+  "ollama-haystack>=1.1.0",
   # LLMMetadataExtractor dependencies
   "amazon-bedrock-haystack>=1.0.2",
   "google-vertex-haystack>=2.0.0",
