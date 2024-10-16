@@ -65,7 +65,6 @@ def _convert_message_to_hfapi_format(message: ChatMessage) -> Dict[str, Any]:
             hfapi_tool_calls.append(hfapi_tool_call)
         hfapi_msg["tool_calls"] = hfapi_tool_calls
 
-    print("hfapi_msg", hfapi_msg)
     return hfapi_msg
 
 

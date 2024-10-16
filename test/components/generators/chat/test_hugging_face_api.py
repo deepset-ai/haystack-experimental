@@ -30,17 +30,16 @@ from haystack_experimental.dataclasses import ChatMessage, ChatRole, TextContent
 
 @pytest.fixture
 def tools():
-    tool_parameters = {
-    "type": "object",
-    "properties": {
-        "city": {"type": "string"}
-    },
-    "required": ["city"]
-}
-    tool = Tool(name="weather", description="useful to determine the weather in a given location",
-                    parameters=tool_parameters, function=lambda x:x)
+    tool_parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
+    tool = Tool(
+        name="weather",
+        description="useful to determine the weather in a given location",
+        parameters=tool_parameters,
+        function=lambda x: x,
+    )
 
     return [tool]
+
 
 @pytest.fixture
 def chat_messages():
@@ -48,6 +47,7 @@ def chat_messages():
         ChatMessage.from_system("You are a helpful assistant speaking A2 level of English"),
         ChatMessage.from_user("Tell me about Berlin"),
     ]
+
 
 @pytest.fixture
 def mock_check_valid_model():
@@ -73,11 +73,7 @@ def mock_chat_completion():
             id="some_id",
             model="some_model",
             system_fingerprint="some_fingerprint",
-            usage=ChatCompletionOutputUsage(
-        completion_tokens=8,
-        prompt_tokens=17,
-        total_tokens=25
-    ),
+            usage=ChatCompletionOutputUsage(completion_tokens=8, prompt_tokens=17, total_tokens=25),
             created=1710498360,
         )
 
@@ -100,26 +96,45 @@ def test_convert_message_to_hfapi_format():
     message = ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})
     assert _convert_message_to_hfapi_format(message) == {"role": "assistant", "content": "I have an answer"}
 
-    message = ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])
-    assert _convert_message_to_hfapi_format(message) == {"role": "assistant", "content": "", "tool_calls": [{"id": "123", "type": "function", "function": {"name": "weather", "arguments": {"city": "Paris"}}}]}
+    message = ChatMessage.from_assistant(
+        tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})]
+    )
+    assert _convert_message_to_hfapi_format(message) == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {"id": "123", "type": "function", "function": {"name": "weather", "arguments": {"city": "Paris"}}}
+        ],
+    }
 
     message = ChatMessage.from_assistant(tool_calls=[ToolCall(tool_name="weather", arguments={"city": "Paris"})])
-    assert _convert_message_to_hfapi_format(message) == {"role": "assistant", "content": "", "tool_calls": [{"type": "function", "function": {"name": "weather", "arguments": {"city": "Paris"}}}]}
+    assert _convert_message_to_hfapi_format(message) == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [{"type": "function", "function": {"name": "weather", "arguments": {"city": "Paris"}}}],
+    }
 
-
-    tool_result={"weather": "sunny", "temperature": "25"}
-    message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
+    tool_result = {"weather": "sunny", "temperature": "25"}
+    message = ChatMessage.from_tool(
+        tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})
+    )
     assert _convert_message_to_hfapi_format(message) == {"role": "tool", "content": tool_result, "tool_call_id": "123"}
 
-    message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(tool_name="weather", arguments={"city": "Paris"}))
+    message = ChatMessage.from_tool(
+        tool_result=tool_result, origin=ToolCall(tool_name="weather", arguments={"city": "Paris"})
+    )
     assert _convert_message_to_hfapi_format(message) == {"role": "tool", "content": tool_result}
+
 
 def test_convert_message_to_hfapi_invalid():
     message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
     with pytest.raises(ValueError):
         _convert_message_to_hfapi_format(message)
 
-    message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[TextContent(text="I have an answer"), TextContent(text="I have another answer")])
+    message = ChatMessage(
+        _role=ChatRole.ASSISTANT,
+        _content=[TextContent(text="I have an answer"), TextContent(text="I have another answer")],
+    )
     with pytest.raises(ValueError):
         _convert_message_to_hfapi_format(message)
 
@@ -163,7 +178,7 @@ class TestHuggingFaceAPIChatGenerator:
             generation_kwargs=generation_kwargs,
             stop_words=stop_words,
             streaming_callback=streaming_callback,
-            tools=tools
+            tools=tools,
         )
 
         assert generator.api_type == HFGenerationAPIType.SERVERLESS_INFERENCE_API
@@ -221,7 +236,11 @@ class TestHuggingFaceAPIChatGenerator:
     def test_init_fail_with_duplicate_tool_names(self, mock_check_valid_model, tools):
         duplicate_tools = [tools[0], tools[0]]
         with pytest.raises(ValueError):
-            HuggingFaceAPIChatGenerator(api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API, api_params={"model": "irrelevant"}, tools=duplicate_tools)
+            HuggingFaceAPIChatGenerator(
+                api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+                api_params={"model": "irrelevant"},
+                tools=duplicate_tools,
+            )
 
     def test_to_dict(self, mock_check_valid_model):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
@@ -242,16 +261,18 @@ class TestHuggingFaceAPIChatGenerator:
         assert init_params["token"] == {"env_vars": ["HF_API_TOKEN", "HF_TOKEN"], "strict": False, "type": "env_var"}
         assert init_params["generation_kwargs"] == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512}
         assert init_params["streaming_callback"] is None
-        assert init_params["tools"] == [{
-                   "description": "description",
-                   "function": "builtins.print",
-                   "name": "name",
-                   "parameters": {
-                       "x": {
-                           "type": "string",
-                       },
-                   },
-               }]
+        assert init_params["tools"] == [
+            {
+                "description": "description",
+                "function": "builtins.print",
+                "name": "name",
+                "parameters": {
+                    "x": {
+                        "type": "string",
+                    },
+                },
+            }
+        ]
 
     def test_from_dict(self, mock_check_valid_model):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
@@ -264,7 +285,6 @@ class TestHuggingFaceAPIChatGenerator:
             stop_words=["stop", "words"],
             streaming_callback=streaming_callback_handler,
             tools=[tool],
-
         )
         result = generator.to_dict()
 
@@ -292,8 +312,17 @@ class TestHuggingFaceAPIChatGenerator:
 
         # check kwargs passed to chat_completion
         _, kwargs = mock_chat_completion.call_args
-        hf_messages = [{"role": "system", "content": "You are a helpful assistant speaking A2 level of English"}, {"role": "user", "content": "Tell me about Berlin"}]
-        assert kwargs == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512, "tools": None, "messages": hf_messages}
+        hf_messages = [
+            {"role": "system", "content": "You are a helpful assistant speaking A2 level of English"},
+            {"role": "user", "content": "Tell me about Berlin"},
+        ]
+        assert kwargs == {
+            "temperature": 0.6,
+            "stop": ["stop", "words"],
+            "max_tokens": 512,
+            "tools": None,
+            "messages": hf_messages,
+        }
 
         assert isinstance(response, dict)
         assert "replies" in response
@@ -377,9 +406,28 @@ class TestHuggingFaceAPIChatGenerator:
                     ChatCompletionOutputComplete(
                         finish_reason="stop",
                         index=0,
-                        message=ChatCompletionOutputMessage(role="assistant",
-                                                            content=None,
-                                                            tool_calls=[ChatCompletionOutputToolCall(function=ChatCompletionOutputFunctionDefinition(arguments={"city": "Paris"}, name="weather", description=None), id="0", type="function")]), logprobs=None)], created=1729074760, id="", model="meta-llama/Llama-3.1-70B-Instruct", system_fingerprint="2.3.2-dev0-sha-28bb7ae", usage=ChatCompletionOutputUsage(completion_tokens=30, prompt_tokens=426, total_tokens=456))
+                        message=ChatCompletionOutputMessage(
+                            role="assistant",
+                            content=None,
+                            tool_calls=[
+                                ChatCompletionOutputToolCall(
+                                    function=ChatCompletionOutputFunctionDefinition(
+                                        arguments={"city": "Paris"}, name="weather", description=None
+                                    ),
+                                    id="0",
+                                    type="function",
+                                )
+                            ],
+                        ),
+                        logprobs=None,
+                    )
+                ],
+                created=1729074760,
+                id="",
+                model="meta-llama/Llama-3.1-70B-Instruct",
+                system_fingerprint="2.3.2-dev0-sha-28bb7ae",
+                usage=ChatCompletionOutputUsage(completion_tokens=30, prompt_tokens=426, total_tokens=456),
+            )
             mock_chat_completion.return_value = completion
 
             messages = [ChatMessage.from_user("What is the weather in Paris?")]
@@ -393,10 +441,12 @@ class TestHuggingFaceAPIChatGenerator:
         assert response["replies"][0].tool_calls[0].tool_name == "weather"
         assert response["replies"][0].tool_calls[0].arguments == {"city": "Paris"}
         assert response["replies"][0].tool_calls[0].id == "0"
-        assert response["replies"][0].meta == {"finish_reason": "stop", "index": 0,
-                                               "model": "meta-llama/Llama-3.1-70B-Instruct",
-                                                "usage": {"completion_tokens": 30, "prompt_tokens": 426}}
-
+        assert response["replies"][0].meta == {
+            "finish_reason": "stop",
+            "index": 0,
+            "model": "meta-llama/Llama-3.1-70B-Instruct",
+            "usage": {"completion_tokens": 30, "prompt_tokens": 426},
+        }
 
     @pytest.mark.integration
     @pytest.mark.skipif(
@@ -445,7 +495,6 @@ class TestHuggingFaceAPIChatGenerator:
         assert "prompt_tokens" in response["replies"][0].meta["usage"]
         assert "completion_tokens" in response["replies"][0].meta["usage"]
 
-
     @pytest.mark.integration
     @pytest.mark.skipif(
         not os.environ.get("HF_API_TOKEN", None),
@@ -475,7 +524,6 @@ class TestHuggingFaceAPIChatGenerator:
         assert tool_call.tool_name == "weather"
         assert tool_call.arguments == {"city": "Paris"}
         assert message.meta["finish_reason"] == "stop"
-
 
         new_messages = chat_messages + [message, ChatMessage.from_tool(tool_result="fake result", origin=tool_call)]
 
