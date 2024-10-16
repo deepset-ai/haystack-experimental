@@ -253,7 +253,7 @@ class OllamaChatGenerator(chatgenerator_base_class):
             tools=ollama_tools,
             stream=stream,
             keep_alive=self.keep_alive,
-            generation_kwargs=generation_kwargs,
+            options=generation_kwargs,
         )
 
         if stream:

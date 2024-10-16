@@ -310,6 +310,7 @@ class TestOllamaChatGenerator:
             stream=False,
             tools=None,
             options={},
+            keep_alive=None,
         )
 
         assert "replies" in result
