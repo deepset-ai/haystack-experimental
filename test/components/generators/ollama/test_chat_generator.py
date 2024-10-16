@@ -105,6 +105,7 @@ class TestOllamaChatGenerator:
         assert component.timeout == 120
         assert component.streaming_callback is None
         assert component.tools is None
+        assert component.keep_alive is None
 
     def test_init(self, tools):
         component = OllamaChatGenerator(
@@ -112,6 +113,7 @@ class TestOllamaChatGenerator:
             url="http://my-custom-endpoint:11434",
             generation_kwargs={"temperature": 0.5},
             timeout=5,
+            keep_alive="10m",
             streaming_callback=print_streaming_chunk,
             tools=tools,
         )
@@ -120,6 +122,7 @@ class TestOllamaChatGenerator:
         assert component.url == "http://my-custom-endpoint:11434"
         assert component.generation_kwargs == {"temperature": 0.5}
         assert component.timeout == 5
+        assert component.keep_alive == "10m"
         assert component.streaming_callback is print_streaming_chunk
         assert component.tools == tools
 
@@ -143,6 +146,7 @@ class TestOllamaChatGenerator:
             url="custom_url",
             generation_kwargs={"max_tokens": 10, "some_test_param": "test-params"},
             tools=[tool],
+            keep_alive="5m",
         )
         data = component.to_dict()
         assert data == {
@@ -152,6 +156,7 @@ class TestOllamaChatGenerator:
                 "model": "llama2",
                 "url": "custom_url",
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
+                "keep_alive": "5m",
                 "generation_kwargs": {
                     "max_tokens": 10,
                     "some_test_param": "test-params",
@@ -185,6 +190,7 @@ class TestOllamaChatGenerator:
                 "timeout": 120,
                 "model": "llama2",
                 "url": "custom_url",
+                "keep_alive": "5m",
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "generation_kwargs": {
                     "max_tokens": 10,
@@ -208,6 +214,7 @@ class TestOllamaChatGenerator:
         assert component.model == "llama2"
         assert component.streaming_callback is print_streaming_chunk
         assert component.url == "custom_url"
+        assert component.keep_alive == "5m"
         assert component.generation_kwargs == {
             "max_tokens": 10,
             "some_test_param": "test-params",

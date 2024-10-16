@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from haystack import component, default_from_dict
 from haystack.dataclasses import StreamingChunk
@@ -96,6 +96,7 @@ class OllamaChatGenerator(chatgenerator_base_class):
         url: str = "http://localhost:11434",
         generation_kwargs: Optional[Dict[str, Any]] = None,
         timeout: int = 120,
+        keep_alive: Optional[Union[float, str]] = None,
         streaming_callback: Optional[Callable[[StreamingChunk], None]] = None,
         tools: Optional[List[Tool]] = None,
     ):
@@ -112,6 +113,14 @@ class OllamaChatGenerator(chatgenerator_base_class):
             [Ollama docs](https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).
         :param timeout:
             The number of seconds before throwing a timeout error from the Ollama API.
+        :param keep_alive:
+            The option that controls how long the model will stay loaded into memory following the request.
+            If not set, it will use the default value from the Ollama (5 minutes).
+            The value can be set to:
+            - a duration string (such as "10m" or "24h")
+            - a number in seconds (such as 3600)
+            - any negative number which will keep the model loaded in memory (e.g. -1 or "-1m")
+            - '0' which will unload the model immediately after generating a response.
         :param streaming_callback:
             A callback function that is called when a new token is received from the stream.
             The callback function accepts StreamingChunk as an argument.
@@ -134,6 +143,7 @@ class OllamaChatGenerator(chatgenerator_base_class):
             url=url,
             generation_kwargs=generation_kwargs,
             timeout=timeout,
+            keep_alive=keep_alive,
             streaming_callback=streaming_callback,
         )
 
@@ -238,7 +248,12 @@ class OllamaChatGenerator(chatgenerator_base_class):
 
         ollama_messages = [_convert_message_to_ollama_format(msg) for msg in messages]
         response = self._client.chat(
-            model=self.model, messages=ollama_messages, tools=ollama_tools, stream=stream, options=generation_kwargs
+            model=self.model,
+            messages=ollama_messages,
+            tools=ollama_tools,
+            stream=stream,
+            keep_alive=self.keep_alive,
+            generation_kwargs=generation_kwargs,
         )
 
         if stream:
