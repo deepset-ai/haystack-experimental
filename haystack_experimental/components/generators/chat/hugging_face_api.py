@@ -4,19 +4,17 @@
 
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
-from haystack import component, default_from_dict, default_to_dict, logging
+from haystack import component, default_from_dict, logging
 from haystack.dataclasses import StreamingChunk
 from haystack.lazy_imports import LazyImport
-from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
-from haystack.utils.hf import HFGenerationAPIType, HFModelType, check_valid_model
-from haystack.utils.url_validation import is_valid_http_url
+from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace
+from haystack.utils.hf import HFGenerationAPIType
 
 with LazyImport(message="Run 'pip install \"huggingface_hub[inference]>=0.23.0\"'") as huggingface_hub_import:
     from huggingface_hub import (
         ChatCompletionInputTool,
         ChatCompletionOutput,
         ChatCompletionStreamOutput,
-        InferenceClient,
     )
 
 from haystack.components.generators.chat.hugging_face_api import (
