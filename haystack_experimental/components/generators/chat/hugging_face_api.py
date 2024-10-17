@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def _convert_message_to_hfapi_format(message: ChatMessage) -> Dict[str, Any]:
     """
-    Convert a message to the format expected by OpenAI's Chat API.
+    Convert a message to the format expected by Hugging Face API.
     """
     text_contents = message.texts
     tool_calls = message.tool_calls
