@@ -53,7 +53,7 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
         # system messages have special format requirements for Anthropic API
         # they can have only type and text fields, and they need to be passed separately
         # to the Anthropic API endpoint
-        return {"type": "text", "text": message._content}
+        return {"type": "text", "text": message.text}
 
     anthropic_msg: Dict[str, Any] = {"role": message._role.value}
 
