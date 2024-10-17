@@ -1,19 +1,15 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from unittest.mock import MagicMock, patch
 import pytest
 
-from typing import Iterator
-import logging
 import os
 import json
-from datetime import datetime
 
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole, TextContent
+from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole
 from haystack_experimental.components.generators.anthropic.chat import AnthropicChatGenerator, _convert_message_to_anthropic_format
 
 

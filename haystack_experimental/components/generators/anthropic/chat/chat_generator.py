@@ -108,8 +108,8 @@ class AnthropicChatGenerator(chatgenerator_base_class):
 
     messages = [ChatMessage.from_system("You are a helpful, respectful and honest assistant"),
                 ChatMessage.from_user("What's Natural Language Processing?")]
-
     print(generator.run(messages=messages))
+    ```
     """
 
     def __init__(
