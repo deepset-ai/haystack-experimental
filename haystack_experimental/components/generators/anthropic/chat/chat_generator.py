@@ -4,8 +4,7 @@
 
 import json
 import logging
-import uuid
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from haystack import component, default_from_dict
 from haystack.dataclasses import StreamingChunk
@@ -14,6 +13,7 @@ from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inp
 
 from anthropic import Stream
 from haystack_experimental.dataclasses import ChatMessage, ToolCall
+from haystack_experimental.dataclasses.chat_message import ChatRole
 from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,12 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
     :param message: The ChatMessage to convert.
     :return: A dictionary in the format expected by Anthropic API.
     """
+    if message.is_from(ChatRole.SYSTEM):
+        # system messages have special format requirements for Anthropic API
+        # they can have only type and text fields, and they need to be passed separately
+        # to the Anthropic API endpoint
+        return {"type": "text", "text": message._content}
+
     anthropic_msg: Dict[str, Any] = {"role": message._role.value}
 
     if message.texts:
@@ -124,6 +130,14 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             The callback function accepts StreamingChunk as an argument.
         :param generation_kwargs: Additional parameters to use for the model. These parameters are sent directly to
             the Anthropic API. See Anthropic's documentation for more details on available parameters.
+             Supported generation_kwargs parameters are:
+            - `system`: The system message to be passed to the model.
+            - `max_tokens`: The maximum number of tokens to generate.
+            - `metadata`: A dictionary of metadata to be passed to the model.
+            - `stop_sequences`: A list of strings that the model should stop generating at.
+            - `temperature`: The temperature to use for sampling.
+            - `top_p`: The top_p value to use for nucleus sampling.
+            - `top_k`: The top_k value to use for top-k sampling.
         :param tools: A list of Tool objects that the model can use. Each tool should have a unique name.
         """
         anthropic_integration_import.check()
@@ -232,7 +246,8 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         # block handling functions
         def handle_content_block_start(chunk):
             nonlocal current_tool_call
-            # this is the tool call start, capture the id and name, arguments will be captured in the delta
+            # this is the tool call start, capture the id and name
+            # arguments will be captured in the delta
             if chunk.meta.get("content_block", {}).get("type") == "tool_use":
                 delta_block = chunk.meta.get("content_block")
                 current_tool_call = {
@@ -303,7 +318,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         tools: Optional[List[Tool]] = None,
     ):
         """
-        Runs an Anthropic Model on a given chat history.
+        Invokes the Anthropic API with the given messages and generation kwargs.
 
         :param messages: A list of ChatMessage instances representing the input messages.
         :param streaming_callback: A callback function that is called when a new token is received from the stream.
@@ -313,14 +328,26 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         :returns: A dictionary with the following keys:
             - `replies`: The responses from the model
         """
+        # update generation kwargs by merging with the generation kwargs passed to the run method
         generation_kwargs = {**self.generation_kwargs, **(generation_kwargs or {})}
+        disallowed_params = set(generation_kwargs) - set(self.ALLOWED_PARAMS)
+        if disallowed_params:
+            logger.warning(
+                f"Model parameters {disallowed_params} are not allowed and will be ignored. "
+                f"Allowed parameters are {self.ALLOWED_PARAMS}."
+            )
+        generation_kwargs = {k: v for k, v in generation_kwargs.items() if k in self.ALLOWED_PARAMS}
         tools = tools or self.tools
 
-        anthropic_messages = [_convert_message_to_anthropic_format(msg) for msg in messages]
+        system_messages: List[Dict[str, Any]] = [
+            _convert_message_to_anthropic_format(msg) for msg in messages if msg.is_from(ChatRole.SYSTEM)
+        ]
+        non_system_messages: List[Dict[str, Any]] = [
+            _convert_message_to_anthropic_format(msg) for msg in messages if not msg.is_from(ChatRole.SYSTEM)
+        ]
 
-        anthropic_tools = None
-        if tools:
-            anthropic_tools = [
+        anthropic_tools = (
+            [
                 {
                     "name": tool.name,
                     "description": tool.description,
@@ -328,13 +355,17 @@ class AnthropicChatGenerator(chatgenerator_base_class):
                 }
                 for tool in tools
             ]
+            if tools
+            else []
+        )
 
         streaming_callback = streaming_callback or self.streaming_callback
 
         response = self.client.messages.create(
             model=self.model,
-            messages=anthropic_messages,
-            tools=anthropic_tools or [],
+            messages=non_system_messages,
+            system=system_messages,
+            tools=anthropic_tools,
             stream=streaming_callback is not None,
             max_tokens=generation_kwargs.pop("max_tokens", 1024),
             **generation_kwargs,
