@@ -33,11 +33,13 @@ dependencies = ["haystack-ai", "pydantic"]
 Homepage = "https://github.com/deepset-ai/haystack-experimental"
 
 [tool.hatch.envs.default]
+installer = "uv"
 dependencies = [
   # Pre-commit hook
   "pre-commit",
   # Type check
   "mypy",
+  "pip",
   # Test
   "pytest",
   "pytest-rerunfailures",
@@ -78,6 +80,7 @@ cov-report = ["- coverage combine", "coverage xml"]
 cov = ["test-cov", "cov-report"]
 
 [tool.hatch.envs.readme]
+installer = "uv"
 detached = true                         # To avoid installing the dependencies from the default environment
 dependencies = ["haystack-pydoc-tools"]
 

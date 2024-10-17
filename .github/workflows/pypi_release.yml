@@ -6,7 +6,7 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*"
 
 env:
-  HATCH_VERSION: "1.9.4"
+  HATCH_VERSION: "1.13.0"
 
 jobs:
   release-on-pypi:
