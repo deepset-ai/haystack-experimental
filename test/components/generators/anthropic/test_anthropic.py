@@ -122,14 +122,14 @@ class TestAnthropicChatGenerator:
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "ignore_tools_thinking_messages": True,
                 "generation_kwargs": {"max_tokens": 10, "some_test_param": "test-params"},
-                'tools': [
+                "tools": [
                {
-                   'description': 'description',
-                   'function': 'builtins.print',
-                   'name': 'name',
-                   'parameters': {
-                       'x': {
-                           'type': 'string',
+                   "description": "description",
+                   "function": "builtins.print",
+                   "name": "name",
+                   "parameters": {
+                       "x": {
+                           "type": "string",
                        },
                    },
                },
@@ -166,14 +166,14 @@ class TestAnthropicChatGenerator:
                 "model": "claude-3-5-sonnet-20240620",
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "generation_kwargs": {"max_tokens": 10, "some_test_param": "test-params"},
-                'tools': [
+                "tools": [
                {
-                   'description': 'description',
-                   'function': 'builtins.print',
-                   'name': 'name',
-                   'parameters': {
-                       'x': {
-                           'type': 'string',
+                   "description": "description",
+                   "function": "builtins.print",
+                   "name": "name",
+                   "parameters": {
+                       "x": {
+                           "type": "string",
                        },
                    },
                },
@@ -211,7 +211,7 @@ class TestAnthropicChatGenerator:
     def test_live_run(self):
 
         component = AnthropicChatGenerator()
-        results = component.run(messages=[ChatMessage.from_user("What's the capital of France")])
+        results = component.run(messages=[ChatMessage.from_user("What's the capital of France?")])
         assert len(results["replies"]) == 1
         message: ChatMessage = results["replies"][0]
         assert "Paris" in message.text
@@ -248,8 +248,8 @@ class TestAnthropicChatGenerator:
         assert "Paris" in callback.responses
 
     def test_convert_message_to_anthropic_format(self):
-        # message = ChatMessage.from_system("You are good assistant")
-        # assert _convert_message_to_anthropic_format(message) == {"role": "system", "content": "You are good assistant"}
+        message = ChatMessage.from_system("You are good assistant")
+        assert _convert_message_to_anthropic_format(message) == {"type": "text", "text": "You are good assistant"}
 
         message = ChatMessage.from_user("I have a question")
         assert _convert_message_to_anthropic_format(message) == {"role": "user", "content":[ {"type": "text", "text": "I have a question"}]}
@@ -259,11 +259,11 @@ class TestAnthropicChatGenerator:
 
         message = ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])
         result = _convert_message_to_anthropic_format(message)
-        assert result == {'role': 'assistant', 'content': [{'type': 'tool_use', 'id': '123', 'name': 'weather', 'input': {'city': 'Paris'}}]}
+        assert result == {"role": "assistant", "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}]}
 
-        tool_result=json.dumps({"weather": "sunny", "temperature": "25"})
+        tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
-        assert _convert_message_to_anthropic_format(message) == {'role': 'tool', 'content': [{'type': 'tool_result', 'tool_use_id': '123', 'content': '{"weather": "sunny", "temperature": "25"}'}]}
+        assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}'}]}
 
     def test_convert_message_to_anthropic_invalid(self):
         message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
