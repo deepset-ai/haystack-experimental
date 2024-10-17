@@ -382,7 +382,7 @@ class TestHuggingFaceAPIChatGenerator:
 
         # check kwargs passed to text_generation
         _, kwargs = mock_chat_completion.call_args
-        assert kwargs == {"stop": [], "stream": True, "max_tokens": 512}
+        assert kwargs == {"stop": [], "stream": True, "max_tokens": 512, "tools": None}
 
         # Assert that the streaming callback was called twice
         assert streaming_call_count == 2
@@ -525,7 +525,7 @@ class TestHuggingFaceAPIChatGenerator:
         assert tool_call.arguments == {"city": "Paris"}
         assert message.meta["finish_reason"] == "stop"
 
-        new_messages = chat_messages + [message, ChatMessage.from_tool(tool_result="fake result", origin=tool_call)]
+        new_messages = chat_messages + [message, ChatMessage.from_tool(tool_result="22° C", origin=tool_call)]
 
         # the model tends to make tool calls if provided with tools, so we don't pass them here
         results = generator.run(new_messages, generation_kwargs={"max_tokens": 50})

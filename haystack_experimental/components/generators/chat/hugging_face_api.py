@@ -262,16 +262,30 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         tools: Optional[List[ChatCompletionInputTool]] = None,
     ):
         api_output: Iterable[ChatCompletionStreamOutput] = self._client.chat_completion(
-            messages, stream=True, **generation_kwargs
+            messages, stream=True, tools=tools, **generation_kwargs
         )
 
         generated_text = ""
+        tool_calls: List[ToolCall] = []
 
         for chunk in api_output:  # pylint: disable=not-an-iterable
-            text = chunk.choices[0].delta.content
+            # n is unused, so the API always returns only one choice
+            # the argument is probably allowed for compatibility with OpenAI
+            # see https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion.n
+            choice = chunk.choices[0]
+
+            text = choice.delta.content
             if text:
                 generated_text += text
-            finish_reason = chunk.choices[0].finish_reason
+
+            hf_tool_calls = choice.delta.tool_calls
+            if hf_tool_calls:
+                tool_calls.extend(
+                    ToolCall(id=hf_tc.id, tool_name=hf_tc.function.name, arguments=hf_tc.function.arguments)
+                    for hf_tc in hf_tool_calls
+                )
+
+            finish_reason = choice.finish_reason
 
             meta = {}
             if finish_reason:
@@ -280,7 +294,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             stream_chunk = StreamingChunk(text, meta)
             self.streaming_callback(stream_chunk)  # type: ignore # streaming_callback is not None (verified in the run method)
 
-        message = ChatMessage.from_assistant(generated_text)
+        message = ChatMessage.from_assistant(text=generated_text, tool_calls=tool_calls)
         message.meta.update(
             {
                 "model": self._client.model,
@@ -297,38 +311,39 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         generation_kwargs: Dict[str, Any],
         tools: Optional[List[ChatCompletionInputTool]] = None,
     ) -> Dict[str, List[ChatMessage]]:
-        chat_messages: List[ChatMessage] = []
-
         api_chat_output: ChatCompletionOutput = self._client.chat_completion(
             messages=messages, tools=tools, **generation_kwargs
         )
 
-        for choice in api_chat_output.choices:
-            text = choice.message.content
-            tool_calls = []
+        if len(api_chat_output.choices) == 0:
+            return {"replies": []}
 
-            if hfapi_tool_calls := choice.message.tool_calls:
-                for hfapi_tc in hfapi_tool_calls:
-                    tool_call = ToolCall(
-                        tool_name=hfapi_tc.function.name,
-                        arguments=hfapi_tc.function.arguments,
-                        id=hfapi_tc.id,
-                    )
-                    tool_calls.append(tool_call)
+        # n is unused, so the API always returns only one choice
+        # the argument is probably allowed for compatibility with OpenAI
+        # see https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion.n
+        choice = api_chat_output.choices[0]
 
-            meta = {
-                "model": self._client.model,
-                "finish_reason": choice.finish_reason,
-                "index": choice.index,
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0},
-            }
-            if api_chat_output.usage:
-                meta["usage"] = {
-                    "prompt_tokens": api_chat_output.usage.prompt_tokens,
-                    "completion_tokens": api_chat_output.usage.completion_tokens,
-                }
+        text = choice.message.content
+        tool_calls = []
 
-            chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
-            chat_messages.append(chat_message)
+        if hfapi_tool_calls := choice.message.tool_calls:
+            for hfapi_tc in hfapi_tool_calls:
+                tool_call = ToolCall(
+                    tool_name=hfapi_tc.function.name,
+                    arguments=hfapi_tc.function.arguments,
+                    id=hfapi_tc.id,
+                )
+                tool_calls.append(tool_call)
 
-        return {"replies": chat_messages}
+        meta = {
+            "model": self._client.model,
+            "finish_reason": choice.finish_reason,
+            "index": choice.index,
+            "usage": {
+                "prompt_tokens": api_chat_output.usage.prompt_tokens,
+                "completion_tokens": api_chat_output.usage.completion_tokens,
+            },
+        }
+
+        chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
+        return {"replies": [chat_message]}
