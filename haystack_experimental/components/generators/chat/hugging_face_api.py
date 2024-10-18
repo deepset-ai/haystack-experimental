@@ -273,7 +273,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         self,
         messages: List[Dict[str, str]],
         generation_kwargs: Dict[str, Any],
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List["ChatCompletionInputTool"]] = None,
     ):
         api_output: Iterable[ChatCompletionStreamOutput] = self._client.chat_completion(
             messages, stream=True, tools=tools, **generation_kwargs
@@ -316,7 +316,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         self,
         messages: List[Dict[str, str]],
         generation_kwargs: Dict[str, Any],
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List["ChatCompletionInputTool"]] = None,
     ) -> Dict[str, List[ChatMessage]]:
         api_chat_output: ChatCompletionOutput = self._client.chat_completion(
             messages=messages, tools=tools, **generation_kwargs
