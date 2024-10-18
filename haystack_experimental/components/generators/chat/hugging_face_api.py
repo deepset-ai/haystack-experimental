@@ -178,6 +178,9 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
                 raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
         self.tools = tools
 
+        if tools and streaming_callback is not None:
+            raise ValueError("Using tools and streaming at the same time is not supported. Please choose one.")
+
         # the base class __init__ also checks the hugingface_hub lazy import
         super(HuggingFaceAPIChatGenerator, self).__init__(
             api_type=api_type,
@@ -246,6 +249,9 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             if duplicate_tool_names:
                 raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
 
+        if tools and self.streaming_callback is not None:
+            raise ValueError("Using tools and streaming at the same time is not supported. Please choose one.")
+
         hf_tools = None
         if tools:
             hf_tools = [{"type": "function", "function": {**t.tool_spec}} for t in tools]
@@ -266,9 +272,8 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         )
 
         generated_text = ""
-        tool_calls: List[ToolCall] = []
 
-        for chunk in api_output:  # pylint: disable=not-an-iterable
+        for chunk in api_output:
             # n is unused, so the API always returns only one choice
             # the argument is probably allowed for compatibility with OpenAI
             # see https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion.n
@@ -277,13 +282,6 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             text = choice.delta.content
             if text:
                 generated_text += text
-
-            hf_tool_calls = choice.delta.tool_calls
-            if hf_tool_calls:
-                tool_calls.extend(
-                    ToolCall(id=hf_tc.id, tool_name=hf_tc.function.name, arguments=hf_tc.function.arguments)
-                    for hf_tc in hf_tool_calls
-                )
 
             finish_reason = choice.finish_reason
 
@@ -294,7 +292,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             stream_chunk = StreamingChunk(text, meta)
             self.streaming_callback(stream_chunk)  # type: ignore # streaming_callback is not None (verified in the run method)
 
-        message = ChatMessage.from_assistant(text=generated_text, tool_calls=tool_calls)
+        message = ChatMessage.from_assistant(text=generated_text)
         message.meta.update(
             {
                 "model": self._client.model,
@@ -303,6 +301,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0},  # not available in streaming
             }
         )
+
         return {"replies": [message]}
 
     def _run_non_streaming(
@@ -345,5 +344,5 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             },
         }
 
-        chat_message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
-        return {"replies": [chat_message]}
+        message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls, meta=meta)
+        return {"replies": [message]}

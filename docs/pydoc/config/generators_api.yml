@@ -2,6 +2,7 @@ loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
     modules: ["haystack_experimental.components.generators.chat.openai",
+              "haystack_experimental.components.generators.chat.hugging_face_api",
               "haystack_experimental.components.generators.ollama.chat.chat_generator"]
     ignore_when_discovered: ["__init__"]
 processors:

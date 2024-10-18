@@ -29,6 +29,13 @@ from haystack_experimental.dataclasses import ChatMessage, ChatRole, TextContent
 
 
 @pytest.fixture
+def chat_messages():
+    return [
+        ChatMessage.from_system("You are a helpful assistant speaking A2 level of English"),
+        ChatMessage.from_user("Tell me about Berlin"),
+    ]
+
+@pytest.fixture
 def tools():
     tool_parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
     tool = Tool(
@@ -39,14 +46,6 @@ def tools():
     )
 
     return [tool]
-
-
-@pytest.fixture
-def chat_messages():
-    return [
-        ChatMessage.from_system("You are a helpful assistant speaking A2 level of English"),
-        ChatMessage.from_user("Tell me about Berlin"),
-    ]
 
 
 @pytest.fixture
@@ -242,6 +241,15 @@ class TestHuggingFaceAPIChatGenerator:
                 tools=duplicate_tools,
             )
 
+    def test_init_fail_with_tools_and_streaming(self, mock_check_valid_model, tools):
+        with pytest.raises(ValueError):
+            HuggingFaceAPIChatGenerator(
+                api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+                api_params={"model": "irrelevant"},
+                tools=tools,
+                streaming_callback=streaming_callback_handler,
+            )
+
     def test_to_dict(self, mock_check_valid_model):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
 
@@ -283,7 +291,6 @@ class TestHuggingFaceAPIChatGenerator:
             token=Secret.from_env_var("ENV_VAR", strict=False),
             generation_kwargs={"temperature": 0.6},
             stop_words=["stop", "words"],
-            streaming_callback=streaming_callback_handler,
             tools=[tool],
         )
         result = generator.to_dict()
@@ -294,10 +301,10 @@ class TestHuggingFaceAPIChatGenerator:
         assert generator_2.api_params == {"model": "HuggingFaceH4/zephyr-7b-beta"}
         assert generator_2.token == Secret.from_env_var("ENV_VAR", strict=False)
         assert generator_2.generation_kwargs == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512}
-        assert generator_2.streaming_callback is streaming_callback_handler
+        assert generator_2.streaming_callback is None
         assert generator_2.tools == [tool]
 
-    def test_generate_text_response_with_valid_prompt_and_generation_parameters(
+    def test_run(
         self, mock_check_valid_model, mock_chat_completion, chat_messages
     ):
         generator = HuggingFaceAPIChatGenerator(
@@ -330,7 +337,7 @@ class TestHuggingFaceAPIChatGenerator:
         assert len(response["replies"]) == 1
         assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
 
-    def test_generate_text_with_streaming_callback(self, mock_check_valid_model, mock_chat_completion, chat_messages):
+    def test_run_with_streaming_callback(self, mock_check_valid_model, mock_chat_completion, chat_messages):
         streaming_call_count = 0
 
         # Define the streaming callback function
@@ -393,12 +400,21 @@ class TestHuggingFaceAPIChatGenerator:
         assert len(response["replies"]) > 0
         assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
 
+    def test_run_fail_with_tools_and_streaming(self, tools):
+        component = HuggingFaceAPIChatGenerator(api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+            api_params={"model": "meta-llama/Llama-2-13b-chat-hf"},
+            streaming_callback=streaming_callback_handler)
+
+        with pytest.raises(ValueError):
+            message = ChatMessage.from_user("irrelevant")
+            component.run([message], tools=tools)
+
     def test_run_with_tools(self, mock_check_valid_model, tools):
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "meta-llama/Llama-3.1-70B-Instruct"},
-            tools=tools,
-        )
+            tools=tools,)
+
 
         with patch("huggingface_hub.InferenceClient.chat_completion", autospec=True) as mock_chat_completion:
             completion = ChatCompletionOutput(
@@ -453,7 +469,7 @@ class TestHuggingFaceAPIChatGenerator:
         not os.environ.get("HF_API_TOKEN", None),
         reason="Export an env var called HF_API_TOKEN containing the Hugging Face token to run this test.",
     )
-    def test_run_serverless(self):
+    def test_live_run_serverless(self):
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
@@ -476,7 +492,7 @@ class TestHuggingFaceAPIChatGenerator:
         not os.environ.get("HF_API_TOKEN", None),
         reason="Export an env var called HF_API_TOKEN containing the Hugging Face token to run this test.",
     )
-    def test_run_serverless_streaming(self):
+    def test_live_run_serverless_streaming(self):
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
@@ -505,13 +521,15 @@ class TestHuggingFaceAPIChatGenerator:
         """
         We test the round trip: generate tool call, pass tool message, generate response.
 
-        The model used here does not officially support tool calls, but it is always available and not gated.
+        The model used here (zephyr-7b-beta) is always available and not gated.
+        Even if it does not officially support tools, TGI+HF API make it work.
         """
 
-        chat_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
+        chat_messages = [ChatMessage.from_user("What's the weather like in Paris and Munich?")]
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+            generation_kwargs={"temperature": 0.5},
         )
 
         results = generator.run(chat_messages, tools=tools)
@@ -522,7 +540,8 @@ class TestHuggingFaceAPIChatGenerator:
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
         assert tool_call.tool_name == "weather"
-        assert tool_call.arguments == {"city": "Paris"}
+        assert "city" in tool_call.arguments
+        assert "Paris" in tool_call.arguments["city"]
         assert message.meta["finish_reason"] == "stop"
 
         new_messages = chat_messages + [message, ChatMessage.from_tool(tool_result="22° C", origin=tool_call)]
