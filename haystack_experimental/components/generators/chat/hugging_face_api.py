@@ -161,14 +161,22 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             - `model`: Hugging Face model ID. Required when `api_type` is `SERVERLESS_INFERENCE_API`.
             - `url`: URL of the inference endpoint. Required when `api_type` is `INFERENCE_ENDPOINTS` or
             `TEXT_GENERATION_INFERENCE`.
-        :param token: The Hugging Face token to use as HTTP bearer authorization.
+        :param token:
+            The Hugging Face token to use as HTTP bearer authorization.
             Check your HF token in your [account settings](https://huggingface.co/settings/tokens).
         :param generation_kwargs:
             A dictionary with keyword arguments to customize text generation.
                 Some examples: `max_tokens`, `temperature`, `top_p`.
                 For details, see [Hugging Face chat_completion documentation](https://huggingface.co/docs/huggingface_hub/package_reference/inference_client#huggingface_hub.InferenceClient.chat_completion).
-        :param stop_words: An optional list of strings representing the stop words.
-        :param streaming_callback: An optional callable for handling streaming responses.
+        :param stop_words:
+            An optional list of strings representing the stop words.
+        :param streaming_callback:
+            An optional callable for handling streaming responses.
+        :param tools:
+            A list of tools for which the model can prepare calls.
+            The chosen model should support tool/function calling, according to the model card.
+            Support for tools in the Hugging Face API and TGI is not yet fully refined and you may experience
+            unexpected behavior.
         """
 
         if tools:
@@ -226,8 +234,10 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         """
         Invoke the text generation inference based on the provided messages and generation parameters.
 
-        :param messages: A list of ChatMessage objects representing the input messages.
-        :param generation_kwargs: Additional keyword arguments for text generation.
+        :param messages:
+            A list of ChatMessage objects representing the input messages.
+        :param generation_kwargs:
+            Additional keyword arguments for text generation.
         :param tools:
             A list of tools for which the model can prepare calls. If set, it will override the `tools` parameter set
             during component initialization.
@@ -237,8 +247,6 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
 
         # update generation kwargs by merging with the default ones
         generation_kwargs = {**self.generation_kwargs, **(generation_kwargs or {})}
-
-        print("messages", messages)
 
         formatted_messages = [_convert_message_to_hfapi_format(message) for message in messages]
 
@@ -290,7 +298,7 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
                 meta["finish_reason"] = finish_reason
 
             stream_chunk = StreamingChunk(text, meta)
-            self.streaming_callback(stream_chunk)  # type: ignore # streaming_callback is not None (verified in the run method)
+            self.streaming_callback(stream_chunk)
 
         message = ChatMessage.from_assistant(text=generated_text)
         message.meta.update(
