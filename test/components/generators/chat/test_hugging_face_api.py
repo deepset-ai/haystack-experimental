@@ -35,6 +35,7 @@ def chat_messages():
         ChatMessage.from_user("Tell me about Berlin"),
     ]
 
+
 @pytest.fixture
 def tools():
     tool_parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
@@ -304,9 +305,7 @@ class TestHuggingFaceAPIChatGenerator:
         assert generator_2.streaming_callback is None
         assert generator_2.tools == [tool]
 
-    def test_run(
-        self, mock_check_valid_model, mock_chat_completion, chat_messages
-    ):
+    def test_run(self, mock_check_valid_model, mock_chat_completion, chat_messages):
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "meta-llama/Llama-2-13b-chat-hf"},
@@ -401,9 +400,11 @@ class TestHuggingFaceAPIChatGenerator:
         assert [isinstance(reply, ChatMessage) for reply in response["replies"]]
 
     def test_run_fail_with_tools_and_streaming(self, tools):
-        component = HuggingFaceAPIChatGenerator(api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+        component = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "meta-llama/Llama-2-13b-chat-hf"},
-            streaming_callback=streaming_callback_handler)
+            streaming_callback=streaming_callback_handler,
+        )
 
         with pytest.raises(ValueError):
             message = ChatMessage.from_user("irrelevant")
@@ -413,8 +414,8 @@ class TestHuggingFaceAPIChatGenerator:
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
             api_params={"model": "meta-llama/Llama-3.1-70B-Instruct"},
-            tools=tools,)
-
+            tools=tools,
+        )
 
         with patch("huggingface_hub.InferenceClient.chat_completion", autospec=True) as mock_chat_completion:
             completion = ChatCompletionOutput(
