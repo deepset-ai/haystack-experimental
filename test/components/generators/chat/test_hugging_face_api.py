@@ -5,6 +5,7 @@ import os
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from haystack import Pipeline
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
 from haystack.utils.hf import HFGenerationAPIType
@@ -304,6 +305,30 @@ class TestHuggingFaceAPIChatGenerator:
         assert generator_2.generation_kwargs == {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512}
         assert generator_2.streaming_callback is None
         assert generator_2.tools == [tool]
+
+    def test_serde_in_pipeline(self, mock_check_valid_model):
+        tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
+
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,
+            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+            token=Secret.from_env_var("ENV_VAR", strict=False),
+            generation_kwargs={"temperature": 0.6},
+            stop_words=["stop", "words"],
+            tools=[tool],
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("generator", generator)
+
+        pipeline_dict = pipeline.to_dict()
+        print(pipeline_dict)
+
+        pipeline_yaml = pipeline.dumps()
+        print(pipeline_yaml)
+
+        # new_pipeline = Pipeline.loads(pipeline_yaml)
+        # assert new_pipeline==pipeline
 
     def test_run(self, mock_check_valid_model, mock_chat_completion, chat_messages):
         generator = HuggingFaceAPIChatGenerator(
