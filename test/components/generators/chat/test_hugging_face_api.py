@@ -413,7 +413,7 @@ class TestHuggingFaceAPIChatGenerator:
 
         # check kwargs passed to text_generation
         _, kwargs = mock_chat_completion.call_args
-        assert kwargs == {"stop": [], "stream": True, "max_tokens": 512, "tools": None}
+        assert kwargs == {"stop": [], "stream": True, "max_tokens": 512}
 
         # Assert that the streaming callback was called twice
         assert streaming_call_count == 2
