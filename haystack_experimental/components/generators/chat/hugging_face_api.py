@@ -179,16 +179,6 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             unexpected behavior.
         """
 
-        if tools:
-            tool_names = [tool.name for tool in tools]
-            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
-            if duplicate_tool_names:
-                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
-        self.tools = tools
-
-        if tools and streaming_callback is not None:
-            raise ValueError("Using tools and streaming at the same time is not supported. Please choose one.")
-
         # the base class __init__ also checks the hugingface_hub lazy import
         super(HuggingFaceAPIChatGenerator, self).__init__(
             api_type=api_type,
@@ -198,6 +188,16 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
             stop_words=stop_words,
             streaming_callback=streaming_callback,
         )
+
+        if tools:
+            tool_names = [tool.name for tool in tools]
+            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+            if duplicate_tool_names:
+                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
+        self.tools = tools
+
+        if tools and streaming_callback is not None:
+            raise ValueError("Using tools and streaming at the same time is not supported. Please choose one.")
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -260,23 +260,18 @@ class HuggingFaceAPIChatGenerator(HuggingFaceAPIChatGeneratorBase):
         if tools and self.streaming_callback is not None:
             raise ValueError("Using tools and streaming at the same time is not supported. Please choose one.")
 
+        if self.streaming_callback:
+            return self._run_streaming(formatted_messages, generation_kwargs)
+
         hf_tools = None
         if tools:
             hf_tools = [{"type": "function", "function": {**t.tool_spec}} for t in tools]
 
-        if self.streaming_callback:
-            return self._run_streaming(formatted_messages, generation_kwargs, hf_tools)
-
         return self._run_non_streaming(formatted_messages, generation_kwargs, hf_tools)
 
-    def _run_streaming(
-        self,
-        messages: List[Dict[str, str]],
-        generation_kwargs: Dict[str, Any],
-        tools: Optional[List["ChatCompletionInputTool"]] = None,
-    ):
+    def _run_streaming(self, messages: List[Dict[str, str]], generation_kwargs: Dict[str, Any]):
         api_output: Iterable[ChatCompletionStreamOutput] = self._client.chat_completion(
-            messages, stream=True, tools=tools, **generation_kwargs
+            messages, stream=True, **generation_kwargs
         )
 
         generated_text = ""
