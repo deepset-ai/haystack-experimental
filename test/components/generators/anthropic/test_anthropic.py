@@ -11,7 +11,8 @@ from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
 from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole
 from haystack_experimental.components.generators.anthropic.chat import AnthropicChatGenerator, _convert_message_to_anthropic_format
-
+from unittest.mock import patch
+from anthropic.types import Message, TextBlockParam
 
 @pytest.fixture
 def tools():
@@ -26,9 +27,32 @@ def tools():
 
     return [tool]
 
+@pytest.fixture
+def chat_messages():
+    return [
+        ChatMessage.from_user("What's the capital of France"),
+    ]
+
+@pytest.fixture
+def mock_anthropic_completion():
+    with patch("anthropic.resources.messages.Messages.create") as mock_anthropic:
+        completion = Message(
+            id="foo",
+            type="message",
+            model="claude-3-5-sonnet-20240620",
+            role="assistant",
+            content=[TextBlockParam(type="text", text="Hello! I'm Claude.")],
+            stop_reason="end_turn",
+            usage={"input_tokens": 10, "output_tokens": 20}
+        )
+        mock_anthropic.return_value = completion
+        yield mock_anthropic
 
 class TestAnthropicChatGenerator:
     def test_init_default(self, monkeypatch):
+        """
+        Test the default initialization of the AnthropicChatGenerator component.
+        """
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
         component = AnthropicChatGenerator()
         assert component.client.api_key == "test-api-key"
@@ -38,11 +62,17 @@ class TestAnthropicChatGenerator:
         assert component.tools is None
 
     def test_init_fail_wo_api_key(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component fails to initialize without an API key.
+        """
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         with pytest.raises(ValueError):
             AnthropicChatGenerator()
 
     def test_init_fail_with_duplicate_tool_names(self, monkeypatch, tools):
+        """
+        Test that the AnthropicChatGenerator component fails to initialize with duplicate tool names.
+        """
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
 
         duplicate_tools = [tools[0], tools[0]]
@@ -50,6 +80,9 @@ class TestAnthropicChatGenerator:
             AnthropicChatGenerator(tools=duplicate_tools)
 
     def test_init_with_parameters(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component initializes with parameters.
+        """
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=lambda x: x)
 
         monkeypatch.setenv("OPENAI_TIMEOUT", "100")
@@ -68,6 +101,9 @@ class TestAnthropicChatGenerator:
         assert component.tools == [tool]
 
     def test_init_with_parameters_and_env_vars(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component initializes with parameters and env vars.
+        """
         monkeypatch.setenv("OPENAI_TIMEOUT", "100")
         monkeypatch.setenv("OPENAI_MAX_RETRIES", "10")
         component = AnthropicChatGenerator(
@@ -82,6 +118,9 @@ class TestAnthropicChatGenerator:
         assert component.generation_kwargs == {"max_tokens": 10, "some_test_param": "test-params"}
 
     def test_to_dict_default(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component can be serialized to a dictionary.
+        """
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
         component = AnthropicChatGenerator()
         data = component.to_dict()
@@ -98,6 +137,9 @@ class TestAnthropicChatGenerator:
         }
 
     def test_to_dict_with_parameters(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component can be serialized to a dictionary with parameters.
+        """
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
 
         monkeypatch.setenv("ENV_VAR", "test-api-key")
@@ -134,6 +176,9 @@ class TestAnthropicChatGenerator:
         }
 
     def test_to_dict_with_lambda_streaming_callback(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component can be serialized to a dictionary with a lambda streaming callback.
+        """
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
         component = AnthropicChatGenerator(
             model="claude-3-5-sonnet-20240620",
@@ -154,6 +199,9 @@ class TestAnthropicChatGenerator:
         }
 
     def test_from_dict(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component can be deserialized from a dictionary.
+        """
         monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-api-key")
         data = {
             "type": "haystack_experimental.components.generators.anthropic.chat.chat_generator.AnthropicChatGenerator",
@@ -186,6 +234,9 @@ class TestAnthropicChatGenerator:
         assert component.tools == [Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)]
 
     def test_from_dict_fail_wo_env_var(self, monkeypatch):
+        """
+        Test that the AnthropicChatGenerator component fails to deserialize from a dictionary without an API key.
+        """
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         data = {
             "type": "haystack_experimental.components.generators.anthropic.chat.chat_generator.AnthropicChatGenerator",
@@ -199,13 +250,46 @@ class TestAnthropicChatGenerator:
         with pytest.raises(ValueError):
             AnthropicChatGenerator.from_dict(data)
 
+    def test_run_with_params(self, chat_messages, mock_anthropic_completion):
+        """
+        Test that the AnthropicChatGenerator component can run with parameters.
+        """
+        component = AnthropicChatGenerator(
+            api_key=Secret.from_token("test-api-key"),
+            generation_kwargs={"max_tokens": 10, "temperature": 0.5}
+        )
+        response = component.run(chat_messages)
+
+        # Check that the component calls the Anthropic API with the correct parameters
+        _, kwargs = mock_anthropic_completion.call_args
+        assert kwargs["max_tokens"] == 10
+        assert kwargs["temperature"] == 0.5
+
+        # Check that the component returns the correct response
+        assert isinstance(response, dict)
+        assert "replies" in response
+        assert isinstance(response["replies"], list)
+        assert len(response["replies"]) == 1
+        assert isinstance(response["replies"][0], ChatMessage)
+        assert "Hello! I'm Claude." in response["replies"][0].text
+        assert response["replies"][0].meta["model"] == "claude-3-5-sonnet-20240620"
+        assert response["replies"][0].meta["finish_reason"] == "end_turn"
+
+        # Check that the API was called with the correct messages
+        assert kwargs["messages"] == [
+           _convert_message_to_anthropic_format(msg) for msg in chat_messages
+        ]
+
+
     @pytest.mark.skipif(
         not os.environ.get("ANTHROPIC_API_KEY", None),
         reason="Export an env var called ANTHROPIC_API_KEY containing the Anthropic API key to run this test.",
     )
     @pytest.mark.integration
     def test_live_run(self):
-
+        """
+        Integration test that the AnthropicChatGenerator component can run with default parameters.
+        """
         component = AnthropicChatGenerator()
         results = component.run(messages=[ChatMessage.from_user("What's the capital of France?")])
         assert len(results["replies"]) == 1
@@ -220,6 +304,9 @@ class TestAnthropicChatGenerator:
     )
     @pytest.mark.integration
     def test_live_run_streaming(self):
+        """
+        Integration test that the AnthropicChatGenerator component can run with streaming.
+        """
         class Callback:
             def __init__(self):
                 self.responses = ""
@@ -244,6 +331,9 @@ class TestAnthropicChatGenerator:
         assert "Paris" in callback.responses
 
     def test_convert_message_to_anthropic_format(self):
+        """
+        Test that the AnthropicChatGenerator component can convert a ChatMessage to Anthropic format.
+        """
         message = ChatMessage.from_system("You are good assistant")
         assert _convert_message_to_anthropic_format(message) == {"type": "text", "text": "You are good assistant"}
 
@@ -262,6 +352,9 @@ class TestAnthropicChatGenerator:
         assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}'}]}
 
     def test_convert_message_to_anthropic_invalid(self):
+        """
+        Test that the AnthropicChatGenerator component fails to convert an invalid ChatMessage to Anthropic format.
+        """
         message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
         with pytest.raises(ValueError):
             _convert_message_to_anthropic_format(message)
@@ -281,6 +374,9 @@ class TestAnthropicChatGenerator:
     )
     @pytest.mark.integration
     def test_live_run_with_tools(self, tools):
+        """
+        Integration test that the AnthropicChatGenerator component can run with tools.
+        """
         component = AnthropicChatGenerator(tools=tools)
         results = component.run(messages=[ChatMessage.from_user("What's the weather like in Paris?")])
 
@@ -301,6 +397,9 @@ class TestAnthropicChatGenerator:
     )
     @pytest.mark.integration
     def test_live_run_with_tools_streaming(self, tools):
+        """
+        Integration test that the AnthropicChatGenerator component can run with tools and streaming.
+        """
         component = AnthropicChatGenerator(tools=tools, streaming_callback=print_streaming_chunk)
         results = component.run(messages=[ChatMessage.from_user("What's the weather like in Paris?")])
 
