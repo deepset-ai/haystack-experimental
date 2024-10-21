@@ -89,6 +89,13 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
     return anthropic_msg
 
 
+def _check_duplicate_tool_names(tools: List[Tool]):
+    tool_names = [tool.name for tool in tools]
+    duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
+    if duplicate_tool_names:
+        raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
+
+
 @component()
 class AnthropicChatGenerator(chatgenerator_base_class):
     """
@@ -142,12 +149,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         """
         anthropic_integration_import.check()
 
-        if tools:
-            tool_names = [tool.name for tool in tools]
-            duplicate_tool_names = {name for name in tool_names if tool_names.count(name) > 1}
-            if duplicate_tool_names:
-                raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
-        self.tools = tools
+        self.tools = tools if tools and _check_duplicate_tool_names(tools) is None else None
 
         super(AnthropicChatGenerator, self).__init__(
             model=model,
@@ -338,6 +340,8 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             )
         generation_kwargs = {k: v for k, v in generation_kwargs.items() if k in self.ALLOWED_PARAMS}
         tools = tools or self.tools
+        if tools:
+            _check_duplicate_tool_names(tools)
 
         system_messages: List[Dict[str, Any]] = [
             _convert_message_to_anthropic_format(msg) for msg in messages if msg.is_from(ChatRole.SYSTEM)
