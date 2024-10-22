@@ -4,7 +4,7 @@
 
 
 from .extractors import LLMMetadataExtractor
-from .generators.chat import OpenAIChatGenerator
+from .generators.chat import HuggingFaceAPIChatGenerator, OpenAIChatGenerator
 from .generators.ollama.chat.chat_generator import OllamaChatGenerator
 from .retrievers.auto_merging_retriever import AutoMergingRetriever
 from .retrievers.chat_message_retriever import ChatMessageRetriever
@@ -16,6 +16,7 @@ _all_ = [
     "AutoMergingRetriever",
     "ChatMessageWriter",
     "ChatMessageRetriever",
+    "HuggingFaceAPIChatGenerator",
     "OllamaChatGenerator",
     "OpenAIChatGenerator",
     "LLMMetadataExtractor",
