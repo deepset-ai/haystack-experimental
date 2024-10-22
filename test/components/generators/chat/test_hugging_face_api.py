@@ -322,13 +322,36 @@ class TestHuggingFaceAPIChatGenerator:
         pipeline.add_component("generator", generator)
 
         pipeline_dict = pipeline.to_dict()
-        print(pipeline_dict)
+        assert pipeline_dict == {
+            "metadata": {},
+            "max_runs_per_component": 100,
+            "components": {
+                "generator": {
+                    "type": "haystack_experimental.components.generators.chat.hugging_face_api.HuggingFaceAPIChatGenerator",
+                    "init_parameters": {
+                        "api_type": "serverless_inference_api",
+                        "api_params": {"model": "HuggingFaceH4/zephyr-7b-beta"},
+                        "token": {"type": "env_var", "env_vars": ["ENV_VAR"], "strict": False},
+                        "generation_kwargs": {"temperature": 0.6, "stop": ["stop", "words"], "max_tokens": 512},
+                        "streaming_callback": None,
+                        "tools": [
+                            {
+                                "name": "name",
+                                "description": "description",
+                                "parameters": {"x": {"type": "string"}},
+                                "function": "builtins.print",
+                            }
+                        ],
+                    },
+                }
+            },
+            "connections": [],
+        }
 
         pipeline_yaml = pipeline.dumps()
-        print(pipeline_yaml)
 
-        # new_pipeline = Pipeline.loads(pipeline_yaml)
-        # assert new_pipeline==pipeline
+        new_pipeline = Pipeline.loads(pipeline_yaml)
+        assert new_pipeline == pipeline
 
     def test_run(self, mock_check_valid_model, mock_chat_completion, chat_messages):
         generator = HuggingFaceAPIChatGenerator(
