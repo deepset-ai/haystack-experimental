@@ -150,14 +150,16 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         """
         anthropic_integration_import.check()
 
-        self.tools = tools if tools and _check_duplicate_tool_names(tools) is None else None
-
         super(AnthropicChatGenerator, self).__init__(
             model=model,
             api_key=api_key,
             generation_kwargs=generation_kwargs,
             streaming_callback=streaming_callback,
         )
+        
+        if tools:
+            _check_duplicate_tool_names(tools)
+        self.tools = tools
 
     def to_dict(self) -> Dict[str, Any]:
         """
