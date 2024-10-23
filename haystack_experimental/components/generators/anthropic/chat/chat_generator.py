@@ -11,7 +11,6 @@ from haystack.dataclasses import StreamingChunk
 from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace
 
-from anthropic import Stream
 from haystack_experimental.dataclasses import ChatMessage, ToolCall
 from haystack_experimental.dataclasses.chat_message import ChatRole
 from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
@@ -24,6 +23,8 @@ with LazyImport("Run 'pip install anthropic-haystack'") as anthropic_integration
     from haystack_integrations.components.generators.anthropic import (
         AnthropicChatGenerator as AnthropicChatGeneratorBase,
     )
+
+    from anthropic import Stream
 
 
 # The following code block ensures that:
@@ -67,7 +68,7 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
                 "type": "tool_result",
                 "tool_use_id": message.tool_call_results[0].origin.id,
                 "content": message.tool_call_results[0].result,
-                "is_error": message.tool_call_results[0].error, 
+                "is_error": message.tool_call_results[0].error,
             }
         ]
     elif message.tool_calls:
@@ -156,7 +157,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             generation_kwargs=generation_kwargs,
             streaming_callback=streaming_callback,
         )
-        
+
         if tools:
             _check_duplicate_tool_names(tools)
         self.tools = tools
@@ -246,7 +247,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         """
         full_content = ""
         tool_calls = []
-        current_tool_call = None
+        current_tool_call: Optional[Dict[str, Any]] = {}
 
         # block handling functions
         def handle_content_block_start(chunk):
@@ -338,8 +339,9 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         disallowed_params = set(generation_kwargs) - set(self.ALLOWED_PARAMS)
         if disallowed_params:
             logger.warning(
-                f"Model parameters {disallowed_params} are not allowed and will be ignored. "
-                f"Allowed parameters are {self.ALLOWED_PARAMS}."
+                "Model parameters %s are not allowed and will be ignored. " "Allowed parameters are %s.",
+                disallowed_params,
+                self.ALLOWED_PARAMS,
             )
         generation_kwargs = {k: v for k, v in generation_kwargs.items() if k in self.ALLOWED_PARAMS}
         tools = tools or self.tools

@@ -4,7 +4,4 @@
 
 from .chat.chat_generator import AnthropicChatGenerator
 
-__all__ = [
-    "AnthropicChatGenerator",
-    "_convert_message_to_anthropic_format",
-]
+__all__ = ["AnthropicChatGenerator"]

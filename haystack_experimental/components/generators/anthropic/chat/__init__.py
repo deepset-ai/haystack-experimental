@@ -2,9 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.generators.anthropic.chat.chat_generator import (
-    AnthropicChatGenerator,
-    _convert_message_to_anthropic_format,
-)
+from haystack_experimental.components.generators.anthropic.chat.chat_generator import AnthropicChatGenerator
 
-__all__ = ["AnthropicChatGenerator", "_convert_message_to_anthropic_format"]
+__all__ = ["AnthropicChatGenerator"]

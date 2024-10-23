@@ -10,7 +10,7 @@ from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
 from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole
-from haystack_experimental.components.generators.anthropic.chat import AnthropicChatGenerator, _convert_message_to_anthropic_format
+from haystack_experimental.components.generators.anthropic.chat.chat_generator import AnthropicChatGenerator, _convert_message_to_anthropic_format
 from unittest.mock import patch
 from anthropic.types import Message, TextBlockParam
 
@@ -349,7 +349,7 @@ class TestAnthropicChatGenerator:
 
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
-        assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}'}]}
+        assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', 'is_error': False,}]}
 
     def test_convert_message_to_anthropic_invalid(self):
         """
