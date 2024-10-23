@@ -137,6 +137,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         model: str = "claude-3-5-sonnet-20240620",
         streaming_callback: Optional[Callable[[StreamingChunk], None]] = None,
         generation_kwargs: Optional[Dict[str, Any]] = None,
+        ignore_tools_thinking_messages: bool = True,
         tools: Optional[List[Tool]] = None,
     ):
         """
@@ -157,6 +158,12 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             - `temperature`: The temperature to use for sampling.
             - `top_p`: The top_p value to use for nucleus sampling.
             - `top_k`: The top_k value to use for top-k sampling.
+        :param ignore_tools_thinking_messages: Anthropic's approach to tools (function calling) resolution involves a
+            "chain of thought" messages before returning the actual function names and parameters in a message. If
+            `ignore_tools_thinking_messages` is `True`, the generator will drop so-called thinking messages when tool
+            use is detected.
+            See the Anthropic [tools](https://docs.anthropic.com/en/docs/build-with-claude/tool-use#chain-of-thought-tool-use)
+            for more details.
         :param tools: A list of Tool objects that the model can use. Each tool should have a unique name.
         """
         anthropic_integration_import.check()

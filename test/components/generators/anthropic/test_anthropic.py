@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from haystack import Pipeline
 import pytest
 
 import os
@@ -280,6 +281,50 @@ class TestAnthropicChatGenerator:
            _convert_message_to_anthropic_format(msg) for msg in chat_messages
         ]
 
+    def test_serde_in_pipeline(self):
+        tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
+
+        generator = AnthropicChatGenerator(
+            api_key=Secret.from_env_var("ANTHROPIC_API_KEY", strict=False),
+            model="claude-3-5-sonnet-20240620",
+            generation_kwargs={"temperature": 0.6},
+            tools=[tool],
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("generator", generator)
+
+        pipeline_dict = pipeline.to_dict()
+        assert pipeline_dict == {
+            "metadata": {},
+            "max_runs_per_component": 100,
+            "components": {
+                "generator": {
+                    "type": "haystack_experimental.components.generators.anthropic.chat.chat_generator.AnthropicChatGenerator",
+                    "init_parameters": {
+                        "api_key": {"type": "env_var", "env_vars": ["ANTHROPIC_API_KEY"], "strict": False},
+                        "model": "claude-3-5-sonnet-20240620",
+                        "generation_kwargs": {"temperature": 0.6},
+                        "ignore_tools_thinking_messages": True,
+                        "streaming_callback": None,
+                        "tools": [
+                            {
+                                "name": "name",
+                                "description": "description",
+                                "parameters": {"x": {"type": "string"}},
+                                "function": "builtins.print",
+                            }
+                        ],
+                    },
+                }
+            },
+            "connections": [],
+        }
+
+        pipeline_yaml = pipeline.dumps()
+
+        new_pipeline = Pipeline.loads(pipeline_yaml)
+        assert new_pipeline == pipeline
 
     @pytest.mark.skipif(
         not os.environ.get("ANTHROPIC_API_KEY", None),
@@ -349,7 +394,7 @@ class TestAnthropicChatGenerator:
 
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
-        assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', 'is_error': False,}]}
+        assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', 'is_error': False}]}
 
     def test_convert_message_to_anthropic_invalid(self):
         """
