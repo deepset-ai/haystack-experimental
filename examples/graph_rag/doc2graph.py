@@ -31,7 +31,6 @@ def read_documents(file: str) -> List[Document]:
 class ExtractGraph:
 
     def __init__(self):
-        self.pipeline = Pipeline()
         self.messages = [
             ChatMessage.from_system(ENTITY_RELATIONSHIPS_GENERATION_JSON_PROMPT_SYSTEM_HF),
             ChatMessage.from_user(ENTITY_RELATIONSHIPS_GENERATION_JSON_PROMPT_USER_HF)
@@ -143,6 +142,7 @@ def extract_graph():
     pipeline.connect("extractor.extracted_graphs", "loader.extracted_graphs")
 
     result = pipeline.run(data={'extractor': {'documents': docs[10:23]}}, include_outputs_from={'loader'})
+    # ToDo: save results to file
 
     # ToDo:
     # 1. enhance the prompt to include a summary of the named entities and relationships
