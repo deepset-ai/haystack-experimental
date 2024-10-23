@@ -372,13 +372,13 @@ The Assistant follows the following steps before replying to the User:
 
 "nodes":[{"id": <entity N>, "name": <string>, "type": <type>, "detailed_type": <detailed type>}, ...]
 
-where "type": <type> is a broad categorization of the entity. "detailed type": <detailed_type>  is a very descriptive categorization of the entity and "name": <string> is the name of the entity as identified in the text. 
+where "type": <type> is a broad categorization of the entity. "detailed type": <detailed_type>  is a comprehensive description of the entity's attributes and activities based on the textual context where the entity occurs and "name": <string> is the name of the entity as identified in the text. 
 
 2. **determine relationships** The Assistant uses the text between -------Text begin------- and -------Text end------- to determine the relationships between the entities identified in the "nodes" list defined above. These relationships are called "edges" and they follow the structure of:
 
 "edges":[{"from": <entity 1>, "to": <entity 2>, "label": <relationship>}, ...]
 
-The <entity N> must correspond to the "id" of an entity in the "nodes" list.
+The <entity N> must correspond to the "id" of an entity in the "nodes" list. The "label" is a description of the relationship between the entities.
 
 The Assistant never repeats the same node twice. The Assistant never repeats the same edge twice.
 The Assistant responds to the User in JSON only, according to the following JSON schema:

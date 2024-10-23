@@ -142,7 +142,7 @@ def extract_graph():
     pipeline.add_component(instance=loader, name="loader")
     pipeline.connect("extractor.extracted_graphs", "loader.extracted_graphs")
 
-    result = pipeline.run(data={'extractor': {'documents': docs[:3]}}, include_outputs_from={'loader'})
+    result = pipeline.run(data={'extractor': {'documents': docs[10:23]}}, include_outputs_from={'loader'})
 
     # ToDo:
     # 1. enhance the prompt to include a summary of the named entities and relationships
