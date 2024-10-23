@@ -304,7 +304,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
                         tool_calls.append(
                             ToolCall(
                                 id=current_tool_call.get("id"),
-                                tool_name=current_tool_call.get("name"),
+                                tool_name=str(current_tool_call.get("name")),
                                 arguments=json.loads(current_tool_call.get("arguments", {})),
                             )
                         )
