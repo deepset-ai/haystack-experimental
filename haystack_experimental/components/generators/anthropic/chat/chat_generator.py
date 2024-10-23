@@ -75,16 +75,20 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
     elif message.texts:
         anthropic_msg["content"] = [{"type": "text", "text": message.texts[0]}]
     elif message.tool_call_results:
-        if message.tool_call_results[0].origin.id is None:
-            raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with Anthropic.")
-        anthropic_msg["content"] = [
-            {
-                "type": "tool_result",
-                "tool_use_id": message.tool_call_results[0].origin.id,
-                "content": message.tool_call_results[0].result,
-                "is_error": message.tool_call_results[0].error,
-            }
-        ]
+        anthropic_msg["content"] = []
+        for tool_call_result in message.tool_call_results:
+            if tool_call_result.origin.id is None:
+                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with Anthropic.")
+
+            content = tool_call_result.result
+            anthropic_msg["content"].append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_call_result.origin.id,
+                    "content": content,
+                    "is_error": tool_call_result.error,
+                }
+            )
         # Anthropic API requires the role to be set to "user" for tool results
         # https://docs.anthropic.com/en/docs/build-with-claude/tool-use#tool-execution-error
         anthropic_msg["role"] = "user"
@@ -355,7 +359,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         disallowed_params = set(generation_kwargs) - set(self.ALLOWED_PARAMS)
         if disallowed_params:
             logger.warning(
-                "Model parameters %s are not allowed and will be ignored. " "Allowed parameters are %s.",
+                "Model parameters %s are not allowed and will be ignored. Allowed parameters are %s.",
                 disallowed_params,
                 self.ALLOWED_PARAMS,
             )

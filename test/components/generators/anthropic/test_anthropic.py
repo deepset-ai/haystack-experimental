@@ -1,19 +1,24 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from haystack import Pipeline
-import pytest
-
-import os
 import json
+import os
+from unittest.mock import patch
 
+import pytest
+from anthropic.types import Message, TextBlockParam
+from haystack import Pipeline
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall, ChatRole
-from haystack_experimental.components.generators.anthropic.chat.chat_generator import AnthropicChatGenerator, _convert_message_to_anthropic_format
-from unittest.mock import patch
-from anthropic.types import Message, TextBlockParam
+
+from haystack_experimental.components.generators.anthropic.chat.chat_generator import (
+    AnthropicChatGenerator,
+    _convert_message_to_anthropic_format,
+)
+from haystack_experimental.dataclasses import ChatMessage, ChatRole, Tool, ToolCall
+from haystack_experimental.dataclasses.chat_message import ToolCallResult
+
 
 @pytest.fixture
 def tools():
@@ -394,7 +399,7 @@ class TestAnthropicChatGenerator:
 
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
-        assert _convert_message_to_anthropic_format(message) == {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', 'is_error': False}]}
+        assert _convert_message_to_anthropic_format(message) == {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', "is_error": False}]}
 
     def test_convert_message_to_anthropic_invalid(self):
         """
@@ -484,3 +489,59 @@ class TestAnthropicChatGenerator:
         assert not final_message.tool_calls
         assert len(final_message.text) > 0
         assert "paris" in final_message.text.lower()
+
+    @pytest.mark.skipif(
+        not os.environ.get("ANTHROPIC_API_KEY", None),
+        reason="Export an env var called ANTHROPIC_API_KEY containing the Anthropic API key to run this test.",
+    )
+    @pytest.mark.integration
+    def test_live_run_with_parallel_tools(self, tools):
+        """
+        Integration test that the AnthropicChatGenerator component can run with parallel tools.
+        """
+        initial_messages = [ChatMessage.from_user("What's the weather like in Paris and Berlin?")]
+        component = AnthropicChatGenerator(tools=tools)
+        results = component.run(messages=initial_messages)
+
+        assert len(results["replies"]) == 1
+        message = results["replies"][0]
+
+        # now we have the tool call
+        assert len(message.tool_calls) == 2
+        tool_call_paris = message.tool_calls[0]
+        assert isinstance(tool_call_paris, ToolCall)
+        assert tool_call_paris.id is not None
+        assert tool_call_paris.tool_name == "weather"
+        assert tool_call_paris.arguments == {"city": "Paris"} or tool_call_paris.arguments == {"city": "Berlin"}
+        assert message.meta["finish_reason"] == "tool_use"
+
+        tool_call_berlin = message.tool_calls[1]
+        assert isinstance(tool_call_berlin, ToolCall)
+        assert tool_call_berlin.id is not None
+        assert tool_call_berlin.tool_name == "weather"
+        assert tool_call_berlin.arguments == {"city": "Berlin"} or tool_call_berlin.arguments == {"city": "Paris"}
+
+        # Anthropic expects results from both tools in the same message
+        # see https://docs.anthropic.com/en/docs/build-with-claude/tool-use#handling-tool-use-and-tool-result-content-blocks
+        # the docs state:
+        # [optional] Continue the conversation by sending a new message with the role of user, and a content block containing
+        # the tool_result type and the following information:
+        # tool_use_id: The id of the tool use request this is a result for.
+        # content: The result of the tool, as a string (e.g. "content": "15 degrees") or list of
+        # nested content blocks (e.g. "content": [{"type": "text", "text": "15 degrees"}]).
+        # These content blocks can use the text or image types.
+        # is_error (optional): Set to true if the tool execution resulted in an error.
+        new_messages = initial_messages + [message,
+                                           ChatMessage.from_tools([ToolCallResult(result="22° C", origin=tool_call_paris, error=False),
+                                                                   ToolCallResult(result="12° C", origin=tool_call_berlin, error=False)])]
+
+        # Response from the model contains results from both tools
+        results = component.run(new_messages)
+        message = results["replies"][0]
+        assert not message.tool_calls
+        assert len(message.text) > 0
+        assert "paris" in message.text.lower()
+        assert "berlin" in message.text.lower()
+        assert "22°" in message.text
+        assert "12°" in message.text
+        assert message.meta["finish_reason"] == "end_turn"
