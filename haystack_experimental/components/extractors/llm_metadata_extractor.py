@@ -240,20 +240,32 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
-
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
-    def run(self, documents: List[Document]) -> Dict[str, Any]:
+    def run(self,
+            documents: List[Document],
+            start_document: int = 0,
+            end_document: int = -1,
+        ) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
 
         :param documents: List of documents to extract metadata from.
+        :param start_document: The index of the first document extract metadata from.
+        :param end_document: The index of the last document extract metadata from.
         :returns:
             A dictionary with the keys:
             - "documents": List of documents with extracted metadata.
             - "errors": A dictionary with document IDs as keys and error messages as values.
         """
         errors = {}
-        for document in documents:
+        extract_from_range = False
+        target_docs = documents
+
+        if start_document is not None and end_document is not None:
+            extract_from_range = True
+            target_docs = documents[start_document:end_document]
+
+        for document in target_docs:
             prompt_with_doc = self.builder.run(input_text=document.content)
             result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
             llm_answer = result["replies"][0]
@@ -263,5 +275,10 @@ class LLMMetadataExtractor:
                     document.meta[k] = extracted_metadata[k]
             else:
                 errors[document.id] = llm_answer
+
+        if extract_from_range:  # add metadata to the remaining documents
+            for doc in documents[:end_document]:
+                for k in self.expected_keys:
+                    doc.meta[k] = {}
 
         return {"documents": documents, "errors": errors}
