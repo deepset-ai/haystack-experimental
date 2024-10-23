@@ -97,7 +97,7 @@ def _check_duplicate_tool_names(tools: List[Tool]):
         raise ValueError(f"Duplicate tool names found: {duplicate_tool_names}")
 
 
-@component()
+@component
 class AnthropicChatGenerator(chatgenerator_base_class):
     """
     Supports models from Anthropic's API.
