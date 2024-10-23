@@ -394,7 +394,7 @@ class TestAnthropicChatGenerator:
 
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
-        assert _convert_message_to_anthropic_format(message) == {"role": "tool", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', 'is_error': False}]}
+        assert _convert_message_to_anthropic_format(message) == {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', 'is_error': False}]}
 
     def test_convert_message_to_anthropic_invalid(self):
         """
@@ -422,8 +422,9 @@ class TestAnthropicChatGenerator:
         """
         Integration test that the AnthropicChatGenerator component can run with tools.
         """
+        initial_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
         component = AnthropicChatGenerator(tools=tools)
-        results = component.run(messages=[ChatMessage.from_user("What's the weather like in Paris?")])
+        results = component.run(messages=initial_messages)
 
         assert len(results["replies"]) == 1
         message = results["replies"][0]
@@ -436,6 +437,16 @@ class TestAnthropicChatGenerator:
         assert tool_call.arguments == {"city": "Paris"}
         assert message.meta["finish_reason"] == "tool_use"
 
+        new_messages = initial_messages + [message, ChatMessage.from_tool(tool_result="22° C", origin=tool_call)]
+        # the model tends to make tool calls if provided with tools, so we don't pass them here
+        results = component.run(new_messages, generation_kwargs={"max_tokens": 50})
+
+        assert len(results["replies"]) == 1
+        final_message = results["replies"][0]
+        assert not final_message.tool_calls
+        assert len(final_message.text) > 0
+        assert "paris" in final_message.text.lower()
+
     @pytest.mark.skipif(
         not os.environ.get("ANTHROPIC_API_KEY", None),
         reason="Export an env var called ANTHROPIC_API_KEY containing the Anthropic API key to run this test.",
@@ -445,8 +456,9 @@ class TestAnthropicChatGenerator:
         """
         Integration test that the AnthropicChatGenerator component can run with tools and streaming.
         """
+        initial_messages = [ChatMessage.from_user("What's the weather like in Paris?")]
         component = AnthropicChatGenerator(tools=tools, streaming_callback=print_streaming_chunk)
-        results = component.run(messages=[ChatMessage.from_user("What's the weather like in Paris?")])
+        results = component.run(messages=initial_messages)
 
         assert len(results["replies"]) == 1
         message = results["replies"][0]
@@ -464,3 +476,11 @@ class TestAnthropicChatGenerator:
         assert tool_call.tool_name == "weather"
         assert tool_call.arguments == {"city": "Paris"}
         assert message.meta["finish_reason"] == "tool_use"
+
+        new_messages = initial_messages + [message, ChatMessage.from_tool(tool_result="22° C", origin=tool_call)]
+        results = component.run(new_messages)
+        assert len(results["replies"]) == 1
+        final_message = results["replies"][0]
+        assert not final_message.tool_calls
+        assert len(final_message.text) > 0
+        assert "paris" in final_message.text.lower()

@@ -57,8 +57,22 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
         return {"type": "text", "text": message.text}
 
     anthropic_msg: Dict[str, Any] = {"role": message._role.value}
-
-    if message.texts:
+    # special case for when we have both text and tool calls in the same message (a.k.a. "thinking" tool messages)
+    if message.texts and message.tool_calls:
+        anthropic_tool_calls = []
+        for tc in message.tool_calls:
+            if tc.id is None:
+                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with Anthropic.")
+            anthropic_tool_calls.append(
+                {
+                    "type": "tool_use",
+                    "id": tc.id,
+                    "name": tc.tool_name,
+                    "input": tc.arguments,
+                }
+            )
+        anthropic_msg["content"] = [{"type": "text", "text": message.texts[0]}] + anthropic_tool_calls
+    elif message.texts:
         anthropic_msg["content"] = [{"type": "text", "text": message.texts[0]}]
     elif message.tool_call_results:
         if message.tool_call_results[0].origin.id is None:
@@ -71,6 +85,9 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
                 "is_error": message.tool_call_results[0].error,
             }
         ]
+        # Anthropic API requires the role to be set to "user" for tool results
+        # https://docs.anthropic.com/en/docs/build-with-claude/tool-use#tool-execution-error
+        anthropic_msg["role"] = "user"
     elif message.tool_calls:
         anthropic_tool_calls = []
         for tc in message.tool_calls:
