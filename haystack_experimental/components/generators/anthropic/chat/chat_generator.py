@@ -67,6 +67,7 @@ def _convert_message_to_anthropic_format(message: ChatMessage) -> Dict[str, Any]
                 "type": "tool_result",
                 "tool_use_id": message.tool_call_results[0].origin.id,
                 "content": message.tool_call_results[0].result,
+                "is_error": message.tool_call_results[0].error, 
             }
         ]
     elif message.tool_calls:
