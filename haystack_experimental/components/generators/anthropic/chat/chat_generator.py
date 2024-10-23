@@ -229,12 +229,12 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         """
         Converts the response from the Anthropic API to a ChatMessage.
         """
-        text_parts = []
+        text_extracted = ""
         tool_calls = []
 
         for content_block in anthropic_response.content:
             if content_block.type == "text":
-                text_parts.append(content_block.text)
+                text_extracted = content_block.text
             elif content_block.type == "tool_use":
                 tool_calls.append(
                     ToolCall(
@@ -244,10 +244,7 @@ class AnthropicChatGenerator(chatgenerator_base_class):
                     )
                 )
 
-        # Combine all text parts into a single string
-        full_text = " ".join(text_parts)
-
-        message = ChatMessage.from_assistant(text=full_text, tool_calls=tool_calls)
+        message = ChatMessage.from_assistant(text=text_extracted, tool_calls=tool_calls)
 
         # Dump the chat completion to a dict
         response_dict = anthropic_response.model_dump()
@@ -283,56 +280,41 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         tool_calls = []
         current_tool_call: Optional[Dict[str, Any]] = {}
 
-        # block handling functions
-        def handle_content_block_start(chunk):
-            nonlocal current_tool_call
-            # this is the tool call start, capture the id and name
-            # arguments will be captured in the delta
-            if chunk.meta.get("content_block", {}).get("type") == "tool_use":
-                delta_block = chunk.meta.get("content_block")
-                current_tool_call = {
-                    "id": delta_block.get("id"),
-                    "name": delta_block.get("name"),
-                    "arguments": "",
-                }
-
-        def handle_content_block_delta(chunk):
-            nonlocal full_content, current_tool_call
-            delta = chunk.meta.get("delta", {})
-            if delta.get("type") == "text_delta":
-                full_content += delta.get("text", "")
-            elif delta.get("type") == "input_json_delta" and current_tool_call:
-                current_tool_call["arguments"] += delta.get("partial_json", "")
-
-        def handle_message_delta(chunk):
-            nonlocal current_tool_call, tool_calls
-            if chunk.meta.get("delta", {}).get("stop_reason") == "tool_use" and current_tool_call:
-                try:
-                    # arguments is a string, convert to json
-                    tool_calls.append(
-                        ToolCall(
-                            id=current_tool_call.get("id"),
-                            tool_name=current_tool_call.get("name"),
-                            arguments=json.loads(current_tool_call.get("arguments", {})),
-                        )
-                    )
-                except json.JSONDecodeError:
-                    logger.warning(
-                        "Anthropic returned a malformed JSON string for tool call arguments. "
-                        "This tool call will be skipped. Arguments: %s",
-                        current_tool_call.get("arguments", ""),
-                    )
-                current_tool_call = None
-
         # loop through chunks and call the appropriate handler
         for chunk in chunks:
             chunk_type = chunk.meta.get("type")
             if chunk_type == "content_block_start":
-                handle_content_block_start(chunk)
+                if chunk.meta.get("content_block", {}).get("type") == "tool_use":
+                    delta_block = chunk.meta.get("content_block")
+                    current_tool_call = {
+                        "id": delta_block.get("id"),
+                        "name": delta_block.get("name"),
+                        "arguments": "",
+                    }
             elif chunk_type == "content_block_delta":
-                handle_content_block_delta(chunk)
-            elif chunk_type == "message_delta":
-                handle_message_delta(chunk)
+                delta = chunk.meta.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    full_content += delta.get("text", "")
+                elif delta.get("type") == "input_json_delta" and current_tool_call:
+                    current_tool_call["arguments"] += delta.get("partial_json", "")
+            elif chunk_type == "message_delta":  # noqa: SIM102 (prefer nested if statement here for readability)
+                if chunk.meta.get("delta", {}).get("stop_reason") == "tool_use" and current_tool_call:
+                    try:
+                        # arguments is a string, convert to json
+                        tool_calls.append(
+                            ToolCall(
+                                id=current_tool_call.get("id"),
+                                tool_name=current_tool_call.get("name"),
+                                arguments=json.loads(current_tool_call.get("arguments", {})),
+                            )
+                        )
+                    except json.JSONDecodeError:
+                        logger.warning(
+                            "Anthropic returned a malformed JSON string for tool call arguments. "
+                            "This tool call will be skipped. Arguments: %s",
+                            current_tool_call.get("arguments", ""),
+                        )
+                    current_tool_call = None
 
         message = ChatMessage.from_assistant(full_content, tool_calls=tool_calls)
 
