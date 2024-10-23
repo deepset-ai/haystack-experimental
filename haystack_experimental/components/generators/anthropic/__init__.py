@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .chat.chat_generator import AnthropicChatGenerator, _convert_message_to_anthropic_format
+from .chat.chat_generator import AnthropicChatGenerator
 
 __all__ = [
     "AnthropicChatGenerator",
