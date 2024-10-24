@@ -212,16 +212,6 @@ class ChatMessage:
         """
         return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=tool_result, origin=origin, error=error)])
 
-    @classmethod
-    def from_tools(cls, tool_results: List[ToolCallResult]) -> "ChatMessage":
-        """
-        Create a message from a list of Tool call results.
-
-        :param tool_results: The list of Tool call results to include in the message.
-        :returns: A new ChatMessage instance.
-        """
-        return cls(_role=ChatRole.TOOL, _content=tool_results)
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Converts ChatMessage into a dictionary.

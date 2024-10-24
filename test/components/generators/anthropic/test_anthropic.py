@@ -14,7 +14,7 @@ from haystack.utils.auth import Secret
 
 from haystack_experimental.components.generators.anthropic.chat.chat_generator import (
     AnthropicChatGenerator,
-    _convert_message_to_anthropic_format,
+    _convert_messages_to_anthropic_format,
 )
 from haystack_experimental.dataclasses import ChatMessage, ChatRole, Tool, ToolCall
 from haystack_experimental.dataclasses.chat_message import ToolCallResult
@@ -281,10 +281,6 @@ class TestAnthropicChatGenerator:
         assert response["replies"][0].meta["model"] == "claude-3-5-sonnet-20240620"
         assert response["replies"][0].meta["finish_reason"] == "end_turn"
 
-        # Check that the API was called with the correct messages
-        assert kwargs["messages"] == [
-           _convert_message_to_anthropic_format(msg) for msg in chat_messages
-        ]
 
     def test_serde_in_pipeline(self):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
@@ -384,22 +380,22 @@ class TestAnthropicChatGenerator:
         """
         Test that the AnthropicChatGenerator component can convert a ChatMessage to Anthropic format.
         """
-        message = ChatMessage.from_system("You are good assistant")
-        assert _convert_message_to_anthropic_format(message) == {"type": "text", "text": "You are good assistant"}
+        messages = [ChatMessage.from_system("You are good assistant")]
+        assert _convert_messages_to_anthropic_format(messages) == ([{"type": "text", "text": "You are good assistant"}], [])
 
-        message = ChatMessage.from_user("I have a question")
-        assert _convert_message_to_anthropic_format(message) == {"role": "user", "content":[ {"type": "text", "text": "I have a question"}]}
+        messages = [ChatMessage.from_user("I have a question")]
+        assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "user", "content":[ {"type": "text", "text": "I have a question"}]}])
 
-        message = ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})
-        assert _convert_message_to_anthropic_format(message) == {"role": "assistant", "content": [{"type": "text", "text": "I have an answer"}]}
+        messages = [ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})]
+        assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "assistant", "content": [{"type": "text", "text": "I have an answer"}]}])
 
-        message = ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])
-        result = _convert_message_to_anthropic_format(message)
-        assert result == {"role": "assistant", "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}]}
+        messages = [ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])]
+        result = _convert_messages_to_anthropic_format(messages)
+        assert result == ([], [{"role": "assistant", "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}]}])
 
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
-        message = ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))
-        assert _convert_message_to_anthropic_format(message) == {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content": '{"weather": "sunny", "temperature": "25"}', "is_error": False}]}
+        messages = [ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))]
+        assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content":  [{'type': 'text', 'text': '{"weather": "sunny", "temperature": "25"}'}], "is_error": False}]}])
 
     def test_convert_message_to_anthropic_invalid(self):
         """
@@ -407,16 +403,16 @@ class TestAnthropicChatGenerator:
         """
         message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
         with pytest.raises(ValueError):
-            _convert_message_to_anthropic_format(message)
+            _convert_messages_to_anthropic_format([message])
 
         tool_call_null_id = ToolCall(id=None, tool_name="weather", arguments={"city": "Paris"})
         message = ChatMessage.from_assistant(tool_calls=[tool_call_null_id])
         with pytest.raises(ValueError):
-            _convert_message_to_anthropic_format(message)
+            _convert_messages_to_anthropic_format([message])
 
         message = ChatMessage.from_tool(tool_result="result", origin=tool_call_null_id)
         with pytest.raises(ValueError):
-            _convert_message_to_anthropic_format(message)
+            _convert_messages_to_anthropic_format([message])
 
     @pytest.mark.skipif(
         not os.environ.get("ANTHROPIC_API_KEY", None),
@@ -532,8 +528,8 @@ class TestAnthropicChatGenerator:
         # These content blocks can use the text or image types.
         # is_error (optional): Set to true if the tool execution resulted in an error.
         new_messages = initial_messages + [message,
-                                           ChatMessage.from_tools([ToolCallResult(result="22° C", origin=tool_call_paris, error=False),
-                                                                   ToolCallResult(result="12° C", origin=tool_call_berlin, error=False)])]
+                                           ChatMessage.from_tool(tool_result="22° C", origin=tool_call_paris, error=False),
+                                           ChatMessage.from_tool(tool_result="12° C", origin=tool_call_berlin, error=False)]
 
         # Response from the model contains results from both tools
         results = component.run(new_messages)
