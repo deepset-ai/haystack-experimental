@@ -51,6 +51,7 @@ dependencies = [
 
 [tool.hatch.envs.test]
 extra-dependencies = [
+  "transformers<4.46.0", # https://github.com/huggingface/transformers/issues/34370
   # RAG evaluation harness (SAS evaluator)
   "sentence-transformers>=3.0.0",
   # OpenAPI dependencies
