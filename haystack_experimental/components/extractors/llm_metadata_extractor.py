@@ -6,6 +6,8 @@ import json
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
+from haystack_experimental.util.utils import merge_dicts
+
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
@@ -243,8 +245,8 @@ class LLMMetadataExtractor:
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
     def run(self,
             documents: List[Document],
-            start_document: int = 0,
-            end_document: int = -1,
+            start_document: Optional[int],
+            end_document: Optional[int],
         ) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
@@ -261,8 +263,10 @@ class LLMMetadataExtractor:
         extract_from_range = False
         target_docs = documents
 
+        # extracting metadata only from a specific range
         if start_document is not None and end_document is not None:
             extract_from_range = True
+            all_metadata = {}
             target_docs = documents[start_document:end_document]
 
         for document in target_docs:
@@ -273,12 +277,16 @@ class LLMMetadataExtractor:
                 extracted_metadata = json.loads(llm_answer)
                 for k in self.expected_keys:
                     document.meta[k] = extracted_metadata[k]
+                # if in extra_from_range mode, merge all extracted in a single dict
+                if extract_from_range and extracted_metadata:
+                    all_metadata = merge_dicts(all_metadata, extracted_metadata)
             else:
                 errors[document.id] = llm_answer
 
-        if extract_from_range:  # add metadata to the remaining documents
-            for doc in documents[:end_document]:
+        # if in extra_from_range mode, assign the merged metadata to all documents
+        if extract_from_range:
+            for doc in documents:
                 for k in self.expected_keys:
-                    doc.meta[k] = {}
+                    doc.meta[k] = all_metadata[k]
 
         return {"documents": documents, "errors": errors}
