@@ -6,6 +6,8 @@ import json
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
+from haystack_experimental.util.utils import merge_dicts
+
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
@@ -240,20 +242,34 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
-
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
-    def run(self, documents: List[Document]) -> Dict[str, Any]:
+    def run(self,
+            documents: List[Document],
+            start_document: Optional[int],
+            end_document: Optional[int],
+        ) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
 
         :param documents: List of documents to extract metadata from.
+        :param start_document: The index of the first document extract metadata from.
+        :param end_document: The index of the last document extract metadata from.
         :returns:
             A dictionary with the keys:
             - "documents": List of documents with extracted metadata.
             - "errors": A dictionary with document IDs as keys and error messages as values.
         """
         errors = {}
-        for document in documents:
+        extract_from_range = False
+        target_docs = documents
+
+        # extracting metadata only from a specific range
+        if start_document is not None and end_document is not None:
+            extract_from_range = True
+            all_metadata = {}
+            target_docs = documents[start_document:end_document]
+
+        for document in target_docs:
             prompt_with_doc = self.builder.run(input_text=document.content)
             result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
             llm_answer = result["replies"][0]
@@ -261,7 +277,16 @@ class LLMMetadataExtractor:
                 extracted_metadata = json.loads(llm_answer)
                 for k in self.expected_keys:
                     document.meta[k] = extracted_metadata[k]
+                # if in extra_from_range mode, merge all extracted in a single dict
+                if extract_from_range and extracted_metadata:
+                    all_metadata = merge_dicts(all_metadata, extracted_metadata)
             else:
                 errors[document.id] = llm_answer
+
+        # if in extra_from_range mode, assign the merged metadata to all documents
+        if extract_from_range:
+            for doc in documents:
+                for k in self.expected_keys:
+                    doc.meta[k] = all_metadata[k]
 
         return {"documents": documents, "errors": errors}
