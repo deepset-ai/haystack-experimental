@@ -1,3 +1,6 @@
+from typing import Optional, Union, List
+
+
 def merge_dicts(d1, d2):
     """
     Merge two dictionaries. If a key exists in both dictionaries, the values are merged according to the following rules:
@@ -36,3 +39,26 @@ def merge_dicts(d1, d2):
             merged[key] = d2[key]
 
     return merged
+
+
+def expand_page_range(page_range: Union[ List[Union[int,str]], List[int] ] ):
+    """
+    Takes a list of page numbers and ranges and expands them into a list of page numbers.
+
+    :param page_range:
+    :returns:
+
+    """
+    expanded_page_range = []
+
+    for page in page_range:
+        if isinstance(page, int):
+            expanded_page_range.append(page)
+        elif isinstance(page, str) and "-" in page:
+            start, end = page.split("-")
+            expanded_page_range.extend(range(int(start), int(end) + 1))
+        else:
+            msg = "range must be a string in the format 'start-end' or an integer"
+            raise ValueError(f"Invalid page range: {page} - {msg}")
+
+    return expanded_page_range

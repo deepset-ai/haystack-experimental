@@ -245,15 +245,16 @@ class LLMMetadataExtractor:
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
     def run(self,
             documents: List[Document],
-            start_document: Optional[int],
-            end_document: Optional[int],
+            page_range: Optional[Union[List[int,str],List[int]]]
         ) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
 
         :param documents: List of documents to extract metadata from.
-        :param start_document: The index of the first document extract metadata from.
-        :param end_document: The index of the last document extract metadata from.
+        :param page_range: A range of pages to extract metadata from. If None, all documents are processed.
+                           For example, page_range=[1, 3] will process the first three documents.
+                           It also accepts printable range strings, e.g.: ['1-3', 5, 8, '10-12'] will process the
+                           first three, the fifth, the eighth, and the last three documents.
         :returns:
             A dictionary with the keys:
             - "documents": List of documents with extracted metadata.
@@ -262,6 +263,7 @@ class LLMMetadataExtractor:
         errors = {}
         extract_from_range = False
         target_docs = documents
+
 
         # extracting metadata only from a specific range
         if start_document is not None and end_document is not None:
