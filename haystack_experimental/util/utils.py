@@ -1,9 +1,13 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Union, List
 
 
 def merge_dicts(d1, d2):
     """
-    Merge two dictionaries. If a key exists in both dictionaries, the values are merged according to the following rules:
+    Merge two dictionaries. If a key exists in both dictionaries, the values are merged according to the rules:
 
     - If both values are dictionaries, merge them recursively
     - If both values are lists, concatenate them
@@ -11,7 +15,8 @@ def merge_dicts(d1, d2):
 
     :param d1: Dictionary 1
     :param d2: Dictionary 2
-    :return:
+    :returns:
+        a single dictionary with the merged values from d1 and d2
     """
 
     merged = {}
