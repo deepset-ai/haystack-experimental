@@ -1,4 +1,4 @@
-from typing import Optional, Union, List
+from typing import Union, List
 
 
 def merge_dicts(d1, d2):
@@ -45,14 +45,21 @@ def expand_page_range(page_range: Union[ List[Union[int,str]], List[int] ] ):
     """
     Takes a list of page numbers and ranges and expands them into a list of page numbers.
 
-    :param page_range:
+    For example, given a page_range=['1-3', 5, 8, '10-12'] the function will return [1, 2, 3, 5, 8, 10, 11, 12]
+
+    :param page_range: List of page numbers and ranges
     :returns:
+        an expanded list of page integers
 
     """
     expanded_page_range = []
 
     for page in page_range:
         if isinstance(page, int):
+            # check if it's a range wrongly passed as an integer expression
+            if "-" in str(page):
+                msg = "range must be a string in the format 'start-end'"
+                raise ValueError(f"Invalid page range: {page} - {msg}")
             expanded_page_range.append(page)
         elif isinstance(page, str) and "-" in page:
             start, end = page.split("-")

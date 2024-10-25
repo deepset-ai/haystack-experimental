@@ -6,7 +6,7 @@ import json
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from haystack_experimental.util.utils import merge_dicts
+from haystack_experimental.util.utils import merge_dicts, expand_page_range
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
@@ -245,7 +245,7 @@ class LLMMetadataExtractor:
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
     def run(self,
             documents: List[Document],
-            page_range: Optional[Union[List[int,str],List[int]]]
+            page_range: Union[ List[Union[int,str]], List[int]]
         ) -> Dict[str, Any]:
         """
         Extract metadata from documents using a Language Model.
@@ -254,7 +254,7 @@ class LLMMetadataExtractor:
         :param page_range: A range of pages to extract metadata from. If None, all documents are processed.
                            For example, page_range=[1, 3] will process the first three documents.
                            It also accepts printable range strings, e.g.: ['1-3', 5, 8, '10-12'] will process the
-                           first three, the fifth, the eighth, and the last three documents.
+                           first three, the 5th, the 8th, and the 10, 11, 12th documents.
         :returns:
             A dictionary with the keys:
             - "documents": List of documents with extracted metadata.
@@ -263,13 +263,16 @@ class LLMMetadataExtractor:
         errors = {}
         extract_from_range = False
         target_docs = documents
+        expanded_page_range = expand_page_range(page_range) if page_range else None
 
-
-        # extracting metadata only from a specific range
-        if start_document is not None and end_document is not None:
-            extract_from_range = True
-            all_metadata = {}
-            target_docs = documents[start_document:end_document]
+        # extracting metadata only from a specific range of documents
+        if expanded_page_range:
+            start_document = expanded_page_range[0] - 1
+            end_document = expanded_page_range[-1]
+            if start_document is not None and end_document is not None:
+                extract_from_range = True
+                all_metadata = {}
+                target_docs = documents[start_document:end_document]
 
         for document in target_docs:
             prompt_with_doc = self.builder.run(input_text=document.content)
@@ -282,6 +285,7 @@ class LLMMetadataExtractor:
                 # if in extra_from_range mode, merge all extracted in a single dict
                 if extract_from_range and extracted_metadata:
                     all_metadata = merge_dicts(all_metadata, extracted_metadata)
+                    print(all_metadata)
             else:
                 errors[document.id] = llm_answer
 

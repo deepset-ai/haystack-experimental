@@ -16,7 +16,7 @@ def test_merge_dicts():
 
     json_a = {"key": "a_string", "unique_in_a": "test"}
     json_b = {"key": 25, "unique_in_b": ["test"]}
-    expected = {{'key': ['a_string', 25], 'unique_in_a': 'test', 'unique_in_b': ['test']}}
+    expected = {'key': ['a_string', 25], 'unique_in_a': 'test', 'unique_in_b': ['test']}
     assert expected == merge_dicts(json_a, json_b)
 
 
@@ -35,3 +35,6 @@ def test_expand_page_range_invalid_input():
 
     with pytest.raises(ValueError):
         expand_page_range(['1-3', 5, 8, '10-12', '15-20', '50'])
+
+    with pytest.raises(ValueError):
+        expand_page_range([1-3, 5, 8])
