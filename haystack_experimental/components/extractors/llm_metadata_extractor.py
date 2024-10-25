@@ -243,10 +243,7 @@ class LLMMetadataExtractor:
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
-    def run(self,
-            documents: List[Document],
-            page_range: Union[ List[Union[int,str]], List[int]]
-        ) -> Dict[str, Any]:
+    def run(self, documents: List[Document], page_range: Union[ List[Union[int,str]], List[int]]) -> Dict[str, Any]:    # pylint: disable=R0914
         """
         Extract metadata from documents using a Language Model.
 
