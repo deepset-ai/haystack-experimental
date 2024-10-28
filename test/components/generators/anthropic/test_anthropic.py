@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 import json
+import logging
 import os
 from unittest.mock import patch
 
@@ -483,6 +484,105 @@ class TestAnthropicChatGenerator:
         assert message._meta["finish_reason"] == "tool_use"
         assert message._meta["usage"] == {"output_tokens": 40}
 
+    def test_convert_streaming_chunks_to_chat_message_malformed_json(self, caplog):
+        """
+        Test converting streaming chunks with malformed JSON in tool arguments (increases coverage)
+        """
+        chunks = [
+            # Initial text content
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {"type": "text", "text": ""}
+                }
+            ),
+            StreamingChunk(
+                content="Let me check the weather",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": "Let me check the weather"}
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_stop",
+                    "index": 0
+                }
+            ),
+            # Tool use content with malformed JSON
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_start",
+                    "index": 1,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": "toolu_123",
+                        "name": "weather",
+                        "input": {}
+                    }
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 1,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": "{\"city\":"
+                    }
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 1,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": " \"Paris"  # Missing closing quote and brace, malformed JSON
+                    }
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_stop",
+                    "index": 1
+                }
+            ),
+            # Final message delta
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "message_delta",
+                    "delta": {
+                        "stop_reason": "tool_use",
+                        "stop_sequence": None
+                    },
+                    "usage": {"output_tokens": 40}
+                }
+            )
+        ]
+
+        component = AnthropicChatGenerator(api_key=Secret.from_token("test-api-key"))
+        message = component._convert_streaming_chunks_to_chat_message(chunks, model="claude-3-sonnet")
+
+        # Verify the message content is preserve
+        assert message.text == "Let me check the weather"
+
+        # But the tool_calls are empty
+        assert len(message.tool_calls) == 0
+
+        # and we have logged a warning
+        with caplog.at_level(logging.WARNING):
+            assert "Anthropic returned a malformed JSON string" in caplog.text
+
 
     def test_serde_in_pipeline(self):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
@@ -598,6 +698,11 @@ class TestAnthropicChatGenerator:
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         messages = [ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))]
         assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content":  [{'type': 'text', 'text': '{"weather": "sunny", "temperature": "25"}'}], "is_error": False}]}])
+
+        messages = [ChatMessage.from_assistant(text="For that I'll need to check the weather", tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])]
+        result = _convert_messages_to_anthropic_format(messages)
+        assert result == ([], [{"role": "assistant", "content": [{"type": "text", "text": "For that I'll need to check the weather"}, {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}]}])
+
 
     def test_convert_message_to_anthropic_invalid(self):
         """
