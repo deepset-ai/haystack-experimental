@@ -52,8 +52,9 @@ def _convert_tool_call_results_to_anthropic_format(
     :param tool_call_results: The list of ToolCallResults to convert.
     :param anthropic_msg: The Anthropic message to update.
     """
-    if "content" not in anthropic_msg:
-        anthropic_msg["content"] = []
+    anthropic_content = anthropic_msg.get("content", [])
+    if not anthropic_msg.get("content"):
+        anthropic_msg["content"] = anthropic_content
 
     for tool_call_result in tool_call_results:
         if tool_call_result.origin.id is None:
