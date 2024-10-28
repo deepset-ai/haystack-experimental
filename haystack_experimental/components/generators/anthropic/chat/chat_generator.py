@@ -52,14 +52,13 @@ def _update_anthropic_message_with_tool_call_results(
     :param tool_call_results: The list of ToolCallResults to update the message with.
     :param anthropic_msg: The Anthropic message to update.
     """
-    anthropic_content = anthropic_msg.get("content", [])
-    if not anthropic_msg.get("content"):
-        anthropic_msg["content"] = anthropic_content
+    if "content" not in anthropic_msg:
+        anthropic_msg["content"] = []
 
     for tool_call_result in tool_call_results:
         if tool_call_result.origin.id is None:
             raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with Anthropic.")
-        anthropic_content.append(
+        anthropic_msg["content"].append(
             {
                 "type": "tool_result",
                 "tool_use_id": tool_call_result.origin.id,
