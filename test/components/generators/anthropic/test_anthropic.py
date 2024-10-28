@@ -12,6 +12,8 @@ from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
 
+from anthropic.types import ContentBlockDeltaEvent, MessageStartEvent, TextDelta, ContentBlockStartEvent
+
 from haystack_experimental.components.generators.anthropic.chat.chat_generator import (
     AnthropicChatGenerator,
     _convert_messages_to_anthropic_format,
@@ -280,6 +282,206 @@ class TestAnthropicChatGenerator:
         assert "Hello! I'm Claude." in response["replies"][0].text
         assert response["replies"][0].meta["model"] == "claude-3-5-sonnet-20240620"
         assert response["replies"][0].meta["finish_reason"] == "end_turn"
+
+    def test_check_duplicate_tool_names(self, tools):
+        """Test that the AnthropicChatGenerator component fails to initialize with duplicate tool names."""
+        with pytest.raises(ValueError):
+            AnthropicChatGenerator(tools=tools + tools)
+
+    def test_convert_anthropic_chunk_to_streaming_chunk(self):
+        """
+        Test converting Anthropic stream events to Haystack StreamingChunks
+        """
+        component = AnthropicChatGenerator(api_key=Secret.from_token("test-api-key"))
+
+        # Test text delta chunk
+        text_delta_chunk = ContentBlockDeltaEvent(
+            type="content_block_delta",
+            index=0,
+            delta=TextDelta(
+                type="text_delta",
+                text="Hello, world!"
+            )
+        )
+        streaming_chunk = component._convert_anthropic_chunk_to_streaming_chunk(text_delta_chunk)
+        assert streaming_chunk.content == "Hello, world!"
+        assert streaming_chunk.meta == {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {
+                "type": "text_delta",
+                "text": "Hello, world!"
+            }
+        }
+
+        # Test non-text chunk (should have empty content)
+        message_start_chunk = MessageStartEvent(
+            type="message_start",
+            message={
+                "id": "msg_123",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "claude-3-5-sonnet-20240620",
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 25, "output_tokens": 1}
+            }
+        )
+        streaming_chunk = component._convert_anthropic_chunk_to_streaming_chunk(message_start_chunk)
+        assert streaming_chunk.content == ""
+        assert streaming_chunk.meta == {
+            "type": "message_start",
+            "message": {
+                "id": "msg_123",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "claude-3-5-sonnet-20240620",
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 25, "output_tokens": 1}
+            }
+        }
+
+        # Test tool use chunk (should have empty content)
+        tool_use_chunk = ContentBlockStartEvent(
+            type="content_block_start",
+            index=1,
+            content_block={
+                "type": "tool_use",
+                "id": "toolu_123",
+                "name": "weather",
+                "input": {"city": "Paris"}
+            }
+        )
+        streaming_chunk = component._convert_anthropic_chunk_to_streaming_chunk(tool_use_chunk)
+        assert streaming_chunk.content == ""
+        assert streaming_chunk.meta == {
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {
+                "type": "tool_use",
+                "id": "toolu_123",
+                "name": "weather",
+                "input": {"city": "Paris"}
+            }
+        }
+
+
+    def test_convert_streaming_chunks_to_chat_message(self):
+        """
+        Test converting streaming chunks to a chat message with tool calls
+        """
+        # Create a sequence of streaming chunks that simulate Anthropic's response
+        chunks = [
+            # Initial text content
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {"type": "text", "text": ""}
+                }
+            ),
+            StreamingChunk(
+                content="Let me check",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": "Let me check"}
+                }
+            ),
+            StreamingChunk(
+                content=" the weather",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": " the weather"}
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_stop",
+                    "index": 0
+                }
+            ),
+            # Tool use content
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_start",
+                    "index": 1,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": "toolu_123",
+                        "name": "weather",
+                        "input": {}
+                    }
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 1,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": "{\"city\":"
+                    }
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 1,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": " \"Paris\"}"
+                    }
+                }
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_stop",
+                    "index": 1
+                }
+            ),
+            # Final message delta
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "message_delta",
+                    "delta": {
+                        "stop_reason": "tool_use",
+                        "stop_sequence": None
+                    },
+                    "usage": {"output_tokens": 40}
+                }
+            )
+        ]
+
+        component = AnthropicChatGenerator(api_key=Secret.from_token("test-api-key"))
+        message = component._convert_streaming_chunks_to_chat_message(chunks, model="claude-3-sonnet")
+
+        # Verify the message content
+        assert message.text == "Let me check the weather"
+
+        # Verify tool calls
+        assert len(message.tool_calls) == 1
+        tool_call = message.tool_calls[0]
+        assert tool_call.id == "toolu_123"
+        assert tool_call.tool_name == "weather"
+        assert tool_call.arguments == {"city": "Paris"}
+
+        # Verify meta information
+        assert message._meta["model"] == "claude-3-sonnet"
+        assert message._meta["index"] == 0
+        assert message._meta["finish_reason"] == "tool_use"
+        assert message._meta["usage"] == {"output_tokens": 40}
 
 
     def test_serde_in_pipeline(self):
