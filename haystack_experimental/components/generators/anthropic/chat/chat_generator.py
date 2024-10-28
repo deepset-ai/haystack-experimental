@@ -43,13 +43,13 @@ else:
     chatgenerator_base_class: Type[object] = object  # type: ignore[no-redef]
 
 
-def _convert_tool_call_results_to_anthropic_format(
+def _update_anthropic_message_with_tool_call_results(
     tool_call_results: List[ToolCallResult], anthropic_msg: Dict[str, Any]
 ) -> None:
     """
-    Convert a list of tool call results to the format expected by Anthropic Chat API.
+    Update an Anthropic message with tool call results.
 
-    :param tool_call_results: The list of ToolCallResults to convert.
+    :param tool_call_results: The list of ToolCallResults to update the message with.
     :param anthropic_msg: The Anthropic message to update.
     """
     anthropic_content = anthropic_msg.get("content", [])
@@ -139,11 +139,11 @@ def _convert_messages_to_anthropic_format(  # noqa: PLR0912
                 # special case - we already handled tool call results stitching
                 # in the previous message, so we skip this message
                 continue
-            _convert_tool_call_results_to_anthropic_format(message.tool_call_results, anthropic_msg)
+            _update_anthropic_message_with_tool_call_results(message.tool_call_results, anthropic_msg)
             # special case - check if the next message is a tool result as well
             # if so, we need to combine this and the next message into a single anthropic message
             if next_message and next_message.tool_call_results:
-                _convert_tool_call_results_to_anthropic_format(next_message.tool_call_results, anthropic_msg)
+                _update_anthropic_message_with_tool_call_results(next_message.tool_call_results, anthropic_msg)
             # Anthropic API requires the role to be set to "user" for tool call results
             anthropic_msg["role"] = "user"
         else:
