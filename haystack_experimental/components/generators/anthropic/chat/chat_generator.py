@@ -213,9 +213,12 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         """
         Creates an instance of AnthropicChatGenerator.
 
-        :param api_key: The Anthropic API key. You can set it with an environment variable `ANTHROPIC_API_KEY`,
-            or pass it directly during initialization.
-        :param model: The name of the Anthropic model to use. Defaults to "claude-3-opus-20240229".
+        :param api_key: The Anthropic API key.
+            You can set it with an environment variable `ANTHROPIC_API_KEY`, or pass with this parameter
+            as a Secret during initialization.
+        :param model: The name of the Anthropic model to use. Specify one of the Anthropic models with
+            their Anthropic API names listed in the
+            [Anthropic documentation](https://docs.anthropic.com/en/docs/about-claude/models).
         :param streaming_callback: A callback function that is called when a new token is received from the stream.
             The callback function accepts StreamingChunk as an argument.
         :param generation_kwargs: Additional parameters to use for the model. These parameters are sent directly to
