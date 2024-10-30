@@ -37,4 +37,7 @@ def expand_page_range(page_range: List[Union[str, int]]) -> List[int]:
             msg = "range must be a string in the format 'start-end' or an integer"
             raise ValueError(f"Invalid page range: {page} - {msg}")
 
+    if not expanded_page_range:
+        raise ValueError("No valid page numbers or ranges found in the input list")
+
     return expanded_page_range

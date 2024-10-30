@@ -17,3 +17,6 @@ def test_expand_page_range_invalid_input():
 
     with pytest.raises(ValueError):
         expand_page_range([1-3, 5, 8])
+
+    with pytest.raises(ValueError):
+        expand_page_range([])

@@ -124,6 +124,7 @@ class LLMMetadataExtractor:
         expected_keys: List[str],
         generator_api: Union[str,LLMProvider],
         generator_api_params: Optional[Dict[str, Any]] = None,
+        page_range: Optional[List[Union[str, int]]] = None,
         raise_on_failure: bool = False,
     ):
         """
@@ -135,6 +136,12 @@ class LLMMetadataExtractor:
         :param generator_api: The API provider for the LLM. Currently supported providers are:
                               "openai", "openai_azure", "aws_bedrock", "google_vertex"
         :param generator_api_params: The parameters for the LLM generator.
+        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
+                           metadata from the first and third pages of each document. It also accepts printable range
+                           strings, e.g.: ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,
+                           11, 12. If None, metadata will be extracted from the entire document for each document in the
+                           documents list.
+                           This parameter is optional and can be overridden in the `run` method.
         :param raise_on_failure: Whether to raise an error on failure to validate JSON output.
         :returns:
 
@@ -151,6 +158,8 @@ class LLMMetadataExtractor:
         if self.prompt_variable not in self.prompt:
             raise ValueError(f"Prompt variable '{self.prompt_variable}' must be in the prompt.")
         self.splitter = DocumentSplitter(split_by="page", split_length=1)
+        if page_range:
+            self.expanded_range = expand_page_range(page_range)
 
     @staticmethod
     def _init_generator(
@@ -302,15 +311,16 @@ class LLMMetadataExtractor:
                 logger.warning(f"Document {document.id} has no content. Skipping metadata extraction.")
                 continue
 
-            if page_range:  # extract metadata from a specific range of pages
-                expanded_range = expand_page_range(page_range)
+            if self.expanded_range or page_range: # extract metadata from a specific range of pages
 
-                if not expanded_range:
-                    raise ValueError(f"Invalid page range: {page_range}")
+                # override the page range if provided
+                if page_range:
+                    self.expanded_range = expand_page_range(page_range)
 
                 splitter = DocumentSplitter(split_by="page", split_length=1)
                 pages = splitter.run(documents=[document])
-                content = [page.content + "\n" for idx, page in enumerate(pages["documents"]) if idx in expanded_range]
+                content = [p.content + "\n" for idx, p in enumerate(pages["documents"]) if idx in self.expanded_range]
+
                 self._extract_metadata_and_update_doc(document, errors, "".join(content))
 
             else:
