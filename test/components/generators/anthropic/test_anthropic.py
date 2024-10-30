@@ -25,22 +25,23 @@ from haystack_experimental.dataclasses.chat_message import ToolCallResult
 
 @pytest.fixture
 def tools():
-    tool_parameters = {"type": "object",
-                       "properties": {
-                               "city": {"type": "string"}
-                       },
-                       "required": ["city"]
-                       }
-    tool = Tool(name="weather", description="useful to determine the weather in a given location",
-                parameters=tool_parameters, function=lambda x:x)
+    tool_parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
+    tool = Tool(
+        name="weather",
+        description="useful to determine the weather in a given location",
+        parameters=tool_parameters,
+        function=lambda x: x,
+    )
 
     return [tool]
+
 
 @pytest.fixture
 def chat_messages():
     return [
         ChatMessage.from_user("What's the capital of France"),
     ]
+
 
 @pytest.fixture
 def mock_anthropic_completion():
@@ -52,10 +53,11 @@ def mock_anthropic_completion():
             role="assistant",
             content=[TextBlockParam(type="text", text="Hello! I'm Claude.")],
             stop_reason="end_turn",
-            usage={"input_tokens": 10, "output_tokens": 20}
+            usage={"input_tokens": 10, "output_tokens": 20},
         )
         mock_anthropic.return_value = completion
         yield mock_anthropic
+
 
 class TestAnthropicChatGenerator:
     def test_init_default(self, monkeypatch):
@@ -157,30 +159,30 @@ class TestAnthropicChatGenerator:
             model="claude-3-5-sonnet-20240620",
             streaming_callback=print_streaming_chunk,
             generation_kwargs={"max_tokens": 10, "some_test_param": "test-params"},
-            tools = [tool],
+            tools=[tool],
         )
         data = component.to_dict()
 
         assert data == {
             "type": "haystack_experimental.components.generators.anthropic.chat.chat_generator.AnthropicChatGenerator",
             "init_parameters": {
-                "api_key": {"env_vars": ["ENV_VAR"], "type": "env_var", "strict": True },
+                "api_key": {"env_vars": ["ENV_VAR"], "type": "env_var", "strict": True},
                 "model": "claude-3-5-sonnet-20240620",
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "ignore_tools_thinking_messages": True,
                 "generation_kwargs": {"max_tokens": 10, "some_test_param": "test-params"},
                 "tools": [
-               {
-                   "description": "description",
-                   "function": "builtins.print",
-                   "name": "name",
-                   "parameters": {
-                       "x": {
-                           "type": "string",
-                       },
-                   },
-               },
-           ],
+                    {
+                        "description": "description",
+                        "function": "builtins.print",
+                        "name": "name",
+                        "parameters": {
+                            "x": {
+                                "type": "string",
+                            },
+                        },
+                    },
+                ],
             },
         }
 
@@ -198,7 +200,7 @@ class TestAnthropicChatGenerator:
         assert data == {
             "type": "haystack_experimental.components.generators.anthropic.chat.chat_generator.AnthropicChatGenerator",
             "init_parameters": {
-                "api_key": {"env_vars": ["ANTHROPIC_API_KEY"],"type": "env_var", "strict": True},
+                "api_key": {"env_vars": ["ANTHROPIC_API_KEY"], "type": "env_var", "strict": True},
                 "model": "claude-3-5-sonnet-20240620",
                 "ignore_tools_thinking_messages": True,
                 "streaming_callback": "test_anthropic.<lambda>",
@@ -220,17 +222,17 @@ class TestAnthropicChatGenerator:
                 "streaming_callback": "haystack.components.generators.utils.print_streaming_chunk",
                 "generation_kwargs": {"max_tokens": 10, "some_test_param": "test-params"},
                 "tools": [
-               {
-                   "description": "description",
-                   "function": "builtins.print",
-                   "name": "name",
-                   "parameters": {
-                       "x": {
-                           "type": "string",
-                       },
-                   },
-               },
-           ],
+                    {
+                        "description": "description",
+                        "function": "builtins.print",
+                        "name": "name",
+                        "parameters": {
+                            "x": {
+                                "type": "string",
+                            },
+                        },
+                    },
+                ],
             },
         }
         component = AnthropicChatGenerator.from_dict(data)
@@ -240,7 +242,9 @@ class TestAnthropicChatGenerator:
         assert component.streaming_callback is print_streaming_chunk
         assert component.generation_kwargs == {"max_tokens": 10, "some_test_param": "test-params"}
         assert component.api_key == Secret.from_env_var("ANTHROPIC_API_KEY")
-        assert component.tools == [Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)]
+        assert component.tools == [
+            Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
+        ]
 
     def test_from_dict_fail_wo_env_var(self, monkeypatch):
         """
@@ -264,8 +268,7 @@ class TestAnthropicChatGenerator:
         Test that the AnthropicChatGenerator component can run with parameters.
         """
         component = AnthropicChatGenerator(
-            api_key=Secret.from_token("test-api-key"),
-            generation_kwargs={"max_tokens": 10, "temperature": 0.5}
+            api_key=Secret.from_token("test-api-key"), generation_kwargs={"max_tokens": 10, "temperature": 0.5}
         )
         response = component.run(chat_messages)
 
@@ -297,22 +300,14 @@ class TestAnthropicChatGenerator:
 
         # Test text delta chunk
         text_delta_chunk = ContentBlockDeltaEvent(
-            type="content_block_delta",
-            index=0,
-            delta=TextDelta(
-                type="text_delta",
-                text="Hello, world!"
-            )
+            type="content_block_delta", index=0, delta=TextDelta(type="text_delta", text="Hello, world!")
         )
         streaming_chunk = component._convert_anthropic_chunk_to_streaming_chunk(text_delta_chunk)
         assert streaming_chunk.content == "Hello, world!"
         assert streaming_chunk.meta == {
             "type": "content_block_delta",
             "index": 0,
-            "delta": {
-                "type": "text_delta",
-                "text": "Hello, world!"
-            }
+            "delta": {"type": "text_delta", "text": "Hello, world!"},
         }
 
         # Test non-text chunk (should have empty content)
@@ -326,8 +321,8 @@ class TestAnthropicChatGenerator:
                 "model": "claude-3-5-sonnet-20240620",
                 "stop_reason": None,
                 "stop_sequence": None,
-                "usage": {"input_tokens": 25, "output_tokens": 1}
-            }
+                "usage": {"input_tokens": 25, "output_tokens": 1},
+            },
         )
         streaming_chunk = component._convert_anthropic_chunk_to_streaming_chunk(message_start_chunk)
         assert streaming_chunk.content == ""
@@ -341,34 +336,23 @@ class TestAnthropicChatGenerator:
                 "model": "claude-3-5-sonnet-20240620",
                 "stop_reason": None,
                 "stop_sequence": None,
-                "usage": {"input_tokens": 25, "output_tokens": 1}
-            }
+                "usage": {"input_tokens": 25, "output_tokens": 1},
+            },
         }
 
         # Test tool use chunk (should have empty content)
         tool_use_chunk = ContentBlockStartEvent(
             type="content_block_start",
             index=1,
-            content_block={
-                "type": "tool_use",
-                "id": "toolu_123",
-                "name": "weather",
-                "input": {"city": "Paris"}
-            }
+            content_block={"type": "tool_use", "id": "toolu_123", "name": "weather", "input": {"city": "Paris"}},
         )
         streaming_chunk = component._convert_anthropic_chunk_to_streaming_chunk(tool_use_chunk)
         assert streaming_chunk.content == ""
         assert streaming_chunk.meta == {
             "type": "content_block_start",
             "index": 1,
-            "content_block": {
-                "type": "tool_use",
-                "id": "toolu_123",
-                "name": "weather",
-                "input": {"city": "Paris"}
-            }
+            "content_block": {"type": "tool_use", "id": "toolu_123", "name": "weather", "input": {"city": "Paris"}},
         }
-
 
     def test_convert_streaming_chunks_to_chat_message(self):
         """
@@ -379,90 +363,60 @@ class TestAnthropicChatGenerator:
             # Initial text content
             StreamingChunk(
                 content="",
-                meta={
-                    "type": "content_block_start",
-                    "index": 0,
-                    "content_block": {"type": "text", "text": ""}
-                }
+                meta={"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
             ),
             StreamingChunk(
                 content="Let me check",
                 meta={
                     "type": "content_block_delta",
                     "index": 0,
-                    "delta": {"type": "text_delta", "text": "Let me check"}
-                }
+                    "delta": {"type": "text_delta", "text": "Let me check"},
+                },
             ),
             StreamingChunk(
                 content=" the weather",
                 meta={
                     "type": "content_block_delta",
                     "index": 0,
-                    "delta": {"type": "text_delta", "text": " the weather"}
-                }
+                    "delta": {"type": "text_delta", "text": " the weather"},
+                },
             ),
-            StreamingChunk(
-                content="",
-                meta={
-                    "type": "content_block_stop",
-                    "index": 0
-                }
-            ),
+            StreamingChunk(content="", meta={"type": "content_block_stop", "index": 0}),
             # Tool use content
             StreamingChunk(
                 content="",
                 meta={
                     "type": "content_block_start",
                     "index": 1,
-                    "content_block": {
-                        "type": "tool_use",
-                        "id": "toolu_123",
-                        "name": "weather",
-                        "input": {}
-                    }
-                }
+                    "content_block": {"type": "tool_use", "id": "toolu_123", "name": "weather", "input": {}},
+                },
             ),
             StreamingChunk(
                 content="",
                 meta={
                     "type": "content_block_delta",
                     "index": 1,
-                    "delta": {
-                        "type": "input_json_delta",
-                        "partial_json": "{\"city\":"
-                    }
-                }
+                    "delta": {"type": "input_json_delta", "partial_json": '{"city":'},
+                },
             ),
             StreamingChunk(
                 content="",
                 meta={
                     "type": "content_block_delta",
                     "index": 1,
-                    "delta": {
-                        "type": "input_json_delta",
-                        "partial_json": " \"Paris\"}"
-                    }
-                }
+                    "delta": {"type": "input_json_delta", "partial_json": ' "Paris"}'},
+                },
             ),
-            StreamingChunk(
-                content="",
-                meta={
-                    "type": "content_block_stop",
-                    "index": 1
-                }
-            ),
+            StreamingChunk(content="", meta={"type": "content_block_stop", "index": 1}),
             # Final message delta
             StreamingChunk(
                 content="",
                 meta={
                     "type": "message_delta",
-                    "delta": {
-                        "stop_reason": "tool_use",
-                        "stop_sequence": None
-                    },
-                    "usage": {"output_tokens": 40}
-                }
-            )
+                    "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                    "usage": {"output_tokens": 40},
+                },
+            ),
         ]
 
         component = AnthropicChatGenerator(api_key=Secret.from_token("test-api-key"))
@@ -492,40 +446,33 @@ class TestAnthropicChatGenerator:
             # Initial text content
             StreamingChunk(
                 content="",
-                meta={
-                    "type": "content_block_start",
-                    "index": 0,
-                    "content_block": {"type": "text", "text": ""}
-                }
+                meta={"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
             ),
             StreamingChunk(
                 content="Let me check the weather",
                 meta={
                     "type": "content_block_delta",
                     "index": 0,
-                    "delta": {"type": "text_delta", "text": "Let me check the weather"}
-                }
+                    "delta": {"type": "text_delta", "text": "Let me check the weather"},
+                },
             ),
-            StreamingChunk(
-                content="",
-                meta={
-                    "type": "content_block_stop",
-                    "index": 0
-                }
-            ),
+            StreamingChunk(content="", meta={"type": "content_block_stop", "index": 0}),
             # Tool use content with malformed JSON
             StreamingChunk(
                 content="",
                 meta={
                     "type": "content_block_start",
                     "index": 1,
-                    "content_block": {
-                        "type": "tool_use",
-                        "id": "toolu_123",
-                        "name": "weather",
-                        "input": {}
-                    }
-                }
+                    "content_block": {"type": "tool_use", "id": "toolu_123", "name": "weather", "input": {}},
+                },
+            ),
+            StreamingChunk(
+                content="",
+                meta={
+                    "type": "content_block_delta",
+                    "index": 1,
+                    "delta": {"type": "input_json_delta", "partial_json": '{"city":'},
+                },
             ),
             StreamingChunk(
                 content="",
@@ -534,40 +481,20 @@ class TestAnthropicChatGenerator:
                     "index": 1,
                     "delta": {
                         "type": "input_json_delta",
-                        "partial_json": "{\"city\":"
-                    }
-                }
+                        "partial_json": ' "Paris',  # Missing closing quote and brace, malformed JSON
+                    },
+                },
             ),
-            StreamingChunk(
-                content="",
-                meta={
-                    "type": "content_block_delta",
-                    "index": 1,
-                    "delta": {
-                        "type": "input_json_delta",
-                        "partial_json": " \"Paris"  # Missing closing quote and brace, malformed JSON
-                    }
-                }
-            ),
-            StreamingChunk(
-                content="",
-                meta={
-                    "type": "content_block_stop",
-                    "index": 1
-                }
-            ),
+            StreamingChunk(content="", meta={"type": "content_block_stop", "index": 1}),
             # Final message delta
             StreamingChunk(
                 content="",
                 meta={
                     "type": "message_delta",
-                    "delta": {
-                        "stop_reason": "tool_use",
-                        "stop_sequence": None
-                    },
-                    "usage": {"output_tokens": 40}
-                }
-            )
+                    "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                    "usage": {"output_tokens": 40},
+                },
+            ),
         ]
 
         component = AnthropicChatGenerator(api_key=Secret.from_token("test-api-key"))
@@ -582,7 +509,6 @@ class TestAnthropicChatGenerator:
         # and we have logged a warning
         with caplog.at_level(logging.WARNING):
             assert "Anthropic returned a malformed JSON string" in caplog.text
-
 
     def test_serde_in_pipeline(self):
         tool = Tool(name="name", description="description", parameters={"x": {"type": "string"}}, function=print)
@@ -655,6 +581,7 @@ class TestAnthropicChatGenerator:
         """
         Integration test that the AnthropicChatGenerator component can run with streaming.
         """
+
         class Callback:
             def __init__(self):
                 self.responses = ""
@@ -683,26 +610,140 @@ class TestAnthropicChatGenerator:
         Test that the AnthropicChatGenerator component can convert a ChatMessage to Anthropic format.
         """
         messages = [ChatMessage.from_system("You are good assistant")]
-        assert _convert_messages_to_anthropic_format(messages) == ([{"type": "text", "text": "You are good assistant"}], [])
+        assert _convert_messages_to_anthropic_format(messages) == (
+            [{"type": "text", "text": "You are good assistant"}],
+            [],
+        )
 
         messages = [ChatMessage.from_user("I have a question")]
-        assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "user", "content":[ {"type": "text", "text": "I have a question"}]}])
+        assert _convert_messages_to_anthropic_format(messages) == (
+            [],
+            [{"role": "user", "content": [{"type": "text", "text": "I have a question"}]}],
+        )
 
         messages = [ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})]
-        assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "assistant", "content": [{"type": "text", "text": "I have an answer"}]}])
+        assert _convert_messages_to_anthropic_format(messages) == (
+            [],
+            [{"role": "assistant", "content": [{"type": "text", "text": "I have an answer"}]}],
+        )
 
-        messages = [ChatMessage.from_assistant(tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])]
+        messages = [
+            ChatMessage.from_assistant(
+                tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})]
+            )
+        ]
         result = _convert_messages_to_anthropic_format(messages)
-        assert result == ([], [{"role": "assistant", "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}]}])
+        assert result == (
+            [],
+            [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}],
+                }
+            ],
+        )
 
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
-        messages = [ChatMessage.from_tool(tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}))]
-        assert _convert_messages_to_anthropic_format(messages) == ([], [{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "123", "content":  [{'type': 'text', 'text': '{"weather": "sunny", "temperature": "25"}'}], "is_error": False}]}])
+        messages = [
+            ChatMessage.from_tool(
+                tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})
+            )
+        ]
+        assert _convert_messages_to_anthropic_format(messages) == (
+            [],
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "123",
+                            "content": [{"type": "text", "text": '{"weather": "sunny", "temperature": "25"}'}],
+                            "is_error": False,
+                        }
+                    ],
+                }
+            ],
+        )
 
-        messages = [ChatMessage.from_assistant(text="For that I'll need to check the weather", tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})])]
+        messages = [
+            ChatMessage.from_assistant(
+                text="For that I'll need to check the weather",
+                tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})],
+            )
+        ]
         result = _convert_messages_to_anthropic_format(messages)
-        assert result == ([], [{"role": "assistant", "content": [{"type": "text", "text": "For that I'll need to check the weather"}, {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}]}])
+        assert result == (
+            [],
+            [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": "For that I'll need to check the weather"},
+                        {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}},
+                    ],
+                }
+            ],
+        )
 
+    def test_convert_message_to_anthropic_format_complex(self):
+        """
+        Test that the AnthropicChatGenerator component can convert a complex sequence of ChatMessages to Anthropic format.
+        In particular, we check that different tool results are packed in a single dictionary with role=user.
+        """
+
+        messages = [
+            ChatMessage.from_system("You are good assistant"),
+            ChatMessage.from_user("What's the weather like in Paris? And how much is 2+2?"),
+            ChatMessage.from_assistant(
+                text="",
+                tool_calls=[
+                    ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"}),
+                    ToolCall(id="456", tool_name="math", arguments={"expression": "2+2"}),
+                ],
+            ),
+            ChatMessage.from_tool(
+                tool_result="22° C", origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})
+            ),
+            ChatMessage.from_tool(
+                tool_result="4", origin=ToolCall(id="456", tool_name="math", arguments={"expression": "2+2"})
+            ),
+        ]
+
+        system_messages, non_system_messages = _convert_messages_to_anthropic_format(messages)
+
+        assert system_messages == [{"type": "text", "text": "You are good assistant"}]
+        assert non_system_messages == [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "What's the weather like in Paris? And how much is 2+2?"}],
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": ""},
+                    {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}},
+                    {"type": "tool_use", "id": "456", "name": "math", "input": {"expression": "2+2"}},
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "123",
+                        "content": [{"type": "text", "text": "22° C"}],
+                        "is_error": False,
+                    },
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "456",
+                        "content": [{"type": "text", "text": "4"}],
+                        "is_error": False,
+                    },
+                ],
+            },
+        ]
 
     def test_convert_message_to_anthropic_invalid(self):
         """
@@ -834,9 +875,11 @@ class TestAnthropicChatGenerator:
         # nested content blocks (e.g. "content": [{"type": "text", "text": "15 degrees"}]).
         # These content blocks can use the text or image types.
         # is_error (optional): Set to true if the tool execution resulted in an error.
-        new_messages = initial_messages + [message,
-                                           ChatMessage.from_tool(tool_result="22° C", origin=tool_call_paris, error=False),
-                                           ChatMessage.from_tool(tool_result="12° C", origin=tool_call_berlin, error=False)]
+        new_messages = initial_messages + [
+            message,
+            ChatMessage.from_tool(tool_result="22° C", origin=tool_call_paris, error=False),
+            ChatMessage.from_tool(tool_result="12° C", origin=tool_call_berlin, error=False),
+        ]
 
         # Response from the model contains results from both tools
         results = component.run(new_messages)

@@ -93,44 +93,48 @@ def _convert_tool_calls_to_anthropic_format(tool_calls: List[ToolCall]) -> List[
 def _convert_messages_to_anthropic_format(
     messages: List[ChatMessage],
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Convert a list of messages to the format expected by Anthropic Chat API.
+
+    :param messages: The list of ChatMessages to convert.
+    :return: A tuple of two lists:
+        - A list of system message dictionaries in the format expected by Anthropic API.
+        - A list of non-system message dictionaries in the format expected by Anthropic API.
+    """
+
     anthropic_system_messages = []
     anthropic_non_system_messages = []
+
     i = 0
     while i < len(messages):
         message = messages[i]
-        previous_message = messages[i - 1] if i - 1 >= 0 else None
 
+        # system messages have special format requirements for Anthropic API
+        # they can have only type and text fields, and they need to be passed separately
+        # to the Anthropic API endpoint
         if message.is_from(ChatRole.SYSTEM):
             anthropic_system_messages.append({"type": "text", "text": message.text})
             i += 1
             continue
 
-        anthropic_msg: Dict[str, Any] = {"role": message._role.value}
-        content = []
+        anthropic_msg: Dict[str, Any] = {"role": message._role.value, "content": []}
+
         if message.texts:
-            content.append({"type": "text", "text": message.texts[0]})
+            anthropic_msg["content"].append({"type": "text", "text": message.texts[0]})
         if message.tool_calls:
-            content += _convert_tool_calls_to_anthropic_format(message.tool_calls)
+            anthropic_msg["content"] += _convert_tool_calls_to_anthropic_format(message.tool_calls)
+
         if message.tool_call_results:
-            # Skip if this is a continuation of previous tool results
-            if previous_message and previous_message.tool_call_results:
+            results = message.tool_call_results.copy()
+            # Handle consecutive tool call results
+            while (i + 1) < len(messages) and messages[i + 1].tool_call_results:
                 i += 1
-                continue
+                results.extend(messages[i].tool_call_results)
 
-            # Stitch all consecutive tool results into a single message
-            all_results = message.tool_call_results.copy()
-            index = i
-            while (index + 1) < len(messages) and messages[index + 1].tool_call_results:
-                index += 1
-                all_results.extend(messages[index].tool_call_results)
-
-            # Update the message with collected tool results
-            _update_anthropic_message_with_tool_call_results(all_results, anthropic_msg)
+            _update_anthropic_message_with_tool_call_results(results, anthropic_msg)
             anthropic_msg["role"] = "user"
-            i = index  # Skip processed messages
-        if content:
-            anthropic_msg["content"] = content
-        elif "content" not in anthropic_msg:
+
+        if not anthropic_msg["content"]:
             raise ValueError(
                 "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
             )
