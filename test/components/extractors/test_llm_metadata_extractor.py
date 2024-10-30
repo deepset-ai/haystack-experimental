@@ -17,13 +17,13 @@ class TestLLMMetadataExtractor:
             prompt="prompt {{test}}",
             expected_keys=["key1", "key2"],
             generator_api=LLMProvider.OPENAI,
-            input_text="test"
+            prompt_variable="test"
         )
         assert isinstance(extractor.builder, PromptBuilder)
         assert extractor.generator_api == LLMProvider.OPENAI
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.raise_on_failure is False
-        assert extractor.input_text == "test"
+        assert extractor.prompt_variable == "test"
 
     def test_init_with_parameters(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
@@ -36,7 +36,7 @@ class TestLLMMetadataExtractor:
                 'model': 'gpt-3.5-turbo',
                 'generation_kwargs': {"temperature": 0.5}
             },
-            input_text="test")
+            prompt_variable="test")
         assert isinstance(extractor.builder, PromptBuilder)
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.raise_on_failure is True
@@ -52,7 +52,7 @@ class TestLLMMetadataExtractor:
             prompt="some prompt that was used with the LLM {{test}}",
             expected_keys=["key1", "key2"],
             generator_api=LLMProvider.OPENAI,
-            input_text="test",
+            prompt_variable="test",
             generator_api_params={'model': 'gpt-4o-mini', 'generation_kwargs': {"temperature": 0.5}},
             raise_on_failure=True)
         extractor_dict = extractor.to_dict()
@@ -84,7 +84,7 @@ class TestLLMMetadataExtractor:
                 'prompt': 'some prompt that was used with the LLM {{test}}',
                 'expected_keys': ['key1', 'key2'],
                 'raise_on_failure': True,
-                'input_text': 'test',
+                'prompt_variable': 'test',
                 'generator_api': 'openai',
                 'generator_api_params': {
                       'api_base_url': None,
@@ -147,7 +147,7 @@ class TestLLMMetadataExtractor:
         """
 
         doc_store = InMemoryDocumentStore()
-        extractor = LLMMetadataExtractor(prompt=ner_prompt, expected_keys=["entities"], input_text="input_text", generator_api=LLMProvider.OPENAI)
+        extractor = LLMMetadataExtractor(prompt=ner_prompt, expected_keys=["entities"], prompt_variable="input_text", generator_api=LLMProvider.OPENAI)
         writer = DocumentWriter(document_store=doc_store)
         pipeline = Pipeline()
         pipeline.add_component("extractor", extractor)

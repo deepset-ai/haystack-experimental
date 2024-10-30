@@ -6,14 +6,14 @@ import json
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from haystack.components.preprocessors import DocumentSplitter
-from haystack_experimental.util.utils import expand_page_range
-
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
+from haystack.components.preprocessors import DocumentSplitter
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_secrets_inplace
+
+from haystack_experimental.util.utils import expand_page_range
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"'") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
@@ -130,7 +130,7 @@ class LLMMetadataExtractor:
         Initializes the LLMMetadataExtractor.
 
         :param prompt: The prompt to be used for the LLM.
-        :param prompt_variable: The input text to be processed by the PromptBuilder.
+        :param prompt_variable: The variable in the prompt to be processed by the PromptBuilder.
         :param expected_keys: The keys expected in the JSON output from the LLM.
         :param generator_api: The API provider for the LLM. Currently supported providers are:
                               "openai", "openai_azure", "aws_bedrock", "google_vertex"
@@ -245,10 +245,12 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
-    def _extract_metadata_and_update_doc(self, document, errors, content):
+    def _extract_metadata_and_update_doc(self, document: Document, errors: Dict[str, Any], content: str):
         """
-        Extract metadata from the content and update the document with the extracted metadata. If the extraction fails,
-        the error message will be stored in `llm_errors`.
+        Extract metadata from the content and updates the document's metadata with the extracted metadata.
+
+        If the extraction fails, i.e.: no JSON is returned by the LLM API, the error message will be stored in
+        `errors`.
 
         :param document: Document to be updated with the extracted metadata.
         :param errors: Dictionary to store error messages if the extraction fails.
@@ -258,7 +260,6 @@ class LLMMetadataExtractor:
             template=self.prompt,
             template_variables={self.prompt_variable:content}
         )
-        print(f"Prompt with doc: {prompt_with_doc}")
         result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
         llm_answer = result["replies"][0]
         if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
@@ -270,7 +271,7 @@ class LLMMetadataExtractor:
 
 
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
-    def run(self, documents: List[Document], page_range: Optional[List[str]] = None):    # pylint: disable=R0914
+    def run(self, documents: List[Document], page_range: Optional[List[Union[str, int]]] = None):
         """
         Extract metadata from documents using a Language Model.
 
@@ -293,7 +294,7 @@ class LLMMetadataExtractor:
             - "errors": A dictionary with document IDs as keys and error messages as values.
         """
 
-        errors = {}
+        errors: Dict[str, Any] = {}
 
         for document in documents:
 
@@ -302,13 +303,15 @@ class LLMMetadataExtractor:
                 continue
 
             if page_range:  # extract metadata from a specific range of pages
-                expanded_page_range = expand_page_range(page_range) if page_range else None
-                start_document = expanded_page_range[0] - 1
-                end_document = expanded_page_range[-1]
+                expanded_range = expand_page_range(page_range)
+
+                if not expanded_range:
+                    raise ValueError(f"Invalid page range: {page_range}")
+
                 splitter = DocumentSplitter(split_by="page", split_length=1)
                 pages = splitter.run(documents=[document])
-                merged_contents = [page.content + '\n' for page in pages['documents'][start_document:end_document]]
-                self._extract_metadata_and_update_doc(document, errors, merged_contents)
+                content = [page.content + "\n" for idx, page in enumerate(pages["documents"]) if idx in expanded_range]
+                self._extract_metadata_and_update_doc(document, errors, "".join(content))
 
             else:
                 # extract metadata from the entire document
