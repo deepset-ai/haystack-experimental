@@ -147,7 +147,7 @@ def _convert_messages_to_anthropic_format(  # noqa: PLR0912
             anthropic_msg["role"] = "user"
         else:
             raise ValueError(
-                "A `ChatMessage` must contain at " "least one `TextContent`, `ToolCall`, or `ToolCallResult`."
+                "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
             )
 
         anthropic_non_system_messages.append(anthropic_msg)
