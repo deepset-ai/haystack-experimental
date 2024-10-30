@@ -6,7 +6,8 @@ import json
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from haystack_experimental.util.utils import merge_dicts, expand_page_range
+from haystack.components.preprocessors import DocumentSplitter
+from haystack_experimental.util.utils import expand_page_range
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
@@ -99,7 +100,7 @@ class LLMMetadataExtractor:
         Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
     ]
 
-    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator=OpenAIGenerator(), input_text='input_text')
+    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator_api="openai", input_text='input_text')
     extractor.run(documents=docs)
     >> {'documents': [
         Document(id=.., content: 'deepset was founded in 2018 in Berlin, and is known for its Haystack framework',
@@ -131,7 +132,8 @@ class LLMMetadataExtractor:
         :param prompt: The prompt to be used for the LLM.
         :param input_text: The input text to be processed by the PromptBuilder.
         :param expected_keys: The keys expected in the JSON output from the LLM.
-        :param generator_api: The API provider for the LLM.
+        :param generator_api: The API provider for the LLM. Currently supported providers are:
+                              "openai", "openai_azure", "aws_bedrock", "google_vertex"
         :param generator_api_params: The parameters for the LLM generator.
         :param raise_on_failure: Whether to raise an error on failure to validate JSON output.
         :returns:
@@ -148,6 +150,7 @@ class LLMMetadataExtractor:
         self.llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
         if self.input_text not in self.prompt:
             raise ValueError(f"Input text '{self.input_text}' must be in the prompt.")
+        self.splitter = DocumentSplitter(split_by="page", split_length=1)
 
     @staticmethod
     def _init_generator(
@@ -242,54 +245,70 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
+    def _extract_metadata_and_update_doc(self, document, llm_errors, content):
+        """
+        Extract metadata from the content and update the document with the extracted metadata. If the extraction fails,
+        the error message will be stored in `llm_errors`.
+
+        :param document: Document to be updated with the extracted metadata.
+        :param llm_errors: Dictionary to store error messages if the extraction fails.
+        :param content: Content to extract metadata from.
+        """
+        prompt_with_doc = self.builder.run(input_text=content)
+        result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
+        llm_answer = result["replies"][0]
+        if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
+            extracted_metadata = json.loads(llm_answer)
+            for k in self.expected_keys:
+                document.meta[k] = extracted_metadata[k]
+        else:
+            llm_errors[document.id] = llm_answer
+
+
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
-    def run(self, documents: List[Document], page_range: Union[ List[Union[int,str]], List[int]]) -> Dict[str, Any]:    # pylint: disable=R0914
+    def run(self, documents: List[Document], page_range: Optional[List[str]] = None):    # pylint: disable=R0914
         """
         Extract metadata from documents using a Language Model.
 
+        If `page_range` is provided, the metadata will be extracted from the specified range of pages. This component
+        will split the documents into pages and extract metadata from the specified range of pages. The metadata will be
+        extracted from the entire document if `page_range` is not provided.
+
+        The original documents will be returned  updated with the extracted metadata.
+
         :param documents: List of documents to extract metadata from.
-        :param page_range: A range of pages to extract metadata from. If None, all documents are processed.
-                           For example, page_range=[1, 3] will process the first three documents.
-                           It also accepts printable range strings, e.g.: ['1-3', 5, 8, '10-12'] will process the
-                           first three, the 5th, the 8th, and the 10, 11, 12th documents.
+        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
+                           metadata from the first and third pages of each document. It also accepts printable range
+                           strings, e.g.: ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,
+                           11, 12.
+                           If None, metadata will be extracted from the entire document for each document in the
+                           documents list.
         :returns:
             A dictionary with the keys:
-            - "documents": List of documents with extracted metadata.
+            - "documents": The original list of documents updated with the extracted metadata.
             - "errors": A dictionary with document IDs as keys and error messages as values.
         """
+
         errors = {}
-        extract_from_range = False
-        target_docs = documents
-        expanded_page_range = expand_page_range(page_range) if page_range else None
 
-        # extracting metadata only from a specific range of documents
-        if expanded_page_range:
-            start_document = expanded_page_range[0] - 1
-            end_document = expanded_page_range[-1]
-            if start_document is not None and end_document is not None:
-                extract_from_range = True
-                all_metadata = {}
-                target_docs = documents[start_document:end_document]
+        for document in documents:
 
-        for document in target_docs:
-            prompt_with_doc = self.builder.run(input_text=document.content)
-            result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
-            llm_answer = result["replies"][0]
-            if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
-                extracted_metadata = json.loads(llm_answer)
-                for k in self.expected_keys:
-                    document.meta[k] = extracted_metadata[k]
-                # if in extra_from_range mode, merge all extracted in a single dict
-                if extract_from_range and extracted_metadata:
-                    all_metadata = merge_dicts(all_metadata, extracted_metadata)
-                    print(all_metadata)
+            if not document.content:
+                logger.warning(f"Document {document.id} has no content. Skipping metadata extraction.")
+                continue
+
+            if page_range:  # extract metadata from a specific range of pages
+                expanded_page_range = expand_page_range(page_range) if page_range else None
+                start_document = expanded_page_range[0] - 1
+                end_document = expanded_page_range[-1]
+
+                splitter = DocumentSplitter(split_by="page", split_length=1)
+                pages = splitter.run(documents=[document])
+                merged_contents = [page.content + '\n' for page in pages['documents'][start_document:end_document]]
+                self._extract_metadata_and_update_doc(document, errors, merged_contents)
+
             else:
-                errors[document.id] = llm_answer
-
-        # if in extra_from_range mode, assign the merged metadata to all documents
-        if extract_from_range:
-            for doc in documents:
-                for k in self.expected_keys:
-                    doc.meta[k] = all_metadata[k]
+                # extract metadata from the entire document
+                self._extract_metadata_and_update_doc(document, errors, document.content)
 
         return {"documents": documents, "errors": errors}

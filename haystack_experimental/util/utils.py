@@ -50,11 +50,11 @@ def expand_page_range(page_range: Union[ List[Union[int,str]], List[int] ] ):
     """
     Takes a list of page numbers and ranges and expands them into a list of page numbers.
 
-    For example, given a page_range=['1-3', 5, 8, '10-12'] the function will return [1, 2, 3, 5, 8, 10, 11, 12]
+    For example, given a page_range=['1-3', '5', '8', '10-12'] the function will return [1, 2, 3, 5, 8, 10, 11, 12]
 
     :param page_range: List of page numbers and ranges
     :returns:
-        an expanded list of page integers
+        An expanded list of page integers
 
     """
     expanded_page_range = []
@@ -66,9 +66,14 @@ def expand_page_range(page_range: Union[ List[Union[int,str]], List[int] ] ):
                 msg = "range must be a string in the format 'start-end'"
                 raise ValueError(f"Invalid page range: {page} - {msg}")
             expanded_page_range.append(page)
+
+        elif isinstance(page, str) and page.isdigit():
+            expanded_page_range.append(int(page))
+
         elif isinstance(page, str) and "-" in page:
             start, end = page.split("-")
             expanded_page_range.extend(range(int(start), int(end) + 1))
+
         else:
             msg = "range must be a string in the format 'start-end' or an integer"
             raise ValueError(f"Invalid page range: {page} - {msg}")
