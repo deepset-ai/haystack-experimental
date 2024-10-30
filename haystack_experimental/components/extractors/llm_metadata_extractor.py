@@ -100,7 +100,7 @@ class LLMMetadataExtractor:
         Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
     ]
 
-    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator_api="openai", input_text='input_text')
+    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator_api="openai", prompt_variable='input_text')
     extractor.run(documents=docs)
     >> {'documents': [
         Document(id=.., content: 'deepset was founded in 2018 in Berlin, and is known for its Haystack framework',
@@ -120,7 +120,7 @@ class LLMMetadataExtractor:
     def __init__( # pylint: disable=R0917
         self,
         prompt: str,
-        input_text: str,
+        prompt_variable: str,
         expected_keys: List[str],
         generator_api: Union[str,LLMProvider],
         generator_api_params: Optional[Dict[str, Any]] = None,
@@ -130,7 +130,7 @@ class LLMMetadataExtractor:
         Initializes the LLMMetadataExtractor.
 
         :param prompt: The prompt to be used for the LLM.
-        :param input_text: The input text to be processed by the PromptBuilder.
+        :param prompt_variable: The input text to be processed by the PromptBuilder.
         :param expected_keys: The keys expected in the JSON output from the LLM.
         :param generator_api: The API provider for the LLM. Currently supported providers are:
                               "openai", "openai_azure", "aws_bedrock", "google_vertex"
@@ -140,16 +140,16 @@ class LLMMetadataExtractor:
 
         """
         self.prompt = prompt
-        self.input_text = input_text
-        self.builder = PromptBuilder(prompt, required_variables=[input_text])
+        self.prompt_variable = prompt_variable
+        self.builder = PromptBuilder(prompt, required_variables=[prompt_variable])
         self.raise_on_failure = raise_on_failure
         self.expected_keys = expected_keys
         self.generator_api = generator_api if isinstance(generator_api, LLMProvider)\
             else LLMProvider.from_str(generator_api)
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
-        if self.input_text not in self.prompt:
-            raise ValueError(f"Input text '{self.input_text}' must be in the prompt.")
+        if self.prompt_variable not in self.prompt:
+            raise ValueError(f"Input text '{self.prompt_variable}' must be in the prompt.")
         self.splitter = DocumentSplitter(split_by="page", split_length=1)
 
     @staticmethod
@@ -220,7 +220,7 @@ class LLMMetadataExtractor:
         return default_to_dict(
             self,
             prompt=self.prompt,
-            input_text=self.input_text,
+            input_text=self.prompt_variable,
             expected_keys=self.expected_keys,
             raise_on_failure=self.raise_on_failure,
             generator_api=self.generator_api.value,
@@ -245,16 +245,20 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
-    def _extract_metadata_and_update_doc(self, document, llm_errors, content):
+    def _extract_metadata_and_update_doc(self, document, errors, content):
         """
         Extract metadata from the content and update the document with the extracted metadata. If the extraction fails,
         the error message will be stored in `llm_errors`.
 
         :param document: Document to be updated with the extracted metadata.
-        :param llm_errors: Dictionary to store error messages if the extraction fails.
+        :param errors: Dictionary to store error messages if the extraction fails.
         :param content: Content to extract metadata from.
         """
-        prompt_with_doc = self.builder.run(input_text=content)
+        prompt_with_doc = self.builder.run(
+            template=self.prompt,
+            template_variables={self.prompt_variable:content}
+        )
+        print(f"Prompt with doc: {prompt_with_doc}")
         result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
         llm_answer = result["replies"][0]
         if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
@@ -262,7 +266,7 @@ class LLMMetadataExtractor:
             for k in self.expected_keys:
                 document.meta[k] = extracted_metadata[k]
         else:
-            llm_errors[document.id] = llm_answer
+            errors[document.id] = llm_answer
 
 
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
@@ -301,7 +305,6 @@ class LLMMetadataExtractor:
                 expanded_page_range = expand_page_range(page_range) if page_range else None
                 start_document = expanded_page_range[0] - 1
                 end_document = expanded_page_range[-1]
-
                 splitter = DocumentSplitter(split_by="page", split_length=1)
                 pages = splitter.run(documents=[document])
                 merged_contents = [page.content + '\n' for page in pages['documents'][start_document:end_document]]
