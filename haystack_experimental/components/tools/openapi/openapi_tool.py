@@ -64,7 +64,7 @@ class OpenAPITool:
         spec: Optional[Union[str, Path]] = None,
         credentials: Optional[Secret] = None,
         allowed_operations: Optional[List[str]] = None,
-    ):
+    ):  # pylint: disable=too-many-positional-arguments
         """
         Initialize the OpenAPITool component.
 
