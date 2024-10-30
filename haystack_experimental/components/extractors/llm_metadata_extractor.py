@@ -158,8 +158,7 @@ class LLMMetadataExtractor:
         if self.prompt_variable not in self.prompt:
             raise ValueError(f"Prompt variable '{self.prompt_variable}' must be in the prompt.")
         self.splitter = DocumentSplitter(split_by="page", split_length=1)
-        if page_range:
-            self.expanded_range = expand_page_range(page_range)
+        self.expanded_range = expand_page_range(page_range) if page_range else None
 
     @staticmethod
     def _init_generator(
@@ -278,7 +277,6 @@ class LLMMetadataExtractor:
         else:
             errors[document.id] = llm_answer
 
-
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
     def run(self, documents: List[Document], page_range: Optional[List[Union[str, int]]] = None):
         """
@@ -316,6 +314,10 @@ class LLMMetadataExtractor:
                 # override the page range if provided
                 if page_range:
                     self.expanded_range = expand_page_range(page_range)
+
+                if not self.expanded_range:
+                    msg = f"Page range {self.expanded_range} invalid"
+                    raise ValueError(msg)
 
                 splitter = DocumentSplitter(split_by="page", split_length=1)
                 pages = splitter.run(documents=[document])

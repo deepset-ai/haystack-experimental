@@ -36,7 +36,9 @@ class TestLLMMetadataExtractor:
                 'model': 'gpt-3.5-turbo',
                 'generation_kwargs': {"temperature": 0.5}
             },
-            prompt_variable="test")
+            prompt_variable="test",
+            page_range=['1-5']
+        )
         assert isinstance(extractor.builder, PromptBuilder)
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.raise_on_failure is True
@@ -45,6 +47,17 @@ class TestLLMMetadataExtractor:
                 'model': 'gpt-3.5-turbo',
                 'generation_kwargs': {"temperature": 0.5}
             }
+        assert extractor.expanded_range == [1, 2, 3, 4, 5]
+
+    def test_init_missing_prompt_variable(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        with pytest.raises(ValueError):
+            _ = LLMMetadataExtractor(
+                prompt="prompt {{test}}",
+                expected_keys=["key1", "key2"],
+                generator_api=LLMProvider.OPENAI,
+                prompt_variable="test2"
+            )
 
     def test_to_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
@@ -102,6 +115,30 @@ class TestLLMMetadataExtractor:
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.prompt == "some prompt that was used with the LLM {{test}}"
         assert extractor.generator_api == LLMProvider.OPENAI
+
+    def test_output_invalid_json_raise_on_failure_true(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+                prompt="prompt {{test}}",
+                expected_keys=["key1", "key2"],
+                generator_api=LLMProvider.OPENAI,
+                prompt_variable="test",
+                raise_on_failure=True
+            )
+        with pytest.raises(ValueError):
+            extractor.is_valid_json_and_has_expected_keys(expected=["entities"], received="""{"json": "output"}""")
+
+    def test_output_valid_json_not_expected_keys(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+                prompt="prompt {{test}}",
+                expected_keys=["key1", "key2"],
+                generator_api=LLMProvider.OPENAI,
+                prompt_variable="test",
+                raise_on_failure=True
+            )
+        with pytest.raises(ValueError):
+            extractor.is_valid_json_and_has_expected_keys(expected=["entities"], received="{'json': 'output'}")
 
     @pytest.mark.integration
     @pytest.mark.skipif(
