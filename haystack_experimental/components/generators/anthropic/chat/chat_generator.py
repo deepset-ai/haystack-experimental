@@ -90,67 +90,53 @@ def _convert_tool_calls_to_anthropic_format(tool_calls: List[ToolCall]) -> List[
     return anthropic_tool_calls
 
 
-def _convert_messages_to_anthropic_format(  # noqa: PLR0912
+def _convert_messages_to_anthropic_format(
     messages: List[ChatMessage],
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """
-    Convert a list of messages to the format expected by Anthropic Chat API.
-
-    :param messages: The list of ChatMessages to convert.
-    :return: A tuple of two lists:
-        - A list of system message dictionaries in the format expected by Anthropic API.
-        - A list of non-system message dictionaries in the format expected by Anthropic API.
-    """
     anthropic_system_messages = []
     anthropic_non_system_messages = []
-
-    for i, message in enumerate(messages):
-        next_message = messages[i + 1] if i + 1 < len(messages) else None
+    i = 0
+    while i < len(messages):
+        message = messages[i]
         previous_message = messages[i - 1] if i - 1 >= 0 else None
 
-        # system messages have special format requirements for Anthropic API
-        # they can have only type and text fields, and they need to be passed separately
-        # to the Anthropic API endpoint
         if message.is_from(ChatRole.SYSTEM):
             anthropic_system_messages.append({"type": "text", "text": message.text})
+            i += 1
             continue
 
-        # create the base anthropic message for this message
         anthropic_msg: Dict[str, Any] = {"role": message._role.value}
-
-        # Special case for when we have both text and tool calls in the same message
-        if message.texts and message.tool_calls:
-            anthropic_tool_calls = _convert_tool_calls_to_anthropic_format(message.tool_calls)
-            anthropic_msg["content"] = [{"type": "text", "text": message.texts[0]}] + anthropic_tool_calls
-
-        # only tool calls
-        elif message.tool_calls:
-            anthropic_tool_calls = _convert_tool_calls_to_anthropic_format(message.tool_calls)
-            anthropic_msg["content"] = anthropic_tool_calls
-
-        # only text
-        elif message.texts:
-            anthropic_msg["content"] = [{"type": "text", "text": message.texts[0]}]
-
-        # handle tool call results and special case for tool call results stitching
-        elif message.tool_call_results:
+        content = []
+        if message.texts:
+            content.append({"type": "text", "text": message.texts[0]})
+        if message.tool_calls:
+            content += _convert_tool_calls_to_anthropic_format(message.tool_calls)
+        if message.tool_call_results:
+            # Skip if this is a continuation of previous tool results
             if previous_message and previous_message.tool_call_results:
-                # special case - we already handled tool call results stitching
-                # in the previous message, so we skip this message
+                i += 1
                 continue
-            _update_anthropic_message_with_tool_call_results(message.tool_call_results, anthropic_msg)
-            # special case - check if the next message is a tool result as well
-            # if so, we need to combine this and the next message into a single anthropic message
-            if next_message and next_message.tool_call_results:
-                _update_anthropic_message_with_tool_call_results(next_message.tool_call_results, anthropic_msg)
-            # Anthropic API requires the role to be set to "user" for tool call results
+
+            # Stitch all consecutive tool results into a single message
+            all_results = message.tool_call_results.copy()
+            index = i
+            while (index + 1) < len(messages) and messages[index + 1].tool_call_results:
+                index += 1
+                all_results.extend(messages[index].tool_call_results)
+
+            # Update the message with collected tool results
+            _update_anthropic_message_with_tool_call_results(all_results, anthropic_msg)
             anthropic_msg["role"] = "user"
-        else:
+            i = index  # Skip processed messages
+        if content:
+            anthropic_msg["content"] = content
+        elif "content" not in anthropic_msg:
             raise ValueError(
                 "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
             )
 
         anthropic_non_system_messages.append(anthropic_msg)
+        i += 1
 
     return anthropic_system_messages, anthropic_non_system_messages
 
