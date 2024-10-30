@@ -149,7 +149,7 @@ class LLMMetadataExtractor:
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
         if self.prompt_variable not in self.prompt:
-            raise ValueError(f"Input text '{self.prompt_variable}' must be in the prompt.")
+            raise ValueError(f"Prompt variable '{self.prompt_variable}' must be in the prompt.")
         self.splitter = DocumentSplitter(split_by="page", split_length=1)
 
     @staticmethod
