@@ -556,6 +556,9 @@ class TestOpenAIChatGenerator:
         assert len(response["replies"]) == 1
         message = response["replies"][0]
 
+        assert not message.texts
+        assert not message.text
+
         assert message.tool_calls
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
@@ -641,6 +644,9 @@ class TestOpenAIChatGenerator:
         assert len(results["replies"]) == 1
         message = results["replies"][0]
 
+
+        assert not message.texts
+        assert not message.text
         assert message.tool_calls
         tool_call = message.tool_call
         assert isinstance(tool_call, ToolCall)
