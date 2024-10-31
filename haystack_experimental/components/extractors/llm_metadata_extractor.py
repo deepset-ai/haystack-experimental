@@ -310,8 +310,15 @@ class LLMMetadataExtractor:
 
                 expanded_range = expand_page_range(page_range) if page_range else self.expanded_range
 
+                if not expanded_range:
+                    errors[document.id] = "No valid page numbers or ranges found in the input list"
+                    continue
+
                 pages = self.splitter.run(documents=[document])
-                content = [p.content + "\f" for idx, p in enumerate(pages["documents"]) if (idx + 1) in expanded_range]
+                content = ""
+                for idx, p in enumerate(pages["documents"]):
+                    if idx + 1 in expanded_range: # pylint: disable=E1135
+                        content += p.content + "\f"
 
                 self._extract_metadata_and_update_doc(document, "".join(content))
 
