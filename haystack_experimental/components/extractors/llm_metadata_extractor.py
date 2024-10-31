@@ -321,7 +321,7 @@ class LLMMetadataExtractor:
 
                 splitter = DocumentSplitter(split_by="page", split_length=1)
                 pages = splitter.run(documents=[document])
-                content = [p.content + "\n" for idx, p in enumerate(pages["documents"]) if idx in self.expanded_range]
+                content = [p.content + "\f" for idx, p in enumerate(pages["documents"]) if (idx + 1) in self.expanded_range]
 
                 self._extract_metadata_and_update_doc(document, errors, "".join(content))
 
