@@ -308,21 +308,15 @@ class LLMMetadataExtractor:
 
             if self.expanded_range or page_range: # extract metadata from a specific range of pages
 
-                expanded_range = self.expanded_range
-                if page_range:
-                    expanded_range = expand_page_range(page_range)
-
-                if not self.expanded_range:
-                    msg = f"Page range {self.expanded_range} invalid"
-                    raise ValueError(msg)
+                expanded_range = expand_page_range(page_range) if page_range else self.expanded_range
 
                 pages = self.splitter.run(documents=[document])
-                content = [p.content + "\f" for idx, p in enumerate(pages["documents"]) if (idx + 1) in self.expanded_range]
+                content = [p.content + "\f" for idx, p in enumerate(pages["documents"]) if (idx + 1) in expanded_range]
 
-                self._extract_metadata_and_update_doc(document, errors, "".join(content))
+                self._extract_metadata_and_update_doc(document, "".join(content))
 
             else:
                 # extract metadata from the entire document
-                self._extract_metadata_and_update_doc(document, errors, document.content)
+                self._extract_metadata_and_update_doc(document, document.content)
 
         return {"documents": documents, "errors": errors}
