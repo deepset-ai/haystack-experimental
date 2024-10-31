@@ -253,7 +253,7 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
-    def _extract_metadata_and_update_doc(self, document: Document, errors: Dict[str, Any], content: str):
+    def _extract_metadata_and_update_doc(self, document: Document, content: str):
         """
         Extract metadata from the content and updates the document's metadata with the extracted metadata.
 
@@ -261,7 +261,6 @@ class LLMMetadataExtractor:
         `errors`.
 
         :param document: Document to be updated with the extracted metadata.
-        :param errors: Dictionary to store error messages if the extraction fails.
         :param content: Content to extract metadata from.
         """
         prompt_with_doc = self.builder.run(
@@ -274,8 +273,6 @@ class LLMMetadataExtractor:
             extracted_metadata = json.loads(llm_answer)
             for k in self.expected_keys:
                 document.meta[k] = extracted_metadata[k]
-        else:
-            errors[document.id] = llm_answer
 
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
     def run(self, documents: List[Document], page_range: Optional[List[Union[str, int]]] = None):
@@ -311,16 +308,15 @@ class LLMMetadataExtractor:
 
             if self.expanded_range or page_range: # extract metadata from a specific range of pages
 
-                # override the page range if provided
+                expanded_range = self.expanded_range
                 if page_range:
-                    self.expanded_range = expand_page_range(page_range)
+                    expanded_range = expand_page_range(page_range)
 
                 if not self.expanded_range:
                     msg = f"Page range {self.expanded_range} invalid"
                     raise ValueError(msg)
 
-                splitter = DocumentSplitter(split_by="page", split_length=1)
-                pages = splitter.run(documents=[document])
+                pages = self.splitter.run(documents=[document])
                 content = [p.content + "\f" for idx, p in enumerate(pages["documents"]) if (idx + 1) in self.expanded_range]
 
                 self._extract_metadata_and_update_doc(document, errors, "".join(content))
