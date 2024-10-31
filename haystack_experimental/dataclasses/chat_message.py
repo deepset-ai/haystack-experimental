@@ -193,7 +193,7 @@ class ChatMessage:
         :returns: A new ChatMessage instance.
         """
         content: List[ChatMessageContentT] = []
-        if text:
+        if text is not None:
             content.append(TextContent(text=text))
         if tool_calls:
             content.extend(tool_calls)

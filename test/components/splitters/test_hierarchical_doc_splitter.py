@@ -137,7 +137,7 @@ class TestHierarchicalDocumentSplitter:
     def test_from_dict_in_pipeline(self):
         data = {
             "metadata": {},
-            "max_loops_allowed": 100,
+            "max_runs_per_component": 100,
             "components": {
                 "hierarchical_doc_splitter": {
                     "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
