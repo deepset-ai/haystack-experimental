@@ -739,7 +739,6 @@ class TestAnthropicChatGenerator:
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "text", "text": ""},
                     {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}},
                     {"type": "tool_use", "id": "456", "name": "math", "input": {"expression": "2+2"}},
                 ],
