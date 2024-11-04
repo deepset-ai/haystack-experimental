@@ -115,14 +115,14 @@ class LLMMetadataExtractor:
        }
     >>
     ```
-    """ # noqa: E501
+    """  # noqa: E501
 
-    def __init__( # pylint: disable=R0917
+    def __init__(  # pylint: disable=R0917
         self,
         prompt: str,
         prompt_variable: str,
         expected_keys: List[str],
-        generator_api: Union[str,LLMProvider],
+        generator_api: Union[str, LLMProvider],
         generator_api_params: Optional[Dict[str, Any]] = None,
         page_range: Optional[List[Union[str, int]]] = None,
         raise_on_failure: bool = False,
@@ -162,8 +162,8 @@ class LLMMetadataExtractor:
 
     @staticmethod
     def _init_generator(
-            generator_api: LLMProvider,
-            generator_api_params: Optional[Dict[str, Any]]
+        generator_api: LLMProvider,
+        generator_api_params: Optional[Dict[str, Any]]
     ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, "AmazonBedrockGenerator", "VertexAIGeminiGenerator"]:
         """
         Initialize the chat generator based on the specified API provider and parameters.
@@ -265,7 +265,7 @@ class LLMMetadataExtractor:
         """
         prompt_with_doc = self.builder.run(
             template=self.prompt,
-            template_variables={self.prompt_variable:content}
+            template_variables={self.prompt_variable: content}
         )
         result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
         llm_answer = result["replies"][0]
@@ -299,31 +299,22 @@ class LLMMetadataExtractor:
         """
 
         errors: Dict[str, Any] = {}
+        expanded_range = self.expanded_range
+        if page_range:
+            expanded_range = expand_page_range(page_range)
 
         for document in documents:
-
             if not document.content:
                 logger.warning(f"Document {document.id} has no content. Skipping metadata extraction.")
                 continue
-
-            if self.expanded_range or page_range: # extract metadata from a specific range of pages
-
-                expanded_range = expand_page_range(page_range) if page_range else self.expanded_range
-
-                if not expanded_range:
-                    errors[document.id] = "No valid page numbers or ranges found in the input list"
-                    continue
-
+            if expanded_range:
                 pages = self.splitter.run(documents=[document])
                 content = ""
-                for idx, p in enumerate(pages["documents"]):
-                    if idx + 1 in expanded_range: # pylint: disable=E1135
-                        content += p.content + "\f"
-
-                self._extract_metadata_and_update_doc(document, "".join(content))
-
+                for idx, page in enumerate(pages["documents"]):
+                    if idx + 1 in expanded_range:
+                        content += page.content + "\f"
             else:
                 # extract metadata from the entire document
-                self._extract_metadata_and_update_doc(document, document.content)
-
+                content = document.content
+            self._extract_metadata_and_update_doc(document, content)
         return {"documents": documents, "errors": errors}
