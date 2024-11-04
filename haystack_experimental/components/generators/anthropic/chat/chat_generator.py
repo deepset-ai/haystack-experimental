@@ -119,7 +119,7 @@ def _convert_messages_to_anthropic_format(
 
         anthropic_msg: Dict[str, Any] = {"role": message._role.value, "content": []}
 
-        if message.texts:
+        if message.texts and message.texts[0]:
             anthropic_msg["content"].append({"type": "text", "text": message.texts[0]})
         if message.tool_calls:
             anthropic_msg["content"] += _convert_tool_calls_to_anthropic_format(message.tool_calls)
