@@ -643,6 +643,24 @@ class TestAnthropicChatGenerator:
             ],
         )
 
+        messages = [
+            ChatMessage.from_assistant(
+                text="",  # this should not happen, but we should handle it without errors
+                tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})]
+            )
+        ]
+        result = _convert_messages_to_anthropic_format(messages)
+        assert result == (
+            [],
+            [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}],
+                }
+            ],
+        )
+
+
         tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
         messages = [
             ChatMessage.from_tool(
@@ -721,7 +739,6 @@ class TestAnthropicChatGenerator:
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "text", "text": ""},
                     {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}},
                     {"type": "tool_use", "id": "456", "name": "math", "input": {"expression": "2+2"}},
                 ],

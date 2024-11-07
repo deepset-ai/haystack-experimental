@@ -362,7 +362,7 @@ class OpenAIChatGenerator(OpenAIChatGeneratorBase):
         :return: The ChatMessage.
         """
         message: ChatCompletionMessage = choice.message
-        text = message.content or ""
+        text = message.content
         tool_calls = []
         if openai_tool_calls := message.tool_calls:
             for openai_tc in openai_tool_calls:
