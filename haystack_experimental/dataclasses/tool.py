@@ -3,16 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
-from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, Optional
+from dataclasses import asdict, dataclass, is_dataclass
+from typing import Any, Callable, Dict, Optional, get_args, get_origin, get_type_hints
 
+from haystack import logging
+from haystack.core.component import Component
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
 from pydantic import create_model
 
+from haystack_experimental.util.utils import is_pydantic_v2_model
+
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
     from jsonschema.exceptions import SchemaError
+
+
+logger = logging.getLogger(__name__)
 
 
 class ToolInvocationError(Exception):
@@ -197,6 +204,101 @@ class Tool:
                 schema["properties"][param_name]["description"] = param_description
 
         return Tool(name=name or function.__name__, description=tool_description, parameters=schema, function=function)
+
+    @classmethod
+    def from_component(cls, component: Component, name: str, description: str) -> "Tool":
+        """
+        Create a Tool instance from a Haystack component.
+
+        :param component: The Haystack component to be converted into a Tool.
+        :param name: Name for the tool.
+        :param description: Description of the tool.
+        :returns: The Tool created from the Component.
+        :raises ValueError: If the component is invalid or schema generation fails.
+        """
+        from haystack_experimental.components.tools.openai.component_caller import extract_component_parameters
+
+        # Extract the parameters schema from the component
+        parameters = extract_component_parameters(component)
+
+        def _convert_to_dataclass(data: Any, data_type: Any) -> Any:
+            """
+            Recursively convert dictionaries into dataclass instances based on the provided data type.
+
+            This function handles nested dataclasses by recursively converting each field.
+
+            :param data:
+                The input data to convert.
+            :param data_type:
+                The target data type, expected to be a dataclass type.
+            :returns:
+                An instance of the dataclass with data populated from the input dictionary.
+            """
+            if data is None or not isinstance(data, dict):
+                return data
+
+            # Check if the target type is a dataclass
+            if is_dataclass(data_type):
+                # Get field types for the dataclass (field name -> field type)
+                field_types = get_type_hints(data_type)
+                converted_data = {}
+                # Recursively convert each field in the dataclass
+                for field_name, field_type in field_types.items():
+                    if field_name in data:
+                        # Recursive step: convert nested dictionaries into dataclass instances
+                        converted_data[field_name] = _convert_to_dataclass(data[field_name], field_type)
+                # Instantiate the dataclass with the converted data
+                return data_type(**converted_data)
+            # If data_type is not a dataclass, return the data unchanged
+            return data
+
+        def component_invoker(**kwargs):
+            """
+            Invokes the component using keyword arguments provided by the LLM function calling/tool generated response.
+
+            :param kwargs: The keyword arguments to invoke the component with.
+            :returns: The result of the component invocation.
+            """
+            converted_kwargs = {}
+
+            # Get input sockets for type information
+            input_sockets = component.__haystack_input__._sockets_dict
+
+            for param_name, param_value in kwargs.items():
+                socket = input_sockets[param_name]
+                param_type = socket.type
+
+                # Determine the origin type (e.g., list) and target_type
+                origin = get_origin(param_type) or param_type
+
+                if origin is list:
+                    # Parameter is a list; get the element type
+                    target_type = get_args(param_type)[0]
+                    values_to_convert = param_value
+                else:
+                    # Parameter is a single value
+                    target_type = param_type
+                    values_to_convert = [param_value]
+
+                # Convert dictionary inputs into dataclass or Pydantic model instances if necessary
+                if is_dataclass(target_type) or is_pydantic_v2_model(target_type):
+                    converted = [
+                        target_type.model_validate(item)
+                        if is_pydantic_v2_model(target_type)
+                        else _convert_to_dataclass(item, target_type)
+                        for item in values_to_convert
+                        if isinstance(item, dict)
+                    ]
+                    # Update the parameter value with the converted data
+                    param_value = converted if origin is list else converted[0]
+
+                converted_kwargs[param_name] = param_value
+
+            logger.debug(f"Invoking component with kwargs: {converted_kwargs}")
+            return component.run(**converted_kwargs)
+
+        # Return a new Tool instance with the component invoker as the function to be called
+        return Tool(name=name, description=description, parameters=parameters, function=component_invoker)
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):

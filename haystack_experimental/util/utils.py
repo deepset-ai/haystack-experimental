@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Union
+from typing import Any, List, Union
 
 
 def expand_page_range(page_range: List[Union[str, int]]) -> List[int]:
@@ -41,3 +41,13 @@ def expand_page_range(page_range: List[Union[str, int]]) -> List[int]:
         raise ValueError("No valid page numbers or ranges found in the input list")
 
     return expanded_page_range
+
+
+def is_pydantic_v2_model(instance: Any) -> bool:
+    """
+    Checks if the instance is a Pydantic v2 model.
+
+    :param instance: The instance to check.
+    :returns: True if the instance is a Pydantic v2 model, False otherwise.
+    """
+    return hasattr(instance, "model_validate")
