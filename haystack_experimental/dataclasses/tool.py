@@ -3,16 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
-from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, Optional
+from collections import defaultdict
+from dataclasses import asdict, dataclass, is_dataclass
+from typing import Any, Callable, Dict, List, Optional, Union, get_args, get_origin, get_type_hints
 
+from haystack import Pipeline, logging
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
 from pydantic import create_model
 
+from haystack_experimental.util.utils import is_pydantic_v2_model
+
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
     from jsonschema.exceptions import SchemaError
+
+
+logger = logging.getLogger(__name__)
 
 
 class ToolInvocationError(Exception):
@@ -197,6 +204,120 @@ class Tool:
                 schema["properties"][param_name]["description"] = param_description
 
         return Tool(name=name or function.__name__, description=tool_description, parameters=schema, function=function)
+
+    @classmethod
+    def from_pipeline(cls, pipeline: Pipeline, name: str, description: str) -> "Tool":
+        """
+        Create a Tool instance from a Pipeline.
+
+        :param pipeline:
+            The Pipeline to be converted into a Tool.
+        :param name:
+            Name for the tool.
+        :param description:
+            Description of the tool.
+        :returns:
+            The Tool created from the Pipeline.
+        :raises ValueError:
+            If the pipeline is invalid or schema generation fails.
+        """
+        from haystack_experimental.components.tools.openai.pipeline_caller import extract_pipeline_parameters
+
+        # Extract the parameters schema from the pipeline components
+        parameters = extract_pipeline_parameters(pipeline)
+
+        def _convert_to_dataclass(data: Any, data_type: Any) -> Any:
+            """
+            Recursively convert dictionaries into dataclass instances based on the provided data type.
+
+            This function handles nested dataclasses by recursively converting each field.
+
+            :param data:
+                The input data to convert.
+            :param data_type:
+                The target data type, expected to be a dataclass type.
+            :returns:
+                An instance of the dataclass with data populated from the input dictionary.
+            """
+            if data is None or not isinstance(data, dict):
+                return data
+
+            # Check if the target type is a dataclass
+            if is_dataclass(data_type):
+                # Get field types for the dataclass (field name -> field type)
+                field_types = get_type_hints(data_type)
+                converted_data = {}
+                # Recursively convert each field in the dataclass
+                for field_name, field_type in field_types.items():
+                    if field_name in data:
+                        # Recursive step: convert nested dictionaries into dataclass instances
+                        converted_data[field_name] = _convert_to_dataclass(data[field_name], field_type)
+                # Instantiate the dataclass with the converted data
+                return data_type(**converted_data)
+            # If data_type is not a dataclass, return the data unchanged
+            return data
+
+        def pipeline_invoker(**kwargs):
+            """
+            Invokes the pipeline using keyword arguments provided by the LLM function calling/tool generated response.
+
+            It remaps the LLM's function call payload to match the pipeline's `run` method expected format.
+
+            :param kwargs:
+                The keyword arguments to invoke the pipeline with.
+            :returns:
+                The result of the pipeline invocation.
+            """
+            pipeline_kwargs = defaultdict(dict)
+            for component_param, component_input in kwargs.items():
+                if "." in component_param:
+                    # Split parameter into component name and parameter name
+                    component_name, param_name = component_param.split(".", 1)
+                    # Retrieve the component from the pipeline
+                    component = pipeline.get_component(component_name)
+                    # Get the parameter from the signature, checking if it exists
+                    param = inspect.signature(component.run).parameters.get(param_name)
+                    # Use the parameter annotation if it exists, otherwise assume a string type
+                    param_type: Any = param.annotation if param else str
+
+                    # Determine the origin type (e.g., list) and target_type (inner type)
+                    origin: Any = get_origin(param_type) or param_type
+                    target_type: Any
+                    values_to_convert: Union[Any, List[Any]]
+
+                    if origin is list:
+                        # Parameter is a list; get the element type
+                        target_type = get_args(param_type)[0]
+                        values_to_convert = component_input
+                    else:
+                        # Parameter is a single value
+                        target_type = param_type
+                        values_to_convert = [component_input]
+
+                    # Convert dictionary inputs into dataclass or Pydantic model instances if necessary
+                    if is_dataclass(target_type) or is_pydantic_v2_model(target_type):
+                        converted = [
+                            target_type.model_validate(item)
+                            if is_pydantic_v2_model(target_type)
+                            else _convert_to_dataclass(item, target_type)
+                            for item in values_to_convert
+                            if isinstance(item, dict)
+                        ]
+                        # Update the component input with the converted data
+                        component_input = converted if origin is list else converted[0]
+
+                    # Map the parameter to the component in the pipeline kwargs
+                    pipeline_kwargs[component_name][param_name] = component_input
+                else:
+                    # Handle global parameters not associated with a specific component
+                    pipeline_kwargs[component_param] = component_input
+
+            logger.debug(f"Invoking pipeline (as tool) with kwargs: {pipeline_kwargs}")
+            # Invoke the pipeline with the prepared arguments
+            return pipeline.run(data=pipeline_kwargs)
+
+        # Return a new Tool instance with the pipeline invoker as the function to be called
+        return Tool(name=name, description=description, parameters=parameters, function=pipeline_invoker)
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
