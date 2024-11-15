@@ -93,6 +93,14 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
     if not is_supported_type(python_type):
         raise ValueError(f"Unsupported type: {python_type}")
 
+    if is_any_type(python_type):
+        # When type is Any, allow any JSON value
+        property_schema = {"description": description}
+        # An empty schema allows any type in JSON Schema
+        if default is not None:
+            property_schema["default"] = default
+        return property_schema
+
     openai_type = get_openai_type(python_type)
     property_schema = {"type": openai_type, "description": description}
 
