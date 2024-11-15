@@ -10,10 +10,12 @@ from inspect import getdoc
 from typing import Any, Callable, Dict, List, Set, Tuple, Union, get_args, get_origin
 
 from docstring_parser import parse
-from haystack import Pipeline
+from haystack import Pipeline, logging
 from haystack.utils import deserialize_type
 
 from haystack_experimental.util.utils import is_pydantic_v2_model
+
+logger = logging.getLogger(__name__)
 
 
 def extract_pipeline_parameters(pipeline: Pipeline) -> Dict[str, Any]:
@@ -91,10 +93,7 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
         python_type = resolve_forward_ref(python_type)
 
     if not is_supported_type(python_type):
-        raise ValueError(f"Unsupported type: {python_type}")
-
-    if is_any_type(python_type):
-        # When type is Any, allow any JSON value
+        # Return a schema that allows any JSON value
         property_schema = {"description": description}
         # An empty schema allows any type in JSON Schema
         if default is not None:
@@ -111,11 +110,13 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
         item_type = get_args(python_type)[0] if get_args(python_type) else Any
         item_type = resolve_forward_ref(item_type)
         if not is_supported_type(item_type):
-            raise ValueError(f"Unsupported item type in array: {item_type}")
-        # Create items schema without 'description'
-        items_schema = create_property_schema(item_type, "")
-        items_schema.pop("description", None)
-        property_schema["items"] = items_schema
+            logger.warning(f"Unsupported type in array '{item_type}'. Using a generic schema to accept any JSON value.")
+            property_schema["items"] = {}
+        else:
+            # Create items schema without 'description'
+            items_schema = create_property_schema(item_type, "")
+            items_schema.pop("description", None)
+            property_schema["items"] = items_schema
     elif openai_type == "object":
         # Support both dataclasses and Pydantic v2
         if is_dataclass(python_type) or is_pydantic_v2_model(python_type):
@@ -157,13 +158,19 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
                     # Allow any type of value
                     property_schema["additionalProperties"] = {}
                 elif not is_supported_type(value_type):
-                    raise ValueError(f"Unsupported value type in dict: {value_type}")
+                    logger.warning(f"Unsupported value type in dict '{value_type}'. Using a generic schema for values.")
+                    property_schema["additionalProperties"] = {}
                 else:
                     property_schema["additionalProperties"] = create_property_schema(value_type, description)
             else:
                 property_schema["additionalProperties"] = {"type": "string"}
         else:
-            raise ValueError(f"Unsupported object type: {python_type}")
+            logger.warning(f"Unsupported object type '{python_type}'. Using a generic schema for any JSON value.")
+            # Return a schema that accepts any JSON value
+            property_schema = {"description": description}
+            if default is not None:
+                property_schema["default"] = default
+
     return property_schema
 
 
