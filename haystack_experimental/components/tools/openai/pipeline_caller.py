@@ -141,12 +141,17 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
         elif get_origin(python_type) is dict:
             # For dicts, specify the value type using 'additionalProperties'
             args = get_args(python_type)
+            # Check for key and value type args since Dict[K, V] has 2 type parameters
             if args and len(args) == 2:  # noqa: PLR2004
                 _, value_type = args
                 value_type = resolve_forward_ref(value_type)
-                if not is_supported_type(value_type):
+                if is_any_type(value_type):
+                    # Allow any type of value
+                    property_schema["additionalProperties"] = {}
+                elif not is_supported_type(value_type):
                     raise ValueError(f"Unsupported value type in dict: {value_type}")
-                property_schema["additionalProperties"] = create_property_schema(value_type, description)
+                else:
+                    property_schema["additionalProperties"] = create_property_schema(value_type, description)
             else:
                 property_schema["additionalProperties"] = {"type": "string"}
         else:
@@ -190,6 +195,7 @@ def is_supported_type(python_type: Any) -> bool:
         or is_dataclass(python_type)
         or is_pydantic_v2_model(python_type)
         or is_supported_generic(python_type)
+        or is_any_type(python_type)
     )
 
 
@@ -252,6 +258,9 @@ def get_openai_type(python_type: Any) -> str:  # noqa: PLR0911
     """
     python_type = resolve_forward_ref(python_type)
 
+    if is_any_type(python_type):
+        return "object"  # Allow any JSON structure
+
     if is_basic_python_type(python_type):
         if issubclass(python_type, str):
             return "string"
@@ -274,3 +283,13 @@ def get_openai_type(python_type: Any) -> str:  # noqa: PLR0911
 
     # If none of the above conditions are met, raise an error
     raise ValueError(f"Unsupported type: {python_type}")
+
+
+def is_any_type(python_type: Any) -> bool:
+    """
+    Checks if the type is typing.Any.
+
+    :param python_type: The Python type to check.
+    :returns: True if the type is typing.Any, False otherwise.
+    """
+    return python_type is Any or str(python_type) == "typing.Any"

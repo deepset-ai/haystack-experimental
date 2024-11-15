@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from haystack import Pipeline, component
 from pydantic import BaseModel
@@ -200,6 +200,24 @@ class ProfileProcessor:
         return {
             "output": f"User {profile.username}: {bio}"
         }
+
+@component
+class OptionalDictComponent:
+    """A component that processes an optional dictionary with Any type values."""
+
+    @component.output_types(output=str)
+    def run(self, data: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+        """
+        Processes an optional dictionary.
+
+        :param data: An optional dictionary with values of any type.
+        :return: A dictionary with a message about the input data.
+        """
+        if data is None:
+            return {"output": "No data provided"}
+        else:
+            keys = ', '.join(data.keys())
+            return {"output": f"Received data with keys: {keys}"}
 
 
 class TestToolPipeline:
@@ -705,6 +723,47 @@ class TestToolPipeline:
         result = tool.invoke(**llm_prepared_input)
 
         assert result["profile_processor"]["output"] == "User johndoe: Just another developer"
+
+    def test_from_pipeline_with_optional_dict_any_input(self):
+        """
+        Test pipeline with a component that accepts Optional[Dict[str, Any]].
+        """
+        pipeline = Pipeline()
+        pipeline.add_component("optional_dict", OptionalDictComponent())
+
+        tool = Tool.from_pipeline(
+            pipeline=pipeline,
+            name="optional_dict_tool",
+            description="A tool that processes optional dictionary input with Any type values"
+        )
+
+        # Assert that the tool's parameters are correctly generated
+        assert tool.parameters == {
+            "type": "object",
+            "properties": {
+                "optional_dict.data": {
+                    "type": "object",
+                    "description": "An optional dictionary with values of any type.",
+                    "additionalProperties": {}
+                }
+            }
+            # Note: 'required' is not included since the 'data' parameter is optional
+        }
+
+        # Test invocation without providing 'data' (should use default None)
+        result = tool.invoke()
+        assert isinstance(result, dict)
+        assert "optional_dict" in result
+        assert result["optional_dict"]["output"] == "No data provided"
+
+        # Test invocation with 'data' provided
+        llm_prepared_input = {
+            "optional_dict.data": {"key1": 1, "key2": "value2", "key3": [1, 2, 3]}
+        }
+        result = tool.invoke(**llm_prepared_input)
+        assert isinstance(result, dict)
+        assert "optional_dict" in result
+        assert "Received data with keys: key1, key2, key3" == result["optional_dict"]["output"]
 
 
 
@@ -1242,3 +1301,60 @@ class TestToolPipeline:
         output = parsed_result["profile_processor"]["output"]
         assert "johndoe" in output.lower()
         assert "just another developer" in output.lower()
+
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY"),
+        reason="Set the OPENAI_API_KEY environment variable to run this test.",
+    )
+    def test_from_pipeline_with_optional_dict_any_input_with_LLM(self):
+        """
+        Integration test for pipeline with a component that accepts Optional[Dict[str, Any]],
+        using an LLM to generate the tool calls.
+        """
+        # Create the tool pipeline
+        tool_pipeline = Pipeline()
+        tool_pipeline.add_component("optional_dict", OptionalDictComponent())
+
+        # Create a tool from the pipeline
+        tool = Tool.from_pipeline(
+            pipeline=tool_pipeline,
+            name="optional_dict_tool",
+            description="A tool that processes optional dictionary input with Any type values"
+        )
+
+        # Create the main pipeline that uses the tool
+        main_pipeline = Pipeline()
+        main_pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        main_pipeline.add_component(
+            "tool_invoker", ToolInvoker(tools=[tool], convert_result_to_json_string=True)
+        )
+        main_pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        # Test without providing data
+        messages = [
+            ChatMessage.from_user(
+                "Use the tool without providing any data dictionary"
+            )
+        ]
+        result = main_pipeline.run(data={"llm": {"messages": messages}})
+        assert "tool_invoker" in result
+        assert "tool_messages" in result["tool_invoker"]
+
+        tool_message = result["tool_invoker"]["tool_messages"][0]
+        parsed_result = json.loads(tool_message.tool_call_result.result)
+        assert "optional_dict" in parsed_result
+        assert parsed_result["optional_dict"]["output"] == "No data provided"
+
+        # Test with providing data
+        messages = [
+            ChatMessage.from_user(
+                "Use the tool with a dictionary data field contains the following key/pairs: name: 'Alice', age: 30, and scores: [85, 92, 78]"
+            )
+        ]
+        result = main_pipeline.run(data={"llm": {"messages": messages}})
+        tool_message = result["tool_invoker"]["tool_messages"][0]
+        parsed_result = json.loads(tool_message.tool_call_result.result)
+        output = parsed_result["optional_dict"]["output"]
+        # TODO: This doesn't work yet, because the LLM returns an empty dictionary as parameter values
+        # Leaving it here as a reminder to explore this further
