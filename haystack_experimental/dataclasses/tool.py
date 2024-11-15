@@ -275,12 +275,8 @@ class Tool:
                     component = pipeline.get_component(component_name)
                     # Get the parameter from the signature, checking if it exists
                     param = inspect.signature(component.run).parameters.get(param_name)
-                    if param is None:
-                        logger.warning(f"Parameter '{param_name}' not found in component '{component_name}'")
-                        continue
-
-                    # Now safely get the annotation
-                    param_type: Any = param.annotation
+                    # Use the parameter annotation if it exists, otherwise assume a string type
+                    param_type: Any = param.annotation if param else str
 
                     # Determine the origin type (e.g., list) and target_type (inner type)
                     origin: Any = get_origin(param_type) or param_type
