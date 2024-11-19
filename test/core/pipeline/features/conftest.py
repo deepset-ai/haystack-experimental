@@ -22,6 +22,7 @@ PIPELINE_NAME_REGEX = re.compile(r"\[(.*)\]")
 @dataclasses.dataclass
 class SpyingSpan(Span):
     operation_name: str
+    parent_span: Optional[Span] = None
     tags: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     trace_id: Optional[str] = dataclasses.field(
@@ -47,9 +48,12 @@ class SpyingTracer(Tracer):
 
     @contextlib.contextmanager
     def trace(
-        self, operation_name: str, tags: Optional[Dict[str, Any]] = None
+        self,
+        operation_name: str,
+        tags: Optional[Dict[str, Any]] = None,
+        parent_span: Optional[Span] = None,
     ) -> Iterator[Span]:
-        new_span = SpyingSpan(operation_name)
+        new_span = SpyingSpan(operation_name, parent_span)
 
         for key, value in (tags or {}).items():
             new_span.set_tag(key, value)
