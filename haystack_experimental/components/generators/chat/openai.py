@@ -55,7 +55,8 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
                 {
                     "id": tc.id,
                     "type": "function",
-                    "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments)},
+                    # We disable ensure_ascii so special chars like emojis are not converted
+                    "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments, ensure_ascii=False)},
                 }
             )
         openai_msg["tool_calls"] = openai_tool_calls

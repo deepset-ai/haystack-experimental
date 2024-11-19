@@ -87,8 +87,9 @@ class OpenAIFunctionCaller:
                     try:
                         function_response = function_to_call(**function_args)
                         messages.append(
+                            # We disable ensure_ascii so special chars like emojis are not converted
                             ChatMessage.from_function(
-                                content=json.dumps(function_response),
+                                content=json.dumps(function_response, ensure_ascii=False),
                                 name=function_name,
                             )
                         )

@@ -172,7 +172,8 @@ class OpenAPITool:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error invoking OpenAPI endpoint. Error: {e}", e=str(e))
             service_response = {"error": str(e)}
-        response_messages = [ChatMessage.from_user(json.dumps(service_response))]
+        # We disable ensure_ascii so special chars like emojis are not converted
+        response_messages = [ChatMessage.from_user(json.dumps(service_response, ensure_ascii=False))]
 
         return {"service_response": response_messages}
 
