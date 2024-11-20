@@ -18,7 +18,7 @@ class InMemoryDocumentStore(InMemoryDocumentStoreBase):
     Asynchronous version of the in-memory document store.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-positional-arguments
         self,
         bm25_tokenization_regex: str = r"(?u)\b\w\w+\b",
         bm25_algorithm: Literal["BM25Okapi", "BM25L", "BM25Plus"] = "BM25L",
@@ -126,7 +126,7 @@ class InMemoryDocumentStore(InMemoryDocumentStoreBase):
             lambda: self.bm25_retrieval(query=query, filters=filters, top_k=top_k, scale_score=scale_score),
         )
 
-    async def embedding_retrieval_async(
+    async def embedding_retrieval_async(  # pylint: disable=too-many-positional-arguments
         self,
         query_embedding: List[float],
         filters: Optional[Dict[str, Any]] = None,

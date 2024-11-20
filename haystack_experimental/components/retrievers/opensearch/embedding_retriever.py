@@ -139,13 +139,12 @@ class OpenSearchEmbeddingRetriever:
         except Exception as e:
             if self._raise_on_failure:
                 raise e
-            else:
-                logger.warning(
-                    "An error during embedding retrieval occurred and will be "
-                    "ignored by returning empty results: {error}",
-                    error=str(e),
-                    exc_info=True,
-                )
+            logger.warning(
+                "An error during embedding retrieval occurred and will be "
+                "ignored by returning empty results: {error}",
+                error=str(e),
+                exc_info=True,
+            )
 
         return {"documents": docs}
 
@@ -193,12 +192,11 @@ class OpenSearchEmbeddingRetriever:
         except Exception as e:
             if self._raise_on_failure:
                 raise e
-            else:
-                logger.warning(
-                    "An error during embedding retrieval occurred and will be "
-                    "ignored by returning empty results: {error}",
-                    error=str(e),
-                    exc_info=True,
-                )
+            logger.warning(
+                "An error during embedding retrieval occurred and will be "
+                "ignored by returning empty results: {error}",
+                error=str(e),
+                exc_info=True,
+            )
 
         return {"documents": docs}

@@ -300,7 +300,7 @@ class OpenAIChatGenerator:
 
         if is_streaming:
             completions = self._handle_stream_response(
-                chat_completion,
+                chat_completion, # type: ignore
                 streaming_callback,  # type: ignore
             )
         else:
@@ -364,7 +364,7 @@ class OpenAIChatGenerator:
 
         if is_streaming:
             completions = await self._handle_async_stream_response(
-                chat_completion,
+                chat_completion, # type: ignore
                 streaming_callback,  # type: ignore
             )
         else:

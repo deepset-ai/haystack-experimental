@@ -140,7 +140,7 @@ class AsyncPipeline(PipelineBase):
 
             return res
 
-    async def _run_subgraph(  # noqa: PLR0915, PLR0912
+    async def _run_subgraph(  # noqa: PLR0915, PLR0912 # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         self,
         cycle: List[str],
         component_name: str,
@@ -288,7 +288,7 @@ class AsyncPipeline(PipelineBase):
 
         yield subgraph_outputs, True
 
-    async def run(  # noqa: PLR0915
+    async def run(  # noqa: PLR0915, PLR0912 # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         self,
         data: Dict[str, Any],
     ) -> AsyncIterator[Dict[str, Any]]:

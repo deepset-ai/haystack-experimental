@@ -31,7 +31,7 @@ with LazyImport("Run 'pip install opensearch-haystack opensearch-py[async]'") as
 
 
 class OpenSearchDocumentStore:
-    def __init__(
+    def __init__(  # pylint: disable=dangerous-default-value
         self,
         *,
         hosts: Optional[Hosts] = None,
@@ -403,6 +403,7 @@ class OpenSearchDocumentStore:
 
     def _prepare_bm25_search_request(
         self,
+        *,
         query: str,
         filters: Optional[Dict[str, Any]],
         fuzziness: str,
@@ -479,7 +480,12 @@ class OpenSearchDocumentStore:
         self._ensure_initialized()
 
         search_params = self._prepare_bm25_search_request(
-            query, filters, fuzziness, top_k, all_terms_must_match, custom_query
+            query=query,
+            filters=filters,
+            fuzziness=fuzziness,
+            top_k=top_k,
+            all_terms_must_match=all_terms_must_match,
+            custom_query=custom_query,
         )
         documents = self._search_documents(search_params)
         self._postprocess_bm25_search_results(documents, scale_score)
@@ -499,7 +505,12 @@ class OpenSearchDocumentStore:
         self._ensure_initialized()
 
         search_params = self._prepare_bm25_search_request(
-            query, filters, fuzziness, top_k, all_terms_must_match, custom_query
+            query=query,
+            filters=filters,
+            fuzziness=fuzziness,
+            top_k=top_k,
+            all_terms_must_match=all_terms_must_match,
+            custom_query=custom_query,
         )
         documents = await self._search_documents_async(search_params)
         self._postprocess_bm25_search_results(documents, scale_score)

@@ -142,6 +142,7 @@ class OpenSearchBM25Retriever:
 
     def _prepare_bm25_args(
         self,
+        *,
         query: str,
         filters: Optional[Dict[str, Any]],
         all_terms_must_match: Optional[bool],
@@ -176,7 +177,7 @@ class OpenSearchBM25Retriever:
         }
 
     @component.output_types(documents=List[Document])
-    def run(
+    def run(  # pylint: disable=too-many-positional-arguments
         self,
         query: str,
         filters: Optional[Dict[str, Any]] = None,
@@ -209,30 +210,29 @@ class OpenSearchBM25Retriever:
         """
         docs: List[Document] = []
         bm25_args = self._prepare_bm25_args(
-            query,
-            filters,
-            all_terms_must_match,
-            top_k,
-            fuzziness,
-            scale_score,
-            custom_query,
+            query=query,
+            filters=filters,
+            all_terms_must_match=all_terms_must_match,
+            top_k=top_k,
+            fuzziness=fuzziness,
+            scale_score=scale_score,
+            custom_query=custom_query,
         )
         try:
             docs = self._document_store._bm25_retrieval(**bm25_args)
         except Exception as e:
             if self._raise_on_failure:
                 raise e
-            else:
-                logger.warning(
-                    "An error during BM25 retrieval occurred and will be ignored by returning empty results: {error}",
-                    error=str(e),
-                    exc_info=True,
-                )
+            logger.warning(
+                "An error during BM25 retrieval occurred and will be ignored by returning empty results: {error}",
+                error=str(e),
+                exc_info=True,
+            )
 
         return {"documents": docs}
 
     @component.output_types(documents=List[Document])
-    async def run_async(
+    async def run_async(  # pylint: disable=too-many-positional-arguments
         self,
         query: str,
         filters: Optional[Dict[str, Any]] = None,
@@ -265,24 +265,23 @@ class OpenSearchBM25Retriever:
         """
         docs: List[Document] = []
         bm25_args = self._prepare_bm25_args(
-            query,
-            filters,
-            all_terms_must_match,
-            top_k,
-            fuzziness,
-            scale_score,
-            custom_query,
+            query=query,
+            filters=filters,
+            all_terms_must_match=all_terms_must_match,
+            top_k=top_k,
+            fuzziness=fuzziness,
+            scale_score=scale_score,
+            custom_query=custom_query,
         )
         try:
             docs = await self._document_store._bm25_retrieval_async(**bm25_args)
         except Exception as e:
             if self._raise_on_failure:
                 raise e
-            else:
-                logger.warning(
-                    "An error during BM25 retrieval occurred and will be ignored by returning empty results: {error}",
-                    error=str(e),
-                    exc_info=True,
-                )
+            logger.warning(
+                "An error during BM25 retrieval occurred and will be ignored by returning empty results: {error}",
+                error=str(e),
+                exc_info=True,
+            )
 
         return {"documents": docs}
