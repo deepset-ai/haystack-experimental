@@ -233,6 +233,7 @@ class LLMMetadataExtractor:
             raise_on_failure=self.raise_on_failure,
             generator_api=self.generator_api.value,
             generator_api_params=llm_provider["init_parameters"],
+            page_range=self.expanded_range
         )
 
     @classmethod
