@@ -44,6 +44,8 @@ dependencies = [
   "pytest",
   "pytest-rerunfailures",
   "pytest-cov",
+  "pytest-bdd",
+  "pytest-asyncio",
   # Linting
   "pylint",
   "ruff",
@@ -63,6 +65,9 @@ extra-dependencies = [
   # Tools support
   "jsonschema",
   "ollama-haystack>=1.1.0",
+  # Async
+  "opensearch-haystack",
+  "opensearch-py[async]",
   # LLMMetadataExtractor dependencies
   "amazon-bedrock-haystack>=1.0.2",
   "google-vertex-haystack>=2.0.0",
@@ -160,8 +165,8 @@ disable = [
   "cyclic-import",
   "import-outside-toplevel",
   "deprecated-method",
-  "too-many-arguments",   # sometimes we need to pass more than 5 arguments
-  "too-many-instance-attributes"  # sometimes we need to have a class with more than 7 attributes
+  "too-many-arguments",           # sometimes we need to pass more than 5 arguments
+  "too-many-instance-attributes", # sometimes we need to have a class with more than 7 attributes
 ]
 
 [tool.pytest.ini_options]
@@ -169,9 +174,10 @@ minversion = "6.0"
 addopts = "--strict-markers"
 markers = [
   "integration: integration tests",
-  "unstable(reason): Mark tests that are unstable or depend on unreliable services."
+  "unstable(reason): Mark tests that are unstable or depend on unreliable services.",
 ]
 log_cli = true
+asyncio_mode = "auto"
 
 [tool.mypy]
 warn_return_any = false
