@@ -228,7 +228,7 @@ class LLMMetadataExtractor:
         return default_to_dict(
             self,
             prompt=self.prompt,
-            input_text=self.prompt_variable,
+            prompt_variable=self.prompt_variable,
             expected_keys=self.expected_keys,
             raise_on_failure=self.raise_on_failure,
             generator_api=self.generator_api.value,
