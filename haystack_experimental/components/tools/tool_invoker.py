@@ -145,7 +145,8 @@ class ToolInvoker:
 
         if self.convert_result_to_json_string:
             try:
-                tool_result_str = json.dumps(result)
+                # We disable ensure_ascii so special chars like emojis are not converted
+                tool_result_str = json.dumps(result, ensure_ascii=False)
             except Exception as e:
                 if self.raise_on_failure:
                     raise StringConversionError("Failed to convert tool result to string using `json.dumps`") from e
