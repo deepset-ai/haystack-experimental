@@ -9,8 +9,11 @@ from typing import Any, Dict, List, Optional, Union
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
+from haystack.components.preprocessors import DocumentSplitter
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_secrets_inplace
+
+from haystack_experimental.util.utils import expand_page_range
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack==1.0.2\"'") as amazon_bedrock_generator:
     from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
@@ -97,7 +100,7 @@ class LLMMetadataExtractor:
         Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
     ]
 
-    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator=OpenAIGenerator(), input_text='input_text')
+    extractor = LLMMetadataExtractor(prompt=NER_PROMPT, expected_keys=["entities"], generator_api="openai", prompt_variable='input_text')
     extractor.run(documents=docs)
     >> {'documents': [
         Document(id=.., content: 'deepset was founded in 2018 in Berlin, and is known for its Haystack framework',
@@ -112,45 +115,55 @@ class LLMMetadataExtractor:
        }
     >>
     ```
-    """ # noqa: E501
+    """  # noqa: E501
 
-    def __init__( # pylint: disable=R0917
+    def __init__(  # pylint: disable=R0917
         self,
         prompt: str,
-        input_text: str,
+        prompt_variable: str,
         expected_keys: List[str],
-        generator_api: Union[str,LLMProvider],
+        generator_api: Union[str, LLMProvider],
         generator_api_params: Optional[Dict[str, Any]] = None,
+        page_range: Optional[List[Union[str, int]]] = None,
         raise_on_failure: bool = False,
     ):
         """
         Initializes the LLMMetadataExtractor.
 
         :param prompt: The prompt to be used for the LLM.
-        :param input_text: The input text to be processed by the PromptBuilder.
+        :param prompt_variable: The variable in the prompt to be processed by the PromptBuilder.
         :param expected_keys: The keys expected in the JSON output from the LLM.
-        :param generator_api: The API provider for the LLM.
+        :param generator_api: The API provider for the LLM. Currently supported providers are:
+                              "openai", "openai_azure", "aws_bedrock", "google_vertex"
         :param generator_api_params: The parameters for the LLM generator.
+        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
+                           metadata from the first and third pages of each document. It also accepts printable range
+                           strings, e.g.: ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,
+                           11, 12. If None, metadata will be extracted from the entire document for each document in the
+                           documents list.
+                           This parameter is optional and can be overridden in the `run` method.
         :param raise_on_failure: Whether to raise an error on failure to validate JSON output.
         :returns:
 
         """
         self.prompt = prompt
-        self.input_text = input_text
-        self.builder = PromptBuilder(prompt, required_variables=[input_text])
+        self.prompt_variable = prompt_variable
+        self.builder = PromptBuilder(prompt, required_variables=[prompt_variable])
         self.raise_on_failure = raise_on_failure
         self.expected_keys = expected_keys
         self.generator_api = generator_api if isinstance(generator_api, LLMProvider)\
             else LLMProvider.from_str(generator_api)
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
-        if self.input_text not in self.prompt:
-            raise ValueError(f"Input text '{self.input_text}' must be in the prompt.")
+        if self.prompt_variable not in self.prompt:
+            raise ValueError(f"Prompt variable '{self.prompt_variable}' must be in the prompt.")
+        self.splitter = DocumentSplitter(split_by="page", split_length=1)
+        self.expanded_range = expand_page_range(page_range) if page_range else None
 
     @staticmethod
     def _init_generator(
-            generator_api: LLMProvider,
-            generator_api_params: Optional[Dict[str, Any]]
+        generator_api: LLMProvider,
+        generator_api_params: Optional[Dict[str, Any]]
     ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, "AmazonBedrockGenerator", "VertexAIGeminiGenerator"]:
         """
         Initialize the chat generator based on the specified API provider and parameters.
@@ -215,7 +228,7 @@ class LLMMetadataExtractor:
         return default_to_dict(
             self,
             prompt=self.prompt,
-            input_text=self.input_text,
+            input_text=self.prompt_variable,
             expected_keys=self.expected_keys,
             raise_on_failure=self.raise_on_failure,
             generator_api=self.generator_api.value,
@@ -240,28 +253,68 @@ class LLMMetadataExtractor:
             deserialize_secrets_inplace(data["init_parameters"]["generator_api_params"], keys=["api_key"])
         return default_from_dict(cls, data)
 
+    def _extract_metadata_and_update_doc(self, document: Document, content: str):
+        """
+        Extract metadata from the content and updates the document's metadata with the extracted metadata.
+
+        If the extraction fails, i.e.: no JSON is returned by the LLM API, the error message will be stored in
+        `errors`.
+
+        :param document: Document to be updated with the extracted metadata.
+        :param content: Content to extract metadata from.
+        """
+        prompt_with_doc = self.builder.run(
+            template=self.prompt,
+            template_variables={self.prompt_variable: content}
+        )
+        result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
+        llm_answer = result["replies"][0]
+        if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
+            extracted_metadata = json.loads(llm_answer)
+            for k in self.expected_keys:
+                document.meta[k] = extracted_metadata[k]
 
     @component.output_types(documents=List[Document], errors=Dict[str, Any])
-    def run(self, documents: List[Document]) -> Dict[str, Any]:
+    def run(self, documents: List[Document], page_range: Optional[List[Union[str, int]]] = None):
         """
         Extract metadata from documents using a Language Model.
 
+        If `page_range` is provided, the metadata will be extracted from the specified range of pages. This component
+        will split the documents into pages and extract metadata from the specified range of pages. The metadata will be
+        extracted from the entire document if `page_range` is not provided.
+
+        The original documents will be returned  updated with the extracted metadata.
+
         :param documents: List of documents to extract metadata from.
+        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
+                           metadata from the first and third pages of each document. It also accepts printable range
+                           strings, e.g.: ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,
+                           11, 12.
+                           If None, metadata will be extracted from the entire document for each document in the
+                           documents list.
         :returns:
             A dictionary with the keys:
-            - "documents": List of documents with extracted metadata.
+            - "documents": The original list of documents updated with the extracted metadata.
             - "errors": A dictionary with document IDs as keys and error messages as values.
         """
-        errors = {}
-        for document in documents:
-            prompt_with_doc = self.builder.run(input_text=document.content)
-            result = self.llm_provider.run(prompt=prompt_with_doc["prompt"])
-            llm_answer = result["replies"][0]
-            if self.is_valid_json_and_has_expected_keys(expected=self.expected_keys, received=llm_answer):
-                extracted_metadata = json.loads(llm_answer)
-                for k in self.expected_keys:
-                    document.meta[k] = extracted_metadata[k]
-            else:
-                errors[document.id] = llm_answer
 
+        errors: Dict[str, Any] = {}
+        expanded_range = self.expanded_range
+        if page_range:
+            expanded_range = expand_page_range(page_range)
+
+        for document in documents:
+            if not document.content:
+                logger.warning(f"Document {document.id} has no content. Skipping metadata extraction.")
+                continue
+            if expanded_range:
+                pages = self.splitter.run(documents=[document])
+                content = ""
+                for idx, page in enumerate(pages["documents"]):
+                    if idx + 1 in expanded_range:
+                        content += page.content + "\f"
+            else:
+                # extract metadata from the entire document
+                content = document.content
+            self._extract_metadata_and_update_doc(document, content)
         return {"documents": documents, "errors": errors}
