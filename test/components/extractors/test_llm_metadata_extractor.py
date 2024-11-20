@@ -75,7 +75,7 @@ class TestLLMMetadataExtractor:
                 'prompt': 'some prompt that was used with the LLM {{test}}',
                 'expected_keys': ['key1', 'key2'],
                 'raise_on_failure': True,
-                'input_text': 'test',
+                'prompt_variable': 'test',
                 'generator_api': 'openai',
                 'generator_api_params': {
                       'api_base_url': None,
