@@ -59,7 +59,7 @@ class TestLLMMetadataExtractor:
                 prompt_variable="test2"
             )
 
-    def test_to_dict(self, monkeypatch):
+    def test_to_dict_default_params(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
             prompt="some prompt that was used with the LLM {{test}}",
@@ -68,7 +68,9 @@ class TestLLMMetadataExtractor:
             prompt_variable="test",
             generator_api_params={'model': 'gpt-4o-mini', 'generation_kwargs': {"temperature": 0.5}},
             raise_on_failure=True)
+
         extractor_dict = extractor.to_dict()
+
         assert extractor_dict == {
             'type': 'haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor',
             'init_parameters': {
@@ -77,6 +79,7 @@ class TestLLMMetadataExtractor:
                 'raise_on_failure': True,
                 'prompt_variable': 'test',
                 'generator_api': 'openai',
+                'page_range': None,
                 'generator_api_params': {
                       'api_base_url': None,
                       'api_key': {'env_vars': ['OPENAI_API_KEY'],'strict': True,'type': 'env_var'},
