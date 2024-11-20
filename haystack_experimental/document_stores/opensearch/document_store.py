@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional
 import math
+from typing import Any, Dict, List, Optional
 
 from haystack import default_from_dict, default_to_dict, logging
 from haystack.dataclasses import Document
@@ -14,12 +14,9 @@ from haystack.utils.filters import raise_on_invalid_filter_syntax
 from opensearchpy import AsyncOpenSearch, OpenSearch
 from opensearchpy.helpers import async_bulk, bulk
 
-
 logger = logging.getLogger(__name__)
 
-with LazyImport(
-    "Run 'pip install opensearch-haystack opensearch-py[async]'"
-) as opensearch_import:
+with LazyImport("Run 'pip install opensearch-haystack opensearch-py[async]'") as opensearch_import:
     # pylint: disable=import-error
     from haystack_integrations.document_stores.opensearch.auth import AWSAuth
     from haystack_integrations.document_stores.opensearch.document_store import (
@@ -127,11 +124,7 @@ class OpenSearchDocumentStore:
             settings=self._settings,
             create_index=self._create_index,
             return_embedding=self._return_embedding,
-            http_auth=(
-                self._http_auth.to_dict()
-                if isinstance(self._http_auth, AWSAuth)
-                else self._http_auth
-            ),
+            http_auth=(self._http_auth.to_dict() if isinstance(self._http_auth, AWSAuth) else self._http_auth),
             use_ssl=self._use_ssl,
             verify_certs=self._verify_certs,
             timeout=self._timeout,
@@ -239,9 +232,7 @@ class OpenSearchDocumentStore:
             settings = self._settings
 
         if not self._client.indices.exists(index=index):
-            self._client.indices.create(
-                index=index, body={"mappings": mappings, "settings": settings}
-            )
+            self._client.indices.create(index=index, body={"mappings": mappings, "settings": settings})
 
     def count_documents(self) -> int:  # noqa: D102
         self._ensure_initialized()
@@ -266,9 +257,7 @@ class OpenSearchDocumentStore:
 
         return out
 
-    def _prepare_filter_search_request(
-        self, filters: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _prepare_filter_search_request(self, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         raise_on_invalid_filter_syntax(filters)
         search_kwargs: Dict[str, Any] = {"size": 10_000}
         if filters:
@@ -280,13 +269,9 @@ class OpenSearchDocumentStore:
         search_results = self._client.search(index=self._index, body=request_body)
         return self._deserialize_search_hits(search_results["hits"]["hits"])
 
-    async def _search_documents_async(
-        self, request_body: Dict[str, Any]
-    ) -> List[Document]:
+    async def _search_documents_async(self, request_body: Dict[str, Any]) -> List[Document]:
         assert self._async_client is not None
-        search_results = await self._async_client.search(
-            index=self._index, body=request_body
-        )
+        search_results = await self._async_client.search(index=self._index, body=request_body)
         return self._deserialize_search_hits(search_results["hits"]["hits"])
 
     def filter_documents(  # noqa: D102
@@ -299,9 +284,7 @@ class OpenSearchDocumentStore:
         self, filters: Optional[Dict[str, Any]] = None
     ) -> List[Document]:
         self._ensure_initialized()
-        return await self._search_documents_async(
-            self._prepare_filter_search_request(filters)
-        )
+        return await self._search_documents_async(self._prepare_filter_search_request(filters))
 
     def _prepare_bulk_write_request(
         self, documents: List[Document], policy: DuplicatePolicy, is_async: bool
@@ -330,9 +313,7 @@ class OpenSearchDocumentStore:
             "max_chunk_bytes": self._max_chunk_bytes,
         }
 
-    def _process_bulk_write_errors(
-        self, errors: List[Dict[str, Any]], policy: DuplicatePolicy
-    ):
+    def _process_bulk_write_errors(self, errors: List[Dict[str, Any]], policy: DuplicatePolicy):
         if len(errors) == 0:
             return
 
@@ -345,15 +326,9 @@ class OpenSearchDocumentStore:
                 other_errors.append(e)
                 continue
             error_type = e["create"]["error"]["type"]
-            if (
-                policy == DuplicatePolicy.FAIL
-                and error_type == "version_conflict_engine_exception"
-            ):
+            if policy == DuplicatePolicy.FAIL and error_type == "version_conflict_engine_exception":
                 duplicate_errors_ids.append(e["create"]["_id"])
-            elif (
-                policy == DuplicatePolicy.SKIP
-                and error_type == "version_conflict_engine_exception"
-            ):
+            elif policy == DuplicatePolicy.SKIP and error_type == "version_conflict_engine_exception":
                 # when the policy is skip, duplication errors are OK and we should not raise an exception
                 continue
             else:
@@ -372,9 +347,7 @@ class OpenSearchDocumentStore:
     ) -> int:
         self._ensure_initialized()
 
-        bulk_params = self._prepare_bulk_write_request(
-            documents, policy, is_async=False
-        )
+        bulk_params = self._prepare_bulk_write_request(documents, policy, is_async=False)
         documents_written, errors = bulk(**bulk_params)
         self._process_bulk_write_errors(errors, policy)
         return documents_written
@@ -389,9 +362,7 @@ class OpenSearchDocumentStore:
         self._process_bulk_write_errors(errors, policy)  # type:ignore
         return documents_written
 
-    def _prepare_bulk_delete_request(
-        self, document_ids: List[str], is_async: bool
-    ) -> Dict[str, Any]:
+    def _prepare_bulk_delete_request(self, document_ids: List[str], is_async: bool) -> Dict[str, Any]:
         return {
             "client": self._client if not is_async else self._async_client,
             "actions": ({"_op_type": "delete", "_id": id_} for id_ in document_ids),
@@ -411,13 +382,9 @@ class OpenSearchDocumentStore:
     ) -> None:
         self._ensure_initialized()
 
-        await async_bulk(
-            **self._prepare_bulk_delete_request(document_ids, is_async=True)
-        )
+        await async_bulk(**self._prepare_bulk_delete_request(document_ids, is_async=True))
 
-    def _render_custom_query(
-        self, custom_query: Any, substitutions: Dict[str, Any]
-    ) -> Any:
+    def _render_custom_query(self, custom_query: Any, substitutions: Dict[str, Any]) -> Any:
         """
         Recursively replaces the placeholders in the custom_query with the actual values.
 
@@ -426,15 +393,9 @@ class OpenSearchDocumentStore:
         :returns: The custom query with the placeholders replaced.
         """
         if isinstance(custom_query, dict):
-            return {
-                key: self._render_custom_query(value, substitutions)
-                for key, value in custom_query.items()
-            }
+            return {key: self._render_custom_query(value, substitutions) for key, value in custom_query.items()}
         elif isinstance(custom_query, list):
-            return [
-                self._render_custom_query(entry, substitutions)
-                for entry in custom_query
-            ]
+            return [self._render_custom_query(entry, substitutions) for entry in custom_query]
         elif isinstance(custom_query, str):
             return substitutions.get(custom_query, custom_query)
 
@@ -496,17 +457,13 @@ class OpenSearchDocumentStore:
 
         return body
 
-    def _postprocess_bm25_search_results(
-        self, results: List[Document], scale_score: bool
-    ):
+    def _postprocess_bm25_search_results(self, results: List[Document], scale_score: bool):
         if not scale_score:
             return
 
         for doc in results:
             assert doc.score is not None
-            doc.score = float(
-                1 / (1 + math.exp(-(doc.score / float(BM25_SCALING_FACTOR))))
-            )
+            doc.score = float(1 / (1 + math.exp(-(doc.score / float(BM25_SCALING_FACTOR)))))
 
     def _bm25_retrieval(
         self,
@@ -611,9 +568,7 @@ class OpenSearchDocumentStore:
     ) -> List[Document]:
         self._ensure_initialized()
 
-        search_params = self._prepare_embedding_search_request(
-            query_embedding, filters, top_k, custom_query
-        )
+        search_params = self._prepare_embedding_search_request(query_embedding, filters, top_k, custom_query)
         return self._search_documents(search_params)
 
     async def _embedding_retrieval_async(
@@ -626,7 +581,5 @@ class OpenSearchDocumentStore:
     ) -> List[Document]:
         self._ensure_initialized()
 
-        search_params = self._prepare_embedding_search_request(
-            query_embedding, filters, top_k, custom_query
-        )
+        search_params = self._prepare_embedding_search_request(query_embedding, filters, top_k, custom_query)
         return await self._search_documents_async(search_params)

@@ -11,7 +11,6 @@ from haystack.document_stores.types.filter_policy import apply_filter_policy
 
 from haystack_experimental.document_stores.opensearch import OpenSearchDocumentStore
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -100,9 +99,7 @@ class OpenSearchBM25Retriever:
         self._scale_score = scale_score
         self._all_terms_must_match = all_terms_must_match
         self._filter_policy = (
-            filter_policy
-            if isinstance(filter_policy, FilterPolicy)
-            else FilterPolicy.from_str(filter_policy)
+            filter_policy if isinstance(filter_policy, FilterPolicy) else FilterPolicy.from_str(filter_policy)
         )
         self._custom_query = custom_query
         self._raise_on_failure = raise_on_failure
@@ -140,9 +137,7 @@ class OpenSearchBM25Retriever:
         data["init_parameters"]["document_store"] = OpenSearchDocumentStore.from_dict(
             data["init_parameters"]["document_store"]
         )
-        data["init_parameters"]["filter_policy"] = FilterPolicy.from_str(
-            data["init_parameters"]["filter_policy"]
-        )
+        data["init_parameters"]["filter_policy"] = FilterPolicy.from_str(data["init_parameters"]["filter_policy"])
         return default_from_dict(cls, data)
 
     def _prepare_bm25_args(

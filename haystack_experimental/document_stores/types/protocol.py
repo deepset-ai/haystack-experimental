@@ -41,9 +41,7 @@ class DocumentStore(Protocol):
     async def count_documents_async(self) -> int:  # noqa: D102
         ...
 
-    def filter_documents(
-        self, filters: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
+    def filter_documents(self, filters: Optional[Dict[str, Any]] = None) -> List[Document]:
         """
         Returns the documents that match the filters provided.
 
@@ -113,11 +111,10 @@ class DocumentStore(Protocol):
 
     async def filter_documents_async(  # noqa: D102
         self, filters: Optional[Dict[str, Any]] = None
-    ) -> List[Document]: ...
+    ) -> List[Document]:
+        ...
 
-    def write_documents(
-        self, documents: List[Document], policy: DuplicatePolicy = DuplicatePolicy.NONE
-    ) -> int:
+    def write_documents(self, documents: List[Document], policy: DuplicatePolicy = DuplicatePolicy.NONE) -> int:
         """
         Writes Documents into the DocumentStore.
 
@@ -137,7 +134,8 @@ class DocumentStore(Protocol):
 
     async def write_documents_async(  # noqa: D102
         self, documents: List[Document], policy: DuplicatePolicy = DuplicatePolicy.NONE
-    ) -> int: ...
+    ) -> int:
+        ...
 
     def delete_documents(self, document_ids: List[str]) -> None:
         """
@@ -151,4 +149,5 @@ class DocumentStore(Protocol):
 
     async def delete_documents_async(  # noqa: D102
         self, document_ids: List[str]
-    ) -> None: ...
+    ) -> None:
+        ...

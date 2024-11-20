@@ -23,6 +23,7 @@ class DocumentWriter(DocumentWriterBase):
     from haystack import Document
     from haystack.components.writers import DocumentWriter
     from haystack.document_stores.in_memory import InMemoryDocumentStore
+
     docs = [
         Document(content="Python is a popular programming language"),
     ]
@@ -48,14 +49,10 @@ class DocumentWriter(DocumentWriterBase):
             - `DuplicatePolicy.OVERWRITE`: Overwrites documents with the same ID.
             - `DuplicatePolicy.FAIL`: Raises an error if a Document with the same ID is already in the DocumentStore.
         """
-        super(DocumentWriter, self).__init__(
-            document_store=document_store, policy=policy
-        )
+        super(DocumentWriter, self).__init__(document_store=document_store, policy=policy)
 
     @component.output_types(documents_written=int)
-    async def run_async(
-        self, documents: List[Document], policy: Optional[DuplicatePolicy] = None
-    ):
+    async def run_async(self, documents: List[Document], policy: Optional[DuplicatePolicy] = None):
         """
         Run the DocumentWriter on the given input data.
 
@@ -73,9 +70,7 @@ class DocumentWriter(DocumentWriterBase):
             policy = self.policy
 
         if not hasattr(self.document_store, "write_documents_async"):
-            raise TypeError(
-                f"Document store {type(self.document_store).__name__} does not provide async support."
-            )
+            raise TypeError(f"Document store {type(self.document_store).__name__} does not provide async support.")
 
         documents_written = await self.document_store.write_documents_async(  # type: ignore
             documents=documents, policy=policy

@@ -67,9 +67,7 @@ class InMemoryDocumentStore(InMemoryDocumentStoreBase):
         """
         return len(self.storage.keys())
 
-    async def filter_documents_async(
-        self, filters: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
+    async def filter_documents_async(self, filters: Optional[Dict[str, Any]] = None) -> List[Document]:
         """
         Returns the documents that match the filters provided.
 
@@ -125,9 +123,7 @@ class InMemoryDocumentStore(InMemoryDocumentStoreBase):
         """
         return await asyncio.get_event_loop().run_in_executor(
             self.executor,
-            lambda: self.bm25_retrieval(
-                query=query, filters=filters, top_k=top_k, scale_score=scale_score
-            ),
+            lambda: self.bm25_retrieval(query=query, filters=filters, top_k=top_k, scale_score=scale_score),
         )
 
     async def embedding_retrieval_async(

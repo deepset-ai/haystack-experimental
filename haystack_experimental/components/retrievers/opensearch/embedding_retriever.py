@@ -57,9 +57,7 @@ class OpenSearchEmbeddingRetriever:
         self._filters = filters or {}
         self._top_k = top_k
         self._filter_policy = (
-            filter_policy
-            if isinstance(filter_policy, FilterPolicy)
-            else FilterPolicy.from_str(filter_policy)
+            filter_policy if isinstance(filter_policy, FilterPolicy) else FilterPolicy.from_str(filter_policy)
         )
         self._custom_query = custom_query
         self._raise_on_failure = raise_on_failure
@@ -143,7 +141,8 @@ class OpenSearchEmbeddingRetriever:
                 raise e
             else:
                 logger.warning(
-                    "An error during embedding retrieval occurred and will be ignored by returning empty results: {error}",
+                    "An error during embedding retrieval occurred and will be "
+                    "ignored by returning empty results: {error}",
                     error=str(e),
                     exc_info=True,
                 )
@@ -196,7 +195,8 @@ class OpenSearchEmbeddingRetriever:
                 raise e
             else:
                 logger.warning(
-                    "An error during embedding retrieval occurred and will be ignored by returning empty results: {error}",
+                    "An error during embedding retrieval occurred and will be "
+                    "ignored by returning empty results: {error}",
                     error=str(e),
                     exc_info=True,
                 )
