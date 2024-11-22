@@ -16,6 +16,8 @@ with LazyImport("Run 'pip install ollama-haystack'") as ollama_integration_impor
     # pylint: disable=import-error
     from haystack_integrations.components.generators.ollama import OllamaChatGenerator as OllamaChatGeneratorBase
 
+    from ollama import ChatResponse
+
 
 # The following code block ensures that:
 # - we reuse existing code where possible
@@ -175,11 +177,13 @@ class OllamaChatGenerator(chatgenerator_base_class):
 
         return default_from_dict(cls, data)
 
-    def _build_message_from_ollama_response(self, ollama_response: Dict[str, Any]) -> ChatMessage:
+    def _build_message_from_ollama_response(self, ollama_response: "ChatResponse") -> ChatMessage:
         """
         Converts the non-streaming response from the Ollama API to a ChatMessage.
         """
-        ollama_message = ollama_response["message"]
+        response_dict = ollama_response.model_dump()
+
+        ollama_message = response_dict["message"]
 
         text = ollama_message["content"]
 
@@ -192,7 +196,7 @@ class OllamaChatGenerator(chatgenerator_base_class):
 
         message = ChatMessage.from_assistant(text=text, tool_calls=tool_calls)
 
-        message.meta.update({key: value for key, value in ollama_response.items() if key != "message"})
+        message.meta.update({key: value for key, value in response_dict.items() if key != "message"})
         return message
 
     def _convert_to_streaming_response(self, chunks: List[StreamingChunk]) -> Dict[str, List[Any]]:

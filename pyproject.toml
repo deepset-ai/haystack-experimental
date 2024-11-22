@@ -64,7 +64,7 @@ extra-dependencies = [
   "fastapi",
   # Tools support
   "jsonschema",
-  "ollama-haystack>=1.1.0",
+  "ollama-haystack>=2.0",
   # Async
   "opensearch-haystack",
   "opensearch-py[async]",
