@@ -5,7 +5,7 @@ import pytest
 
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
-from ollama._types import ResponseError
+from ollama._types import ResponseError, ChatResponse
 
 from haystack_experimental.dataclasses import (
     ChatMessage,
@@ -225,18 +225,18 @@ class TestOllamaChatGenerator:
     def test_build_message_from_ollama_response(self):
         model = "some_model"
 
-        ollama_response = {
-            "model": model,
-            "created_at": "2023-12-12T14:13:43.416799Z",
-            "message": {"role": "assistant", "content": "Hello! How are you today?"},
-            "done": True,
-            "total_duration": 5191566416,
-            "load_duration": 2154458,
-            "prompt_eval_count": 26,
-            "prompt_eval_duration": 383809000,
-            "eval_count": 298,
-            "eval_duration": 4799921000,
-        }
+        ollama_response = ChatResponse(
+            model=model,
+            created_at="2023-12-12T14:13:43.416799Z",
+            message={"role": "assistant", "content": "Hello! How are you today?"},
+            done=True,
+            total_duration=5191566416,
+            load_duration=2154458,
+            prompt_eval_count=26,
+            prompt_eval_duration=383809000,
+            eval_count=298,
+            eval_duration=4799921000,
+        )
 
         observed = OllamaChatGenerator(model=model)._build_message_from_ollama_response(ollama_response)
 
@@ -246,10 +246,10 @@ class TestOllamaChatGenerator:
     def test_build_message_from_ollama_response_with_tools(self):
         model = "some_model"
 
-        ollama_response = {
-            "model": model,
-            "created_at": "2023-12-12T14:13:43.416799Z",
-            "message": {
+        ollama_response = ChatResponse(
+            model=model,
+            created_at="2023-12-12T14:13:43.416799Z",
+            message={
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [
@@ -261,14 +261,14 @@ class TestOllamaChatGenerator:
                     }
                 ],
             },
-            "done": True,
-            "total_duration": 5191566416,
-            "load_duration": 2154458,
-            "prompt_eval_count": 26,
-            "prompt_eval_duration": 383809000,
-            "eval_count": 298,
-            "eval_duration": 4799921000,
-        }
+            done=True,
+            total_duration=5191566416,
+            load_duration=2154458,
+            prompt_eval_count=26,
+            prompt_eval_duration=383809000,
+            eval_count=298,
+            eval_duration=4799921000,
+        )
 
         observed = OllamaChatGenerator(model=model)._build_message_from_ollama_response(ollama_response)
 
@@ -283,21 +283,21 @@ class TestOllamaChatGenerator:
     def test_run(self, mock_client):
         generator = OllamaChatGenerator()
 
-        mock_response = {
-            "model": "llama3.2",
-            "created_at": "2023-12-12T14:13:43.416799Z",
-            "message": {
+        mock_response = ChatResponse(
+            model="llama3.2",
+            created_at="2023-12-12T14:13:43.416799Z",
+            message={
                 "role": "assistant",
                 "content": "Fine. How can I help you today?",
             },
-            "done": True,
-            "total_duration": 5191566416,
-            "load_duration": 2154458,
-            "prompt_eval_count": 26,
-            "prompt_eval_duration": 383809000,
-            "eval_count": 298,
-            "eval_duration": 4799921000,
-        }
+            done=True,
+            total_duration=5191566416,
+            load_duration=2154458,
+            prompt_eval_count=26,
+            prompt_eval_duration=383809000,
+            eval_count=298,
+            eval_duration=4799921000,
+        )
 
         mock_client_instance = mock_client.return_value
         mock_client_instance.chat.return_value = mock_response
@@ -330,24 +330,24 @@ class TestOllamaChatGenerator:
 
         mock_response = iter(
             [
-                {
-                    "model": "llama3.2",
-                    "created_at": "2023-12-12T14:13:43.416799Z",
-                    "message": {"role": "assistant", "content": "first chunk "},
-                    "done": False,
-                },
-                {
-                    "model": "llama3.2",
-                    "created_at": "2023-12-12T14:13:43.416799Z",
-                    "message": {"role": "assistant", "content": "second chunk"},
-                    "done": True,
-                    "total_duration": 4883583458,
-                    "load_duration": 1334875,
-                    "prompt_eval_count": 26,
-                    "prompt_eval_duration": 342546000,
-                    "eval_count": 282,
-                    "eval_duration": 4535599000,
-                },
+                ChatResponse(
+                    model="llama3.2",
+                    created_at="2023-12-12T14:13:43.416799Z",
+                    message={"role": "assistant", "content": "first chunk "},
+                    done=False,
+                ),
+                ChatResponse(
+                    model="llama3.2",
+                    created_at="2023-12-12T14:13:43.416799Z",
+                    message={"role": "assistant", "content": "second chunk"},
+                    done=True,
+                    total_duration=4883583458,
+                    load_duration=1334875,
+                    prompt_eval_count=26,
+                    prompt_eval_duration=342546000,
+                    eval_count=282,
+                    eval_duration=4535599000,
+                ),
             ]
         )
 
