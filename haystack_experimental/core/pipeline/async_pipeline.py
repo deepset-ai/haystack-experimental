@@ -145,6 +145,8 @@ class AsyncPipeline(PipelineBase):
         cycle: List[str],
         component_name: str,
         components_inputs: Dict[str, Dict[str, Any]],
+        *,
+        parent_span: Optional[tracing.Span] = None,
     ) -> AsyncIterator[Tuple[Dict[str, Any], bool]]:
         """
         Runs a `cycle` in the Pipeline starting from `component_name`.
@@ -441,7 +443,7 @@ class AsyncPipeline(PipelineBase):
                     # are run doesn't make a different whether we pick the first or any of the others a
                     # Component is part of.
                     async for subgraph_output, is_final_output in self._run_subgraph(
-                        cycles[0], name, components_inputs
+                        cycles[0], name, components_inputs, parent_span=span
                     ):
                         if not is_final_output:
                             yield subgraph_output
