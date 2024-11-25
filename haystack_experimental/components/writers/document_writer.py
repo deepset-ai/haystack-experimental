@@ -21,14 +21,15 @@ class DocumentWriter(DocumentWriterBase):
     ### Usage example
     ```python
     from haystack import Document
-    from haystack.components.writers import DocumentWriter
-    from haystack.document_stores.in_memory import InMemoryDocumentStore
+    from haystack_experimental.components.writers import DocumentWriter
+    from haystack_experimental.document_stores.in_memory import InMemoryDocumentStore
 
     docs = [
         Document(content="Python is a popular programming language"),
     ]
     doc_store = InMemoryDocumentStore()
-    doc_store.write_documents(docs)
+    writer = DocumentWriter(document_store=doc_store)
+    writer.run(docs)
     ```
     """
 
