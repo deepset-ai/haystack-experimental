@@ -140,6 +140,18 @@ class TestChatPromptBuilder:
             "prompt": [ChatMessage.from_user("This is a test_from_template_var")]
         }
 
+    def test_run_with_missing_required_input_using_star(self):
+        builder = ChatPromptBuilder(
+            template=[ChatMessage.from_user("This is a {{ foo }}, not a {{ bar }}")],
+            required_variables="*",
+        )
+        with pytest.raises(ValueError, match="foo"):
+            builder.run(bar="bar")
+        with pytest.raises(ValueError, match="bar"):
+            builder.run(foo="foo")
+        with pytest.raises(ValueError, match="bar, foo"):
+            builder.run()
+
     def test_run_without_input(self):
         builder = ChatPromptBuilder(
             template=[ChatMessage.from_user("This is a template without input")]
