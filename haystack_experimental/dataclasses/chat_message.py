@@ -158,24 +158,34 @@ class ChatMessage:
         return self._role == role
 
     @classmethod
-    def from_user(cls, text: str) -> "ChatMessage":
+    def from_user(
+        cls,
+        text: str,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> "ChatMessage":
         """
         Create a message from the user.
 
         :param text: The text content of the message.
+        :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.USER, _content=[TextContent(text=text)])
+        return cls(_role=ChatRole.USER, _content=[TextContent(text=text)], _meta=meta or {})
 
     @classmethod
-    def from_system(cls, text: str) -> "ChatMessage":
+    def from_system(
+        cls,
+        text: str,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> "ChatMessage":
         """
         Create a message from the system.
 
         :param text: The text content of the message.
+        :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.SYSTEM, _content=[TextContent(text=text)])
+        return cls(_role=ChatRole.SYSTEM, _content=[TextContent(text=text)], _meta=meta or {})
 
     @classmethod
     def from_assistant(
@@ -201,16 +211,27 @@ class ChatMessage:
         return cls(_role=ChatRole.ASSISTANT, _content=content, _meta=meta or {})
 
     @classmethod
-    def from_tool(cls, tool_result: str, origin: ToolCall, error: bool = False) -> "ChatMessage":
+    def from_tool(
+        cls,
+        tool_result: str,
+        origin: ToolCall,
+        error: bool = False,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> "ChatMessage":
         """
         Create a message from a Tool.
 
         :param tool_result: The result of the Tool invocation.
         :param origin: The Tool call that produced this result.
         :param error: Whether the Tool invocation resulted in an error.
+        :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.TOOL, _content=[ToolCallResult(result=tool_result, origin=origin, error=error)])
+        return cls(
+            _role=ChatRole.TOOL,
+            _content=[ToolCallResult(result=tool_result, origin=origin, error=error)],
+            _meta=meta or {},
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """
