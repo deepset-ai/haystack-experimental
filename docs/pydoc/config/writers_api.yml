@@ -1,7 +1,11 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.writers.chat_message_writer"]
+    modules:
+      [
+        "haystack_experimental.components.writers.chat_message_writer",
+        "haystack_experimental.components.writers.document_writer",
+      ]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter

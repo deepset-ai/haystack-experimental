@@ -10,7 +10,7 @@ from .generators.ollama.chat.chat_generator import OllamaChatGenerator
 from .retrievers.auto_merging_retriever import AutoMergingRetriever
 from .retrievers.chat_message_retriever import ChatMessageRetriever
 from .splitters import HierarchicalDocumentSplitter
-from .tools import OpenAIFunctionCaller, ToolInvoker
+from .tools import ToolInvoker
 from .writers import ChatMessageWriter
 
 _all_ = [
@@ -23,6 +23,5 @@ _all_ = [
     "AnthropicChatGenerator",
     "LLMMetadataExtractor",
     "HierarchicalDocumentSplitter",
-    "OpenAIFunctionCaller",
     "ToolInvoker",
 ]
