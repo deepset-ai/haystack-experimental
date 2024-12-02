@@ -5,7 +5,7 @@
 import inspect
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
@@ -203,9 +203,9 @@ class Tool:
         return Tool(name=function.__name__, description=tool_description, parameters=schema, function=function)
 
     @classmethod
-    def from_openapi_spec(cls, spec: Union[str, Path], credentials: Optional[str] = None) -> "Tool":
+    def from_openapi_spec(cls, spec: Union[str, Path], credentials: Optional[str] = None) -> List["Tool"]:
         """
-        Create a Tool instance from an OpenAPI specification.
+        Create Tool instances from an OpenAPI specification.
 
         The specification can be provided as:
         - A URL pointing to an OpenAPI spec
@@ -214,7 +214,7 @@ class Tool:
 
         :param spec: OpenAPI specification as URL, file path, or string content
         :param credentials: Optional API credentials (e.g., API key) for the OpenAPI service
-        :returns: Tool instance configured to invoke the OpenAPI service
+        :returns: List of Tool instances configured to invoke the OpenAPI service endpoints
         :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
         """
         openapi_llm_import.check()
@@ -238,20 +238,30 @@ class Tool:
         # Create an OpenAPI client for invocations
         client = OpenAPIClient(config)
 
-        # Get tool definition from the config
-        tool_def = config.get_tool_definitions()[0]  # Assuming single tool/endpoint for now
+        # Get all tool definitions from the config
+        tools = []
+        for tool_def in config.get_tool_definitions():
 
-        def invoke_openapi(**kwargs):
-            """Invoke the OpenAPI endpoint with the provided arguments."""
-            return client.invoke(kwargs)
+            def invoke_openapi(**kwargs):
+                """
+                Invoke the OpenAPI endpoint with the provided arguments.
 
-        tool_def = tool_def["function"]
-        return cls(
-            name=tool_def["name"],
-            description=tool_def["description"],
-            parameters=tool_def["parameters"],
-            function=invoke_openapi,
-        )
+                :param kwargs: Arguments to pass to the OpenAPI endpoint.
+                :returns: Response from the OpenAPI endpoint.
+                """
+                return client.invoke({"name": tool_def["name"], "parameters": kwargs})
+
+            tool_def = tool_def["function"]
+            tools.append(
+                cls(
+                    name=tool_def["name"],
+                    description=tool_def["description"],
+                    parameters=tool_def["parameters"],
+                    function=invoke_openapi,
+                )
+            )
+
+        return tools
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
