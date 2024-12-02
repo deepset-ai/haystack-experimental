@@ -249,7 +249,7 @@ class Tool:
                 :param kwargs: Arguments to pass to the OpenAPI endpoint.
                 :returns: Response from the OpenAPI endpoint.
                 """
-                return client.invoke({"name": tool_def["name"], "parameters": kwargs})
+                return client.invoke({"name": tool_def["name"], "arguments": kwargs})
 
             tool_def = tool_def["function"]
             tools.append(
