@@ -4,7 +4,8 @@
 
 import inspect
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Union
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
@@ -13,6 +14,11 @@ from pydantic import create_model
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
     from jsonschema.exceptions import SchemaError
+
+with LazyImport(message="Run 'pip install openapi-llm'") as openapi_llm_import:
+    from openapi_llm.client.config import ClientConfig
+    from openapi_llm.client.openapi import OpenAPIClient
+    from openapi_llm.core.spec import OpenAPISpecification
 
 
 class ToolInvocationError(Exception):
@@ -195,6 +201,57 @@ class Tool:
                 schema["properties"][name]["description"] = description
 
         return Tool(name=function.__name__, description=tool_description, parameters=schema, function=function)
+
+    @classmethod
+    def from_openapi_spec(cls, spec: Union[str, Path], credentials: Optional[str] = None) -> "Tool":
+        """
+        Create a Tool instance from an OpenAPI specification.
+
+        The specification can be provided as:
+        - A URL pointing to an OpenAPI spec
+        - A local file path to an OpenAPI spec (JSON or YAML)
+        - A string containing the OpenAPI spec content (JSON or YAML)
+
+        :param spec: OpenAPI specification as URL, file path, or string content
+        :param credentials: Optional API credentials (e.g., API key) for the OpenAPI service
+        :returns: Tool instance configured to invoke the OpenAPI service
+        :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
+        """
+        openapi_llm_import.check()
+
+        # Load the OpenAPI specification
+        if isinstance(spec, str):
+            if spec.startswith(("http://", "https://")):
+                openapi_spec = OpenAPISpecification.from_url(spec)
+            elif Path(spec).exists():
+                openapi_spec = OpenAPISpecification.from_file(spec)
+            else:
+                openapi_spec = OpenAPISpecification.from_str(spec)
+        elif isinstance(spec, Path):
+            openapi_spec = OpenAPISpecification.from_file(str(spec))
+        else:
+            raise ValueError("spec must be a string (URL, file path, or content) or a Path object")
+
+        # Create client configuration
+        config = ClientConfig(openapi_spec=openapi_spec, credentials=credentials)
+
+        # Create an OpenAPI client for invocations
+        client = OpenAPIClient(config)
+
+        # Get tool definition from the config
+        tool_def = config.get_tool_definitions()[0]  # Assuming single tool/endpoint for now
+
+        def invoke_openapi(**kwargs):
+            """Invoke the OpenAPI endpoint with the provided arguments."""
+            return client.invoke(kwargs)
+
+        tool_def = tool_def["function"]
+        return cls(
+            name=tool_def["name"],
+            description=tool_def["description"],
+            parameters=tool_def["parameters"],
+            function=invoke_openapi,
+        )
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):

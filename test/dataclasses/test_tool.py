@@ -19,6 +19,8 @@ try:
 except ImportError:
     from typing_extensions import Annotated
 
+import os
+
 
 def get_weather_report(city: str) -> str:
     return f"Weather report for {city}: 20°C, sunny"
@@ -180,6 +182,30 @@ class TestTool:
             },
         }
 
+    @pytest.mark.skipif(
+    not os.getenv("SERPERDEV_API_KEY"),
+    reason="SERPERDEV_API_KEY environment variable not set"
+    )
+    @pytest.mark.skipif(
+        not os.getenv("OPENAI_API_KEY"),
+        reason="OPENAI_API_KEY environment variable not set"
+    )
+    def test_from_openapi_spec_serperdev(self):
+        """Test creating a Tool from SerperDev's OpenAPI specification."""
+        # SerperDev's OpenAPI spec URL
+        spec_url = "https://bit.ly/serperdev_openapi"
+
+        # Create tool from OpenAPI spec
+        tool = Tool.from_openapi_spec(
+            spec=spec_url,
+            credentials=os.getenv("SERPERDEV_API_KEY")
+        )
+
+        # Verify tool attributes
+        assert tool.name == "search"  # This should match the operation ID in SerperDev's spec
+        assert "search" in tool.description.lower()  # Description should mention search
+        assert tool.parameters["type"] == "object"
+        assert "q" in tool.parameters["properties"]  # 'q' is the query parameter in SerperDev's API
 
 def test_deserialize_tools_inplace():
     tool = Tool(name="weather", description="Get weather report", parameters=parameters, function=get_weather_report)
