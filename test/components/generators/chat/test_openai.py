@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from base64 import b64encode
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -31,6 +32,7 @@ from haystack_experimental.dataclasses import (
     ToolCall,
     ChatRole,
     TextContent,
+    ByteStream,
 )
 from haystack_experimental.components.generators.chat.openai import (
     OpenAIChatGenerator,
@@ -719,12 +721,36 @@ class TestOpenAIChatGenerator:
             "content": "I have an answer",
         }
 
+        message = ChatMessage.from_user(
+            text="Hello",
+            media=[
+                ByteStream(
+                    data=b"test data", meta={"detail": "low"}, mime_type="image/png"
+                )
+            ],
+        )
+        assert _convert_message_to_openai_format(message) == {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Hello"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "data:image/png;base64,"
+                        + b64encode(b"test data").decode("utf-8"),
+                        "detail": "low",
+                    },
+                },
+            ],
+        }
+
         message = ChatMessage.from_assistant(
             tool_calls=[
                 ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})
             ]
         )
         assert _convert_message_to_openai_format(message) == {
+            "content": [],
             "role": "assistant",
             "tool_calls": [
                 {
@@ -748,16 +774,6 @@ class TestOpenAIChatGenerator:
 
     def test_convert_message_to_openai_invalid(self):
         message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
-        with pytest.raises(ValueError):
-            _convert_message_to_openai_format(message)
-
-        message = ChatMessage(
-            _role=ChatRole.ASSISTANT,
-            _content=[
-                TextContent(text="I have an answer"),
-                TextContent(text="I have another answer"),
-            ],
-        )
         with pytest.raises(ValueError):
             _convert_message_to_openai_format(message)
 
