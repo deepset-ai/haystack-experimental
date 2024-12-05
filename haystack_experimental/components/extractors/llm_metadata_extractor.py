@@ -226,17 +226,6 @@ class LLMMetadataExtractor:
             raise ValueError(f"Unsupported generator API: {generator_api}")
         return generator_class(**generator_api_params)
 
-        # # This works but is potentially brittle and could give confusing error messages to users
-        # try:
-        #     instance = generator_class(**generator_api_params)
-        # except Exception as e:
-        #     data = {
-        #         "type": f"{generator_class.__module__}.{generator_class.__qualname__}",
-        #         "init_parameters": generator_api_params
-        #     }
-        #     instance = generator_class.from_dict(data)
-        # return instance
-
     def warm_up(self):
         """
         Warm up the LLM provider component.
