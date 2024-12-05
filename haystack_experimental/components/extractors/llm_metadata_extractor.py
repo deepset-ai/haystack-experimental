@@ -194,7 +194,7 @@ class LLMMetadataExtractor:
         self.builder = PromptBuilder(prompt, required_variables=variables)
 
         self.raise_on_failure = raise_on_failure
-        self.expected_keys = expected_keys
+        self.expected_keys = expected_keys or []
         self.generator_api = generator_api if isinstance(generator_api, LLMProvider) \
             else LLMProvider.from_str(generator_api)
         self.generator_api_params = generator_api_params or {}
@@ -315,8 +315,12 @@ class LLMMetadataExtractor:
 
         return parsed_metadata
 
-    def _prepare_prompts(self, documents: List[Document], expanded_range: Optional[List[int]] = None) -> List[str]:
-        all_prompts = []
+    def _prepare_prompts(
+        self,
+        documents: List[Document],
+        expanded_range: Optional[List[int]] = None
+    ) -> List[Union[str, None]]:
+        all_prompts: List[Union[str, None]] = []
         for document in documents:
             if not document.content:
                 logger.warning(
