@@ -167,7 +167,7 @@ class LLMMetadataExtractor:
         max_workers: int = 3,
     ):
         """
-        Initializes the TEGLLMMetadataExtractor.
+        Initializes the LLMMetadataExtractor.
 
         :param prompt: The prompt to be used for the LLM.
         :param generator_api: The API provider for the LLM. Currently supported providers are:
