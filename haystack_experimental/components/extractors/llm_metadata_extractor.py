@@ -331,7 +331,7 @@ class LLMMetadataExtractor:
                 pages = self.splitter.run(documents=[doc_copy])
                 content = ""
                 for idx, page in enumerate(pages["documents"]):
-                    if idx + 1 in self.expanded_range:
+                    if idx + 1 in expanded_range:
                         content += page.content + "\f"
                 doc_copy.content = content
             else:
