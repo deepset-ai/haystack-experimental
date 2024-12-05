@@ -2,21 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from concurrent.futures import ThreadPoolExecutor
 import copy
 import json
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-
-from jinja2 import meta
-from jinja2.sandbox import SandboxedEnvironment
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.components.preprocessors import DocumentSplitter
 from haystack.lazy_imports import LazyImport
-from haystack.utils import deserialize_secrets_inplace, deserialize_callable
+from haystack.utils import deserialize_callable, deserialize_secrets_inplace
+from jinja2 import meta
+from jinja2.sandbox import SandboxedEnvironment
 
 from haystack_experimental.util.utils import expand_page_range
 
@@ -64,7 +63,7 @@ class LLMMetadataExtractor:
 
     The metadata is extracted by providing a prompt to an LLM that generates the metadata.
 
-    This component expects as input a list of documents and a prompt. The prompt should have a variable called 
+    This component expects as input a list of documents and a prompt. The prompt should have a variable called
     `document` that will point to a single document in the list of documents. So to access the content of the document,
     you can use `{{ document.content }}` in the prompt.
 
@@ -94,16 +93,16 @@ class LLMMetadataExtractor:
     ######################
     Example 1:
     entity_types: [organization, person, partnership, financial metric, product, service, industry, investment strategy, market trend]
-    text: Another area of strength is our co-brand issuance. Visa is the primary network partner for eight of the top 
-    10 co-brand partnerships in the US today and we are pleased that Visa has finalized a multi-year extension of 
-    our successful credit co-branded partnership with Alaska Airlines, a portfolio that benefits from a loyal customer 
+    text: Another area of strength is our co-brand issuance. Visa is the primary network partner for eight of the top
+    10 co-brand partnerships in the US today and we are pleased that Visa has finalized a multi-year extension of
+    our successful credit co-branded partnership with Alaska Airlines, a portfolio that benefits from a loyal customer
     base and high cross-border usage.
-    We have also had significant co-brand momentum in CEMEA. First, we launched a new co-brand card in partnership 
-    with Qatar Airways, British Airways and the National Bank of Kuwait. Second, we expanded our strong global 
-    Marriott relationship to launch Qatar's first hospitality co-branded card with Qatar Islamic Bank. Across the 
-    United Arab Emirates, we now have exclusive agreements with all the leading airlines marked by a recent 
+    We have also had significant co-brand momentum in CEMEA. First, we launched a new co-brand card in partnership
+    with Qatar Airways, British Airways and the National Bank of Kuwait. Second, we expanded our strong global
+    Marriott relationship to launch Qatar's first hospitality co-branded card with Qatar Islamic Bank. Across the
+    United Arab Emirates, we now have exclusive agreements with all the leading airlines marked by a recent
     agreement with Emirates Skywards.
-    And we also signed an inaugural Airline co-brand agreement in Morocco with Royal Air Maroc. Now newer digital 
+    And we also signed an inaugural Airline co-brand agreement in Morocco with Royal Air Maroc. Now newer digital
     issuers are equally
     ------------------------
     output:
