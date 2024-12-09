@@ -284,6 +284,61 @@ class TestLLMMetadataExtractor:
         extractor._extract_metadata(llm_answer='{"output": "valid json"}')
         assert "Expected response from LLM to be a JSON with keys" in caplog.text
 
+    def test_prepare_prompts(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+        )
+        docs = [
+            Document(
+                content="deepset was founded in 2018 in Berlin, and is known for its Haystack framework"
+            ),
+            Document(
+                content="Hugging Face is a company founded in Paris, France and is known for its Transformers library"
+            ),
+        ]
+        prompts = extractor._prepare_prompts(docs)
+        assert prompts == [
+            "prompt deepset was founded in 2018 in Berlin, and is known for its Haystack framework",
+            "prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library",
+        ]
+
+    def test_prepare_prompts_empty_document(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+        )
+        docs = [
+            Document(content=""),
+            Document(
+                content="Hugging Face is a company founded in Paris, France and is known for its Transformers library"
+            ),
+        ]
+        prompts = extractor._prepare_prompts(docs)
+        assert prompts == [
+            None,
+            "prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library",
+        ]
+
+    def test_prepare_prompts_expanded_range(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+            page_range=["1-2"],
+        )
+        docs = [
+            Document(
+                content="Hugging Face is a company founded in Paris, France and is known for its Transformers library\fPage 2\fPage 3"
+            )
+        ]
+        prompts = extractor._prepare_prompts(docs, expanded_range=[1, 2])
+        assert prompts == [
+            "prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library\fPage 2\f",
+        ]
+
     def test_run_no_documents(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
