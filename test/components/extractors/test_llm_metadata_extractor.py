@@ -247,7 +247,24 @@ class TestLLMMetadataExtractor:
         assert extractor.llm_provider.truncate is False
         assert extractor.llm_provider.model == "meta.llama.test"
 
-    def test_output_invalid_json_raise_on_failure_true(self, monkeypatch):
+    def test_warm_up(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+        )
+        assert extractor.warm_up() is None
+
+    def test_extract_metadata(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+        )
+        result = extractor._extract_metadata(llm_answer='{"output": "valid json"}')
+        assert result == {"output": "valid json"}
+
+    def test_extract_metadata_invalid_json(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
             prompt="prompt {{document.content}}",
@@ -255,7 +272,27 @@ class TestLLMMetadataExtractor:
             raise_on_failure=True,
         )
         with pytest.raises(ValueError):
-            extractor._extract_metadata(llm_answer="""{"json: "output"}""")
+            extractor._extract_metadata(llm_answer='{"output: "valid json"}')
+
+    def test_extract_metadata_missing_key(self, monkeypatch, caplog):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+            expected_keys=["key1"],
+        )
+        extractor._extract_metadata(llm_answer='{"output": "valid json"}')
+        assert "Expected response from LLM to be a JSON with keys" in caplog.text
+
+    def test_run_no_documents(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+        )
+        result = extractor.run(documents=[])
+        assert result["documents"] == []
+        assert result["failed_documents"] == []
 
     @pytest.mark.integration
     @pytest.mark.skipif(
