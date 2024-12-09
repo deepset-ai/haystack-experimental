@@ -31,19 +31,19 @@ class TestLLMMetadataExtractor:
             raise_on_failure=True,
             generator_api=LLMProvider.OPENAI,
             generator_api_params={
-                'model': 'gpt-3.5-turbo',
-                'generation_kwargs': {"temperature": 0.5}
+                "model": "gpt-3.5-turbo",
+                "generation_kwargs": {"temperature": 0.5},
             },
-            page_range=['1-5']
+            page_range=["1-5"],
         )
         assert isinstance(extractor.builder, PromptBuilder)
         assert extractor.expected_keys == ["key1", "key2"]
         assert extractor.raise_on_failure is True
         assert extractor.generator_api == LLMProvider.OPENAI
         assert extractor.generator_api_params == {
-                'model': 'gpt-3.5-turbo',
-                'generation_kwargs': {"temperature": 0.5}
-            }
+            "model": "gpt-3.5-turbo",
+            "generation_kwargs": {"temperature": 0.5},
+        }
         assert extractor.expanded_range == [1, 2, 3, 4, 5]
 
     def test_init_missing_prompt_variable(self, monkeypatch):
@@ -61,65 +61,192 @@ class TestLLMMetadataExtractor:
             prompt="some prompt that was used with the LLM {{document.content}}",
             expected_keys=["key1", "key2"],
             generator_api=LLMProvider.OPENAI,
-            generator_api_params={'model': 'gpt-4o-mini', 'generation_kwargs': {"temperature": 0.5}},
-            raise_on_failure=True
+            generator_api_params={
+                "model": "gpt-4o-mini",
+                "generation_kwargs": {"temperature": 0.5},
+            },
+            raise_on_failure=True,
         )
         extractor_dict = extractor.to_dict()
 
         assert extractor_dict == {
-            'type': 'haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor',
-            'init_parameters': {
-                'prompt': 'some prompt that was used with the LLM {{document.content}}',
-                'expected_keys': ['key1', 'key2'],
-                'raise_on_failure': True,
-                'generator_api': 'openai',
-                'page_range': None,
-                'generator_api_params': {
-                      'api_base_url': None,
-                      'api_key': {'env_vars': ['OPENAI_API_KEY'],'strict': True,'type': 'env_var'},
-                      'generation_kwargs': {"temperature": 0.5},
-                      'model': 'gpt-4o-mini',
-                      'organization': None,
-                      'streaming_callback': None,
-                      'system_prompt': None,
-                  },
-                'max_workers': 3
-                }
+            "type": "haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor",
+            "init_parameters": {
+                "prompt": "some prompt that was used with the LLM {{document.content}}",
+                "expected_keys": ["key1", "key2"],
+                "raise_on_failure": True,
+                "generator_api": "openai",
+                "page_range": None,
+                "generator_api_params": {
+                    "api_base_url": None,
+                    "api_key": {
+                        "env_vars": ["OPENAI_API_KEY"],
+                        "strict": True,
+                        "type": "env_var",
+                    },
+                    "generation_kwargs": {"temperature": 0.5},
+                    "model": "gpt-4o-mini",
+                    "organization": None,
+                    "streaming_callback": None,
+                    "system_prompt": None,
+                },
+                "max_workers": 3,
+            },
+        }
+
+    def test_to_dict_aws_bedrock(self):
+        extractor = LLMMetadataExtractor(
+            prompt="some prompt that was used with the LLM {{document.content}}",
+            expected_keys=["key1", "key2"],
+            generator_api=LLMProvider.AWS_BEDROCK,
+            generator_api_params={
+                "model": "meta.llama.test",
+                "max_length": 100,
+                "truncate": False,
+            },
+            raise_on_failure=True,
+        )
+        extractor_dict = extractor.to_dict()
+        assert extractor_dict == {
+            "type": "haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor",
+            "init_parameters": {
+                "prompt": "some prompt that was used with the LLM {{document.content}}",
+                "generator_api": "aws_bedrock",
+                "generator_api_params": {
+                    "aws_access_key_id": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_ACCESS_KEY_ID"],
+                        "strict": False,
+                    },
+                    "aws_secret_access_key": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_SECRET_ACCESS_KEY"],
+                        "strict": False,
+                    },
+                    "aws_session_token": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_SESSION_TOKEN"],
+                        "strict": False,
+                    },
+                    "aws_region_name": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_DEFAULT_REGION"],
+                        "strict": False,
+                    },
+                    "aws_profile_name": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_PROFILE"],
+                        "strict": False,
+                    },
+                    "model": "meta.llama.test",
+                    "max_length": 100,
+                    "truncate": False,
+                    "streaming_callback": None,
+                    "boto3_config": None,
+                },
+                "expected_keys": ["key1", "key2"],
+                "page_range": None,
+                "raise_on_failure": True,
+                "max_workers": 3,
+            },
         }
 
     def test_from_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor_dict = {
-            'type': 'haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor',
-            'init_parameters': {
-                'prompt': 'some prompt that was used with the LLM {{document.content}}',
-                'expected_keys': ['key1', 'key2'],
-                'raise_on_failure': True,
-                'generator_api': 'openai',
-                'generator_api_params': {
-                      'api_base_url': None,
-                      'api_key': {'env_vars': ['OPENAI_API_KEY'], 'strict': True, 'type': 'env_var'},
-                      'generation_kwargs': {},
-                      'model': 'gpt-4o-mini',
-                      'organization': None,
-                      'streaming_callback': None,
-                      'system_prompt': None,
-                  }
-                }
+            "type": "haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor",
+            "init_parameters": {
+                "prompt": "some prompt that was used with the LLM {{document.content}}",
+                "expected_keys": ["key1", "key2"],
+                "raise_on_failure": True,
+                "generator_api": "openai",
+                "generator_api_params": {
+                    "api_base_url": None,
+                    "api_key": {
+                        "env_vars": ["OPENAI_API_KEY"],
+                        "strict": True,
+                        "type": "env_var",
+                    },
+                    "generation_kwargs": {},
+                    "model": "gpt-4o-mini",
+                    "organization": None,
+                    "streaming_callback": None,
+                    "system_prompt": None,
+                },
+            },
         }
         extractor = LLMMetadataExtractor.from_dict(extractor_dict)
         assert extractor.raise_on_failure is True
         assert extractor.expected_keys == ["key1", "key2"]
-        assert extractor.prompt == "some prompt that was used with the LLM {{document.content}}"
+        assert (
+            extractor.prompt
+            == "some prompt that was used with the LLM {{document.content}}"
+        )
         assert extractor.generator_api == LLMProvider.OPENAI
+
+    def test_from_dict_aws_bedrock(self):
+        extractor_dict = {
+            "type": "haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor",
+            "init_parameters": {
+                "prompt": "some prompt that was used with the LLM {{document.content}}",
+                "generator_api": "aws_bedrock",
+                "generator_api_params": {
+                    "aws_access_key_id": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_ACCESS_KEY_ID"],
+                        "strict": False,
+                    },
+                    "aws_secret_access_key": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_SECRET_ACCESS_KEY"],
+                        "strict": False,
+                    },
+                    "aws_session_token": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_SESSION_TOKEN"],
+                        "strict": False,
+                    },
+                    "aws_region_name": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_DEFAULT_REGION"],
+                        "strict": False,
+                    },
+                    "aws_profile_name": {
+                        "type": "env_var",
+                        "env_vars": ["AWS_PROFILE"],
+                        "strict": False,
+                    },
+                    "model": "meta.llama.test",
+                    "max_length": 200,
+                    "truncate": False,
+                    "streaming_callback": None,
+                    "boto3_config": None,
+                },
+                "expected_keys": ["key1", "key2"],
+                "page_range": None,
+                "raise_on_failure": True,
+                "max_workers": 3,
+            },
+        }
+        extractor = LLMMetadataExtractor.from_dict(extractor_dict)
+        assert extractor.raise_on_failure is True
+        assert extractor.expected_keys == ["key1", "key2"]
+        assert (
+            extractor.prompt
+            == "some prompt that was used with the LLM {{document.content}}"
+        )
+        assert extractor.generator_api == LLMProvider.AWS_BEDROCK
+        assert extractor.llm_provider.max_length == 200
+        assert extractor.llm_provider.truncate is False
+        assert extractor.llm_provider.model == "meta.llama.test"
 
     def test_output_invalid_json_raise_on_failure_true(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
-                prompt="prompt {{document.content}}",
-                generator_api=LLMProvider.OPENAI,
-                raise_on_failure=True
-            )
+            prompt="prompt {{document.content}}",
+            generator_api=LLMProvider.OPENAI,
+            raise_on_failure=True,
+        )
         with pytest.raises(ValueError):
             extractor._extract_metadata(llm_answer="""{"json: "output"}""")
 
@@ -130,8 +257,12 @@ class TestLLMMetadataExtractor:
     )
     def test_live_run(self):
         docs = [
-            Document(content="deepset was founded in 2018 in Berlin, and is known for its Haystack framework"),
-            Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
+            Document(
+                content="deepset was founded in 2018 in Berlin, and is known for its Haystack framework"
+            ),
+            Document(
+                content="Hugging Face is a company founded in Paris, France and is known for its Transformers library"
+            ),
         ]
 
         ner_prompt = """-Goal-
@@ -176,7 +307,7 @@ output:
         extractor = LLMMetadataExtractor(
             prompt=ner_prompt,
             expected_keys=["entities"],
-            generator_api=LLMProvider.OPENAI
+            generator_api=LLMProvider.OPENAI,
         )
         writer = DocumentWriter(document_store=doc_store)
         pipeline = Pipeline()
