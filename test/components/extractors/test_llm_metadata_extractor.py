@@ -1,5 +1,7 @@
+import boto3
 import os
 import pytest
+from unittest.mock import MagicMock
 
 from haystack import Pipeline, Document
 from haystack.components.builders import PromptBuilder
@@ -10,6 +12,11 @@ from haystack_experimental.components.extractors import LLMProvider
 
 
 class TestLLMMetadataExtractor:
+    @pytest.fixture
+    def boto3_session_mock(self, monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+        mock = MagicMock()
+        monkeypatch.setattr(boto3, "Session", mock)
+        return mock
 
     def test_init_default(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
@@ -94,7 +101,7 @@ class TestLLMMetadataExtractor:
             },
         }
 
-    def test_to_dict_aws_bedrock(self):
+    def test_to_dict_aws_bedrock(self, boto3_session_mock):
         extractor = LLMMetadataExtractor(
             prompt="some prompt that was used with the LLM {{document.content}}",
             expected_keys=["key1", "key2"],
@@ -184,7 +191,7 @@ class TestLLMMetadataExtractor:
         )
         assert extractor.generator_api == LLMProvider.OPENAI
 
-    def test_from_dict_aws_bedrock(self):
+    def test_from_dict_aws_bedrock(self, boto3_session_mock):
         extractor_dict = {
             "type": "haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor",
             "init_parameters": {

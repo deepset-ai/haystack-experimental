@@ -212,18 +212,17 @@ class LLMMetadataExtractor:
         Initialize the chat generator based on the specified API provider and parameters.
         """
         if generator_api == LLMProvider.OPENAI:
-            generator_class = OpenAIGenerator
+            return OpenAIGenerator(**generator_api_params)
         elif generator_api == LLMProvider.OPENAI_AZURE:
-            generator_class = AzureOpenAIGenerator(**generator_api_params)
+            return AzureOpenAIGenerator(**generator_api_params)
         elif generator_api == LLMProvider.AWS_BEDROCK:
             amazon_bedrock_generator.check()
-            generator_class = AmazonBedrockGenerator
+            return AmazonBedrockGenerator(**generator_api_params)
         elif generator_api == LLMProvider.GOOGLE_VERTEX:
             vertex_ai_gemini_generator.check()
-            generator_class = VertexAIGeminiGenerator
+            return VertexAIGeminiGenerator(**generator_api_params)
         else:
             raise ValueError(f"Unsupported generator API: {generator_api}")
-        return generator_class(**generator_api_params)
 
     def warm_up(self):
         """
