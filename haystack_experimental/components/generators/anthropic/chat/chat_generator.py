@@ -4,6 +4,7 @@
 
 import json
 import logging
+from base64 import b64encode
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from haystack import component, default_from_dict
@@ -11,7 +12,7 @@ from haystack.dataclasses import StreamingChunk
 from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace
 
-from haystack_experimental.dataclasses import ChatMessage, ToolCall
+from haystack_experimental.dataclasses import ChatMessage, ToolCall, ByteStream
 from haystack_experimental.dataclasses.chat_message import ChatRole, ToolCallResult
 from haystack_experimental.dataclasses.tool import Tool, deserialize_tools_inplace
 
@@ -38,7 +39,9 @@ with LazyImport("Run 'pip install anthropic-haystack'") as anthropic_integration
 # - AnthropicChatGenerator fails with ImportError at init (due to anthropic_integration_import.check()).
 
 if anthropic_integration_import.is_successful():
-    chatgenerator_base_class: Type[AnthropicChatGeneratorBase] = AnthropicChatGeneratorBase
+    chatgenerator_base_class: Type[AnthropicChatGeneratorBase] = (
+        AnthropicChatGeneratorBase
+    )
 else:
     chatgenerator_base_class: Type[object] = object  # type: ignore[no-redef]
 
@@ -57,7 +60,9 @@ def _update_anthropic_message_with_tool_call_results(
 
     for tool_call_result in tool_call_results:
         if tool_call_result.origin.id is None:
-            raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with Anthropic.")
+            raise ValueError(
+                "`ToolCall` must have a non-null `id` attribute to be used with Anthropic."
+            )
         anthropic_msg["content"].append(
             {
                 "type": "tool_result",
@@ -68,7 +73,9 @@ def _update_anthropic_message_with_tool_call_results(
         )
 
 
-def _convert_tool_calls_to_anthropic_format(tool_calls: List[ToolCall]) -> List[Dict[str, Any]]:
+def _convert_tool_calls_to_anthropic_format(
+    tool_calls: List[ToolCall],
+) -> List[Dict[str, Any]]:
     """
     Convert a list of tool calls to the format expected by Anthropic Chat API.
 
@@ -78,7 +85,9 @@ def _convert_tool_calls_to_anthropic_format(tool_calls: List[ToolCall]) -> List[
     anthropic_tool_calls = []
     for tc in tool_calls:
         if tc.id is None:
-            raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with Anthropic.")
+            raise ValueError(
+                "`ToolCall` must have a non-null `id` attribute to be used with Anthropic."
+            )
         anthropic_tool_calls.append(
             {
                 "type": "tool_use",
@@ -88,6 +97,44 @@ def _convert_tool_calls_to_anthropic_format(tool_calls: List[ToolCall]) -> List[
             }
         )
     return anthropic_tool_calls
+
+
+def _convert_media_to_anthropic_format(media: List[ByteStream]) -> List[Dict[str, Any]]:
+    """
+    Convert a list of media to the format expected by Anthropic Chat API.
+
+    :param media: The list of ByteStreams to convert.
+    :return: A list of dictionaries in the format expected by Anthropic API.
+    """
+    anthropic_media = []
+    for item in media:
+        if item.type == "image":
+            anthropic_media.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": item.mime_type,
+                        "data": b64encode(item.data).decode("utf-8"),
+                    },
+                }
+            )
+        elif item.type == "application" and item.subtype == "pdf":
+            anthropic_media.append(
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": item.mime_type,
+                        "data": b64encode(item.data).decode("utf-8"),
+                    },
+                }
+            )
+        else:
+            raise ValueError(
+                f"Unsupported media type '{item.mime_type}' for Anthropic completions."
+            )
+    return anthropic_media
 
 
 def _convert_messages_to_anthropic_format(
@@ -119,10 +166,17 @@ def _convert_messages_to_anthropic_format(
 
         anthropic_msg: Dict[str, Any] = {"role": message._role.value, "content": []}
 
-        if message.texts and message.texts[0]:
-            anthropic_msg["content"].append({"type": "text", "text": message.texts[0]})
+        if message.texts:
+            for item in message.texts:
+                anthropic_msg["content"].append({"type": "text", "text": item})
+        if message.media:
+            anthropic_msg["content"] += _convert_media_to_anthropic_format(
+                message.media
+            )
         if message.tool_calls:
-            anthropic_msg["content"] += _convert_tool_calls_to_anthropic_format(message.tool_calls)
+            anthropic_msg["content"] += _convert_tool_calls_to_anthropic_format(
+                message.tool_calls
+            )
 
         if message.tool_call_results:
             results = message.tool_call_results.copy()
@@ -136,7 +190,8 @@ def _convert_messages_to_anthropic_format(
 
         if not anthropic_msg["content"]:
             raise ValueError(
-                "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
+                "A `ChatMessage` must contain at least one `TextContent`, `MediaContent`, "
+                "`ToolCall`, or `ToolCallResult`."
             )
 
         anthropic_non_system_messages.append(anthropic_msg)
@@ -250,7 +305,9 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             The serialized component as a dictionary.
         """
         serialized = super(AnthropicChatGenerator, self).to_dict()
-        serialized["init_parameters"]["tools"] = [tool.to_dict() for tool in self.tools] if self.tools else None
+        serialized["init_parameters"]["tools"] = (
+            [tool.to_dict() for tool in self.tools] if self.tools else None
+        )
         return serialized
 
     @classmethod
@@ -267,11 +324,15 @@ class AnthropicChatGenerator(chatgenerator_base_class):
         init_params = data.get("init_parameters", {})
         serialized_callback_handler = init_params.get("streaming_callback")
         if serialized_callback_handler:
-            data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
+            data["init_parameters"]["streaming_callback"] = deserialize_callable(
+                serialized_callback_handler
+            )
 
         return default_from_dict(cls, data)
 
-    def _convert_chat_completion_to_chat_message(self, anthropic_response: Any) -> ChatMessage:
+    def _convert_chat_completion_to_chat_message(
+        self, anthropic_response: Any
+    ) -> ChatMessage:
         """
         Converts the response from the Anthropic API to a ChatMessage.
         """
@@ -343,15 +404,22 @@ class AnthropicChatGenerator(chatgenerator_base_class):
                     full_content += delta.get("text", "")
                 elif delta.get("type") == "input_json_delta" and current_tool_call:
                     current_tool_call["arguments"] += delta.get("partial_json", "")
-            elif chunk_type == "message_delta":  # noqa: SIM102 (prefer nested if statement here for readability)
-                if chunk.meta.get("delta", {}).get("stop_reason") == "tool_use" and current_tool_call:
+            elif (
+                chunk_type == "message_delta"
+            ):  # noqa: SIM102 (prefer nested if statement here for readability)
+                if (
+                    chunk.meta.get("delta", {}).get("stop_reason") == "tool_use"
+                    and current_tool_call
+                ):
                     try:
                         # arguments is a string, convert to json
                         tool_calls.append(
                             ToolCall(
                                 id=current_tool_call.get("id"),
                                 tool_name=str(current_tool_call.get("name")),
-                                arguments=json.loads(current_tool_call.get("arguments", {})),
+                                arguments=json.loads(
+                                    current_tool_call.get("arguments", {})
+                                ),
                             )
                         )
                     except json.JSONDecodeError:
@@ -370,7 +438,9 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             {
                 "model": model,
                 "index": 0,
-                "finish_reason": last_chunk_meta.get("delta", {}).get("stop_reason", None),
+                "finish_reason": last_chunk_meta.get("delta", {}).get(
+                    "stop_reason", None
+                ),
                 "usage": last_chunk_meta.get("usage", {}),
             }
         )
@@ -405,12 +475,16 @@ class AnthropicChatGenerator(chatgenerator_base_class):
                 disallowed_params,
                 self.ALLOWED_PARAMS,
             )
-        generation_kwargs = {k: v for k, v in generation_kwargs.items() if k in self.ALLOWED_PARAMS}
+        generation_kwargs = {
+            k: v for k, v in generation_kwargs.items() if k in self.ALLOWED_PARAMS
+        }
         tools = tools or self.tools
         if tools:
             _check_duplicate_tool_names(tools)
 
-        system_messages, non_system_messages = _convert_messages_to_anthropic_format(messages)
+        system_messages, non_system_messages = _convert_messages_to_anthropic_format(
+            messages
+        )
         anthropic_tools = (
             [
                 {
@@ -447,7 +521,9 @@ class AnthropicChatGenerator(chatgenerator_base_class):
                     "content_block_delta",
                     "message_delta",
                 ]:
-                    streaming_chunk = self._convert_anthropic_chunk_to_streaming_chunk(chunk)
+                    streaming_chunk = self._convert_anthropic_chunk_to_streaming_chunk(
+                        chunk
+                    )
                     chunks.append(streaming_chunk)
                     if streaming_callback:
                         streaming_callback(streaming_chunk)
@@ -455,4 +531,6 @@ class AnthropicChatGenerator(chatgenerator_base_class):
             completion = self._convert_streaming_chunks_to_chat_message(chunks, model)
             return {"replies": [completion]}
         else:
-            return {"replies": [self._convert_chat_completion_to_chat_message(response)]}
+            return {
+                "replies": [self._convert_chat_completion_to_chat_message(response)]
+            }
