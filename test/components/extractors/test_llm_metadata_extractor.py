@@ -55,7 +55,7 @@ class TestLLMMetadataExtractor:
                 generator_api=LLMProvider.OPENAI,
             )
 
-    def test_to_dict_default_params(self, monkeypatch):
+    def test_to_dict_openai(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
             prompt="some prompt that was used with the LLM {{document.content}}",
@@ -151,7 +151,7 @@ class TestLLMMetadataExtractor:
             },
         }
 
-    def test_from_dict(self, monkeypatch):
+    def test_from_dict_openai(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor_dict = {
             "type": "haystack_experimental.components.extractors.llm_metadata_extractor.LLMMetadataExtractor",

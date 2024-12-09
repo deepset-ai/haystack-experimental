@@ -297,13 +297,13 @@ class LLMMetadataExtractor:
         try:
             parsed_metadata = json.loads(llm_answer)
         except json.JSONDecodeError as e:
-            if self.raise_on_failure:
-                raise e
             logger.warning(
                 "Response from the LLM is not valid JSON. Skipping metadata extraction. Received output: {response}",
                 response=llm_answer
             )
-            return {"error": str(e)}
+            if self.raise_on_failure:
+                raise e
+            return {"error": "Response is not valid JSON. Received JSONDecodeError: " + str(e)}
 
         if not all(key in parsed_metadata for key in self.expected_keys):
             logger.warning(
@@ -349,25 +349,21 @@ class LLMMetadataExtractor:
         return all_prompts
 
     def _run_on_thread(self, prompt: Optional[str]) -> Dict[str, Any]:
+        # If prompt is None, return an empty dictionary
         if prompt is None:
-            return {"error": "Document has no content. Skipping metadata extraction."}
+            return {"replies": ["{}"]}
 
         try:
             result = self.llm_provider.run(prompt=prompt)
         except Exception as e:
-            if self.raise_on_failure:
-                logger.error(
-                    "LLM {class_name} failed with exception '{error}'.",
-                    class_name=self.llm_provider.__class__.__name__,
-                    error=e,
-                )
-                raise
-            logger.warning(
-                "LLM {class_name} failed with exception '{error}'.",
+            logger.error(
+                "LLM {class_name} execution failed. Skipping metadata extraction. Failed with exception '{error}'.",
                 class_name=self.llm_provider.__class__.__name__,
                 error=e,
             )
-            result = {"error": str(e)}
+            if self.raise_on_failure:
+                raise e
+            result = {"error": "LLM failed with exception: " + str(e)}
         return result
 
     @component.output_types(documents=List[Document], failed_documents=List[Document])
@@ -395,6 +391,10 @@ class LLMMetadataExtractor:
             "metadata_extraction_error" and "metadata_extraction_response" in their metadata. These documents can be
             re-run with the extractor to extract metadata.
         """
+        if len(documents) == 0:
+            logger.warning("No documents provided. Skipping metadata extraction.")
+            return {"documents": [], "failed_documents": []}
+
         expanded_range = self.expanded_range
         if page_range:
             expanded_range = expand_page_range(page_range)
@@ -418,12 +418,15 @@ class LLMMetadataExtractor:
             parsed_metadata = self._extract_metadata(result["replies"][0])
             if "error" in parsed_metadata:
                 document.meta["metadata_extraction_error"] = parsed_metadata["error"]
-                document.meta["metadata_extraction_response"] = result
+                document.meta["metadata_extraction_response"] = result["replies"][0]
                 failed_documents.append(document)
                 continue
 
             for key in parsed_metadata:
                 document.meta[key] = parsed_metadata[key]
+                # Remove metadata_extraction_error and metadata_extraction_response if present from previous runs
+                document.meta.pop("metadata_extraction_error", None)
+                document.meta.pop("metadata_extraction_response", None)
             successful_documents.append(document)
 
         return {"documents": successful_documents, "failed_documents": failed_documents}
