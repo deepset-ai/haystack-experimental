@@ -256,7 +256,7 @@ class Tool:
                 continue
 
             # Create a closure that captures the current value of standardized_tool_def
-            def create_invoke_function(tool_def: Dict[str, Any]):
+            def create_invoke_function(tool_def: Dict[str, Any]) -> Callable:
                 """
                 Create an invoke function with the tool definition bound to its scope.
 
