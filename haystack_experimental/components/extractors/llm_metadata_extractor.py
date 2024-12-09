@@ -75,7 +75,7 @@ class LLMMetadataExtractor:
 
     ```python
     from haystack import Document
-    from dc_custom_component.extractors.llm_metadata_extractor import TEGLLMMetadataExtractor
+    from haystack_experimental.components.extractors.llm_metadata_extractor import LLMMetadataExtractor
 
     NER_PROMPT = '''
     -Goal-
@@ -187,7 +187,7 @@ class LLMMetadataExtractor:
         ast = SandboxedEnvironment().parse(prompt)
         template_variables = meta.find_undeclared_variables(ast)
         variables = list(template_variables)
-        if len(variables) != 1 and variables[0] != "document":
+        if len(variables) > 1 or variables[0] != "document":
             raise ValueError(
                 f"Prompt must have exactly one variable called 'document'. Found {','.join(variables)} in the prompt."
             )
