@@ -255,21 +255,32 @@ class Tool:
                 logger.warning(f"Skipping {llm_specific_tool_def}, as required parameters not found")
                 continue
 
-            def invoke_openapi(**kwargs):
+            # Create a closure that captures the current value of standardized_tool_def
+            def create_invoke_function(tool_def: Dict[str, Any]):
                 """
-                Invoke the OpenAPI endpoint with the provided arguments.
+                Create an invoke function with the tool definition bound to its scope.
 
-                :param kwargs: Arguments to pass to the OpenAPI endpoint.
-                :returns: Response from the OpenAPI endpoint.
+                :param tool_def: The tool definition to bind to the invoke function.
+                :returns: Function that invokes the OpenAPI endpoint.
                 """
-                return client.invoke({"name": standardized_tool_def["name"], "arguments": kwargs})
+
+                def invoke_openapi(**kwargs):
+                    """
+                    Invoke the OpenAPI endpoint with the provided arguments.
+
+                    :param kwargs: Arguments to pass to the OpenAPI endpoint.
+                    :returns: Response from the OpenAPI endpoint.
+                    """
+                    return client.invoke({"name": tool_def["name"], "arguments": kwargs})
+
+                return invoke_openapi
 
             tools.append(
                 cls(
                     name=standardized_tool_def["name"],
                     description=standardized_tool_def["description"],
                     parameters=standardized_tool_def["parameters"],
-                    function=invoke_openapi,
+                    function=create_invoke_function(standardized_tool_def),
                 )
             )
 

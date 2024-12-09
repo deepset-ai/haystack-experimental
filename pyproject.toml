@@ -71,6 +71,8 @@ extra-dependencies = [
   # LLMMetadataExtractor dependencies
   "amazon-bedrock-haystack>=1.0.2",
   "google-vertex-haystack>=2.0.0",
+  # OpenAPI as a Tool
+  "openapi-llm",
 ]
 
 [tool.hatch.envs.test.scripts]
