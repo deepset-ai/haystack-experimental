@@ -70,7 +70,7 @@ class LLMMetadataExtractor:
     The component will run the LLM on each document in the list and extract metadata from the document. The metadata
     will be added to the document's metadata field. If the LLM fails to extract metadata from a document, the document
     will be added to the `failed_documents` list. The failed documents will have the keys `metadata_extraction_error` and
-    `metadata_extraction_response` in their metadata. These documents can be re-run with the another extractor to
+    `metadata_extraction_response` in their metadata. These documents can be re-run with another extractor to
     extract metadata by using the `metadata_extraction_response` and `metadata_extraction_error` in the prompt.
 
     ```python
