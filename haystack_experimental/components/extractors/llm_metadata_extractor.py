@@ -179,7 +179,7 @@ class LLMMetadataExtractor:
                            11, 12. If None, metadata will be extracted from the entire document for each document in the
                            documents list.
                            This parameter is optional and can be overridden in the `run` method.
-        :param raise_on_failure: Whether to raise an error on failure to execution of the Generator or to validate the
+        :param raise_on_failure: Whether to raise an error on failure during the execution of the Generator or validation of the
                                  JSON output.
         :param max_workers: The maximum number of workers to use in the thread pool executor.
         """
