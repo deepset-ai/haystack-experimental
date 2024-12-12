@@ -4,6 +4,7 @@
 
 import json
 import os
+from base64 import b64encode
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
@@ -19,7 +20,14 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletio
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 
-from haystack_experimental.dataclasses import ChatMessage, Tool, ToolCall
+from haystack_experimental.dataclasses import (
+    ChatMessage,
+    Tool,
+    ToolCall,
+    TextContent,
+    ChatRole,
+    MediaContent,
+)
 from haystack_experimental.dataclasses.streaming_chunk import (
     AsyncStreamingCallbackT,
     StreamingCallbackT,
@@ -34,53 +42,81 @@ def _convert_message_to_openai_format(message: ChatMessage) -> Dict[str, Any]:
     """
     Convert a message to the format expected by OpenAI's Chat API.
     """
-    text_contents = message.texts
-    tool_calls = message.tool_calls
-    tool_call_results = message.tool_call_results
-
-    if not text_contents and not tool_calls and not tool_call_results:
+    openai_msg: Dict[str, Any] = {"role": message.role.value}
+    if len(message) == 0:
         raise ValueError(
-            "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
+            "ChatMessage must contain at least one `TextContent`, "
+            "`MediaContent`, `ToolCall`, or `ToolCallResult`."
         )
-    elif len(text_contents) + len(tool_call_results) > 1:
-        raise ValueError(
-            "A `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`."
-        )
-
-    openai_msg: Dict[str, Any] = {"role": message._role.value}
-
-    if tool_call_results:
-        result = tool_call_results[0]
-        if result.origin.id is None:
+    if len(message) == 1 and isinstance(message.content[0], TextContent):
+        openai_msg["content"] = message.content[0].text
+    elif message.tool_call_result:
+        # Tool call results should only be included for ChatRole.TOOL messages
+        # and should not include any other content
+        if message.role != ChatRole.TOOL:
+            raise ValueError(
+                "Tool call results should only be included for tool messages."
+            )
+        if len(message) > 1:
+            raise ValueError(
+                "Tool call results should not be included with other content."
+            )
+        if message.tool_call_result.origin.id is None:
             raise ValueError(
                 "`ToolCall` must have a non-null `id` attribute to be used with OpenAI."
             )
-        openai_msg["content"] = result.result
-        openai_msg["tool_call_id"] = result.origin.id
-        # OpenAI does not provide a way to communicate errors in tool invocations, so we ignore the error field
-        return openai_msg
-
-    if text_contents:
-        openai_msg["content"] = text_contents[0]
-    if tool_calls:
-        openai_tool_calls = []
-        for tc in tool_calls:
-            if tc.id is None:
-                raise ValueError(
-                    "`ToolCall` must have a non-null `id` attribute to be used with OpenAI."
+        openai_msg["content"] = message.tool_call_result.result
+        openai_msg["tool_call_id"] = message.tool_call_result.origin.id
+    else:
+        openai_msg["content"] = []
+        for item in message.content:
+            if isinstance(item, TextContent):
+                openai_msg["content"].append({"type": "text", "text": item.text})
+            elif isinstance(item, MediaContent):
+                match item.media.type:
+                    case "image":
+                        base64_data = b64encode(item.media.data).decode("utf-8")
+                        url = f"data:{item.media.mime_type};base64,{base64_data}"
+                        openai_msg["content"].append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": url,
+                                    "detail": item.media.meta.get("detail", "auto"),
+                                },
+                            }
+                        )
+                    case _:
+                        raise ValueError(
+                            f"Unsupported media type '{item.media.mime_type}' for OpenAI completions."
+                        )
+            elif isinstance(item, ToolCall):
+                if message.role != ChatRole.ASSISTANT:
+                    raise ValueError(
+                        "Tool calls should only be included for assistant messages."
+                    )
+                if item.id is None:
+                    raise ValueError(
+                        "`ToolCall` must have a non-null `id` attribute to be used with OpenAI."
+                    )
+                openai_msg.setdefault("tool_calls", []).append(
+                    {
+                        "id": item.id,
+                        "type": "function",
+                        "function": {
+                            "name": item.tool_name,
+                            "arguments": json.dumps(item.arguments, ensure_ascii=False),
+                        },
+                    }
                 )
-            openai_tool_calls.append(
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    # We disable ensure_ascii so special chars like emojis are not converted
-                    "function": {
-                        "name": tc.tool_name,
-                        "arguments": json.dumps(tc.arguments, ensure_ascii=False),
-                    },
-                }
-            )
-        openai_msg["tool_calls"] = openai_tool_calls
+            else:
+                raise ValueError(
+                    f"Unsupported content type '{type(item).__name__}' for OpenAI completions."
+                )
+
+    if message.name:
+        openai_msg["name"] = message.name
+
     return openai_msg
 
 
