@@ -146,6 +146,7 @@ class TestLLMMetadataExtractor:
                         "strict": False,
                     },
                     "model": "meta.llama.test",
+                    "model_family": None,
                     "max_length": 100,
                     "truncate": False,
                     "streaming_callback": None,
