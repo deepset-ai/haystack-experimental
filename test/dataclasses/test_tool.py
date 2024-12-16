@@ -144,19 +144,20 @@ class TestTool:
         }
         assert another_tool.function == function_with_docstring
 
-    def test_from_function_name_from_function(self):
+    def test_from_function_with_custom_name(self):
         tool = Tool.from_function(
-            function=function_with_docstring
-        )
-
-        assert tool.name == "function_with_docstring"
-
-        another_tool = Tool.from_function(
             function=function_with_docstring,
             name="custom_name",
         )
 
-        assert another_tool.name == "custom_name"
+        assert tool.name == "custom_name"
+        assert tool.description == "Get weather report for a city."
+        assert tool.parameters == {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        }
+        assert tool.function == function_with_docstring
 
     def test_from_function_missing_type_hint(self):
         def function_missing_type_hint(city) -> str:
