@@ -26,6 +26,10 @@ def get_weather_report(city: str) -> str:
 
 parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
 
+def function_with_docstring(city: str) -> str:
+    """Get weather report for a city."""
+    return f"Weather report for {city}: 20°C, sunny"
+
 
 class TestTool:
     def test_init(self):
@@ -96,14 +100,9 @@ class TestTool:
         assert tool.parameters == parameters
         assert tool.function == get_weather_report
 
-    def test_from_function_docstring_as_desc(self):
-        def function_with_docstring(city: str) -> str:
-            """Get weather report for a city."""
-            return f"Weather report for {city}: 20°C, sunny"
-
+    def test_from_function_description_from_docstring(self):
         tool = Tool.from_function(
             function=function_with_docstring,
-            docstring_as_desc=True,
         )
 
         assert tool.name == "function_with_docstring"
@@ -115,9 +114,10 @@ class TestTool:
         }
         assert tool.function == function_with_docstring
 
+    def test_from_function_with_empty_description(self):
         another_tool = Tool.from_function(
             function=function_with_docstring,
-            docstring_as_desc=False,
+            description="",
         )
 
         assert another_tool.name == "function_with_docstring"
@@ -128,6 +128,36 @@ class TestTool:
             "required": ["city"],
         }
         assert another_tool.function == function_with_docstring
+
+    def test_from_function_with_custom_description(self):
+        another_tool = Tool.from_function(
+            function=function_with_docstring,
+            description="custom description",
+        )
+
+        assert another_tool.name == "function_with_docstring"
+        assert another_tool.description == "custom description"
+        assert another_tool.parameters == {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        }
+        assert another_tool.function == function_with_docstring
+
+    def test_from_function_with_custom_name(self):
+        tool = Tool.from_function(
+            function=function_with_docstring,
+            name="custom_name",
+        )
+
+        assert tool.name == "custom_name"
+        assert tool.description == "Get weather report for a city."
+        assert tool.parameters == {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        }
+        assert tool.function == function_with_docstring
 
     def test_from_function_missing_type_hint(self):
         def function_missing_type_hint(city) -> str:
