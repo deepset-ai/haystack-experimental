@@ -1,9 +1,13 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from base64 import b64encode
+
 import pytest
 
-from haystack_experimental.dataclasses import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent
+from haystack_experimental.dataclasses import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent, \
+    MediaContent, ByteStream
+
 
 def test_tool_call_init():
     tc = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
@@ -21,6 +25,10 @@ def test_text_content_init():
     tc = TextContent(text="Hello")
     assert tc.text == "Hello"
 
+def test_media_content_init():
+    mc = MediaContent(media=ByteStream(data=b"media data", mime_type="image/png"))
+    assert mc.media.data == b"media data"
+    assert mc.media.mime_type == "image/png"
 
 def test_from_assistant_with_valid_content():
     text = "Hello, how can I assist you?"
@@ -32,6 +40,7 @@ def test_from_assistant_with_valid_content():
     assert message.text == text
     assert message.texts == [text]
 
+    assert not message.media
     assert not message.tool_calls
     assert not message.tool_call
     assert not message.tool_call_results
@@ -51,6 +60,7 @@ def test_from_assistant_with_tool_calls():
 
     assert not message.texts
     assert not message.text
+    assert not message.media
     assert not message.tool_call_results
     assert not message.tool_call_result
 
@@ -64,6 +74,24 @@ def test_from_user_with_valid_content():
 
     assert message.text == text
     assert message.texts == [text]
+
+    assert not message.media
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
+
+def test_from_user_with_media():
+    text = "This is a multimodal message!"
+    media = [ByteStream(data=b"media data", mime_type="image/png")]
+    message = ChatMessage.from_user(text=text, media=media)
+
+    assert message.role == ChatRole.USER
+    assert message._content == [TextContent(text="This is a multimodal message!"), MediaContent(media[0])]
+
+    assert message.text == text
+    assert message.texts == [text]
+    assert message.media == media
 
     assert not message.tool_calls
     assert not message.tool_call
@@ -80,6 +108,7 @@ def test_from_system_with_valid_content():
     assert message.text == text
     assert message.texts == [text]
 
+    assert not message.media
     assert not message.tool_calls
     assert not message.tool_call
     assert not message.tool_call_results
@@ -98,6 +127,7 @@ def test_from_tool_with_valid_content():
     assert message.tool_call_result == tcr
     assert message.tool_call_results == [tcr]
 
+    assert not message.media
     assert not message.tool_calls
     assert not message.tool_call
     assert not message.texts
@@ -131,19 +161,36 @@ def test_serde():
     role = ChatRole.ASSISTANT
 
     text_content = TextContent(text="Hello")
+    media_content = MediaContent(media=ByteStream(data=b"media_data", mime_type="image/png"))
     tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
     tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
     meta = {"some": "info"}
 
-    message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result], _meta=meta)
+    message = ChatMessage(
+        _role=role,
+        _content=[text_content, media_content, tool_call, tool_call_result],
+        _name="my_message",
+        _meta=meta,
+    )
 
     serialized_message = message.to_dict()
-    assert serialized_message == {"_content":
-                                  [{"text": "Hello"},
-                                   {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}},
-                                   {"tool_call_result": {"result": "result", "error":False,
-                                                         "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}}}],
-                                                         "_role": "assistant", "_meta": {"some": "info"}}
+    assert serialized_message == {
+        "_content": [
+            {"text": "Hello"},
+            {"media": {"data": b64encode(b"media_data").decode(), "meta": {}, "mime_type": "image/png"}},
+            {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}},
+            {
+                "tool_call_result": {
+                    "result": "result",
+                    "error": False,
+                    "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}},
+                }
+            },
+        ],
+        "_role": "assistant",
+        "_name": "my_message",
+        "_meta": {"some": "info"},
+    }
 
     deserialized_message = ChatMessage.from_dict(serialized_message)
     assert deserialized_message == message

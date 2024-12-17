@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+from base64 import b64encode
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +20,7 @@ from haystack_experimental.components.generators.anthropic.chat.chat_generator i
     AnthropicChatGenerator,
     _convert_messages_to_anthropic_format,
 )
-from haystack_experimental.dataclasses import ChatMessage, ChatRole, Tool, ToolCall
+from haystack_experimental.dataclasses import ChatMessage, ChatRole, Tool, ToolCall, ByteStream
 from haystack_experimental.dataclasses.chat_message import ToolCallResult
 
 
@@ -628,6 +629,41 @@ class TestAnthropicChatGenerator:
         )
 
         messages = [
+            ChatMessage.from_user(
+                text="Multimodal example",
+                media=[ByteStream(b"data", mime_type="image/png"), ByteStream(b"data2", mime_type="application/pdf")],
+            )
+        ]
+        result = _convert_messages_to_anthropic_format(messages)
+        assert result == (
+            [],
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Multimodal example"},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": b64encode(b"data").decode("utf-8"),
+                            },
+                        },
+                        {
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": b64encode(b"data2").decode("utf-8"),
+                            },
+                        },
+                    ],
+                },
+            ],
+        )
+
+        messages = [
             ChatMessage.from_assistant(
                 tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})]
             )
@@ -655,7 +691,10 @@ class TestAnthropicChatGenerator:
             [
                 {
                     "role": "assistant",
-                    "content": [{"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}}],
+                    "content": [
+                        {"type": "text", "text": ""},
+                        {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}},
+                    ],
                 }
             ],
         )
@@ -739,6 +778,7 @@ class TestAnthropicChatGenerator:
             {
                 "role": "assistant",
                 "content": [
+                    {"type": "text", "text": ""},
                     {"type": "tool_use", "id": "123", "name": "weather", "input": {"city": "Paris"}},
                     {"type": "tool_use", "id": "456", "name": "math", "input": {"expression": "2+2"}},
                 ],
