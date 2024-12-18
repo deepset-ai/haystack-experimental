@@ -63,7 +63,18 @@ def get_param_descriptions(method: Callable) -> Dict[str, str]:
         return {}
 
     parsed_doc = parse(docstring)
-    return {param.arg_name: param.description.strip() if param.description else "" for param in parsed_doc.params}
+    param_descriptions = {}
+    for param in parsed_doc.params:
+        if not param.description:
+            logger.warning(
+                "Missing description for parameter '%s'. Please add a description in the component's "
+                "run() method docstring using the format ':param %s: <description>'. "
+                "This description is used to generate the Tool and helps the LLM understand how to use this parameter.",
+                param.arg_name,
+                param.arg_name,
+            )
+        param_descriptions[param.arg_name] = param.description.strip() if param.description else ""
+    return param_descriptions
 
 
 # ruff: noqa: PLR0912
@@ -84,6 +95,7 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
     origin = get_origin(python_type)
     if origin is list:
         item_type = get_args(python_type)[0] if get_args(python_type) else Any
+        # recursively call create_property_schema for the item type
         items_schema = create_property_schema(item_type, "")
         items_schema.pop("description", None)
         schema = {"type": "array", "description": description, "items": items_schema}
@@ -92,7 +104,7 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
         required_fields = []
 
         if is_dataclass(python_type):
-            # Get the actual class if python_type is an instance
+            # Get the actual class if python_type is an instance otherwise use the type
             cls = python_type if isinstance(python_type, type) else python_type.__class__
             for field in fields(cls):
                 field_description = f"Field '{field.name}' of '{cls.__name__}'."
