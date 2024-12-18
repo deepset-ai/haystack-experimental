@@ -336,7 +336,12 @@ class TestAnthropicChatGenerator:
                 "model": "claude-3-5-sonnet-20240620",
                 "stop_reason": None,
                 "stop_sequence": None,
-                "usage": {"input_tokens": 25, "output_tokens": 1},
+                "usage": {
+                    "input_tokens": 25,
+                    "output_tokens": 1,
+                    "cache_creation_input_tokens": None,
+                    "cache_read_input_tokens": None,
+                },
             },
         }
 
