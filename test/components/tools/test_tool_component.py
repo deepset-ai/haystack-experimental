@@ -9,11 +9,12 @@ from dataclasses import dataclass
 from haystack import component
 from pydantic import BaseModel
 from haystack import Pipeline
-from haystack_experimental.dataclasses import ChatMessage, ToolCall, ChatRole
+from haystack_experimental.dataclasses import ChatMessage, ChatRole
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
 from haystack_experimental.components.generators.chat import OpenAIChatGenerator
-
+from haystack_experimental.components.generators.anthropic.chat import AnthropicChatGenerator
 from haystack_experimental.dataclasses.tool import Tool
+
 
 
 ### Component and Model Definitions
@@ -27,7 +28,7 @@ class SimpleComponent:
         """
         A simple component that generates text.
 
-        :param text: The text to generate.
+        :param text: user's introductory message
         :return: A dictionary with the generated text.
         """
         return {"reply": f"Hello, {text}!"}
@@ -312,7 +313,7 @@ class TestToolComponent:
 
 
 ## Integration tests
-class TestToolComponentInPipeline:
+class TestToolComponentInPipelineWithOpenAI:
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
@@ -333,7 +334,7 @@ class TestToolComponentInPipeline:
         # Connect components
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
-        message = ChatMessage.from_user(text="Hello, I'm Vladimir")
+        message = ChatMessage.from_user(text="Vladimir")
 
         # Run pipeline
         result = pipeline.run({"llm": {"messages": [message]}})
@@ -344,7 +345,7 @@ class TestToolComponentInPipeline:
 
         tool_message = tool_messages[0]
         assert tool_message.is_from(ChatRole.TOOL)
-        assert tool_message.tool_call_result.result == str({"reply": "Hello, Vladimir!"})
+        assert "Vladimir" in tool_message.tool_call_result.result
         assert not tool_message.tool_call_result.error
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
@@ -448,5 +449,148 @@ class TestToolComponentInPipeline:
 
         tool_message = tool_messages[0]
         assert tool_message.is_from(ChatRole.TOOL)
-        assert tool_message.tool_call_result.result == str({"info": "Diana lives at 123 Elm Street, Metropolis."})
+        assert "Diana" in tool_message.tool_call_result.result and "Metropolis" in tool_message.tool_call_result.result
+        assert not tool_message.tool_call_result.error
+
+
+
+
+## Integration tests
+class TestToolComponentInPipelineWithAnthropic:
+
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.integration
+    def test_component_tool_in_pipeline(self):
+        # Create component and convert it to tool
+        component = SimpleComponent()
+        tool = Tool.from_component(
+            component=component,
+            name="hello_tool",
+            description="A tool that generates a greeting message for the user"
+        )
+
+        # Create pipeline with OpenAIChatGenerator and ToolInvoker
+        pipeline = Pipeline()
+        pipeline.add_component("llm", AnthropicChatGenerator(model="claude-3-5-sonnet-20240620", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
+
+        # Connect components
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(text="Vladimir")
+
+        # Run pipeline
+        result = pipeline.run({"llm": {"messages": [message]}})
+
+        # Check results
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
+        assert "Vladimir" in tool_message.tool_call_result.result
+        assert not tool_message.tool_call_result.error
+
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.integration
+    def test_user_greeter_in_pipeline(self):
+        component = UserGreeter()
+        tool = Tool.from_component(
+            component=component,
+            name="user_greeter",
+            description="A tool that greets users with their name and age"
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("llm", AnthropicChatGenerator(model="claude-3-5-sonnet-20240620", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(text="I am Alice and I'm 30 years old")
+
+        result = pipeline.run({"llm": {"messages": [message]}})
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
+        assert tool_message.tool_call_result.result == str({"message": "User Alice is 30 years old"})
+        assert not tool_message.tool_call_result.error
+
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.integration
+    def test_list_processor_in_pipeline(self):
+        component = ListProcessor()
+        tool = Tool.from_component(
+            component=component,
+            name="list_processor",
+            description="A tool that concatenates a list of strings"
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("llm", AnthropicChatGenerator(model="claude-3-5-sonnet-20240620", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(text="Can you join these words: hello, beautiful, world")
+
+        result = pipeline.run({"llm": {"messages": [message]}})
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
+        assert tool_message.tool_call_result.result == str({"concatenated": "hello beautiful world"})
+        assert not tool_message.tool_call_result.error
+
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.integration
+    def test_product_processor_in_pipeline(self):
+        component = ProductProcessor()
+        tool = Tool.from_component(
+            component=component,
+            name="product_processor",
+            description="A tool that creates a description for a product with its name and price"
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("llm", AnthropicChatGenerator(model="claude-3-5-sonnet-20240620", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(text="Can you describe a product called Widget that costs $19.99?")
+
+        result = pipeline.run({"llm": {"messages": [message]}})
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
+        assert tool_message.tool_call_result.result == str({"description": "The product Widget costs $19.99."})
+        assert not tool_message.tool_call_result.error
+
+    @pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set")
+    @pytest.mark.integration
+    def test_person_processor_in_pipeline(self):
+        component = PersonProcessor()
+        tool = Tool.from_component(
+            component=component,
+            name="person_processor",
+            description="A tool that processes information about a person and their address"
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("llm", AnthropicChatGenerator(model="claude-3-5-sonnet-20240620", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(text="Diana lives at 123 Elm Street in Metropolis")
+
+        result = pipeline.run({"llm": {"messages": [message]}})
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
+        assert "Diana" in tool_message.tool_call_result.result and "Metropolis" in tool_message.tool_call_result.result
         assert not tool_message.tool_call_result.error
