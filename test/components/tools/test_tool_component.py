@@ -143,7 +143,7 @@ class TestToolComponent:
             "properties": {
                 "text": {
                     "type": "string",
-                    "description": "The text to generate."
+                    "description": "user's introductory message"
                 }
             },
             "required": ["text"]
