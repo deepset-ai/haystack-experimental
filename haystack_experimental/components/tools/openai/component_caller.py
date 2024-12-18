@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Union, get_args, get_origin
 from docstring_parser import parse
 from haystack import logging
 from haystack.core.component import Component
+from pydantic.fields import FieldInfo
 
 from haystack_experimental.util.utils import is_pydantic_v2_model
 
@@ -62,9 +63,10 @@ def get_param_descriptions(method: Callable) -> Dict[str, str]:
         return {}
 
     parsed_doc = parse(docstring)
-    return {param.arg_name: param.description.strip() for param in parsed_doc.params}
+    return {param.arg_name: param.description.strip() if param.description else "" for param in parsed_doc.params}
 
 
+# ruff: noqa: PLR0912
 def create_property_schema(python_type: Any, description: str, default: Any = None) -> Dict[str, Any]:
     """
     Creates a property schema for a given Python type, recursively if necessary.
@@ -90,18 +92,21 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
         required_fields = []
 
         if is_dataclass(python_type):
-            for field in fields(python_type):
-                field_description = f"Field '{field.name}' of '{python_type.__name__}'."
-                schema["properties"][field.name] = create_property_schema(field.type, field_description)
+            # Get the actual class if python_type is an instance
+            cls = python_type if isinstance(python_type, type) else python_type.__class__
+            for field in fields(cls):
+                field_description = f"Field '{field.name}' of '{cls.__name__}'."
+                if isinstance(schema["properties"], dict):
+                    schema["properties"][field.name] = create_property_schema(field.type, field_description)
                 if field.default is MISSING and field.default_factory is MISSING:
                     required_fields.append(field.name)
         else:  # Pydantic model
-            model_fields = python_type.model_fields
-            for name, field in model_fields.items():
-                field_description = f"Field '{name}' of '{python_type.__name__}'."
-                schema["properties"][name] = create_property_schema(field.annotation, field_description)
-                if field.is_required():
-                    required_fields.append(name)
+            for m_name, m_field in python_type.model_fields.items():
+                field_description = f"Field '{m_name}' of '{python_type.__name__}'."
+                if isinstance(schema["properties"], dict):
+                    schema["properties"][m_name] = create_property_schema(m_field.annotation, field_description)
+                if m_field.is_required():
+                    required_fields.append(m_name)
 
         if required_fields:
             schema["required"] = required_fields

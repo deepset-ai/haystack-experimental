@@ -322,7 +322,7 @@ class TestToolComponentInPipeline:
         tool = Tool.from_component(
             component=component,
             name="hello_tool",
-            description="A tool that generates a greeting message"
+            description="A tool that generates a greeting message for the user"
         )
 
         # Create pipeline with OpenAIChatGenerator and ToolInvoker
@@ -333,7 +333,7 @@ class TestToolComponentInPipeline:
         # Connect components
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
-        message = ChatMessage.from_user(text="Hey I'm Vladimir")
+        message = ChatMessage.from_user(text="Hello, I'm Vladimir")
 
         # Run pipeline
         result = pipeline.run({"llm": {"messages": [message]}})
