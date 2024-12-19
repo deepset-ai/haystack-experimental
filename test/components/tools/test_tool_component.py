@@ -306,11 +306,9 @@ class TestToolComponent:
                                     "type": "string",
                                     "description": "Field 'city' of 'Address'."
                                 }
-                            },
-                            "required": ["street", "city"]
+                            }
                         }
-                    },
-                    "required": ["name", "address"]
+                    }
                 }
             },
             "required": ["person"]
@@ -374,8 +372,7 @@ class TestToolComponent:
                                         "type": "string",
                                         "description": "Field 'mime_type' of 'ByteStream'."
                                     }
-                                },
-                                "required": ["data"]
+                                }
                             },
                             "meta": {
                                 "type": "string",
@@ -410,8 +407,7 @@ class TestToolComponent:
                                             "type": "number"
                                         }
                                     }
-                                },
-                                "required": ["indices", "values"]
+                                }
                             }
                         }
                     }
@@ -598,6 +594,34 @@ class TestToolComponentInPipelineWithOpenAI:
         assert "Hello world" in result["concatenated"]
         assert "Goodbye world" in result["concatenated"]
         assert not tool_message.tool_call_result.error
+
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
+    @pytest.mark.integration
+    def test_lost_in_middle_ranker_in_pipeline(self):
+        from haystack.components.rankers import LostInTheMiddleRanker
+
+        component = LostInTheMiddleRanker(top_k=2)
+        tool = Tool.from_component(
+            component=component,
+            name="lost_in_middle_ranker",
+            description="A tool that ranks documents using the Lost in the Middle algorithm and returns top k results"
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(
+            text="I have three documents with content: 'First doc', 'Middle doc', and 'Last doc'. Rank them top_k=2. Set only content field of the document only. Do not set id, meta, score, embedding, sparse_embedding, dataframe, blob fields."
+        )
+
+        result = pipeline.run({"llm": {"messages": [message]}})
+
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
 
 
 

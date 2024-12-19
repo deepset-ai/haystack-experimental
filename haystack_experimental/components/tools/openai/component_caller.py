@@ -110,8 +110,7 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
                 field_description = f"Field '{field.name}' of '{cls.__name__}'."
                 if isinstance(schema["properties"], dict):
                     schema["properties"][field.name] = create_property_schema(field.type, field_description)
-                if field.default is MISSING and field.default_factory is MISSING:
-                    required_fields.append(field.name)
+
         else:  # Pydantic model
             for m_name, m_field in python_type.model_fields.items():
                 field_description = f"Field '{m_name}' of '{python_type.__name__}'."
