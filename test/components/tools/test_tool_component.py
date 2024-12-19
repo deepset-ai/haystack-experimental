@@ -600,7 +600,7 @@ class TestToolComponentInPipelineWithOpenAI:
     def test_lost_in_middle_ranker_in_pipeline(self):
         from haystack.components.rankers import LostInTheMiddleRanker
 
-        component = LostInTheMiddleRanker(top_k=2)
+        component = LostInTheMiddleRanker()
         tool = Tool.from_component(
             component=component,
             name="lost_in_middle_ranker",
