@@ -422,6 +422,32 @@ class TestToolComponent:
         assert "concatenated" in result
         assert result["concatenated"] == "First document\nSecond document"
 
+    def test_from_component_with_non_component(self):
+        class NotAComponent:
+            def foo(self, text: str):
+                return {"reply": f"Hello, {text}!"}
+
+        not_a_component = NotAComponent()
+
+        with pytest.raises(ValueError):
+            Tool.from_component(
+                component=not_a_component,
+                name="invalid_tool",
+                description="This should fail"
+            )
+
+    def test_from_component_for_pipeline_component(self):
+        pipeline = Pipeline()
+        component = SimpleComponent()
+        pipeline.add_component("component", component)
+
+        with pytest.raises(ValueError):
+            Tool.from_component(
+                component=component,
+                name="invalid_tool",
+                description="This should fail"
+            )
+
 
 ## Integration tests
 class TestToolComponentInPipelineWithOpenAI:

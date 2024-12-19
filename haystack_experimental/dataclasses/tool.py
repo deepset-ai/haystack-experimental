@@ -214,6 +214,19 @@ class Tool:
         :returns: The Tool created from the Component.
         :raises ValueError: If the component is invalid or schema generation fails.
         """
+
+        if not isinstance(component, Component):
+            raise ValueError(
+                f"{component} is not a Haystack component!" "Can only create a Tool from a Haystack component instance."
+            )
+
+        if getattr(component, "__haystack_added_to_pipeline__", None):
+            msg = (
+                "Component has been added in a Pipeline and can't be used to create a Tool. "
+                "Create Tool from a non-pipeline component instead."
+            )
+            raise ValueError(msg)
+
         from haystack_experimental.components.tools.openai.component_caller import extract_component_parameters
 
         # Extract the parameters schema from the component
