@@ -228,30 +228,23 @@ class Tool:
             """
             converted_kwargs = {}
             input_sockets = component.__haystack_input__._sockets_dict
-
             for param_name, param_value in kwargs.items():
-                socket = input_sockets[param_name]
-                param_type = socket.type
-                origin = get_origin(param_type) or param_type
+                param_type = input_sockets[param_name].type
 
-                if origin is list:
-                    target_type = get_args(param_type)[0]
-                    values_to_convert = param_value
+                # Check if the type (or list element type) has from_dict
+                target_type = get_args(param_type)[0] if get_origin(param_type) is list else param_type
+                if hasattr(target_type, "from_dict"):
+                    if isinstance(param_value, list):
+                        param_value = [target_type.from_dict(item) for item in param_value if isinstance(item, dict)]
+                    elif isinstance(param_value, dict):
+                        param_value = target_type.from_dict(param_value)
                 else:
-                    target_type = param_type
-                    values_to_convert = [param_value]
-
-                if isinstance(param_value, dict):
-                    # TypeAdapter handles dict conversion for both dataclasses and Pydantic models
-                    type_adapter = TypeAdapter(target_type)
-                    converted = [
-                        type_adapter.validate_python(item) for item in values_to_convert if isinstance(item, dict)
-                    ]
-                    param_value = converted if origin is list else converted[0]
+                    # Let TypeAdapter handle both single values and lists
+                    type_adapter = TypeAdapter(param_type)
+                    param_value = type_adapter.validate_python(param_value)
 
                 converted_kwargs[param_name] = param_value
-
-            logger.debug(f"Invoking component with kwargs: {converted_kwargs}")
+            logger.debug(f"Invoking component {type(component)} with kwargs: {converted_kwargs}")
             return component.run(**converted_kwargs)
 
         # Return a new Tool instance with the component invoker as the function to be called

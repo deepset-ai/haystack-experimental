@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import os
 import pytest
 from typing import Dict, List, Optional, Any
@@ -9,6 +10,7 @@ from dataclasses import dataclass
 from haystack import component
 from pydantic import BaseModel
 from haystack import Pipeline
+from haystack.dataclasses import Document
 from haystack_experimental.dataclasses import ChatMessage, ChatRole
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
 from haystack_experimental.components.generators.chat import OpenAIChatGenerator
@@ -123,6 +125,21 @@ class PersonProcessor:
         return {
             "info": f"{person.name} lives at {person.address.street}, {person.address.city}."
         }
+
+
+@component
+class DocumentProcessor:
+    """A component that processes a list of Documents."""
+
+    @component.output_types(concatenated=str)
+    def run(self, documents: List[Document]) -> Dict[str, str]:
+        """
+        Concatenates the content of multiple documents with newlines.
+
+        :param documents: List of Documents whose content will be concatenated
+        :returns: Dictionary containing the concatenated document contents
+        """
+        return {"concatenated": '\n'.join(doc.content for doc in documents)}
 
 
 ## Unit tests
@@ -311,6 +328,104 @@ class TestToolComponent:
         assert "info" in result
         assert result["info"] == "Diana lives at 123 Elm Street, Metropolis."
 
+    def test_from_component_with_document_list(self):
+        component = DocumentProcessor()
+
+        tool = Tool.from_component(
+            component=component,
+            name="document_processor",
+            description="A tool that concatenates document contents"
+        )
+
+        assert tool.parameters == {
+            "type": "object",
+            "properties": {
+                "documents": {
+                    "type": "array",
+                    "description": "List of Documents whose content will be concatenated",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "description": "Field 'id' of 'Document'."
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Field 'content' of 'Document'."
+                            },
+                            "dataframe": {
+                                "type": "string",
+                                "description": "Field 'dataframe' of 'Document'."
+                            },
+                            "blob": {
+                                "type": "object",
+                                "description": "Field 'blob' of 'Document'.",
+                                "properties": {
+                                    "data": {
+                                        "type": "string",
+                                        "description": "Field 'data' of 'ByteStream'."
+                                    },
+                                    "meta": {
+                                        "type": "string",
+                                        "description": "Field 'meta' of 'ByteStream'."
+                                    },
+                                    "mime_type": {
+                                        "type": "string",
+                                        "description": "Field 'mime_type' of 'ByteStream'."
+                                    }
+                                },
+                                "required": ["data"]
+                            },
+                            "meta": {
+                                "type": "string",
+                                "description": "Field 'meta' of 'Document'."
+                            },
+                            "score": {
+                                "type": "number",
+                                "description": "Field 'score' of 'Document'."
+                            },
+                            "embedding": {
+                                "type": "array",
+                                "description": "Field 'embedding' of 'Document'.",
+                                "items": {
+                                    "type": "number"
+                                }
+                            },
+                            "sparse_embedding": {
+                                "type": "object",
+                                "description": "Field 'sparse_embedding' of 'Document'.",
+                                "properties": {
+                                    "indices": {
+                                        "type": "array",
+                                        "description": "Field 'indices' of 'SparseEmbedding'.",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "values": {
+                                        "type": "array",
+                                        "description": "Field 'values' of 'SparseEmbedding'.",
+                                        "items": {
+                                            "type": "number"
+                                        }
+                                    }
+                                },
+                                "required": ["indices", "values"]
+                            }
+                        }
+                    }
+                }
+            },
+            "required": ["documents"]
+        }
+
+        # Test tool invocation
+        result = tool.invoke(documents=[{"content": "First document"}, {"content": "Second document"}])
+        assert isinstance(result, dict)
+        assert "concatenated" in result
+        assert result["concatenated"] == "First document\nSecond document"
+
 
 ## Integration tests
 class TestToolComponentInPipelineWithOpenAI:
@@ -450,6 +565,38 @@ class TestToolComponentInPipelineWithOpenAI:
         tool_message = tool_messages[0]
         assert tool_message.is_from(ChatRole.TOOL)
         assert "Diana" in tool_message.tool_call_result.result and "Metropolis" in tool_message.tool_call_result.result
+        assert not tool_message.tool_call_result.error
+
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
+    @pytest.mark.integration
+    def test_document_processor_in_pipeline(self):
+        component = DocumentProcessor()
+        tool = Tool.from_component(
+            component=component,
+            name="document_processor",
+            description="A tool that concatenates the content of multiple documents"
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool], convert_result_to_json_string=True))
+        pipeline.connect("llm.replies", "tool_invoker.messages")
+
+        message = ChatMessage.from_user(
+            text="I have two documents. First one says 'Hello world' and second one says 'Goodbye world'. Can you concatenate them?"
+        )
+
+        result = pipeline.run({"llm": {"messages": [message]}})
+
+        tool_messages = result["tool_invoker"]["tool_messages"]
+        assert len(tool_messages) == 1
+
+        tool_message = tool_messages[0]
+        assert tool_message.is_from(ChatRole.TOOL)
+        result = json.loads(tool_message.tool_call_result.result)
+        assert "concatenated" in result
+        assert "Hello world" in result["concatenated"]
+        assert "Goodbye world" in result["concatenated"]
         assert not tool_message.tool_call_result.error
 
 
