@@ -31,26 +31,33 @@ class OpenAPIKwargs(TypedDict, total=False):
     allowed_operations: List[str]  # A list of operations to include in the OpenAPI client.
 
 
-def create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, **kwargs: OpenAPIKwargs) -> "Tool":
+def create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, **kwargs) -> "Tool":
     """
     Create a Tool instance from an OpenAPI specification and a specific operation name.
 
-    :param spec: OpenAPI specification as URL, file path, or string content
-    :param operation_name: Name of the operation to create a tool for
+    :param spec: OpenAPI specification as URL, file path, or string content.
+    :param operation_name: Name of the operation to create a tool for.
     :param kwargs: Additional configuration options for the OpenAPI client:
-        - credentials: API credentials (e.g., API key, auth token)
-        - request_sender: Custom callable to send HTTP requests
-    :returns: Tool instance for the specified operation
-    :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
+        - credentials: API credentials (e.g., API key, auth token).
+        - request_sender: Custom callable to send HTTP requests.
+    :returns: Tool instance for the specified operation.
+    :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded.
     """
-    # Create a new OpenAPIKwargs with the operation name
-    config = OpenAPIKwargs(allowed_operations=[operation_name], credentials=kwargs.get("credentials"))
+    # Create a config dictionary with the necessary parameters
+    config: Dict[str, Any] = {
+        "allowed_operations": [operation_name],
+        "request_sender": kwargs.get("request_sender"),
+        "credentials": kwargs.get("credentials"),
+    }
+    # Remove None values from the dictionary
+    config = {k: v for k, v in config.items() if v is not None}
 
-    tools = create_tools_from_openapi_spec(spec=spec, kwargs=config)
-    # ensure we have only one tool
+    tools = create_tools_from_openapi_spec(spec=spec, **config)
+
+    # Ensure we have only one tool
     if len(tools) != 1:
         msg = (
-            f"Couldn't create a tool from OpenAPI spec '{spec}' for operation '{operation_name}'"
+            f"Couldn't create a tool from OpenAPI spec '{spec}' for operation '{operation_name}'. "
             "Please check that the operation name is correct and that the OpenAPI spec is valid."
         )
         raise ValueError(msg)
@@ -76,7 +83,6 @@ def create_tools_from_openapi_spec(spec: Union[str, Path], **kwargs: OpenAPIKwar
     :raises ValueError: If the OpenAPI specification is not valid or the operation name is not found
     """
     openapi_llm_import.check()
-
     # Load the OpenAPI specification
     if isinstance(spec, str):
         if spec.startswith(("http://", "https://")):
