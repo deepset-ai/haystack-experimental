@@ -5,7 +5,7 @@
 import inspect
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
