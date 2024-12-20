@@ -4,7 +4,8 @@
 
 import inspect
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict
+from pathlib import Path
+from typing import Any, Callable, Dict, Union
 
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
@@ -195,6 +196,23 @@ class Tool:
                 schema["properties"][name]["description"] = description
 
         return Tool(name=function.__name__, description=tool_description, parameters=schema, function=function)
+
+    @classmethod
+    def from_openapi(cls, spec: Union[str, Path], operation_name: str, **kwargs) -> "Tool":
+        """
+        Create a Tool instance from an OpenAPI specification and a specific operation name.
+
+        :param spec: OpenAPI specification as URL, file path, or string content
+        :param operation_name: Name of the operation to create a tool for
+        :param kwargs: Additional configuration options for the OpenAPI client:
+            - credentials: API credentials (e.g., API key, auth token)
+            - request_sender: Custom callable to send HTTP requests
+        :returns: Tool instance for the specified operation
+        :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
+        """
+        from haystack_experimental.tools.openapi import create_tool_from_openapi_spec
+
+        return create_tool_from_openapi_spec(spec=spec, operation_name=operation_name, **kwargs)
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):

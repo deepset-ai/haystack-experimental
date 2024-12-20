@@ -31,6 +31,33 @@ class OpenAPIKwargs(TypedDict, total=False):
     allowed_operations: List[str]  # A list of operations to include in the OpenAPI client.
 
 
+def create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, **kwargs: OpenAPIKwargs) -> "Tool":
+    """
+    Create a Tool instance from an OpenAPI specification and a specific operation name.
+
+    :param spec: OpenAPI specification as URL, file path, or string content
+    :param operation_name: Name of the operation to create a tool for
+    :param kwargs: Additional configuration options for the OpenAPI client:
+        - credentials: API credentials (e.g., API key, auth token)
+        - request_sender: Custom callable to send HTTP requests
+    :returns: Tool instance for the specified operation
+    :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
+    """
+    # Create a new OpenAPIKwargs with the operation name
+    config = OpenAPIKwargs(allowed_operations=[operation_name], credentials=kwargs.get("credentials"))
+
+    tools = create_tools_from_openapi_spec(spec=spec, kwargs=config)
+    # ensure we have only one tool
+    if len(tools) != 1:
+        msg = (
+            f"Couldn't create a tool from OpenAPI spec '{spec}' for operation '{operation_name}'"
+            "Please check that the operation name is correct and that the OpenAPI spec is valid."
+        )
+        raise ValueError(msg)
+
+    return tools[0]
+
+
 def create_tools_from_openapi_spec(spec: Union[str, Path], **kwargs: OpenAPIKwargs) -> List["Tool"]:
     """
     Create Tool instances from an OpenAPI specification.
@@ -46,7 +73,7 @@ def create_tools_from_openapi_spec(spec: Union[str, Path], **kwargs: OpenAPIKwar
         - request_sender: Custom callable to send HTTP requests
         - allowed_operations: List of operations from the OpenAPI spec to include
     :returns: List of Tool instances configured to invoke the OpenAPI service endpoints
-    :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
+    :raises ValueError: If the OpenAPI specification is not valid or the operation name is not found
     """
     openapi_llm_import.check()
 
@@ -61,7 +88,7 @@ def create_tools_from_openapi_spec(spec: Union[str, Path], **kwargs: OpenAPIKwar
     elif isinstance(spec, Path):
         openapi_spec = OpenAPISpecification.from_file(str(spec))
     else:
-        raise ValueError("spec must be a string (URL, file path, or content) or a Path object")
+        raise ValueError("OpenAPI spec must be a string (URL, file path, or content) or a Path object")
 
     # Create client configuration
     config = ClientConfig(openapi_spec=openapi_spec, **kwargs)

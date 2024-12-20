@@ -7,7 +7,8 @@
 import os
 import pytest
 
-from haystack_experimental.components.tools.openapi import OpenAPIKwargs, create_tools_from_openapi_spec
+from haystack_experimental.tools.openapi import OpenAPIKwargs, create_tools_from_openapi_spec
+from haystack_experimental.dataclasses.tool import Tool
 
 
 class TestToolOpenAPI:
@@ -121,3 +122,79 @@ class TestToolOpenAPI:
         )
         tools = create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
         assert len(tools) == 0
+
+    @pytest.mark.skipif(
+        not os.getenv("SERPERDEV_API_KEY"),
+        reason="SERPERDEV_API_KEY environment variable not set"
+    )
+    @pytest.mark.skipif(
+        not os.getenv("OPENAI_API_KEY"),
+        reason="OPENAI_API_KEY environment variable not set"
+    )
+    def test_tool_from_openapi_serperdev(self):
+        """
+        Test creating a Tool using Tool.from_openapi with SerperDev's OpenAPI specification.
+
+        Verifies that a Tool can be properly created using the Tool.from_openapi method with
+        all supported ways of passing configuration.
+        """
+        serper_api_key = os.getenv("SERPERDEV_API_KEY")
+        assert serper_api_key is not None
+
+        # Direct kwargs usage
+        tool = Tool.from_openapi(
+            spec="https://bit.ly/serperdev_openapi",
+            operation_name="search",
+            credentials=serper_api_key
+        )
+        assert tool.name == "search"
+        assert "search" in tool.description.lower()
+
+        # Constructor-style creation and unpacking
+        config = OpenAPIKwargs(
+            credentials=serper_api_key
+        )
+        tool = Tool.from_openapi(
+            spec="https://bit.ly/serperdev_openapi",
+            operation_name="search",
+            **config
+        )
+        assert tool.name == "search"
+        assert "search" in tool.description.lower()
+
+        # Dict-style creation and unpacking
+        config = OpenAPIKwargs(**{
+            "credentials": serper_api_key
+        })
+        tool = Tool.from_openapi(
+            spec="https://bit.ly/serperdev_openapi",
+            operation_name="search",
+            **config
+        )
+        assert tool.name == "search"
+        assert "search" in tool.description.lower()
+
+    @pytest.mark.skipif(
+        not os.getenv("SERPERDEV_API_KEY"),
+        reason="SERPERDEV_API_KEY environment variable not set"
+    )
+    @pytest.mark.skipif(
+        not os.getenv("OPENAI_API_KEY"),
+        reason="OPENAI_API_KEY environment variable not set"
+    )
+    def test_tool_from_openapi_serperdev_invalid_operation(self):
+        """
+        Test Tool.from_openapi with an invalid operation name.
+
+        Verifies that attempting to create a Tool with a non-existent operation
+        raises an appropriate error.
+        """
+        serper_api_key = os.getenv("SERPERDEV_API_KEY")
+        assert serper_api_key is not None
+
+        with pytest.raises(ValueError):
+            Tool.from_openapi(
+                spec="https://bit.ly/serperdev_openapi",
+                operation_name="super-search",
+                credentials=serper_api_key
+            )
