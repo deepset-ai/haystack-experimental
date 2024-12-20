@@ -7,7 +7,7 @@
 import os
 import pytest
 
-from haystack_experimental.tools.openapi import OpenAPIKwargs, create_tools_from_openapi_spec
+from haystack_experimental.tools.openapi import OpenAPIKwargs, _create_tools_from_openapi_spec
 from haystack_experimental.dataclasses.tool import Tool
 
 
@@ -34,7 +34,7 @@ class TestToolOpenAPI:
         assert serper_api_key is not None
 
         # Direct kwargs usage
-        tools = create_tools_from_openapi_spec(
+        tools = _create_tools_from_openapi_spec(
             spec="https://bit.ly/serperdev_openapi",
             credentials=serper_api_key
         )
@@ -47,7 +47,7 @@ class TestToolOpenAPI:
         config = OpenAPIKwargs(
             credentials=serper_api_key
         )
-        tools = create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
+        tools = _create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
         assert len(tools) >= 1
         tool = tools[0]
         assert tool.name == "search"
@@ -57,7 +57,7 @@ class TestToolOpenAPI:
         config = OpenAPIKwargs(**{
             "credentials": serper_api_key
         })
-        tools = create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
+        tools = _create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
         assert len(tools) >= 1
         tool = tools[0]
         assert tool.name == "search"
@@ -83,7 +83,7 @@ class TestToolOpenAPI:
         assert serper_api_key is not None
 
         # Direct kwargs usage
-        tools = create_tools_from_openapi_spec(
+        tools = _create_tools_from_openapi_spec(
             spec="https://bit.ly/serperdev_openapi",
             credentials=serper_api_key,
             allowed_operations=["search"]
@@ -98,7 +98,7 @@ class TestToolOpenAPI:
             credentials=serper_api_key,
             allowed_operations=["search"]
         )
-        tools = create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
+        tools = _create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
         assert len(tools) >= 1
         tool = tools[0]
         assert tool.name == "search"
@@ -109,7 +109,7 @@ class TestToolOpenAPI:
             "credentials": serper_api_key,
             "allowed_operations": ["search"]
         })
-        tools = create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
+        tools = _create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
         assert len(tools) >= 1
         tool = tools[0]
         assert tool.name == "search"
@@ -120,7 +120,7 @@ class TestToolOpenAPI:
             credentials=serper_api_key,
             allowed_operations=["super-search"]
         )
-        tools = create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
+        tools = _create_tools_from_openapi_spec(spec="https://bit.ly/serperdev_openapi", **config)
         assert len(tools) == 0
 
     @pytest.mark.skipif(
