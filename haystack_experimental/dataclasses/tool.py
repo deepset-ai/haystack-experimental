@@ -107,7 +107,7 @@ class Tool:
         return cls(**data)
 
     @classmethod
-    def from_function(cls, function: Callable, docstring_as_desc: bool = True) -> "Tool":
+    def from_function(cls, function: Callable, name: Optional[str] = None, description: Optional[str] = None) -> "Tool":
         """
         Create a Tool instance from a function.
 
@@ -145,8 +145,11 @@ class Tool:
             The function to be converted into a Tool.
             The function must include type hints for all parameters.
             If a parameter is annotated using `typing.Annotated`, its metadata will be used as parameter description.
-        :param docstring_as_desc:
-            Whether to use the function's docstring as the tool description.
+        :param name:
+            The name of the tool. If not provided, the name of the function will be used.
+        :param description:
+            The description of the tool. If not provided, the docstring of the function will be used.
+            To intentionally leave the description empty, pass an empty string.
 
         :returns:
             The Tool created from the function.
@@ -156,9 +159,8 @@ class Tool:
         :raises SchemaGenerationError:
             If there is an error generating the JSON schema for the Tool.
         """
-        tool_description = ""
-        if docstring_as_desc and function.__doc__:
-            tool_description = function.__doc__
+
+        tool_description = description if description is not None else (function.__doc__ or "")
 
         signature = inspect.signature(function)
 
@@ -166,17 +168,17 @@ class Tool:
         fields: Dict[str, Any] = {}
         descriptions = {}
 
-        for name, param in signature.parameters.items():
+        for param_name, param in signature.parameters.items():
             if param.annotation is param.empty:
-                raise ValueError(f"Function '{function.__name__}': parameter '{name}' does not have a type hint.")
+                raise ValueError(f"Function '{function.__name__}': parameter '{param_name}' does not have a type hint.")
 
             # if the parameter has not a default value, Pydantic requires an Ellipsis (...)
             # to explicitly indicate that the parameter is required
             default = param.default if param.default is not param.empty else ...
-            fields[name] = (param.annotation, default)
+            fields[param_name] = (param.annotation, default)
 
             if hasattr(param.annotation, "__metadata__"):
-                descriptions[name] = param.annotation.__metadata__[0]
+                descriptions[param_name] = param.annotation.__metadata__[0]
 
         # create Pydantic model and generate JSON schema
         try:
@@ -191,11 +193,11 @@ class Tool:
         _remove_title_from_schema(schema)
 
         # add parameters descriptions to the schema
-        for name, description in descriptions.items():
-            if name in schema["properties"]:
-                schema["properties"][name]["description"] = description
+        for param_name, param_description in descriptions.items():
+            if param_name in schema["properties"]:
+                schema["properties"][param_name]["description"] = param_description
 
-        return Tool(name=function.__name__, description=tool_description, parameters=schema, function=function)
+        return Tool(name=name or function.__name__, description=tool_description, parameters=schema, function=function)
 
     @classmethod
     def from_openapi(cls, spec: Union[str, Path], operation_name: str, **kwargs) -> "Tool":

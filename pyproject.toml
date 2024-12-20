@@ -69,7 +69,7 @@ extra-dependencies = [
   "opensearch-haystack",
   "opensearch-py[async]",
   # LLMMetadataExtractor dependencies
-  "amazon-bedrock-haystack>=1.0.2",
+  "amazon-bedrock-haystack>=1.1.1",
   "google-vertex-haystack>=2.0.0",
   # OpenAPI as a Tool
   "openapi-llm",
