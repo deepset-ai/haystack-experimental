@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def extract_component_parameters(component: Component) -> Dict[str, Any]:
     """
-    Extracts parameters from a Haystack component and converts them to OpenAI tools JSON format.
+    Extracts parameters from a component's run method and converts them to OpenAI tools definition format.
 
     :param component: The component to extract parameters from.
     :returns: A dictionary representing the component's input parameters schema.
@@ -38,7 +38,7 @@ def extract_component_parameters(component: Component) -> Dict[str, Any]:
 
         properties[input_name] = property_schema
 
-        # Use socket.is_mandatory() to check if the input is required
+        # Use socket.is_mandatory to check if the input is required
         if socket.is_mandatory:
             required.append(input_name)
 
@@ -76,12 +76,6 @@ def get_param_descriptions(method: Callable) -> Dict[str, str]:
     return param_descriptions
 
 
-class UnsupportedTypeError(Exception):
-    """Raised when a type is not supported for schema generation."""
-
-    pass
-
-
 def is_nullable_type(python_type: Any) -> bool:
     """
     Checks if the type is a Union with NoneType (i.e., Optional).
@@ -95,7 +89,71 @@ def is_nullable_type(python_type: Any) -> bool:
     return False
 
 
-# ruff: noqa: PLR0912
+def _create_list_schema(item_type: Any, description: str) -> Dict[str, Any]:
+    """
+    Creates a schema for a list type.
+
+    :param item_type: The type of items in the list.
+    :param description: The description of the list.
+    :returns: A dictionary representing the list schema.
+    """
+    items_schema = create_property_schema(item_type, "")
+    items_schema.pop("description", None)
+    return {"type": "array", "description": description, "items": items_schema}
+
+
+def _create_dataclass_schema(python_type: Any, description: str) -> Dict[str, Any]:
+    """
+    Creates a schema for a dataclass.
+
+    :param python_type: The dataclass type.
+    :param description: The description of the dataclass.
+    :returns: A dictionary representing the dataclass schema.
+    """
+    schema = {"type": "object", "description": description, "properties": {}}
+    cls = python_type if isinstance(python_type, type) else python_type.__class__
+    for field in fields(cls):
+        field_description = f"Field '{field.name}' of '{cls.__name__}'."
+        if isinstance(schema["properties"], dict):
+            schema["properties"][field.name] = create_property_schema(field.type, field_description)
+    return schema
+
+
+def _create_pydantic_schema(python_type: Any, description: str) -> Dict[str, Any]:
+    """
+    Creates a schema for a Pydantic model.
+
+    :param python_type: The Pydantic model type.
+    :param description: The description of the model.
+    :returns: A dictionary representing the Pydantic model schema.
+    """
+    schema = {"type": "object", "description": description, "properties": {}}
+    required_fields = []
+
+    for m_name, m_field in python_type.model_fields.items():
+        field_description = f"Field '{m_name}' of '{python_type.__name__}'."
+        if isinstance(schema["properties"], dict):
+            schema["properties"][m_name] = create_property_schema(m_field.annotation, field_description)
+        if m_field.is_required():
+            required_fields.append(m_name)
+
+    if required_fields:
+        schema["required"] = required_fields
+    return schema
+
+
+def _create_basic_type_schema(python_type: Any, description: str) -> Dict[str, Any]:
+    """
+    Creates a schema for a basic Python type.
+
+    :param python_type: The Python type.
+    :param description: The description of the type.
+    :returns: A dictionary representing the basic type schema.
+    """
+    type_mapping = {str: "string", int: "integer", float: "number", bool: "boolean", dict: "object"}
+    return {"type": type_mapping.get(python_type, "string"), "description": description}
+
+
 def create_property_schema(python_type: Any, description: str, default: Any = None) -> Dict[str, Any]:
     """
     Creates a property schema for a given Python type, recursively if necessary.
@@ -112,37 +170,13 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
 
     origin = get_origin(python_type)
     if origin is list:
-        item_type = get_args(python_type)[0] if get_args(python_type) else Any
-        # recursively call create_property_schema for the item type
-        items_schema = create_property_schema(item_type, "")
-        items_schema.pop("description", None)
-        schema = {"type": "array", "description": description, "items": items_schema}
-    elif is_dataclass(python_type) or is_pydantic_v2_model(python_type):
-        schema = {"type": "object", "description": description, "properties": {}}
-        required_fields = []
-
-        if is_dataclass(python_type):
-            # Get the actual class if python_type is an instance otherwise use the type
-            cls = python_type if isinstance(python_type, type) else python_type.__class__
-            for field in fields(cls):
-                field_description = f"Field '{field.name}' of '{cls.__name__}'."
-                if isinstance(schema["properties"], dict):
-                    schema["properties"][field.name] = create_property_schema(field.type, field_description)
-
-        else:  # Pydantic model
-            for m_name, m_field in python_type.model_fields.items():
-                field_description = f"Field '{m_name}' of '{python_type.__name__}'."
-                if isinstance(schema["properties"], dict):
-                    schema["properties"][m_name] = create_property_schema(m_field.annotation, field_description)
-                if m_field.is_required():
-                    required_fields.append(m_name)
-
-        if required_fields:
-            schema["required"] = required_fields
+        schema = _create_list_schema(get_args(python_type)[0] if get_args(python_type) else Any, description)
+    elif is_dataclass(python_type):
+        schema = _create_dataclass_schema(python_type, description)
+    elif is_pydantic_v2_model(python_type):
+        schema = _create_pydantic_schema(python_type, description)
     else:
-        # Basic types
-        type_mapping = {str: "string", int: "integer", float: "number", bool: "boolean", dict: "object"}
-        schema = {"type": type_mapping.get(python_type, "string"), "description": description}
+        schema = _create_basic_type_schema(python_type, description)
 
     if default is not None:
         schema["default"] = default
