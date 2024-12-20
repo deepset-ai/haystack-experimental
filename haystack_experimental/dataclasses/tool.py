@@ -12,6 +12,8 @@ from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
 from pydantic import TypeAdapter, create_model
 
+from haystack_experimental.tools import extract_component_parameters
+
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
     from jsonschema.exceptions import SchemaError
@@ -216,18 +218,11 @@ class Tool:
         """
 
         if not isinstance(component, Component):
-            raise ValueError(
-                f"{component} is not a Haystack component!" "Can only create a Tool from a Haystack component instance."
+            message = (
+                f"Object {component!r} is not a Haystack component. "
+                "Use this method to create a Tool only with Haystack component instances."
             )
-
-        if getattr(component, "__haystack_added_to_pipeline__", None):
-            msg = (
-                "Component has been added in a Pipeline and can't be used to create a Tool. "
-                "Create Tool from a non-pipeline component instead."
-            )
-            raise ValueError(msg)
-
-        from haystack_experimental.components.tools.openai.component_caller import extract_component_parameters
+            raise ValueError(message)
 
         # Extract the parameters schema from the component
         parameters = extract_component_parameters(component)

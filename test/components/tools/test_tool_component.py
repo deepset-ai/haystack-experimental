@@ -30,7 +30,7 @@ class SimpleComponent:
         """
         A simple component that generates text.
 
-        :param text: user's introductory message
+        :param text: user's name
         :return: A dictionary with the generated text.
         """
         return {"reply": f"Hello, {text}!"}
@@ -160,7 +160,7 @@ class TestToolComponent:
             "properties": {
                 "text": {
                     "type": "string",
-                    "description": "user's introductory message"
+                    "description": "user's name"
                 }
             },
             "required": ["text"]
@@ -436,18 +436,6 @@ class TestToolComponent:
                 description="This should fail"
             )
 
-    def test_from_component_for_pipeline_component(self):
-        pipeline = Pipeline()
-        component = SimpleComponent()
-        pipeline.add_component("component", component)
-
-        with pytest.raises(ValueError):
-            Tool.from_component(
-                component=component,
-                name="invalid_tool",
-                description="This should fail"
-            )
-
 
 ## Integration tests
 class TestToolComponentInPipelineWithOpenAI:
@@ -605,7 +593,7 @@ class TestToolComponentInPipelineWithOpenAI:
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
         message = ChatMessage.from_user(
-            text="I have two documents. First one says 'Hello world' and second one says 'Goodbye world'. Can you concatenate them?"
+            text="Concatenate these documents: First one says 'Hello world' and second one says 'Goodbye world'. Set only content field of the document only. Do not set id, meta, score, embedding, sparse_embedding, dataframe, blob fields."
         )
 
         result = pipeline.run({"llm": {"messages": [message]}})

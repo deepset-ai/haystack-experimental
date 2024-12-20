@@ -2,14 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import MISSING, fields, is_dataclass
+from dataclasses import fields, is_dataclass
 from inspect import getdoc
 from typing import Any, Callable, Dict, Union, get_args, get_origin
 
 from docstring_parser import parse
 from haystack import logging
 from haystack.core.component import Component
-from pydantic.fields import FieldInfo
 
 from haystack_experimental.util.utils import is_pydantic_v2_model
 
@@ -77,6 +76,25 @@ def get_param_descriptions(method: Callable) -> Dict[str, str]:
     return param_descriptions
 
 
+class UnsupportedTypeError(Exception):
+    """Raised when a type is not supported for schema generation."""
+
+    pass
+
+
+def is_nullable_type(python_type: Any) -> bool:
+    """
+    Checks if the type is a Union with NoneType (i.e., Optional).
+
+    :param python_type: The Python type to check.
+    :returns: True if the type is a Union with NoneType, False otherwise.
+    """
+    origin = get_origin(python_type)
+    if origin is Union:
+        return type(None) in get_args(python_type)
+    return False
+
+
 # ruff: noqa: PLR0912
 def create_property_schema(python_type: Any, description: str, default: Any = None) -> Dict[str, Any]:
     """
@@ -130,16 +148,3 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
         schema["default"] = default
 
     return schema
-
-
-def is_nullable_type(python_type: Any) -> bool:
-    """
-    Checks if the type is a Union with NoneType (i.e., Optional).
-
-    :param python_type: The Python type to check.
-    :returns: True if the type is a Union with NoneType, False otherwise.
-    """
-    origin = get_origin(python_type)
-    if origin is Union:
-        return type(None) in get_args(python_type)
-    return False
