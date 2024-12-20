@@ -15,7 +15,7 @@ from haystack_experimental.util.utils import is_pydantic_v2_model
 logger = logging.getLogger(__name__)
 
 
-def create_tool_parameters_schema(component: Component) -> Dict[str, Any]:
+def _create_tool_parameters_schema(component: Component) -> Dict[str, Any]:
     """
     Creates an OpenAI tools schema from a component's run method parameters.
 
@@ -25,14 +25,14 @@ def create_tool_parameters_schema(component: Component) -> Dict[str, Any]:
     properties = {}
     required = []
 
-    param_descriptions = get_param_descriptions(component.run)
+    param_descriptions = _get_param_descriptions(component.run)
 
     for input_name, socket in component.__haystack_input__._sockets_dict.items():
         input_type = socket.type
         description = param_descriptions.get(input_name, f"Input '{input_name}' for the component.")
 
         try:
-            property_schema = create_property_schema(input_type, description)
+            property_schema = _create_property_schema(input_type, description)
         except ValueError as e:
             raise ValueError(f"Error processing input '{input_name}': {e}")
 
@@ -50,7 +50,7 @@ def create_tool_parameters_schema(component: Component) -> Dict[str, Any]:
     return parameters_schema
 
 
-def get_param_descriptions(method: Callable) -> Dict[str, str]:
+def _get_param_descriptions(method: Callable) -> Dict[str, str]:
     """
     Extracts parameter descriptions from the method's docstring using docstring_parser.
 
@@ -76,7 +76,7 @@ def get_param_descriptions(method: Callable) -> Dict[str, str]:
     return param_descriptions
 
 
-def is_nullable_type(python_type: Any) -> bool:
+def _is_nullable_type(python_type: Any) -> bool:
     """
     Checks if the type is a Union with NoneType (i.e., Optional).
 
@@ -97,7 +97,7 @@ def _create_list_schema(item_type: Any, description: str) -> Dict[str, Any]:
     :param description: The description of the list.
     :returns: A dictionary representing the list schema.
     """
-    items_schema = create_property_schema(item_type, "")
+    items_schema = _create_property_schema(item_type, "")
     items_schema.pop("description", None)
     return {"type": "array", "description": description, "items": items_schema}
 
@@ -115,7 +115,7 @@ def _create_dataclass_schema(python_type: Any, description: str) -> Dict[str, An
     for field in fields(cls):
         field_description = f"Field '{field.name}' of '{cls.__name__}'."
         if isinstance(schema["properties"], dict):
-            schema["properties"][field.name] = create_property_schema(field.type, field_description)
+            schema["properties"][field.name] = _create_property_schema(field.type, field_description)
     return schema
 
 
@@ -133,7 +133,7 @@ def _create_pydantic_schema(python_type: Any, description: str) -> Dict[str, Any
     for m_name, m_field in python_type.model_fields.items():
         field_description = f"Field '{m_name}' of '{python_type.__name__}'."
         if isinstance(schema["properties"], dict):
-            schema["properties"][m_name] = create_property_schema(m_field.annotation, field_description)
+            schema["properties"][m_name] = _create_property_schema(m_field.annotation, field_description)
         if m_field.is_required():
             required_fields.append(m_name)
 
@@ -154,7 +154,7 @@ def _create_basic_type_schema(python_type: Any, description: str) -> Dict[str, A
     return {"type": type_mapping.get(python_type, "string"), "description": description}
 
 
-def create_property_schema(python_type: Any, description: str, default: Any = None) -> Dict[str, Any]:
+def _create_property_schema(python_type: Any, description: str, default: Any = None) -> Dict[str, Any]:
     """
     Creates a property schema for a given Python type, recursively if necessary.
 
@@ -163,7 +163,7 @@ def create_property_schema(python_type: Any, description: str, default: Any = No
     :param default: The default value of the property.
     :returns: A dictionary representing the property schema.
     """
-    nullable = is_nullable_type(python_type)
+    nullable = _is_nullable_type(python_type)
     if nullable:
         non_none_types = [t for t in get_args(python_type) if t is not type(None)]
         python_type = non_none_types[0] if non_none_types else str
