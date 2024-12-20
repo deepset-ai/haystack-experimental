@@ -31,7 +31,7 @@ class OpenAPIKwargs(TypedDict, total=False):
     allowed_operations: List[str]  # A list of operations to include in the OpenAPI client.
 
 
-def create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, **kwargs) -> "Tool":
+def _create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, **kwargs) -> "Tool":
     """
     Create a Tool instance from an OpenAPI specification and a specific operation name.
 
@@ -52,7 +52,7 @@ def create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, *
     # Remove None values from the dictionary
     config = {k: v for k, v in config.items() if v is not None}
 
-    tools = create_tools_from_openapi_spec(spec=spec, **config)
+    tools = _create_tools_from_openapi_spec(spec=spec, **config)
 
     # Ensure we have only one tool
     if len(tools) != 1:
@@ -65,7 +65,7 @@ def create_tool_from_openapi_spec(spec: Union[str, Path], operation_name: str, *
     return tools[0]
 
 
-def create_tools_from_openapi_spec(spec: Union[str, Path], **kwargs: OpenAPIKwargs) -> List["Tool"]:
+def _create_tools_from_openapi_spec(spec: Union[str, Path], **kwargs: OpenAPIKwargs) -> List["Tool"]:
     """
     Create Tool instances from an OpenAPI specification.
 

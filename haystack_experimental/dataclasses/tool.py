@@ -212,9 +212,9 @@ class Tool:
         :returns: Tool instance for the specified operation
         :raises ValueError: If the OpenAPI specification is invalid or cannot be loaded
         """
-        from haystack_experimental.tools.openapi import create_tool_from_openapi_spec
+        from haystack_experimental.tools.openapi import _create_tool_from_openapi_spec
 
-        return create_tool_from_openapi_spec(spec=spec, operation_name=operation_name, **kwargs)
+        return _create_tool_from_openapi_spec(spec=spec, operation_name=operation_name, **kwargs)
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
