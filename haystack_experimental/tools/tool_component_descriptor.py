@@ -15,12 +15,12 @@ from haystack_experimental.util.utils import is_pydantic_v2_model
 logger = logging.getLogger(__name__)
 
 
-def extract_component_parameters(component: Component) -> Dict[str, Any]:
+def create_tool_parameters_schema(component: Component) -> Dict[str, Any]:
     """
-    Extracts parameters from a component's run method and converts them to OpenAI tools definition format.
+    Creates an OpenAI tools schema from a component's run method parameters.
 
-    :param component: The component to extract parameters from.
-    :returns: A dictionary representing the component's input parameters schema.
+    :param component: The component to create the schema from.
+    :returns: OpenAI tools schema for the component's run method parameters.
     """
     properties = {}
     required = []

@@ -12,7 +12,7 @@ from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
 from pydantic import TypeAdapter, create_model
 
-from haystack_experimental.tools import extract_component_parameters
+from haystack_experimental.tools import create_tool_parameters_schema
 
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
@@ -224,8 +224,8 @@ class Tool:
             )
             raise ValueError(message)
 
-        # Extract the parameters schema from the component
-        parameters = extract_component_parameters(component)
+        # Create the tools schema from the component run method parameters
+        tool_schema = create_tool_parameters_schema(component)
 
         def component_invoker(**kwargs):
             """
@@ -256,7 +256,7 @@ class Tool:
             return component.run(**converted_kwargs)
 
         # Return a new Tool instance with the component invoker as the function to be called
-        return Tool(name=name, description=description, parameters=parameters, function=component_invoker)
+        return Tool(name=name, description=description, parameters=tool_schema, function=component_invoker)
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
