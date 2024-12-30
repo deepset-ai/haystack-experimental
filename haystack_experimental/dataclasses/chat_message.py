@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence, Union
 
+from haystack_experimental.dataclasses import ByteStream
+
 
 class ChatRole(str, Enum):
     """
@@ -66,7 +68,18 @@ class TextContent:
     text: str
 
 
-ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult]
+@dataclass
+class MediaContent:
+    """
+    The media content of a chat message.
+
+    :param media: The media content of the message.
+    """
+
+    media: ByteStream
+
+
+ChatMessageContentT = Union[TextContent, MediaContent, ToolCall, ToolCallResult]
 
 
 @dataclass
@@ -82,9 +95,25 @@ class ChatMessage:
     _role: ChatRole
     _content: Sequence[ChatMessageContentT]
     _meta: Dict[str, Any] = field(default_factory=dict, hash=False)
+    _name: Optional[str] = None
 
     def __len__(self):
         return len(self._content)
+
+    @property
+    def name(self) -> Optional[str]:
+        """
+        Returns the name for the message participant, if provided.
+
+        """
+        return self._name
+
+    @property
+    def content(self) -> Sequence[ChatMessageContentT]:
+        """
+        Returns the content of the message.
+        """
+        return self._content
 
     @property
     def role(self) -> ChatRole:
@@ -115,6 +144,15 @@ class ChatMessage:
         if texts := self.texts:
             return texts[0]
         return None
+
+    @property
+    def media(self) -> List[ByteStream]:
+        """
+        Returns the list of all media content contained in the message.
+
+        :return: List of ByteStream objects.
+        """
+        return [content.media for content in self._content if isinstance(content, MediaContent)]
 
     @property
     def tool_calls(self) -> List[ToolCall]:
@@ -161,37 +199,47 @@ class ChatMessage:
     def from_user(
         cls,
         text: str,
+        media: Optional[Sequence[ByteStream]] = None,
+        name: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ChatMessage":
         """
         Create a message from the user.
 
         :param text: The text content of the message.
+        :param media: The media contents of the message, if any.
+        :param name: An optional name for the message participant.
         :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.USER, _content=[TextContent(text=text)], _meta=meta or {})
+        media_contents = [MediaContent(media=media) for media in media] if media else []
+        return cls(
+            _role=ChatRole.USER, _content=[TextContent(text=text), *media_contents], _name=name, _meta=meta or {}
+        )
 
     @classmethod
     def from_system(
         cls,
         text: str,
+        name: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ChatMessage":
         """
         Create a message from the system.
 
         :param text: The text content of the message.
+        :param name: An optional name for the message participant.
         :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
-        return cls(_role=ChatRole.SYSTEM, _content=[TextContent(text=text)], _meta=meta or {})
+        return cls(_role=ChatRole.SYSTEM, _content=[TextContent(text=text)], _name=name, _meta=meta or {})
 
     @classmethod
     def from_assistant(
         cls,
         text: Optional[str] = None,
         tool_calls: Optional[List[ToolCall]] = None,
+        name: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ChatMessage":
         """
@@ -199,6 +247,7 @@ class ChatMessage:
 
         :param text: The text content of the message.
         :param tool_calls: The Tool calls to include in the message.
+        :param name: An optional name for the message participant.
         :param meta: Additional metadata associated with the message.
         :returns: A new ChatMessage instance.
         """
@@ -208,7 +257,7 @@ class ChatMessage:
         if tool_calls:
             content.extend(tool_calls)
 
-        return cls(_role=ChatRole.ASSISTANT, _content=content, _meta=meta or {})
+        return cls(_role=ChatRole.ASSISTANT, _content=content, _name=name, _meta=meta or {})
 
     @classmethod
     def from_tool(
@@ -240,14 +289,14 @@ class ChatMessage:
         :returns:
             Serialized version of the object.
         """
-        serialized: Dict[str, Any] = {}
-        serialized["_role"] = self._role.value
-        serialized["_meta"] = self._meta
+        serialized: Dict[str, Any] = {"_role": self._role.value, "_name": self._name, "_meta": self._meta}
 
         content: List[Dict[str, Any]] = []
         for part in self._content:
             if isinstance(part, TextContent):
                 content.append({"text": part.text})
+            elif isinstance(part, MediaContent):
+                content.append({"media": part.media.to_dict()})
             elif isinstance(part, ToolCall):
                 content.append({"tool_call": asdict(part)})
             elif isinstance(part, ToolCallResult):
@@ -275,6 +324,8 @@ class ChatMessage:
         for part in data["_content"]:
             if "text" in part:
                 content.append(TextContent(text=part["text"]))
+            elif "media" in part:
+                content.append(MediaContent(media=ByteStream.from_dict(part["media"])))
             elif "tool_call" in part:
                 content.append(ToolCall(**part["tool_call"]))
             elif "tool_call_result" in part:
