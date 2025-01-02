@@ -117,41 +117,58 @@ class AutoMergingRetriever:
         """
         Run the AutoMergingRetriever.
 
-        Groups the matched leaf documents by their parent documents and returns the parent documents if the number of
-        matched leaf documents below the same parent is higher than the defined threshold. Otherwise, returns the
-        matched leaf documents.
+        Recursively groups documents by their parents and merges them if they meet the threshold,
+        continuing up the hierarchy until no more merges are possible.
 
         :param matched_leaf_documents: List of leaf documents that were matched by a retriever
         :returns:
-            List of parent documents or matched leaf documents based on the threshold value
+            List of documents (could be mix of different hierarchy levels) based on threshold values
         """
 
-        docs_to_return = []
+        def try_merge_level(documents: List[Document]) -> List[Document]:
+            if not documents:
+                return []
 
-        # group the matched leaf documents by their parent documents
-        parent_documents: Dict[str, List[Document]] = defaultdict(list)
-        for doc in matched_leaf_documents:
-            parent_documents[doc.meta["__parent_id"]].append(doc)
+            docs_to_return = []
+            # group the documents by their parent documents
+            parent_documents: Dict[str, List[Document]] = defaultdict(list)
 
-        # find total number of children for each parent document
-        for doc_id, retrieved_child_docs in parent_documents.items():
-            parent_doc = self.document_store.filter_documents({"field": "id", "operator": "==", "value": doc_id})
-            if len(parent_doc) == 0:
-                raise ValueError(f"Parent document with id {doc_id} not found in the document store.")
-            if len(parent_doc) > 1:
-                raise ValueError(f"Multiple parent documents found with id {doc_id} in the document store.")
-            if not parent_doc[0].meta.get("__children_ids"):
-                raise ValueError(f"Parent document with id {doc_id} does not have any children.")
-            parent_children_count = len(parent_doc[0].meta["__children_ids"])
+            for doc in documents:
+                if doc.meta.get("__parent_id"):  # Only group docs that have parents
+                    parent_documents[doc.meta["__parent_id"]].append(doc)
+                else:
+                    docs_to_return.append(doc)  # Keep docs that have no parents
 
-            # return either the parent document or the matched leaf documents based on the threshold value
-            score = len(retrieved_child_docs) / parent_children_count
-            if score >= self.threshold:
-                # return the parent document
-                docs_to_return.append(parent_doc[0])
-            else:
-                # return all the matched leaf documents which are child of this parent document
-                leafs_ids = {doc.id for doc in retrieved_child_docs}
-                docs_to_return.extend([doc for doc in matched_leaf_documents if doc.id in leafs_ids])
+            # If no documents have parents, we're done
+            if not parent_documents:
+                return documents
 
-        return {"documents": docs_to_return}
+            # Process each parent group
+            merged_docs = []
+            for doc_id, child_docs in parent_documents.items():
+                parent_doc = self.document_store.filter_documents({"field": "id", "operator": "==", "value": doc_id})
+                if len(parent_doc) != 1:
+                    raise ValueError(f"Expected 1 parent document with id {doc_id}, found {len(parent_doc)}")
+
+                parent = parent_doc[0]
+                if not parent.meta.get("__children_ids"):
+                    raise ValueError(f"Parent document with id {doc_id} does not have any children.")
+
+                # Calculate merge score
+                score = len(child_docs) / len(parent.meta["__children_ids"])
+                if score > self.threshold:
+                    merged_docs.append(parent)  # Merge into parent
+                else:
+                    merged_docs.extend(child_docs)  # Keep children separate
+
+            # if no new merges were made, we're done
+            if len(merged_docs) == len(documents):
+                return merged_docs
+            
+
+            # Recursively try to merge the next level
+            return try_merge_level(merged_docs + docs_to_return)
+
+        # Start the recursive merging process
+        final_docs = try_merge_level(matched_leaf_documents)
+        return {"documents": final_docs}

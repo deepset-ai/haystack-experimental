@@ -50,10 +50,10 @@ class TestAutoMergingRetriever:
         builder = HierarchicalDocumentSplitter(block_sizes={10, 3}, split_overlap=0, split_by="word")
         docs = builder.run(docs)
 
-        # store level-1 parent documents and initialize the retriever
+        # store all non-leaf documents
         doc_store_parents = InMemoryDocumentStore()
         for doc in docs["documents"]:
-            if doc.meta["__children_ids"] and doc.meta["__level"] == 1:
+            if doc.meta["__children_ids"]:
                 doc_store_parents.write_documents([doc])
         retriever = AutoMergingRetriever(doc_store_parents, threshold=0.5)
 
