@@ -164,7 +164,7 @@ class AutoMergingRetriever:
             # if no new merges were made, we're done
             if len(merged_docs) == len(documents):
                 return merged_docs
-            
+
 
             # Recursively try to merge the next level
             return try_merge_level(merged_docs + docs_to_return)
