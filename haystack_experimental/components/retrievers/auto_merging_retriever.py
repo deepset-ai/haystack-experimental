@@ -122,7 +122,7 @@ class AutoMergingRetriever:
 
         :param matched_leaf_documents: List of leaf documents that were matched by a retriever
         :returns:
-            List of documents (could be mix of different hierarchy levels) based on threshold values
+            List of documents (could be a mix of different hierarchy levels) based on threshold values
         """
 
         def try_merge_level(documents: List[Document]) -> List[Document]:
@@ -164,7 +164,6 @@ class AutoMergingRetriever:
             # if no new merges were made, we're done
             if len(merged_docs) == len(documents):
                 return merged_docs
-
 
             # Recursively try to merge the next level
             return try_merge_level(merged_docs + docs_to_return)

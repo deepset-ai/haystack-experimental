@@ -100,6 +100,37 @@ class TestAutoMergingRetriever:
         assert len(result['documents']) == 2
         assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
 
+    def test_run_go_up_hierarchy_multiple_levels(self):
+        text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
+
+        docs = [Document(content=text)]
+        builder = HierarchicalDocumentSplitter(block_sizes={6, 2, 1}, split_overlap=0, split_by="word")
+        docs = builder.run(docs)
+
+        # store all non-leaf documents
+        doc_store_parents = InMemoryDocumentStore()
+        for doc in docs["documents"]:
+            if doc.meta["__children_ids"]:
+                doc_store_parents.write_documents([doc])
+        retriever = AutoMergingRetriever(doc_store_parents, threshold=0.5)
+
+        leaf_docs = [doc for doc in docs["documents"] if not doc.meta["__children_ids"]]
+
+        retrieved_leaf_docs_id = [
+            '0f63ace17062cbb1db5b0b517a9143fe9299ca8e4c66492f5849994131fc0322',
+            '8868c75a7d098df36bbed22cc40b06f2ce57e51464d06bbbd82b8adfbef4abcd',
+            '8b4dbba1e2609363ea7f540ed9a4ef285c3e0e3e426a62dcca5abe4f7a82eb81',
+            'f002e430fa6e99465fa8ef3df59c264828d23645aa6d66aa04fc2f28b0be49f6'
+        ]
+
+        retrieved_leaf_docs = [d for d in docs['documents'] if d.id in retrieved_leaf_docs_id]
+
+        result = retriever.run(retrieved_leaf_docs)
+
+        assert len(result['documents']) == 1
+        assert result['documents'][0].content == 'The sun rose early in the '
+
+
     def test_serialization_deserialization_pipeline(self):
         pipeline = Pipeline()
         doc_store_parents = InMemoryDocumentStore()
