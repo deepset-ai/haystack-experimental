@@ -125,6 +125,8 @@ class AutoMergingRetriever:
             List of documents (could be a mix of different hierarchy levels) based on threshold values
         """
 
+        AutoMergingRetriever._check_valid_documents(matched_leaf_documents)
+
         def try_merge_level(documents: List[Document]) -> List[Document]:
             if not documents:
                 return []
