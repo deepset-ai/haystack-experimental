@@ -132,14 +132,13 @@ class AutoMergingRetriever:
                 return []
 
             docs_to_return = []
-            # group the documents by their parent documents
-            parent_documents: Dict[str, List[Document]] = defaultdict(list)
+            parent_documents: Dict[str, List[Document]] = defaultdict(list)  # to group the documents by their parent
 
             for doc in documents:
-                if doc.meta.get("__parent_id"):  # Only group docs that have parents
+                if doc.meta.get("__parent_id"):  # only docs that have parents
                     parent_documents[doc.meta["__parent_id"]].append(doc)
                 else:
-                    docs_to_return.append(doc)  # Keep docs that have no parents
+                    docs_to_return.append(doc)  # keep docs that have no parents
 
             # If no documents have parents, we're done
             if not parent_documents:

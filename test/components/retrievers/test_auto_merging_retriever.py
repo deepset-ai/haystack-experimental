@@ -85,6 +85,10 @@ class TestAutoMergingRetriever:
         with pytest.raises(ValueError, match="The matched leaf documents do not have the required meta field '__parent_id'"):
             retriever.run(matched_leaf_documents=docs)
 
+    def test_run_empty_documents(self):
+        retriever = AutoMergingRetriever(InMemoryDocumentStore())
+        assert retriever.run([]) == {"documents": []}
+
     def test_to_dict(self):
         retriever = AutoMergingRetriever(InMemoryDocumentStore(), threshold=0.7)
         expected = retriever.to_dict()
