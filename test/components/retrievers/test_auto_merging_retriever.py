@@ -101,6 +101,13 @@ class TestAutoMergingRetriever:
         assert result['documents'][0].meta["__parent_id"] != result['documents'][1].meta["__parent_id"]
 
     def test_run_go_up_hierarchy_multiple_levels(self):
+        """
+        Test if the retriever can go up the hierarchy multiple levels to find the parent document.
+
+        Simulate a scenario where we have 4 leaf-documents that matched some initial query. The leaf-documents
+        are continuously merged up the hierarchy until the threshold is no longer met. In this case it goes from the 3rd
+        level in the hierarchy to the 1st level.
+        """
         text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
 
         docs = [Document(content=text)]
@@ -114,8 +121,6 @@ class TestAutoMergingRetriever:
                 doc_store_parents.write_documents([doc])
         retriever = AutoMergingRetriever(doc_store_parents, threshold=0.5)
 
-        leaf_docs = [doc for doc in docs["documents"] if not doc.meta["__children_ids"]]
-
         retrieved_leaf_docs_id = [
             '0f63ace17062cbb1db5b0b517a9143fe9299ca8e4c66492f5849994131fc0322',
             '8868c75a7d098df36bbed22cc40b06f2ce57e51464d06bbbd82b8adfbef4abcd',
@@ -124,7 +129,6 @@ class TestAutoMergingRetriever:
         ]
 
         retrieved_leaf_docs = [d for d in docs['documents'] if d.id in retrieved_leaf_docs_id]
-
         result = retriever.run(retrieved_leaf_docs)
 
         assert len(result['documents']) == 1
