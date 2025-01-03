@@ -4,15 +4,22 @@
 
 import inspect
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, get_args, get_origin
 
+from haystack import logging
+from haystack.core.component import Component
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
-from pydantic import create_model
+from pydantic import TypeAdapter, create_model
+
+from haystack_experimental.tools.component_schema import _create_tool_parameters_schema
 
 with LazyImport(message="Run 'pip install jsonschema'") as jsonschema_import:
     from jsonschema import Draft202012Validator
     from jsonschema.exceptions import SchemaError
+
+
+logger = logging.getLogger(__name__)
 
 
 class ToolInvocationError(Exception):
@@ -197,6 +204,59 @@ class Tool:
                 schema["properties"][param_name]["description"] = param_description
 
         return Tool(name=name or function.__name__, description=tool_description, parameters=schema, function=function)
+
+    @classmethod
+    def from_component(cls, component: Component, name: str, description: str) -> "Tool":
+        """
+        Create a Tool instance from a Haystack component.
+
+        :param component: The Haystack component to be converted into a Tool.
+        :param name: Name for the tool.
+        :param description: Description of the tool.
+        :returns: The Tool created from the Component.
+        :raises ValueError: If the component is invalid or schema generation fails.
+        """
+
+        if not isinstance(component, Component):
+            message = (
+                f"Object {component!r} is not a Haystack component. "
+                "Use this method to create a Tool only with Haystack component instances."
+            )
+            raise ValueError(message)
+
+        # Create the tools schema from the component run method parameters
+        tool_schema = _create_tool_parameters_schema(component)
+
+        def component_invoker(**kwargs):
+            """
+            Invokes the component using keyword arguments provided by the LLM function calling/tool generated response.
+
+            :param kwargs: The keyword arguments to invoke the component with.
+            :returns: The result of the component invocation.
+            """
+            converted_kwargs = {}
+            input_sockets = component.__haystack_input__._sockets_dict
+            for param_name, param_value in kwargs.items():
+                param_type = input_sockets[param_name].type
+
+                # Check if the type (or list element type) has from_dict
+                target_type = get_args(param_type)[0] if get_origin(param_type) is list else param_type
+                if hasattr(target_type, "from_dict"):
+                    if isinstance(param_value, list):
+                        param_value = [target_type.from_dict(item) for item in param_value if isinstance(item, dict)]
+                    elif isinstance(param_value, dict):
+                        param_value = target_type.from_dict(param_value)
+                else:
+                    # Let TypeAdapter handle both single values and lists
+                    type_adapter = TypeAdapter(param_type)
+                    param_value = type_adapter.validate_python(param_value)
+
+                converted_kwargs[param_name] = param_value
+            logger.debug(f"Invoking component {type(component)} with kwargs: {converted_kwargs}")
+            return component.run(**converted_kwargs)
+
+        # Return a new Tool instance with the component invoker as the function to be called
+        return Tool(name=name, description=description, parameters=tool_schema, function=component_invoker)
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
