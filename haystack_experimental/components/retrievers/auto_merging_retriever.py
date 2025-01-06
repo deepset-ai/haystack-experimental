@@ -39,7 +39,7 @@ class AutoMergingRetriever:
     from haystack_experimental.components.retrievers.auto_merging_retriever import AutoMergingRetriever
     from haystack.document_stores.in_memory import InMemoryDocumentStore
 
-    # create a hierarchical document structure with 2 levels, where the parent document has 3 children
+    # create a hierarchical document structure with 3 levels, where the parent document has 3 children
     text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
     original_document = Document(content=text)
     builder = HierarchicalDocumentSplitter(block_sizes=[10, 3], split_overlap=0, split_by="word")
@@ -122,7 +122,7 @@ class AutoMergingRetriever:
 
         :param matched_leaf_documents: List of leaf documents that were matched by a retriever
         :returns:
-            List of documents (could be a mix of different hierarchy levels) based on threshold values
+            List of documents (could be a mix of different hierarchy levels)
         """
 
         AutoMergingRetriever._check_valid_documents(matched_leaf_documents)
@@ -167,7 +167,7 @@ class AutoMergingRetriever:
                 return merged_docs
 
             # Recursively try to merge the next level
-            return try_merge_level(merged_docs + docs_to_return)
+            return docs_to_return + try_merge_level(merged_docs)
 
         # start the recursive merging process
         final_docs = try_merge_level(matched_leaf_documents)
