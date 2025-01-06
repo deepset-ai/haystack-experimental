@@ -159,11 +159,11 @@ class AutoMergingRetriever:
                 if score > self.threshold:
                     merged_docs.append(parent)  # Merge into parent
                 else:
-                    merged_docs.extend(child_docs)  # Keep children separate
+                    docs_to_return.extend(child_docs)  # Keep children separate
 
             # if no new merges were made, we're done
             if len(merged_docs) == len(documents):
-                return merged_docs
+                return merged_docs + docs_to_return
 
             # Recursively try to merge the next level
             return try_merge_level(merged_docs, docs_to_return)
@@ -171,4 +171,4 @@ class AutoMergingRetriever:
         # start the recursive merging process
         docs_to_return: List[Document] = []
         final_docs = try_merge_level(matched_leaf_documents, docs_to_return)
-        return {"documents": final_docs}
+        return {"documents": final_docs + docs_to_return}
