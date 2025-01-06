@@ -127,11 +127,10 @@ class AutoMergingRetriever:
 
         AutoMergingRetriever._check_valid_documents(matched_leaf_documents)
 
-        def try_merge_level(documents: List[Document]) -> List[Document]:
+        def try_merge_level(documents: List[Document], docs_to_return: List[Document]) -> List[Document]:
             if not documents:
                 return []
 
-            docs_to_return = []
             parent_documents: Dict[str, List[Document]] = defaultdict(list)  # to group the documents by their parent
 
             for doc in documents:
@@ -167,8 +166,9 @@ class AutoMergingRetriever:
                 return merged_docs
 
             # Recursively try to merge the next level
-            return docs_to_return + try_merge_level(merged_docs)
+            return try_merge_level(merged_docs, docs_to_return)
 
         # start the recursive merging process
-        final_docs = try_merge_level(matched_leaf_documents)
+        docs_to_return = []
+        final_docs = try_merge_level(matched_leaf_documents, docs_to_return)
         return {"documents": final_docs}
