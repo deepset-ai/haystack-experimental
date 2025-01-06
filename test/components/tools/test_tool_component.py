@@ -132,14 +132,15 @@ class DocumentProcessor:
     """A component that processes a list of Documents."""
 
     @component.output_types(concatenated=str)
-    def run(self, documents: List[Document]) -> Dict[str, str]:
+    def run(self, documents: List[Document], top_k: int = 5) -> Dict[str, str]:
         """
         Concatenates the content of multiple documents with newlines.
 
         :param documents: List of Documents whose content will be concatenated
+        :param top_k: The number of top documents to concatenate
         :returns: Dictionary containing the concatenated document contents
         """
-        return {"concatenated": '\n'.join(doc.content for doc in documents)}
+        return {"concatenated": '\n'.join(doc.content for doc in documents[:top_k])}
 
 
 ## Unit tests
@@ -411,7 +412,11 @@ class TestToolComponent:
                             }
                         }
                     }
-                }
+                },
+                "top_k": {
+                    "description": "The number of top documents to concatenate",
+                    "type": "integer",
+                },
             },
             "required": ["documents"]
         }
@@ -593,7 +598,7 @@ class TestToolComponentInPipelineWithOpenAI:
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
         message = ChatMessage.from_user(
-            text="Concatenate these documents: First one says 'Hello world' and second one says 'Goodbye world'. Set only content field of the document only. Do not set id, meta, score, embedding, sparse_embedding, dataframe, blob fields."
+            text="Concatenate these documents: First one says 'Hello world' and second one says 'Goodbye world' and third one says 'Hello again', but use top_k=2. Set only content field of the document only. Do not set id, meta, score, embedding, sparse_embedding, dataframe, blob fields."
         )
 
         result = pipeline.run({"llm": {"messages": [message]}})
