@@ -169,6 +169,6 @@ class AutoMergingRetriever:
             return try_merge_level(merged_docs, docs_to_return)
 
         # start the recursive merging process
-        docs_to_return = []
+        docs_to_return: List[Document] = []
         final_docs = try_merge_level(matched_leaf_documents, docs_to_return)
         return {"documents": final_docs}
