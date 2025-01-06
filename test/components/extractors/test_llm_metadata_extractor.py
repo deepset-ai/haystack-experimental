@@ -7,7 +7,7 @@ from haystack import Pipeline, Document
 from haystack.components.builders import PromptBuilder
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
-from haystack_experimental.components import LLMMetadataExtractor
+from haystack_experimental.components.extractors import LLMMetadataExtractor
 from haystack_experimental.components.extractors import LLMProvider
 
 
