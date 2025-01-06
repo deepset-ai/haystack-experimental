@@ -148,14 +148,10 @@ class TestToolComponent:
     def test_from_component_basic(self):
         component = SimpleComponent()
 
-        tool = Tool.from_component(
-            component=component,
-            name="hello_tool",
-            description="A hello tool"
-        )
+        tool = Tool.from_component(component)
 
-        assert tool.name == "hello_tool"
-        assert tool.description == "A hello tool"
+        assert tool.name == "simple_component"
+        assert tool.description == "A simple component that generates text."
         assert tool.parameters == {
             "type": "object",
             "properties": {
@@ -176,12 +172,7 @@ class TestToolComponent:
     def test_from_component_with_dataclass(self):
         component = UserGreeter()
 
-        tool = Tool.from_component(
-            component=component,
-            name="user_info_tool",
-            description="A tool that returns user information"
-        )
-
+        tool = Tool.from_component(component)
         assert tool.parameters == {
             "type": "object",
             "properties": {
@@ -202,6 +193,9 @@ class TestToolComponent:
             },
             "required": ["user"]
         }
+
+        assert tool.name == "user_greeter"
+        assert tool.description == "A simple component that processes a User."
 
         # Test tool invocation
         result = tool.invoke(user={"name": "Alice", "age": 30})

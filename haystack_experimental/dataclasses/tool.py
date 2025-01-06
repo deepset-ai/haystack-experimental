@@ -206,13 +206,20 @@ class Tool:
         return Tool(name=name or function.__name__, description=tool_description, parameters=schema, function=function)
 
     @classmethod
-    def from_component(cls, component: Component, name: str, description: str) -> "Tool":
+    def from_component(
+        cls,
+        component: Component,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> "Tool":
         """
         Create a Tool instance from a Haystack component.
 
         :param component: The Haystack component to be converted into a Tool.
-        :param name: Name for the tool.
-        :param description: Description of the tool.
+        :param name: Name for the tool (optional). If not provided, the name will be derived
+        from the component's class name using snake_case (e.g. "user_component" for UserComponent).
+        :param description: Description of the tool (optional). If not provided, the pydoc description
+        of the component will be used.
         :returns: The Tool created from the Component.
         :raises ValueError: If the component is invalid or schema generation fails.
         """
@@ -254,6 +261,20 @@ class Tool:
                 converted_kwargs[param_name] = param_value
             logger.debug(f"Invoking component {type(component)} with kwargs: {converted_kwargs}")
             return component.run(**converted_kwargs)
+
+        # Generate a name for the tool if not provided
+        if not name:
+            class_name = component.__class__.__name__
+            # Convert camelCase/PascalCase to snake_case
+            name = "".join(
+                [
+                    "_" + c.lower() if c.isupper() and i > 0 and not class_name[i - 1].isupper() else c.lower()
+                    for i, c in enumerate(class_name)
+                ]
+            ).lstrip("_")
+
+        # Generate a description for the tool if not provided and truncate to 512 characters
+        description = (description or component.__doc__ or name)[:512]
 
         # Return a new Tool instance with the component invoker as the function to be called
         return Tool(name=name, description=description, parameters=tool_schema, function=component_invoker)
