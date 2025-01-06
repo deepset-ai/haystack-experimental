@@ -452,7 +452,7 @@ class TestToolComponentInPipelineWithOpenAI:
 
         # Create pipeline with OpenAIChatGenerator and ToolInvoker
         pipeline = Pipeline()
-        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini", tools=[tool]))
         pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
 
         # Connect components
@@ -483,7 +483,7 @@ class TestToolComponentInPipelineWithOpenAI:
         )
 
         pipeline = Pipeline()
-        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini", tools=[tool]))
         pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
@@ -509,7 +509,7 @@ class TestToolComponentInPipelineWithOpenAI:
         )
 
         pipeline = Pipeline()
-        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini", tools=[tool]))
         pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
@@ -535,7 +535,7 @@ class TestToolComponentInPipelineWithOpenAI:
         )
 
         pipeline = Pipeline()
-        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini", tools=[tool]))
         pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
@@ -561,7 +561,7 @@ class TestToolComponentInPipelineWithOpenAI:
         )
 
         pipeline = Pipeline()
-        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini", tools=[tool]))
         pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool]))
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
@@ -587,7 +587,7 @@ class TestToolComponentInPipelineWithOpenAI:
         )
 
         pipeline = Pipeline()
-        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o", tools=[tool]))
+        pipeline.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini", tools=[tool]))
         pipeline.add_component("tool_invoker", ToolInvoker(tools=[tool], convert_result_to_json_string=True))
         pipeline.connect("llm.replies", "tool_invoker.messages")
 
