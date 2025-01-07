@@ -141,7 +141,7 @@ class AutoMergingRetriever:
 
             # If no documents have parents, we're done
             if not parent_documents:
-                return documents
+                return docs_to_return
 
             # Process each parent group
             merged_docs = []

@@ -7,6 +7,7 @@ from haystack_experimental.components.retrievers.auto_merging_retriever import A
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 class TestAutoMergingRetriever:
+
     def test_init_default(self):
         retriever = AutoMergingRetriever(InMemoryDocumentStore())
         assert retriever.threshold == 0.5
@@ -85,10 +86,6 @@ class TestAutoMergingRetriever:
         with pytest.raises(ValueError, match="The matched leaf documents do not have the required meta field '__parent_id'"):
             retriever.run(matched_leaf_documents=docs)
 
-    def test_run_empty_documents(self):
-        retriever = AutoMergingRetriever(InMemoryDocumentStore())
-        assert retriever.run([]) == {"documents": []}
-
     def test_to_dict(self):
         retriever = AutoMergingRetriever(InMemoryDocumentStore(), threshold=0.7)
         expected = retriever.to_dict()
@@ -111,6 +108,62 @@ class TestAutoMergingRetriever:
                 'threshold': 0.7}}
         retriever = AutoMergingRetriever.from_dict(data)
         assert retriever.threshold == 0.7
+
+    def test_serialization_deserialization_pipeline(self):
+        pipeline = Pipeline()
+        doc_store_parents = InMemoryDocumentStore()
+        bm_25_retriever = InMemoryBM25Retriever(doc_store_parents)
+        auto_merging_retriever = AutoMergingRetriever(doc_store_parents, threshold=0.5)
+
+        pipeline.add_component(name="bm_25_retriever", instance=bm_25_retriever)
+        pipeline.add_component(name="auto_merging_retriever", instance=auto_merging_retriever)
+        pipeline.connect("bm_25_retriever.documents", "auto_merging_retriever.matched_leaf_documents")
+        pipeline_dict = pipeline.to_dict()
+
+        new_pipeline = Pipeline.from_dict(pipeline_dict)
+        assert new_pipeline == pipeline
+
+    def test_run_parent_not_found(self):
+        doc_store = InMemoryDocumentStore()
+        retriever = AutoMergingRetriever(doc_store, threshold=0.5)
+
+        # a leaf document with a non-existent parent_id
+        leaf_doc = Document(
+            content="test",
+            meta={
+                "__parent_id": "non_existent_parent",
+                "__level": 1,
+                "__block_size": 10,
+            }
+        )
+
+        with pytest.raises(ValueError, match="Expected 1 parent document with id non_existent_parent, found 0"):
+            retriever.run([leaf_doc])
+
+    def test_run_parent_without_children(self):
+        """Test case where a parent document exists but has no children metadata"""
+        doc_store = InMemoryDocumentStore()
+
+        # a parent document without children metadata
+        parent_doc = Document(content="parent", id="parent1")
+        doc_store.write_documents([parent_doc])
+
+        retriever = AutoMergingRetriever(doc_store, threshold=0.5)
+        leaf_doc = Document(
+            content="test",
+            meta={
+                "__parent_id": "parent1",
+                "__level": 1,
+                "__block_size": 10,
+            }
+        )
+
+        with pytest.raises(ValueError, match="Parent document with id parent1 does not have any children"):
+            retriever.run([leaf_doc])
+
+    def test_run_empty_documents(self):
+        retriever = AutoMergingRetriever(InMemoryDocumentStore())
+        assert retriever.run([]) == {"documents": []}
 
     def test_run_return_parent_document(self):
         text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
@@ -203,17 +256,3 @@ class TestAutoMergingRetriever:
         assert len(result['documents']) == 1
         assert result['documents'][0].content == 'The sun rose early in the '
 
-
-    def test_serialization_deserialization_pipeline(self):
-        pipeline = Pipeline()
-        doc_store_parents = InMemoryDocumentStore()
-        bm_25_retriever = InMemoryBM25Retriever(doc_store_parents)
-        auto_merging_retriever = AutoMergingRetriever(doc_store_parents, threshold=0.5)
-
-        pipeline.add_component(name="bm_25_retriever", instance=bm_25_retriever)
-        pipeline.add_component(name="auto_merging_retriever", instance=auto_merging_retriever)
-        pipeline.connect("bm_25_retriever.documents", "auto_merging_retriever.matched_leaf_documents")
-        pipeline_dict = pipeline.to_dict()
-
-        new_pipeline = Pipeline.from_dict(pipeline_dict)
-        assert new_pipeline == pipeline
