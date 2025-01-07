@@ -127,7 +127,7 @@ class AutoMergingRetriever:
 
         AutoMergingRetriever._check_valid_documents(documents)
 
-        def get_parent_doc(parent_id: str) -> Document:
+        def _get_parent_doc(parent_id: str) -> Document:
             parent_docs = self.document_store.filter_documents({"field": "id", "operator": "==", "value": parent_id})
             if len(parent_docs) != 1:
                 raise ValueError(f"Expected 1 parent document with id {parent_id}, found {len(parent_docs)}")
@@ -138,7 +138,7 @@ class AutoMergingRetriever:
 
             return parent_doc
 
-        def try_merge_level(docs_to_merge: List[Document], docs_to_return: List[Document]) -> List[Document]:
+        def _try_merge_level(docs_to_merge: List[Document], docs_to_return: List[Document]) -> List[Document]:
             parent_doc_id_to_child_docs: Dict[str, List[Document]] = defaultdict(list)  # to group documents by parent
 
             for doc in docs_to_merge:
@@ -150,7 +150,7 @@ class AutoMergingRetriever:
             # Process each parent group
             merged_docs = []
             for parent_doc_id, child_docs in parent_doc_id_to_child_docs.items():
-                parent_doc = get_parent_doc(parent_doc_id)
+                parent_doc = _get_parent_doc(parent_doc_id)
 
                 # Calculate merge score
                 score = len(child_docs) / len(parent_doc.meta["__children_ids"])
@@ -160,10 +160,10 @@ class AutoMergingRetriever:
                     docs_to_return.extend(child_docs)  # Keep children separate
 
             # if no new merges were made, we're done
-            if merged_docs == docs_to_merge:
+            if not merged_docs:
                 return merged_docs + docs_to_return
 
             # Recursively try to merge the next level
-            return try_merge_level(merged_docs, docs_to_return)
+            return _try_merge_level(merged_docs, docs_to_return)
 
-        return {"documents": try_merge_level(documents, [])}
+        return {"documents": _try_merge_level(documents, [])}
