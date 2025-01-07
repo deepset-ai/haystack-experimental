@@ -267,7 +267,7 @@ class TestAutoMergingRetriever:
 
     def test_run_go_up_hierarchy_multiple_levels_hit_root_document(self):
         """
-        Test case where the threshold is not met at the root document, so the root document is returned.
+        Test case where we go up hierarchy until the root document, so the root document is returned.
 
         It's the only document in the hierarchy which has no parent.
         """
