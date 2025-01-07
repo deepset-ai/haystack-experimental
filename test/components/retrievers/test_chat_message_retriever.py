@@ -24,8 +24,8 @@ class TestChatMessageRetriever:
         Test that the ChatMessageRetriever component can retrieve messages from the message store.
         """
         messages = [
-            ChatMessage.from_user(content="Hello, how can I help you?"),
-            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?")
+            ChatMessage.from_user("Hello, how can I help you?"),
+            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?")
         ]
 
         message_store = InMemoryChatMessageStore()
@@ -40,10 +40,10 @@ class TestChatMessageRetriever:
         Test that the ChatMessageRetriever component can retrieve last_k messages from the message store.
         """
         messages = [
-            ChatMessage.from_user(content="Hello, how can I help you?"),
-            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
-            ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
-            ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+            ChatMessage.from_user("Hello, how can I help you?"),
+            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_user("Hola, como puedo ayudarte?"),
+            ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
         ]
 
         message_store = InMemoryChatMessageStore()
@@ -52,19 +52,19 @@ class TestChatMessageRetriever:
 
         assert retriever.message_store == message_store
         assert retriever.run(last_k=1) == {
-            "messages": [ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")]}
+            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]}
 
         assert retriever.run(last_k=2) == {
-            "messages": [ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
-                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+            "messages": [ChatMessage.from_user("Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
                          ]}
 
         # outliers
         assert retriever.run(last_k=10) == {
-            "messages": [ChatMessage.from_user(content="Hello, how can I help you?"),
-                         ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
-                         ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
-                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+            "messages": [ChatMessage.from_user("Hello, how can I help you?"),
+                         ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
+                         ChatMessage.from_user("Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
                          ]}
 
         with pytest.raises(ValueError):
@@ -79,10 +79,10 @@ class TestChatMessageRetriever:
         by testing the init last_k parameter and the run last_k parameter logic
         """
         messages = [
-            ChatMessage.from_user(content="Hello, how can I help you?"),
-            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?"),
-            ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
-            ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+            ChatMessage.from_user("Hello, how can I help you?"),
+            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_user("Hola, como puedo ayudarte?"),
+            ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
         ]
 
         message_store = InMemoryChatMessageStore()
@@ -93,12 +93,12 @@ class TestChatMessageRetriever:
 
         # last_k is 1 here from run parameter, overrides init of 2
         assert retriever.run(last_k=1) == {
-            "messages": [ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")]}
+            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]}
 
         # last_k is 2 here from init
         assert retriever.run() == {
-            "messages": [ChatMessage.from_user(content="Hola, como puedo ayudarte?"),
-                         ChatMessage.from_user(content="Bonjour, comment puis-je vous aider?")
+            "messages": [ChatMessage.from_user("Hola, como puedo ayudarte?"),
+                         ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
                          ]}
 
     def test_to_dict(self):
@@ -157,7 +157,7 @@ class TestChatMessageRetriever:
 
         Context:
         {% for memory in memories %}
-            {{ memory.content }}
+            {{ memory.text }}
         {% endfor %}
 
         Question: {{ query }}
@@ -166,7 +166,7 @@ class TestChatMessageRetriever:
         question = "What is the capital of France?"
 
         res = pipe.run(data={"prompt_builder": {"template": [ChatMessage.from_user(user_prompt)], "query": question}})
-        resulting_prompt = res["prompt_builder"]["prompt"][0].content
+        resulting_prompt = res["prompt_builder"]["prompt"][0].text
         assert "France" in resulting_prompt
         assert "how can I help you" in resulting_prompt
 
