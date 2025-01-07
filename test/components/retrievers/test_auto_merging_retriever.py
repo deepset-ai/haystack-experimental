@@ -32,7 +32,7 @@ class TestAutoMergingRetriever:
         ]
         retriever = AutoMergingRetriever(InMemoryDocumentStore())
         with pytest.raises(ValueError, match="The matched leaf documents do not have the required meta field '__parent_id'"):
-            retriever.run(matched_leaf_documents=docs)
+            retriever.run(documents=docs)
 
     def test_run_missing_level(self):
         docs = [
@@ -47,7 +47,7 @@ class TestAutoMergingRetriever:
 
         retriever = AutoMergingRetriever(InMemoryDocumentStore())
         with pytest.raises(ValueError, match="The matched leaf documents do not have the required meta field '__level'"):
-            retriever.run(matched_leaf_documents=docs)
+            retriever.run(documents=docs)
 
     def test_run_missing_block_size(self):
         docs = [
@@ -62,7 +62,7 @@ class TestAutoMergingRetriever:
 
         retriever = AutoMergingRetriever(InMemoryDocumentStore())
         with pytest.raises(ValueError, match="The matched leaf documents do not have the required meta field '__block_size'"):
-            retriever.run(matched_leaf_documents=docs)
+            retriever.run(documents=docs)
 
     def test_run_mixed_valid_and_invalid_documents(self):
         docs = [
@@ -84,7 +84,7 @@ class TestAutoMergingRetriever:
         ]
         retriever = AutoMergingRetriever(InMemoryDocumentStore())
         with pytest.raises(ValueError, match="The matched leaf documents do not have the required meta field '__parent_id'"):
-            retriever.run(matched_leaf_documents=docs)
+            retriever.run(documents=docs)
 
     def test_to_dict(self):
         retriever = AutoMergingRetriever(InMemoryDocumentStore(), threshold=0.7)
@@ -117,7 +117,7 @@ class TestAutoMergingRetriever:
 
         pipeline.add_component(name="bm_25_retriever", instance=bm_25_retriever)
         pipeline.add_component(name="auto_merging_retriever", instance=auto_merging_retriever)
-        pipeline.connect("bm_25_retriever.documents", "auto_merging_retriever.matched_leaf_documents")
+        pipeline.connect("bm_25_retriever.documents", "auto_merging_retriever.documents")
         pipeline_dict = pipeline.to_dict()
 
         new_pipeline = Pipeline.from_dict(pipeline_dict)

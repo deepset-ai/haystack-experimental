@@ -113,58 +113,57 @@ class AutoMergingRetriever:
             raise ValueError("The matched leaf documents do not have the required meta field '__block_size'")
 
     @component.output_types(documents=List[Document])
-    def run(self, matched_leaf_documents: List[Document]):
+    def run(self, documents: List[Document]):
         """
         Run the AutoMergingRetriever.
 
         Recursively groups documents by their parents and merges them if they meet the threshold,
         continuing up the hierarchy until no more merges are possible.
 
-        :param matched_leaf_documents: List of leaf documents that were matched by a retriever
+        :param documents: List of leaf documents that were matched by a retriever
         :returns:
             List of documents (could be a mix of different hierarchy levels)
         """
 
-        AutoMergingRetriever._check_valid_documents(matched_leaf_documents)
+        AutoMergingRetriever._check_valid_documents(documents)
 
-        def try_merge_level(documents: List[Document], docs_to_return: List[Document]) -> List[Document]:
-            if not documents:
-                return []
+        def get_parent_doc(parent_id: str) -> Document:
+            parent_docs = self.document_store.filter_documents({"field": "id", "operator": "==", "value": parent_id})
+            if len(parent_docs) != 1:
+                raise ValueError(f"Expected 1 parent document with id {parent_id}, found {len(parent_docs)}")
 
-            parent_documents: Dict[str, List[Document]] = defaultdict(list)  # to group the documents by their parent
+            parent_doc = parent_docs[0]
+            if not parent_doc.meta.get("__children_ids"):
+                raise ValueError(f"Parent document with id {parent_id} does not have any children.")
 
-            for doc in documents:
+            return parent_doc
+
+        def try_merge_level(docs_to_merge: List[Document], docs_to_return: List[Document]) -> List[Document]:
+            parent_doc_id_to_child_docs: Dict[str, List[Document]] = defaultdict(list)  # to group documents by parent
+
+            for doc in docs_to_merge:
                 if doc.meta.get("__parent_id"):  # only docs that have parents
-                    parent_documents[doc.meta["__parent_id"]].append(doc)
+                    parent_doc_id_to_child_docs[doc.meta["__parent_id"]].append(doc)
                 else:
                     docs_to_return.append(doc)  # keep docs that have no parents
 
             # Process each parent group
             merged_docs = []
-            for doc_id, child_docs in parent_documents.items():
-                parent_doc = self.document_store.filter_documents({"field": "id", "operator": "==", "value": doc_id})
-                if len(parent_doc) != 1:
-                    raise ValueError(f"Expected 1 parent document with id {doc_id}, found {len(parent_doc)}")
-
-                parent = parent_doc[0]
-                if not parent.meta.get("__children_ids"):
-                    raise ValueError(f"Parent document with id {doc_id} does not have any children.")
+            for parent_doc_id, child_docs in parent_doc_id_to_child_docs.items():
+                parent_doc = get_parent_doc(parent_doc_id)
 
                 # Calculate merge score
-                score = len(child_docs) / len(parent.meta["__children_ids"])
+                score = len(child_docs) / len(parent_doc.meta["__children_ids"])
                 if score > self.threshold:
-                    merged_docs.append(parent)  # Merge into parent
+                    merged_docs.append(parent_doc)  # Merge into parent
                 else:
                     docs_to_return.extend(child_docs)  # Keep children separate
 
             # if no new merges were made, we're done
-            if len(merged_docs) == len(documents):
+            if merged_docs == docs_to_merge:
                 return merged_docs + docs_to_return
 
             # Recursively try to merge the next level
             return try_merge_level(merged_docs, docs_to_return)
 
-        # start the recursive merging process
-        docs_to_return: List[Document] = []
-        final_docs = try_merge_level(matched_leaf_documents, docs_to_return)
-        return {"documents": final_docs + docs_to_return}
+        return {"documents": try_merge_level(documents, [])}
