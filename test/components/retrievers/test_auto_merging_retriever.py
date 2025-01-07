@@ -294,10 +294,5 @@ class TestAutoMergingRetriever:
         retrieved_leaf_docs = [d for d in docs['documents'] if d.id in retrieved_leaf_docs_id]
         result = retriever.run(retrieved_leaf_docs)
 
-        print("\n")
-        for d in result['documents']:
-            print(d.content)
-            print(d.id)
-
         assert len(result['documents']) == 1
         assert result['documents'][0].meta["__level"] == 0  # hit root document
