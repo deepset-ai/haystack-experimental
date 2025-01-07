@@ -139,10 +139,6 @@ class AutoMergingRetriever:
                 else:
                     docs_to_return.append(doc)  # keep docs that have no parents
 
-            # If no documents have parents, we're done
-            if not parent_documents:
-                return docs_to_return
-
             # Process each parent group
             merged_docs = []
             for doc_id, child_docs in parent_documents.items():

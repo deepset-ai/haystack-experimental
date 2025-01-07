@@ -140,21 +140,30 @@ class TestAutoMergingRetriever:
         with pytest.raises(ValueError, match="Expected 1 parent document with id non_existent_parent, found 0"):
             retriever.run([leaf_doc])
 
-    def test_run_parent_without_children(self):
-        """Test case where a parent document exists but has no children metadata"""
+    def test_run_parent_without_children_metadata(self):
+        """Test case where a parent document exists but doesn't have the __children_ids metadata field"""
         doc_store = InMemoryDocumentStore()
 
-        # a parent document without children metadata
-        parent_doc = Document(content="parent", id="parent1")
+        # Create and store a parent document without __children_ids metadata
+        parent_doc = Document(
+            content="parent content",
+            id="parent1",
+            meta={
+                "__level": 1,  # Add other required metadata
+                "__block_size": 10
+            }
+        )
         doc_store.write_documents([parent_doc])
 
         retriever = AutoMergingRetriever(doc_store, threshold=0.5)
+
+        # Create a leaf document that points to this parent
         leaf_doc = Document(
-            content="test",
+            content="leaf content",
             meta={
                 "__parent_id": "parent1",
-                "__level": 1,
-                "__block_size": 10,
+                "__level": 2,
+                "__block_size": 5
             }
         )
 
@@ -256,3 +265,39 @@ class TestAutoMergingRetriever:
         assert len(result['documents']) == 1
         assert result['documents'][0].content == 'The sun rose early in the '
 
+    def test_run_go_up_hierarchy_multiple_levels_hit_root_document(self):
+        """
+        Test case where the threshold is not met at the root document, so the root document is returned.
+
+        It's the only document in the hierarchy which has no parent.
+        """
+        text = "The sun rose early in the morning. It cast a warm glow over the trees. Birds began to sing."
+
+        docs = [Document(content=text)]
+        builder = HierarchicalDocumentSplitter(block_sizes={6, 4}, split_overlap=0, split_by="word")
+        docs = builder.run(docs)
+
+        # store all non-leaf documents
+        doc_store_parents = InMemoryDocumentStore()
+        for doc in docs["documents"]:
+            if doc.meta["__children_ids"]:
+                doc_store_parents.write_documents([doc])
+        retriever = AutoMergingRetriever(doc_store_parents, threshold=0.1)  # set a low threshold to hit root document
+
+        retrieved_leaf_docs_id = [
+            '7e654d8ae21cc9807e4c377288a590efe7a6d86606676e51992cf719a03a3f42',
+            'acb19c71330c1f7515046bbcbacfcdf8fe21d273c40485a6b3f6b8ea13d4adec',
+            '98480d4a5f97ebd330d2bc06640692d52a8af2265e2ea0e87abf09d6472c7af9',
+            'a61b5a9ea9edfbd1572c02f7289c644128dd144a476f9e349bd35fdc93590610'
+        ]
+
+        retrieved_leaf_docs = [d for d in docs['documents'] if d.id in retrieved_leaf_docs_id]
+        result = retriever.run(retrieved_leaf_docs)
+
+        print("\n")
+        for d in result['documents']:
+            print(d.content)
+            print(d.id)
+
+        assert len(result['documents']) == 1
+        assert result['documents'][0].meta["__level"] == 0  # hit root document
