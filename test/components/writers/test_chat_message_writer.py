@@ -12,8 +12,8 @@ class TestChatMessageWriter:
         Test that the ChatMessageWriter component can be initialized with a valid message store.
         """
         messages = [
-            ChatMessage.from_user(content="Hello, how can I help you?"),
-            ChatMessage.from_user(content="Hallo, wie kann ich Ihnen helfen?")
+            ChatMessage.from_user("Hello, how can I help you?"),
+            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?")
         ]
 
         message_store = InMemoryChatMessageStore()
@@ -42,7 +42,7 @@ class TestChatMessageWriter:
         }
 
         # write again and serialize
-        writer.run(messages=[ChatMessage.from_user(content="Hello, how can I help you?")])
+        writer.run(messages=[ChatMessage.from_user("Hello, how can I help you?")])
         data = writer.to_dict()
         assert data == {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
@@ -74,7 +74,7 @@ class TestChatMessageWriter:
         }
 
         # write to verify that everything is still working
-        results = writer.run(messages=[ChatMessage.from_user(content="Hello, how can I help you?")])
+        results = writer.run(messages=[ChatMessage.from_user("Hello, how can I help you?")])
         assert results["messages_written"] == 1
 
     def test_chat_message_writer_pipeline(self):
@@ -97,7 +97,7 @@ class TestChatMessageWriter:
         res = pipe.run(data={"prompt_builder": {"template": [ChatMessage.from_user(user_prompt)], "query": question}})
         assert res["writer"]["messages_written"] == 1   # only one message is written
         assert len(store.retrieve()) == 1   # only one message is written
-        assert store.retrieve()[0].content == """
+        assert store.retrieve()[0].text == """
         Given the following information, answer the question.
         Question: What is the capital of France?
         Answer:
