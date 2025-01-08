@@ -105,7 +105,6 @@ class Tool:
         serialized = asdict(self)
         serialized["function"] = serialize_callable(self.function)
         return {"type": generate_qualified_class_name(type(self)), "data": serialized}
-        # return serialized
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Tool":
@@ -117,9 +116,9 @@ class Tool:
         :returns:
             Deserialized Tool.
         """
-        wrapped_data = data["data"]
-        wrapped_data["function"] = deserialize_callable(wrapped_data["function"])
-        return cls(**wrapped_data)
+        inner_data = data["data"]
+        inner_data["function"] = deserialize_callable(inner_data["function"])
+        return cls(**inner_data)
 
     @classmethod
     def from_function(cls, function: Callable, name: Optional[str] = None, description: Optional[str] = None) -> "Tool":
@@ -280,14 +279,15 @@ class ToolComponent(Tool):
         description = (description or component.__doc__ or name)[:512]
 
         super().__init__(name=name, description=description, parameters=tool_schema, function=component_invoker)
-        self.component = component
+        self._component = component
 
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes the Tool to a dictionary.
         """
+        # we do not serialize the function in this case: it can be recreated from the component at deserialization time
         serialized = {"name": self.name, "description": self.description, "parameters": self.parameters}
-        serialized["component"] = component_to_dict(obj=self.component, name=self.name)
+        serialized["component"] = component_to_dict(obj=self._component, name=self.name)
         return {"type": generate_qualified_class_name(type(self)), "data": serialized}
 
     @classmethod
@@ -295,10 +295,10 @@ class ToolComponent(Tool):
         """
         Deserializes the Tool from a dictionary.
         """
-        wrapped_data = data["data"]
-        obj_class = import_class_by_name(wrapped_data["component"]["type"])
-        component = component_from_dict(cls=obj_class, data=wrapped_data["component"], name=wrapped_data["name"])
-        return cls(component=component, name=wrapped_data["name"], description=wrapped_data["description"])
+        inner_data = data["data"]
+        component_class = import_class_by_name(inner_data["component"]["type"])
+        component = component_from_dict(cls=component_class, data=inner_data["component"], name=inner_data["name"])
+        return cls(component=component, name=inner_data["name"], description=inner_data["description"])
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
