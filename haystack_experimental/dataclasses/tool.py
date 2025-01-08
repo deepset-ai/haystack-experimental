@@ -8,8 +8,15 @@ from typing import Any, Callable, Dict, Optional, get_args, get_origin
 
 from haystack import logging
 from haystack.core.component import Component
+from haystack.core.serialization import (
+    component_from_dict,
+    component_to_dict,
+    generate_qualified_class_name,
+    import_class_by_name,
+)
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, serialize_callable
+from haystack.utils.base_serialization import deserialize_class_instance, serialize_class_instance
 from pydantic import TypeAdapter, create_model
 
 from haystack_experimental.tools.component_schema import _create_tool_parameters_schema
@@ -97,7 +104,8 @@ class Tool:
 
         serialized = asdict(self)
         serialized["function"] = serialize_callable(self.function)
-        return serialized
+        return {"type": generate_qualified_class_name(type(self)), "data": serialized}
+        # return serialized
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Tool":
@@ -109,8 +117,9 @@ class Tool:
         :returns:
             Deserialized Tool.
         """
-        data["function"] = deserialize_callable(data["function"])
-        return cls(**data)
+        wrapped_data = data["data"]
+        wrapped_data["function"] = deserialize_callable(wrapped_data["function"])
+        return cls(**wrapped_data)
 
     @classmethod
     def from_function(cls, function: Callable, name: Optional[str] = None, description: Optional[str] = None) -> "Tool":
@@ -205,8 +214,9 @@ class Tool:
 
         return Tool(name=name or function.__name__, description=tool_description, parameters=schema, function=function)
 
-    @classmethod
-    def from_component(cls, component: Component, name: str, description: str) -> "Tool":
+
+class ToolComponent(Tool):
+    def __init__(self, component: Component, name: Optional[str] = None, description: Optional[str] = None):
         """
         Create a Tool instance from a Haystack component.
 
@@ -255,8 +265,40 @@ class Tool:
             logger.debug(f"Invoking component {type(component)} with kwargs: {converted_kwargs}")
             return component.run(**converted_kwargs)
 
-        # Return a new Tool instance with the component invoker as the function to be called
-        return Tool(name=name, description=description, parameters=tool_schema, function=component_invoker)
+        # Generate a name for the tool if not provided
+        if not name:
+            class_name = component.__class__.__name__
+            # Convert camelCase/PascalCase to snake_case
+            name = "".join(
+                [
+                    "_" + c.lower() if c.isupper() and i > 0 and not class_name[i - 1].isupper() else c.lower()
+                    for i, c in enumerate(class_name)
+                ]
+            ).lstrip("_")
+
+        # Generate a description for the tool if not provided and truncate to 512 characters
+        description = (description or component.__doc__ or name)[:512]
+
+        super().__init__(name=name, description=description, parameters=tool_schema, function=component_invoker)
+        self.component = component
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the Tool to a dictionary.
+        """
+        serialized = {"name": self.name, "description": self.description, "parameters": self.parameters}
+        serialized["component"] = component_to_dict(obj=self.component, name=self.name)
+        return {"type": generate_qualified_class_name(type(self)), "data": serialized}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Tool":
+        """
+        Deserializes the Tool from a dictionary.
+        """
+        wrapped_data = data["data"]
+        obj_class = import_class_by_name(wrapped_data["component"]["type"])
+        component = component_from_dict(cls=obj_class, data=wrapped_data["component"], name=wrapped_data["name"])
+        return cls(component=component, name=wrapped_data["name"], description=wrapped_data["description"])
 
 
 def _remove_title_from_schema(schema: Dict[str, Any]):
@@ -296,6 +338,7 @@ def deserialize_tools_inplace(data: Dict[str, Any], key: str = "tools"):
         for tool in serialized_tools:
             if not isinstance(tool, dict):
                 raise TypeError(f"Serialized tool '{tool}' is not a dictionary")
-            deserialized_tools.append(Tool.from_dict(tool))
+            tool_class = import_class_by_name(tool["type"])
+            deserialized_tools.append(tool_class.from_dict(tool))
 
         data[key] = deserialized_tools
