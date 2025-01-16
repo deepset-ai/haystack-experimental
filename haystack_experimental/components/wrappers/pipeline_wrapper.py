@@ -1,6 +1,114 @@
-"""Module providing a wrapper for Haystack pipelines with input/output mapping capabilities."""
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 from haystack import component, Pipeline
+
+from haystack.core.serialization import default_from_dict, default_to_dict
+from haystack.core.component.types import GreedyVariadic, Variadic
+
+from typing import Any, get_origin, get_args, Union
+
+
+
+def types_match(t1, t2) -> bool:
+    """
+    Returns True if t1 and t2 are considered equivalent,
+    1) treating `Any` as a wildcard,
+    2) unwrapping Variadic/GreedyVariadic,
+    3) unwrapping Optional (i.e., Union[..., None]) to ignore the None part.
+    """
+
+    # If either side is literally `Any`, it's automatically a match
+    if t1 is Any or t2 is Any:
+        return True
+
+    # Unwrap both sides until they can no longer be unwrapped
+    t1 = _unwrap_all(t1)
+    t2 = _unwrap_all(t2)
+
+    # If either was unwrapped to Any, match
+    if t1 is Any or t2 is Any:
+        return True
+
+    origin1 = get_origin(t1)
+    origin2 = get_origin(t2)
+
+    # If both are non-generic, compare directly
+    if origin1 is None and origin2 is None:
+        return t1 == t2
+
+    # If only one side is generic, then they differ (unless we had Any, handled above)
+    if (origin1 is None) != (origin2 is None):
+        return False
+
+    # If both sides have different origins (e.g., list vs. dict), mismatch
+    if origin1 != origin2:
+        return False
+
+    # Compare type arguments pairwise
+    args1 = get_args(t1)
+    args2 = get_args(t2)
+    if len(args1) != len(args2):
+        return False
+
+    return all(types_match(a1, a2) for a1, a2 in zip(args1, args2))
+
+
+def _unwrap_all(t):
+    """
+    Recursively unwraps:
+      - Variadic[...] or GreedyVariadic[...]
+      - Optional[...] (i.e., Union[..., None])
+    until no more unwrapping is possible.
+    """
+    previous = None
+    current = t
+
+    # We'll repeatedly try unwrapping until it no longer changes
+    while True:
+        previous = current
+        # 1) Unwrap Variadic / GreedyVariadic
+        current = _unwrap_variadics(current)
+        # 2) Unwrap Optional (Union[..., None])
+        current = _unwrap_optionals(current)
+        # If nothing changed in this pass, we're done
+        if current == previous:
+            return current
+
+
+def _unwrap_variadics(t):
+    """
+    If t is Variadic[...] or GreedyVariadic[...],
+    unwrap and return the inner type; otherwise return t as-is.
+    """
+    origin = get_origin(t)
+    if origin is Variadic or origin is GreedyVariadic:
+        # e.g. Variadic[List[Document]] -> List[Document]
+        inner_args = get_args(t)
+        if len(inner_args) == 1:
+            return inner_args[0]
+        # If there's more than one argument, define your own rules
+        # For now, we just return the tuple of unwrapped types
+        return inner_args
+    return t
+
+
+def _unwrap_optionals(t):
+    """
+    If t is Optional[X] (i.e. Union[X, NoneType]),
+    return just X. Otherwise return t as-is.
+    """
+    origin = get_origin(t)
+    if origin is Union:
+        args = list(get_args(t))
+        # If NoneType is present, remove it
+        none_type = type(None)
+        if none_type in args:
+            args.remove(none_type)
+            # If that leaves exactly 1 type, treat it as 'X'
+            if len(args) == 1:
+                return args[0]
+            # If it leaves more than one type, we remain a Union
+            return Union[tuple(args)]
+    return t
 
 
 class InvalidMappingError(Exception):
@@ -22,6 +130,7 @@ class PipelineWrapper:
     :param output_mapping: Mapping from pipeline socket paths to wrapper output names
     :raises InvalidMappingError: If any input or output mappings are invalid or if type
         conflicts are detected
+    :raises ValueError: If no pipeline is provided
     """
 
     def __init__(
@@ -29,20 +138,23 @@ class PipelineWrapper:
             pipeline: Pipeline,
             input_mapping: Optional[Dict[str, List[str]]] = None,
             output_mapping: Optional[Dict[str, str]] = None
-    ):
+    ) -> None:
         """Initialize the pipeline wrapper with optional I/O mappings.
 
         :param pipeline: The pipeline to wrap
         :param input_mapping: Optional input name mapping configuration
         :param output_mapping: Optional output name mapping configuration
         """
-        self.pipeline = pipeline
-        self.input_mapping = input_mapping or {}
-        self.output_mapping = output_mapping or {}
-        self._initialize_pipeline()
+        self.pipeline: Pipeline = pipeline
+        self.input_mapping: Optional[Dict[str, List[str]]] = input_mapping
+        self.output_mapping: Optional[Dict[str, str]] = output_mapping
+        self._set_pipeline_io()
 
-    def _initialize_pipeline(self) -> None:
-        """Initialize pipeline by resolving input/output types and setting them on wrapper."""
+    def _set_pipeline_io(self) -> None:
+        """Initialize pipeline by resolving input/output types and setting them on wrapper.
+
+        :raises InvalidMappingError: If type conflicts are found in input or output mappings
+        """
         self._resolve_and_set_input_types()
         output_types = self._resolve_output_types()
         component.set_output_types(self, **output_types)
@@ -52,7 +164,7 @@ class PipelineWrapper:
         """Split a component path into component name and socket name.
 
         :param path: String in format "component_name.socket_name"
-        :returns: Tuple of (component_name, socket_name)
+        :return: Tuple of (component_name, socket_name)
         :raises InvalidMappingError: If path format is invalid
         """
         try:
@@ -74,23 +186,28 @@ class PipelineWrapper:
         """
         pipeline_inputs = self.pipeline.inputs(include_components_with_connected_inputs=False)
 
-        if self.input_mapping:
-            self._handle_explicit_input_mapping(pipeline_inputs)
+        if input_mapping := self.input_mapping or self.pipeline.metadata.get("input_mapping"):
+            self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
         else:
             self._handle_auto_input_mapping(pipeline_inputs)
 
-    def _handle_explicit_input_mapping(self, pipeline_inputs: Dict[str, Dict[str, Any]]) -> None:
+    def _handle_explicit_input_mapping(
+            self,
+            pipeline_inputs: Dict[str, Dict[str, Any]],
+            input_mapping: Dict[str, List[str]]
+    ) -> None:
         """Handle case where explicit input mapping is provided.
 
         :param pipeline_inputs: Dictionary of pipeline input specifications
+        :param input_mapping: Mapping from wrapper inputs to pipeline socket paths
         :raises InvalidMappingError: If mapping is invalid or type conflicts exist
         """
-        for wrapper_input_name, pipeline_input_paths in self.input_mapping.items():
+        for wrapper_input_name, pipeline_input_paths in input_mapping.items():
             if not isinstance(pipeline_input_paths, list):
                 pipeline_input_paths = [pipeline_input_paths]
 
-            resolved_type = None
-            resolved_default = None
+            resolved_type: Optional[Type] = None
+            resolved_default: Optional[Any] = None
 
             for path in pipeline_input_paths:
                 comp_name, socket_name = self._split_component_path(path)
@@ -108,7 +225,7 @@ class PipelineWrapper:
 
                 if resolved_type is None:
                     resolved_type = current_type
-                elif current_type != resolved_type:
+                elif not types_match(resolved_type, current_type):
                     raise InvalidMappingError(
                         f"Type conflict for wrapper input '{wrapper_input_name}': "
                         f"found both {resolved_type} and {current_type}"
@@ -124,6 +241,9 @@ class PipelineWrapper:
                             f"found {resolved_default} and {current_default}"
                         )
 
+            if resolved_type is None:
+                raise InvalidMappingError(f"Could not resolve type for input '{wrapper_input_name}'")
+
             if resolved_default is not None:
                 component.set_input_type(self, wrapper_input_name, resolved_type, default=resolved_default)
             else:
@@ -135,7 +255,7 @@ class PipelineWrapper:
         :param pipeline_inputs: Dictionary of pipeline input specifications
         :raises InvalidMappingError: If type conflicts exist between components
         """
-        aggregated_inputs = {}
+        aggregated_inputs: Dict[str, Dict[str, Any]] = {}
 
         for comp_name, inputs_dict in pipeline_inputs.items():
             for socket_name, socket_info in inputs_dict.items():
@@ -143,7 +263,7 @@ class PipelineWrapper:
                     aggregated_inputs[socket_name] = socket_info
                 else:
                     existing_type = aggregated_inputs[socket_name]["type"]
-                    if existing_type != socket_info["type"]:
+                    if not types_match(existing_type, socket_info["type"]):
                         raise InvalidMappingError(
                             f"Type conflict for input '{socket_name}': "
                             f"found {existing_type} and {socket_info['type']}"
@@ -162,27 +282,30 @@ class PipelineWrapper:
     def _resolve_output_types(self) -> Dict[str, Any]:
         """Resolve output types based on pipeline outputs and mapping.
 
-        :returns: Dictionary mapping wrapper output names to their types
+        :return: Dictionary mapping wrapper output names to their types
         :raises InvalidMappingError: If mapping is invalid or output conflicts exist
         """
         pipeline_outputs = self.pipeline.outputs(include_components_with_connected_outputs=False)
-        resolved_outputs: Dict[str, Any] = {}
-        used_output_names = set()
 
-        if self.output_mapping:
-            return self._handle_explicit_output_mapping(pipeline_outputs)
+        if output_mapping := self.output_mapping or self.pipeline.metadata.get("output_mapping"):
+            return self._handle_explicit_output_mapping(pipeline_outputs, output_mapping)
         else:
             return self._handle_auto_output_mapping(pipeline_outputs)
 
-    def _handle_explicit_output_mapping(self, pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _handle_explicit_output_mapping(
+            self,
+            pipeline_outputs: Dict[str, Dict[str, Any]],
+            output_mapping: Dict[str, str]
+    ) -> Dict[str, Any]:
         """Handle case where explicit output mapping is provided.
 
         :param pipeline_outputs: Dictionary of pipeline output specifications
-        :returns: Dictionary of resolved output types
+        :param output_mapping: Mapping from pipeline paths to wrapper output names
+        :return: Dictionary of resolved output types
         :raises InvalidMappingError: If mapping is invalid
         """
         resolved_outputs = {}
-        for pipeline_output_path, wrapper_output_name in self.output_mapping.items():
+        for pipeline_output_path, wrapper_output_name in output_mapping.items():
             comp_name, socket_name = self._split_component_path(pipeline_output_path)
 
             if comp_name not in pipeline_outputs:
@@ -200,15 +323,16 @@ class PipelineWrapper:
 
         return resolved_outputs
 
-    def _handle_auto_output_mapping(self, pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    @staticmethod
+    def _handle_auto_output_mapping(pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Handle case where output mapping should be auto-detected.
 
         :param pipeline_outputs: Dictionary of pipeline output specifications
-        :returns: Dictionary of resolved output types
+        :return: Dictionary of resolved output types
         :raises InvalidMappingError: If output conflicts exist
         """
         resolved_outputs = {}
-        used_output_names = set()
+        used_output_names: set[str] = set()
 
         for comp_name, outputs_dict in pipeline_outputs.items():
             for socket_name, socket_info in outputs_dict.items():
@@ -231,7 +355,7 @@ class PipelineWrapper:
         3. Maps pipeline outputs back to wrapper outputs
 
         :param kwargs: Keyword arguments matching wrapper input names
-        :returns: Dictionary mapping wrapper output names to values
+        :return: Dictionary mapping wrapper output names to values
         :raises ValueError: If no pipeline is configured
         :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
@@ -239,29 +363,34 @@ class PipelineWrapper:
             raise ValueError("No pipeline configured. Provide a valid pipeline before calling run().")
 
         pipeline_inputs = self._prepare_pipeline_inputs(kwargs)
-        pipeline_outputs = self.pipeline.run(**pipeline_inputs)
+        pipeline_outputs = self.pipeline.run(data=pipeline_inputs)
         return self._process_pipeline_outputs(pipeline_outputs)
 
-    def _prepare_pipeline_inputs(self, kwargs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def _prepare_pipeline_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """Prepare inputs for pipeline execution.
 
-        :param kwargs: Input arguments provided to wrapper
-        :returns: Dictionary of pipeline inputs in required format
+        :param inputs: Input arguments provided to wrapper
+        :return: Dictionary of pipeline inputs in required format
         """
-        if self.input_mapping:
-            return self._map_explicit_inputs(kwargs)
+        if input_mapping := self.input_mapping or self.pipeline.metadata.get("input_mapping"):
+            return self._map_explicit_inputs(input_mapping=input_mapping, inputs=inputs)
         else:
-            return self._map_auto_inputs(kwargs)
+            return self._map_auto_inputs(inputs)
 
-    def _map_explicit_inputs(self, kwargs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def _map_explicit_inputs(
+            self,
+            input_mapping: Dict[str, List[str]],
+            inputs: Dict[str, Any]
+    ) -> Dict[str, Dict[str, Any]]:
         """Map inputs according to explicit input mapping.
 
-        :param kwargs: Input arguments provided to wrapper
-        :returns: Dictionary of mapped pipeline inputs
+        :param input_mapping: Mapping configuration for inputs
+        :param inputs: Input arguments provided to wrapper
+        :return: Dictionary of mapped pipeline inputs
         """
-        pipeline_inputs = {}
-        for wrapper_input_name, pipeline_input_paths in self.input_mapping.items():
-            if wrapper_input_name not in kwargs:
+        pipeline_inputs: Dict[str, Dict[str, Any]] = {}
+        for wrapper_input_name, pipeline_input_paths in input_mapping.items():
+            if wrapper_input_name not in inputs:
                 continue
 
             if not isinstance(pipeline_input_paths, list):
@@ -271,23 +400,23 @@ class PipelineWrapper:
                 comp_name, input_name = self._split_component_path(socket_path)
                 if comp_name not in pipeline_inputs:
                     pipeline_inputs[comp_name] = {}
-                pipeline_inputs[comp_name][input_name] = kwargs[wrapper_input_name]
+                pipeline_inputs[comp_name][input_name] = inputs[wrapper_input_name]
 
         return pipeline_inputs
 
-    def _map_auto_inputs(self, kwargs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def _map_auto_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """Map inputs automatically based on matching names.
 
-        :param kwargs: Input arguments provided to wrapper
-        :returns: Dictionary of mapped pipeline inputs
+        :param inputs: Input arguments provided to wrapper
+        :return: Dictionary of mapped pipeline inputs
         """
-        pipeline_inputs = {}
+        pipeline_inputs: Dict[str, Dict[str, Any]] = {}
         pipeline_decl_inputs = self.pipeline.inputs(include_components_with_connected_inputs=False)
 
         for comp_name, inputs_dict in pipeline_decl_inputs.items():
             for socket_name in inputs_dict.keys():
-                if socket_name in kwargs:
-                    pipeline_inputs.setdefault(comp_name, {})[socket_name] = kwargs[socket_name]
+                if socket_name in inputs:
+                    pipeline_inputs.setdefault(comp_name, {})[socket_name] = inputs[socket_name]
 
         return pipeline_inputs
 
@@ -295,45 +424,76 @@ class PipelineWrapper:
         """Process outputs from pipeline execution.
 
         :param pipeline_outputs: Raw outputs from pipeline execution
-        :returns: Dictionary of processed outputs
+        :return: Dictionary of processed outputs
         :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
-        if self.output_mapping:
-            return self._map_explicit_outputs(pipeline_outputs)
+        if output_mapping := self.output_mapping or self.pipeline.metadata.get("output_mapping"):
+            return self._map_explicit_outputs(pipeline_outputs, output_mapping)
         else:
             return self._map_auto_outputs(pipeline_outputs)
 
-    def _map_explicit_outputs(self, pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _map_explicit_outputs(
+            self,
+            pipeline_outputs: Dict[str, Dict[str, Any]],
+            output_mapping: Dict[str, str]
+    ) -> Dict[str, Any]:
         """Map outputs according to explicit output mapping.
 
         :param pipeline_outputs: Raw outputs from pipeline execution
-        :returns: Dictionary of mapped outputs
+        :param output_mapping: Output mapping configuration
+        :return: Dictionary of mapped outputs
         """
-        outputs = {}
-        for pipeline_output_path, wrapper_output_name in self.output_mapping.items():
+        outputs: Dict[str, Any] = {}
+        for pipeline_output_path, wrapper_output_name in output_mapping.items():
             comp_name, socket_name = self._split_component_path(pipeline_output_path)
             if comp_name in pipeline_outputs and socket_name in pipeline_outputs[comp_name]:
                 outputs[wrapper_output_name] = pipeline_outputs[comp_name][socket_name]
         return outputs
 
-    def _map_auto_outputs(self, pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    @staticmethod
+    def _map_auto_outputs(pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Map outputs automatically based on matching names.
 
         :param pipeline_outputs: Raw outputs from pipeline execution
-        :returns: Dictionary of mapped outputs
-        :raises InvalidMappingError: If output conflicts occur
+        :return: Dictionary of mapped outputs
+        :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
-        outputs = {}
-        seen = set()
+        outputs: Dict[str, Any] = {}
+        seen: set[str] = set()
 
         for comp_name, comp_output_dict in pipeline_outputs.items():
             for socket_name, value in comp_output_dict.items():
                 if socket_name in seen:
                     raise InvalidMappingError(
                         f"Output conflict: output '{socket_name}' is produced by multiple components. "
-                        "Provide an output_mapping to disambiguate."
+                        "Please provide an output_mapping to disambiguate."
                     )
                 outputs[socket_name] = value
                 seen.add(socket_name)
 
         return outputs
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the pipeline wrapper to a dictionary representation.
+
+        :return: Dictionary containing serialized pipeline wrapper data
+        """
+        serialized_pipeline = self.pipeline.to_dict()
+        return default_to_dict(
+            self,
+            pipeline=serialized_pipeline,
+            input_mapping=self.input_mapping,
+            output_mapping=self.output_mapping
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PipelineWrapper":
+        """Create a pipeline wrapper instance from a dictionary representation.
+
+        :param data: Dictionary containing serialized pipeline wrapper data
+        :return: New PipelineWrapper instance
+        """
+        pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
+        data["init_parameters"]["pipeline"] = pipeline
+
+        return default_from_dict(cls, data)
