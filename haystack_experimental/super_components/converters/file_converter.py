@@ -28,15 +28,14 @@ class ComponentModule:
         if self.config_mapping is None:
             # Get init parameters excluding self
             sig = inspect.signature(self.component.__init__)
-            params = [param for param in sig.parameters if param != 'self']
-            # Create mapping where each param maps to itself
-            self.config_mapping = {param: param for param in params}
+            self.config_mapping = {param: param for param in sig.parameters if param != 'self'}
 
 
 
 _FILE_CONVERTER_MODULES = {
     "text/plain": ComponentModule(component=TextFileToDocument),
     "application/pdf": ComponentModule(component=PyPDFToDocument),
+    # ...
 }
 
 
