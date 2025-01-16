@@ -143,7 +143,7 @@ class Agent:
         if self.handoff == "text":
             handoff_condition = "{{ llm_messages[0].tool_call is none }}"
         else:
-            handoff_condition = "{{ llm_messages[0].tool_call is not none and llm_messages[0].tool_call.tool_name == '" + self.handoff + "' }}"
+            handoff_condition = "{{ llm_messages[0].tool_call is none or llm_messages[0].tool_call.tool_name == '" + self.handoff + "' }}"
 
         routes = [
             {
