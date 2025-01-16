@@ -1,10 +1,10 @@
 from typing import Any, Dict, List, Optional, Tuple, Type
-from haystack import component, Pipeline
+from typing import get_origin, get_args, Union
 
+from haystack import component, Pipeline
 from haystack.core.serialization import default_from_dict, default_to_dict
 from haystack.core.component.types import GreedyVariadic, Variadic
 
-from typing import Any, get_origin, get_args, Union
 
 
 
