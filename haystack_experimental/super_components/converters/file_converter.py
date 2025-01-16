@@ -54,6 +54,8 @@ class MultiFileConverter(PipelineWrapper):
     def __init__(self, mime_types: List[str] = None):
         if mime_types is None:
             self.mime_types = list(_FILE_CONVERTER_MODULES.keys())
+        else:
+            self.mime_types = mime_types
 
         args = locals()
 
