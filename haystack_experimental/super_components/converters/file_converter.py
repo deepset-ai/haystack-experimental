@@ -107,7 +107,7 @@ class MultiFileConverter(PipelineWrapper):
             use_split_rules: bool = True,
             extend_abbreviations: bool = True,
             encoding: str = "utf-8",
-            json_content_key: str = "content"
+            json_content_key: str = "content",
     ) -> None:
         if mime_types is None:
             self.resolved_mime_types = list(_FILE_CONVERTER_MODULES.keys())
@@ -148,7 +148,7 @@ class MultiFileConverter(PipelineWrapper):
             else:
                 pp.connect(to_connect, "tabular_joiner")
 
-        splitter_module = ComponentModule(component=DocumentSplitter)
+        splitter_module = ComponentModule(component=DocumentSplitter, name="splitter")
         _add_modules_to_pipeline(pp, [splitter_module], args)
 
         pp.connect("joiner.documents", "splitter.documents")
