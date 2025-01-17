@@ -1,4 +1,4 @@
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict, Optional, Literal, Callable
 
 from haystack.components.converters import (
     CSVToDocument,
@@ -9,13 +9,16 @@ from haystack.components.converters import (
     PPTXToDocument,
     JSONConverter,
     HTMLToDocument,
-    AzureOCRDocumentConverter,
     MarkdownToDocument
 )
 
 from haystack.components.routers import FileTypeRouter
-from haystack import component, Pipeline
+from haystack import component, Pipeline, default_to_dict, default_from_dict
 from haystack.core.component import Component
+from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
+from haystack.components.joiners import DocumentJoiner
+from haystack.utils import serialize_callable, deserialize_callable
+
 from haystack_experimental.components.wrappers.pipeline_wrapper import PipelineWrapper
 
 from enum import StrEnum
@@ -91,22 +94,95 @@ class MultiFileConverter(PipelineWrapper):
     converter.run(sources=["test.txt", "test.pdf"], meta={})
     ```
     """
-    def __init__(self, mime_types: List[ComponentModule] = None, json_content_key: str = "content") -> None:
+    def __init__(
+            self,
+            mime_types: List[ConverterMimeType] = None,
+            split_by: Literal["function", "page", "passage", "period", "word", "line", "sentence"] = "word",
+            split_length: int = 250,
+            split_overlap: int = 30,
+            split_threshold: int = 0,
+            splitting_function: Optional[Callable[[str], List[str]]] = None,
+            respect_sentence_boundary: bool = True,
+            language: Language = "en",
+            use_split_rules: bool = True,
+            extend_abbreviations: bool = True,
+            encoding: str = "utf-8",
+            json_content_key: str = "content"
+    ) -> None:
         if mime_types is None:
-            self.mime_types = list(_FILE_CONVERTER_MODULES.keys())
+            self.resolved_mime_types = list(_FILE_CONVERTER_MODULES.keys())
         else:
-            self.mime_types = mime_types
+            self.resolved_mime_types = mime_types
+
+        self.split_by = split_by
+        self.split_length = split_length
+        self.split_overlap = split_overlap
+        self.split_threshold = split_threshold
+        self.splitting_function = splitting_function
+        self.respect_sentence_boundary = respect_sentence_boundary
+        self.language = language
+        self.use_split_rules = use_split_rules
+        self.extend_abbreviations = extend_abbreviations
+        self.encoding = encoding
+        self.json_content_key = json_content_key
+        self.mime_types = mime_types
 
         args = locals()
         pp = Pipeline()
         converter_modules = [_FILE_CONVERTER_MODULES[mime_type] for mime_type in self.mime_types]
         _add_modules_to_pipeline(pp, converter_modules, args)
 
-        router = FileTypeRouter(mime_types=self.mime_types)
+        router = FileTypeRouter(mime_types=self.resolved_mime_types)
         pp.add_component("router", router)
 
-        for mime_type in self.mime_types:
+        joiner = DocumentJoiner()
+        tabular_joiner = DocumentJoiner()
+        pp.add_component("joiner", joiner)
+        pp.add_component("tabular_joiner", tabular_joiner)
+
+        for mime_type in self.resolved_mime_types:
             to_connect = _FILE_CONVERTER_MODULES[mime_type].name
             pp.connect(f"router.{mime_type}", f"{to_connect}.sources")
+            if mime_type in [ConverterMimeType.XLSX, ConverterMimeType.CSV]:
+                pp.connect(to_connect, "joiner")
+            else:
+                pp.connect(to_connect, "tabular_joiner")
 
-        super(MultiFileConverter, self).__init__(pipeline=pp)
+        splitter_module = ComponentModule(component=DocumentSplitter)
+        _add_modules_to_pipeline(pp, [splitter_module], args)
+
+        pp.connect("joiner.documents", "splitter.documents")
+        pp.connect("splitter.documents", "tabular_joiner.documents")
+
+        output_mapping = {"tabular_joiner.documents": "documents"}
+
+        super(MultiFileConverter, self).__init__(pipeline=pp, output_mapping=output_mapping)
+
+    def to_dict(self) -> Dict[str, Any]:
+        if self.splitting_function is not None:
+            splitting_function = serialize_callable(self.splitting_function)
+        else:
+            splitting_function = self.splitting_function
+
+        return default_to_dict(
+            self,
+            mime_types=self.mime_types,
+            split_by=self.split_by,
+            split_length=self.split_length,
+            split_overlap=self.split_overlap,
+            split_threshold=self.split_threshold,
+            splitting_function=splitting_function,
+            respect_sentence_boundary=self.respect_sentence_boundary,
+            language=self.language,
+            use_split_rules=self.use_split_rules,
+            extend_abbreviations=self.extend_abbreviations,
+            encoding=self.encoding,
+            json_content_key=self.json_content_key
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MultiFileConverter":
+        if splitting_function := data["init_parameters"].get("splitting_function"):
+            data["init_parameters"]["splitting_function"] = deserialize_callable(splitting_function)
+
+        return default_from_dict(cls, data)
