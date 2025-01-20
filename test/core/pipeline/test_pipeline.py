@@ -20,7 +20,7 @@ from haystack.core.errors import (
     PipelineMaxComponentRuns,
 )
 from haystack.core.pipeline import PredefinedPipeline
-from haystack.core.pipeline.pipeline import Pipeline
+from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.core.pipeline.pipeline import ComponentPriority, _NO_OUTPUT_PRODUCED
 from haystack_experimental.core.pipeline.utils import FIFOPriorityQueue
 
