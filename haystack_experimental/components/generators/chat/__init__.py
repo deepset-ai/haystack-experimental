@@ -6,9 +6,7 @@ from haystack_experimental.components.generators.chat.openai import (  # noqa: I
     OpenAIChatGenerator,
 )
 
-from haystack_experimental.components.generators.chat.hugging_face_api import HuggingFaceAPIChatGenerator
 
 __all__ = [
-    "HuggingFaceAPIChatGenerator",
     "OpenAIChatGenerator",
 ]
