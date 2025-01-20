@@ -530,7 +530,10 @@ class Pipeline(PipelineBase):
                     next_priority, next_name = priority_queue.peek()
 
                     # alternative to _warn_if_ambiguous_intent
-                    if priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST] and next_priority == priority:
+                    if (
+                            priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST]
+                            and next_priority == priority
+                    ):
                         msg = (
                             f"Ambiguous running order: Components '{component_name}' and '{next_name}' are waiting for "
                             f"optional inputs at the same time. Component '{component_name}' executes first."
