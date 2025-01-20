@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
-
 from haystack import logging
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
@@ -21,15 +20,14 @@ from haystack.core.errors import (
     PipelineUnmarshalError,
     PipelineValidationError,
 )
-from haystack.core.serialization import DeserializationCallbacks, component_from_dict, component_to_dict
-from haystack.core.type_utils import _type_name, _types_are_compatible
-from haystack.marshal import Marshaller, YamlMarshaller
-from haystack.utils import is_in_jupyter, type_serialization
-
 from haystack.core.pipeline.descriptions import find_pipeline_inputs, find_pipeline_outputs
 from haystack.core.pipeline.draw import _to_mermaid_image
 from haystack.core.pipeline.template import PipelineTemplate, PredefinedPipeline
 from haystack.core.pipeline.utils import parse_connect_string
+from haystack.core.serialization import DeserializationCallbacks, component_from_dict, component_to_dict
+from haystack.core.type_utils import _type_name, _types_are_compatible
+from haystack.marshal import Marshaller, YamlMarshaller
+from haystack.utils import is_in_jupyter, type_serialization
 
 DEFAULT_MARSHALLER = YamlMarshaller()
 
@@ -366,7 +364,7 @@ class PipelineBase:
 
         return instance
 
-    def connect(self, sender: str, receiver: str) -> "PipelineBase":  # noqa: PLR0915
+    def connect(self, sender: str, receiver: str) -> "PipelineBase":  # noqa: PLR0915 PLR0912
         """
         Connects two components together.
 
