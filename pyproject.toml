@@ -161,6 +161,18 @@ disable = [
   "too-many-instance-attributes", # sometimes we need to have a class with more than 7 attributes
 ]
 
+[tool.pylint.'DESIGN']
+max-args = 38           # Default is 5
+max-attributes = 28     # Default is 7
+max-branches = 34       # Default is 12
+max-locals = 45         # Default is 15
+max-module-lines = 2468 # Default is 1000
+max-nested-blocks = 9   # Default is 5
+max-statements = 206    # Default is 50
+
+[tool.pylint.'SIMILARITIES']
+min-similarity-lines = 6
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "--strict-markers"
@@ -227,6 +239,14 @@ ignore = [
   "SIM118",  # in-dict-keys
   "PLR0913", # too-many-arguments
 ]
+
+[tool.ruff.lint.pylint]
+allow-magic-value-types = ["float", "int", "str"]
+max-args = 14                                     # Default is 5
+max-branches = 21                                 # Default is 12
+max-public-methods = 20                           # Default is 20
+max-returns = 7                                   # Default is 6
+max-statements = 60                               # Default is 50
 
 [tool.ruff.lint.mccabe]
 max-complexity = 28
