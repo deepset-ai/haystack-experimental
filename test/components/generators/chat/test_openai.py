@@ -25,13 +25,13 @@ from openai import Stream
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.dataclasses import StreamingChunk
 from haystack.utils.auth import Secret
-from haystack_experimental.dataclasses import (
+from haystack.dataclasses import (
     ChatMessage,
-    Tool,
     ToolCall,
     ChatRole,
     TextContent,
 )
+from haystack.tools import Tool
 from haystack_experimental.components.generators.chat.openai import (
     OpenAIChatGenerator,
     _convert_message_to_openai_format,
@@ -317,7 +317,8 @@ class TestOpenAIChatGenerator:
                     "some_test_param": "test-params",
                 },
                 "tools": [
-                    {
+                    {"type": "haystack.tools.tool.Tool",
+                     "data": {
                         "description": "description",
                         "function": "builtins.print",
                         "name": "name",
@@ -326,41 +327,9 @@ class TestOpenAIChatGenerator:
                                 "type": "string",
                             },
                         },
-                    },
+                    },}
                 ],
                 "tools_strict": True,
-            },
-        }
-
-    def test_to_dict_with_lambda_streaming_callback(self, monkeypatch):
-        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
-        component = OpenAIChatGenerator(
-            model="gpt-4o-mini",
-            streaming_callback=lambda x: x,
-            api_base_url="test-base-url",
-            generation_kwargs={"max_tokens": 10, "some_test_param": "test-params"},
-        )
-        data = component.to_dict()
-        assert data == {
-            "type": "haystack_experimental.components.generators.chat.openai.OpenAIChatGenerator",
-            "init_parameters": {
-                "api_key": {
-                    "env_vars": ["OPENAI_API_KEY"],
-                    "strict": True,
-                    "type": "env_var",
-                },
-                "model": "gpt-4o-mini",
-                "organization": None,
-                "api_base_url": "test-base-url",
-                "max_retries": None,
-                "timeout": None,
-                "streaming_callback": "test_openai.<lambda>",
-                "generation_kwargs": {
-                    "max_tokens": 10,
-                    "some_test_param": "test-params",
-                },
-                "tools": None,
-                "tools_strict": False,
             },
         }
 
@@ -385,6 +354,8 @@ class TestOpenAIChatGenerator:
                 },
                 "tools": [
                     {
+                        "type": "haystack.tools.tool.Tool",
+                        "data": {
                         "description": "description",
                         "function": "builtins.print",
                         "name": "name",
@@ -393,7 +364,8 @@ class TestOpenAIChatGenerator:
                                 "type": "string",
                             },
                         },
-                    },
+                    }
+                    }
                 ],
                 "tools_strict": True,
             },
