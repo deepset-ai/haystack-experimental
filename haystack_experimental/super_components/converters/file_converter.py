@@ -1,30 +1,28 @@
-from typing import Any, List, Dict, Optional, Literal, Callable
+import inspect
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Any, Callable, Dict, List, Literal, Optional
 
+from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.converters import (
     CSVToDocument,
-    TextFileToDocument,
     DOCXToDocument,
-    XLSXToDocument,
-    PyPDFToDocument,
-    PPTXToDocument,
-    JSONConverter,
     HTMLToDocument,
-    MarkdownToDocument
+    JSONConverter,
+    MarkdownToDocument,
+    PPTXToDocument,
+    PyPDFToDocument,
+    TextFileToDocument,
+    XLSXToDocument,
 )
-
-from haystack.components.routers import FileTypeRouter
-from haystack import component, Pipeline, default_to_dict, default_from_dict
-from haystack.core.component import Component
-from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
 from haystack.components.joiners import DocumentJoiner
-from haystack.utils import serialize_callable, deserialize_callable
+from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
+from haystack.components.routers import FileTypeRouter
+from haystack.core.component import Component
+from haystack.utils import deserialize_callable, serialize_callable
 
 from haystack_experimental.components.wrappers.pipeline_wrapper import PipelineWrapper
 
-from enum import StrEnum
-from dataclasses import dataclass
-
-import inspect
 
 @dataclass
 class ComponentModule:
@@ -41,8 +39,7 @@ class ComponentModule:
         if self.config_mapping is None:
             # Get init parameters excluding self
             sig = inspect.signature(self.component.__init__)
-            self.config_mapping = {param: param for param in sig.parameters if param != 'self'}
-
+            self.config_mapping = {param: param for param in sig.parameters if param != "self"}
 
 
 class ConverterMimeType(StrEnum):
@@ -61,15 +58,20 @@ _FILE_CONVERTER_MODULES = {
     ConverterMimeType.CSV: ComponentModule(component=CSVToDocument),
     ConverterMimeType.DOCX: ComponentModule(component=DOCXToDocument),
     ConverterMimeType.HTML: ComponentModule(component=HTMLToDocument),
-    ConverterMimeType.JSON: ComponentModule(component=JSONConverter, config_mapping={"json_content_key": "content_key"}),
+    ConverterMimeType.JSON: ComponentModule(
+        component=JSONConverter, config_mapping={"json_content_key": "content_key"}
+    ),
     ConverterMimeType.MD: ComponentModule(component=MarkdownToDocument),
     ConverterMimeType.TEXT: ComponentModule(component=TextFileToDocument),
     ConverterMimeType.PDF: ComponentModule(component=PyPDFToDocument),
     ConverterMimeType.PPTX: ComponentModule(component=PPTXToDocument),
-    ConverterMimeType.XLSX: ComponentModule(component=XLSXToDocument)
+    ConverterMimeType.XLSX: ComponentModule(component=XLSXToDocument),
 }
 
-def _add_modules_to_pipeline(pipeline: Pipeline, modules: List[ComponentModule], component_args: Dict[str, Any]) -> None:
+
+def _add_modules_to_pipeline(
+    pipeline: Pipeline, modules: List[ComponentModule], component_args: Dict[str, Any]
+) -> None:
     for module in modules:
         comp = module.component
         name = module.name
@@ -79,8 +81,6 @@ def _add_modules_to_pipeline(pipeline: Pipeline, modules: List[ComponentModule],
                 config[mapped_param] = component_args[param]
 
         pipeline.add_component(name, comp(**config))
-
-
 
 
 @component
@@ -94,20 +94,21 @@ class MultiFileConverter(PipelineWrapper):
     converter.run(sources=["test.txt", "test.pdf"], meta={})
     ```
     """
+
     def __init__(
-            self,
-            mime_types: List[ConverterMimeType] = None,
-            split_by: Literal["function", "page", "passage", "period", "word", "line", "sentence"] = "word",
-            split_length: int = 250,
-            split_overlap: int = 30,
-            split_threshold: int = 0,
-            splitting_function: Optional[Callable[[str], List[str]]] = None,
-            respect_sentence_boundary: bool = True,
-            language: Language = "en",
-            use_split_rules: bool = True,
-            extend_abbreviations: bool = True,
-            encoding: str = "utf-8",
-            json_content_key: str = "content",
+        self,
+        mime_types: List[ConverterMimeType] = None,
+        split_by: Literal["function", "page", "passage", "period", "word", "line", "sentence"] = "word",
+        split_length: int = 250,
+        split_overlap: int = 30,
+        split_threshold: int = 0,
+        splitting_function: Optional[Callable[[str], List[str]]] = None,
+        respect_sentence_boundary: bool = True,
+        language: Language = "en",
+        use_split_rules: bool = True,
+        extend_abbreviations: bool = True,
+        encoding: str = "utf-8",
+        json_content_key: str = "content",
     ) -> None:
         if mime_types is None:
             self.resolved_mime_types = list(_FILE_CONVERTER_MODULES.keys())
@@ -129,7 +130,7 @@ class MultiFileConverter(PipelineWrapper):
 
         args = locals()
         pp = Pipeline()
-        converter_modules = [_FILE_CONVERTER_MODULES[mime_type] for mime_type in self.mime_types]
+        converter_modules = [_FILE_CONVERTER_MODULES[mime_type] for mime_type in self.resolved_mime_types]
         _add_modules_to_pipeline(pp, converter_modules, args)
 
         router = FileTypeRouter(mime_types=self.resolved_mime_types)
@@ -159,6 +160,9 @@ class MultiFileConverter(PipelineWrapper):
         super(MultiFileConverter, self).__init__(pipeline=pp, output_mapping=output_mapping)
 
     def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize this instance to a dictionary.
+        """
         if self.splitting_function is not None:
             splitting_function = serialize_callable(self.splitting_function)
         else:
@@ -177,11 +181,14 @@ class MultiFileConverter(PipelineWrapper):
             use_split_rules=self.use_split_rules,
             extend_abbreviations=self.extend_abbreviations,
             encoding=self.encoding,
-            json_content_key=self.json_content_key
+            json_content_key=self.json_content_key,
         )
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MultiFileConverter":
+        """
+        Load this instance from a dictionary.
+        """
         if splitting_function := data["init_parameters"].get("splitting_function"):
             data["init_parameters"]["splitting_function"] = deserialize_callable(splitting_function)
 
