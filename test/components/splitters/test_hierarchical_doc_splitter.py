@@ -214,7 +214,7 @@ class TestHierarchicalDocumentSplitter:
         new_pipeline = Pipeline.from_dict(pipeline_dict)
         assert new_pipeline == pipeline
 
-    def test_slit_by_sentence_assure_warm_up_was_called(self):
+    def test_split_by_sentence_assure_warm_up_was_called(self):
         pipeline = Pipeline()
         hierarchical_doc_builder = HierarchicalDocumentSplitter(
             block_sizes={10, 5, 2}, split_overlap=0, split_by="sentence"
