@@ -9,10 +9,10 @@ from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
 
 from haystack import logging, tracing
 from haystack.core.component import Component, InputSocket
-from haystack.core.errors import PipelineMaxComponentRuns, PipelineRuntimeError
-from haystack_experimental.core.pipeline.base import PipelineBase
 from haystack.telemetry import pipeline_running
 
+from haystack_experimental.core.errors import PipelineMaxComponentRuns, PipelineRuntimeError
+from haystack_experimental.core.pipeline.base import PipelineBase
 from haystack_experimental.core.pipeline.component_checks import (
     _NO_OUTPUT_PRODUCED,
     all_predecessors_executed,
@@ -388,6 +388,37 @@ class Pipeline(PipelineBase):
         """
         return len(priority_queue) == 0 or priority_queue.peek()[0] > ComponentPriority.READY
 
+    @staticmethod
+    def _is_queue_blocked(pq: FIFOPriorityQueue) -> bool:
+        """
+        Checks if all the components in priority queue are blocked before pipeline run.
+
+        :param pq: Priority queue of component names.
+        """
+        queue_copy = deepcopy(pq)
+
+        while queue_copy:
+            component = queue_copy.peek()
+            if component[0] != ComponentPriority.BLOCKED:
+                return False
+            queue_copy.pop()
+        return True
+
+    def validate_pipeline(self, priority_queue: FIFOPriorityQueue):
+        """
+        Validate the pipeline to check if it is blocked or has valid no entry point.
+
+        :param priority_queue: Priority queue of component names.
+        """
+        if self._is_queue_blocked(priority_queue):
+            raise PipelineRuntimeError(
+                "Cannot run pipeline - all components are blocked. "
+                "This typically happens when:\n"
+                "1. There is no valid entry point for the pipeline\n"
+                "2. There is a circular dependency preventing the pipeline from running\n"
+                "Check the connections between these components and ensure all required inputs are provided."
+            )
+
     def run(  # noqa: PLR0915, PLR0912
         self, data: Dict[str, Any], include_outputs_from: Optional[Set[str]] = None
     ) -> Dict[str, Any]:
@@ -471,6 +502,8 @@ class Pipeline(PipelineBase):
             will only contain the outputs of leaf components, i.e., components
             without outgoing connections.
 
+        :raises ValueError:
+            If invalid inputs are provided to the pipeline.
         :raises PipelineRuntimeError:
             If the Pipeline contains cycles with unsupported connections that would cause
             it to get stuck and fail running.
@@ -490,7 +523,7 @@ class Pipeline(PipelineBase):
         # normalize `data`
         data = self._prepare_component_input_data(data)
 
-        # Raise if input is malformed in some way
+        # Raise ValueError if input is malformed in some way
         self._validate_input(data)
 
         if include_outputs_from is None:
@@ -515,10 +548,13 @@ class Pipeline(PipelineBase):
             },
         ) as span:
             inputs = self._convert_from_legacy_format(pipeline_inputs=data)
-            #self._warn_if_ambiguous_intent(
+            # self._warn_if_ambiguous_intent(
             #    inputs=inputs, component_names=ordered_component_names, receivers=cached_receivers
-            #)
+            # )
             priority_queue = self._fill_queue(ordered_component_names, inputs)
+
+            # check if pipeline is blocked before execution
+            self.validate_pipeline(priority_queue)
 
             while True:
                 candidate = self._get_next_runnable_component(priority_queue)
@@ -529,14 +565,14 @@ class Pipeline(PipelineBase):
                 if len(priority_queue) > 0:
                     next_priority, next_name = priority_queue.peek()
 
-                    # alternative to _warn_if_ambiguous_intent
                     if (
-                            priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST]
-                            and next_priority == priority
+                        priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST]
+                        and next_priority == priority
                     ):
                         msg = (
-                            f"Ambiguous running order: Components '{component_name}' and '{next_name}' are waiting for "
-                            f"optional inputs at the same time. Component '{component_name}' executes first."
+                            f"Components '{component_name}' and '{next_name}' are waiting for "
+                            f"optional inputs at the same time. The pipeline will execute '{component_name}' "
+                            f"first based on lexicographical ordering."
                         )
                         warnings.warn(msg)
 
