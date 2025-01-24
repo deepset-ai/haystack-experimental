@@ -33,7 +33,7 @@ class GithubIssueViewer:
 
     def __init__(
         self,
-        github_token: Optional[Secret] = Secret.from_env_var("GITHUB_TOKEN"),
+        github_token: Optional[Secret] = None,
         raise_on_failure: bool = True,
         retry_attempts: int = 2,
     ):
