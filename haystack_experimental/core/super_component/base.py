@@ -1,12 +1,10 @@
-from haystack import Pipeline
-
-
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, get_args, get_origin
+from typing import Any, Dict, List, Optional, Tuple
 
 from haystack import Pipeline, component
-from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
+from haystack.core.serialization import default_to_dict
 
 from haystack_experimental.core.super_component.utils import _delegate_default, is_compatible
+
 
 class InvalidMappingError(Exception):
     """Raised when input or output mappings are invalid or type conflicts are found."""

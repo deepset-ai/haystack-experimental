@@ -1,9 +1,10 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 from haystack import Pipeline, component
 from haystack.core.serialization import default_from_dict, default_to_dict
 
 from haystack_experimental.core.super_component.base import SuperComponentBase
+
 
 @component
 class SuperComponent(SuperComponentBase):

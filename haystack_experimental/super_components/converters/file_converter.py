@@ -59,7 +59,7 @@ class AutoFileConverter(SuperComponentBase):
     ```
     """
 
-    def __init__(
+    def __init__( # noqa: PLR0915
         self,
         split_by: Literal["function", "page", "passage", "period", "word", "line", "sentence"] = "word",
         split_length: int = 250,
