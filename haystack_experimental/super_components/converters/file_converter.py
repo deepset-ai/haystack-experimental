@@ -1,5 +1,3 @@
-import inspect
-from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Callable, Dict, List, Literal, Optional
 
@@ -18,28 +16,9 @@ from haystack.components.converters import (
 from haystack.components.joiners import DocumentJoiner
 from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
 from haystack.components.routers import FileTypeRouter
-from haystack.core.component import Component
 from haystack.utils import deserialize_callable, serialize_callable
 
-from haystack_experimental.components.wrappers.pipeline_wrapper import PipelineWrapper
-
-
-@dataclass
-class ComponentModule:
-    component: Component
-    name: str | None = None
-    config_mapping: Dict[str, str] | None = None
-
-    def __post_init__(self):
-        # Set default name if not provided
-        if self.name is None:
-            self.name = self.component.__name__
-
-        # Set default config mapping if not provided
-        if self.config_mapping is None:
-            # Get init parameters excluding self
-            sig = inspect.signature(self.component.__init__)
-            self.config_mapping = {param: param for param in sig.parameters if param != "self"}
+from haystack_experimental.core.super_component import SuperComponentBase
 
 
 class ConverterMimeType(StrEnum):
@@ -54,50 +33,34 @@ class ConverterMimeType(StrEnum):
     XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
-_FILE_CONVERTER_MODULES = {
-    ConverterMimeType.CSV: ComponentModule(component=CSVToDocument),
-    ConverterMimeType.DOCX: ComponentModule(component=DOCXToDocument),
-    ConverterMimeType.HTML: ComponentModule(component=HTMLToDocument),
-    ConverterMimeType.JSON: ComponentModule(
-        component=JSONConverter, config_mapping={"json_content_key": "content_key"}
-    ),
-    ConverterMimeType.MD: ComponentModule(component=MarkdownToDocument),
-    ConverterMimeType.TEXT: ComponentModule(component=TextFileToDocument),
-    ConverterMimeType.PDF: ComponentModule(component=PyPDFToDocument),
-    ConverterMimeType.PPTX: ComponentModule(component=PPTXToDocument),
-    ConverterMimeType.XLSX: ComponentModule(component=XLSXToDocument),
-}
-
-
-def _add_modules_to_pipeline(
-    pipeline: Pipeline, modules: List[ComponentModule], component_args: Dict[str, Any]
-) -> None:
-    for module in modules:
-        comp = module.component
-        name = module.name
-        config = {}
-        for param, mapped_param in module.config_mapping.items():
-            if param in component_args:
-                config[mapped_param] = component_args[param]
-
-        pipeline.add_component(name, comp(**config))
-
-
 @component
-class MultiFileConverter(PipelineWrapper):
+class AutoFileConverter(SuperComponentBase):
     """
-    A file converter that can handle multiple file types.
+    A file converter that handles multiple file types and their pre-processing.
+
+    The AutoFileConverter handles the following file types:
+    - CSV
+    - DOCX
+    - HTML
+    - JSON
+    - MD
+    - TEXT
+    - PDF (no OCR)
+    - PPTX
+    - XLSX
+
+    It splits all non-tabular data into Documents as specified by the splitting parameters.
+    Tabular data (CSV & XLSX) is returned without splitting.
 
     Usage:
     ```
-    converter = MultiFileConverter()
+    converter = AutoFileConverter()
     converter.run(sources=["test.txt", "test.pdf"], meta={})
     ```
     """
 
     def __init__(
         self,
-        mime_types: List[ConverterMimeType] = None,
         split_by: Literal["function", "page", "passage", "period", "word", "line", "sentence"] = "word",
         split_length: int = 250,
         split_overlap: int = 30,
@@ -110,11 +73,6 @@ class MultiFileConverter(PipelineWrapper):
         encoding: str = "utf-8",
         json_content_key: str = "content",
     ) -> None:
-        if mime_types is None:
-            self.resolved_mime_types = list(_FILE_CONVERTER_MODULES.keys())
-        else:
-            self.resolved_mime_types = mime_types
-
         self.split_by = split_by
         self.split_length = split_length
         self.split_overlap = split_overlap
@@ -126,38 +84,99 @@ class MultiFileConverter(PipelineWrapper):
         self.extend_abbreviations = extend_abbreviations
         self.encoding = encoding
         self.json_content_key = json_content_key
-        self.mime_types = mime_types
 
-        args = locals()
-        pp = Pipeline()
-        converter_modules = [_FILE_CONVERTER_MODULES[mime_type] for mime_type in self.resolved_mime_types]
-        _add_modules_to_pipeline(pp, converter_modules, args)
+        # initialize components
+        router = FileTypeRouter(
+            mime_types=[
+                ConverterMimeType.CSV,
+                ConverterMimeType.DOCX,
+                ConverterMimeType.HTML,
+                ConverterMimeType.JSON,
+                ConverterMimeType.MD,
+                ConverterMimeType.TEXT,
+                ConverterMimeType.PDF,
+                ConverterMimeType.PPTX,
+                ConverterMimeType.XLSX,
+            ]
+        )
 
-        router = FileTypeRouter(mime_types=self.resolved_mime_types)
-        pp.add_component("router", router)
+        csv = CSVToDocument(encoding=self.encoding)
+        docx = DOCXToDocument()
+        html = HTMLToDocument()
+        json = JSONConverter(content_key=self.json_content_key)
+        md = MarkdownToDocument()
+        txt = TextFileToDocument(encoding=self.encoding)
+        pdf = PyPDFToDocument()
+        pptx = PPTXToDocument()
+        xlsx = XLSXToDocument()
 
         joiner = DocumentJoiner()
         tabular_joiner = DocumentJoiner()
+
+        splitter = DocumentSplitter(
+            split_by=self.split_by,
+            split_length=self.split_length,
+            split_overlap=self.split_overlap,
+            split_threshold=self.split_threshold,
+            splitting_function=self.splitting_function,
+            respect_sentence_boundary=self.respect_sentence_boundary,
+            language=self.language,
+            use_split_rules=self.use_split_rules,
+            extend_abbreviations=self.extend_abbreviations,
+        )
+
+        # Create pipeline and add components
+        pp = Pipeline()
+
+        pp.add_component("router", router)
+        pp.add_component("csv", csv)
+        pp.add_component("docx", docx)
+        pp.add_component("html", html)
+        pp.add_component("json", json)
+        pp.add_component("md", md)
+        pp.add_component("txt", txt)
+        pp.add_component("pdf", pdf)
+        pp.add_component("pptx", pptx)
+        pp.add_component("xlsx", xlsx)
         pp.add_component("joiner", joiner)
         pp.add_component("tabular_joiner", tabular_joiner)
+        pp.add_component("splitter", splitter)
 
-        for mime_type in self.resolved_mime_types:
-            to_connect = _FILE_CONVERTER_MODULES[mime_type].name
-            pp.connect(f"router.{mime_type}", f"{to_connect}.sources")
-            if mime_type in [ConverterMimeType.XLSX, ConverterMimeType.CSV]:
-                pp.connect(to_connect, "joiner")
-            else:
-                pp.connect(to_connect, "tabular_joiner")
+        pp.connect(f"router.{ConverterMimeType.CSV}", "csv")
+        pp.connect(f"router.{ConverterMimeType.DOCX}", "docx")
+        pp.connect(f"router.{ConverterMimeType.HTML}", "html")
+        pp.connect(f"router.{ConverterMimeType.JSON}", "json")
+        pp.connect(f"router.{ConverterMimeType.MD}", "md")
+        pp.connect(f"router.{ConverterMimeType.TEXT}", "txt")
+        pp.connect(f"router.{ConverterMimeType.PDF}", "pdf")
+        pp.connect(f"router.{ConverterMimeType.PPTX}", "pptx")
+        pp.connect(f"router.{ConverterMimeType.XLSX}", "xlsx")
 
-        splitter_module = ComponentModule(component=DocumentSplitter, name="splitter")
-        _add_modules_to_pipeline(pp, [splitter_module], args)
+        pp.connect("docx.documents", "joiner.documents")
+        pp.connect("html.documents", "joiner.documents")
+        pp.connect("json.documents", "joiner.documents")
+        pp.connect("md.documents", "joiner.documents")
+        pp.connect("txt.documents", "joiner.documents")
+        pp.connect("pdf.documents", "joiner.documents")
+        pp.connect("pptx.documents", "joiner.documents")
+
+        pp.connect("csv.documents", "tabular_joiner.documents")
+        pp.connect("xlsx.documents", "tabular_joiner.documents")
 
         pp.connect("joiner.documents", "splitter.documents")
         pp.connect("splitter.documents", "tabular_joiner.documents")
 
         output_mapping = {"tabular_joiner.documents": "documents"}
+        input_mapping = {
+            "sources": ["router.sources"],
+            "meta": ["router.meta"]
+        }
 
-        super(MultiFileConverter, self).__init__(pipeline=pp, output_mapping=output_mapping)
+        super(AutoFileConverter, self).__init__(
+            pipeline=pp,
+            output_mapping=output_mapping,
+            input_mapping=input_mapping
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -170,7 +189,6 @@ class MultiFileConverter(PipelineWrapper):
 
         return default_to_dict(
             self,
-            mime_types=self.mime_types,
             split_by=self.split_by,
             split_length=self.split_length,
             split_overlap=self.split_overlap,
@@ -185,7 +203,7 @@ class MultiFileConverter(PipelineWrapper):
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MultiFileConverter":
+    def from_dict(cls, data: Dict[str, Any]) -> "AutoFileConverter":
         """
         Load this instance from a dictionary.
         """
