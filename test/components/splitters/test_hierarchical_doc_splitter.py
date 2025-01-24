@@ -213,3 +213,24 @@ class TestHierarchicalDocumentSplitter:
 
         new_pipeline = Pipeline.from_dict(pipeline_dict)
         assert new_pipeline == pipeline
+
+    def test_split_by_sentence_assure_warm_up_was_called(self):
+        pipeline = Pipeline()
+        hierarchical_doc_builder = HierarchicalDocumentSplitter(
+            block_sizes={10, 5, 2}, split_overlap=0, split_by="sentence"
+        )
+        doc_store = InMemoryDocumentStore()
+        doc_writer = DocumentWriter(document_store=doc_store)
+
+        pipeline.add_component(
+            name="hierarchical_doc_splitter", instance=hierarchical_doc_builder
+        )
+        pipeline.add_component(name="doc_writer", instance=doc_writer)
+        pipeline.connect("hierarchical_doc_splitter.documents", "doc_writer")
+
+        text = "This is one sentence. This is another sentence. This is the third sentence."
+        doc = Document(content=text)
+        docs = pipeline.run({"hierarchical_doc_splitter": {"documents": [doc]}})
+
+        assert docs["doc_writer"]["documents_written"] == 3
+        assert len(doc_store.storage.values()) == 3
