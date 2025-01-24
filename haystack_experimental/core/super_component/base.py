@@ -131,7 +131,7 @@ class SuperComponentBase:
                     if not is_compatible(existing_socket_info["type"], socket_info["type"]):
                         raise InvalidMappingError(
                             f"Type conflict for input '{socket_name}': "
-                            f"found {existing_socket_info["type"]} and {socket_info['type']}"
+                            f"found {existing_socket_info['type']} and {socket_info['type']}"
                         )
 
                     # If any socket requires mandatory inputs it has to take precedence
