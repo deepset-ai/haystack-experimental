@@ -185,7 +185,6 @@ def has_socket_received_all_inputs(socket: InputSocket, socket_inputs: List[Dict
     if (
         socket.is_variadic
         and socket.is_greedy
-        and len(socket_inputs) > 0
         and any(sock["value"] != _NO_OUTPUT_PRODUCED for sock in socket_inputs)
     ):
         return True
