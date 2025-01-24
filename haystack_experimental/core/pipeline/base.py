@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, TextIO, Tuple, Type, TypeVar, Union
 
-import networkx  # type:ignore
+from networkx import MultiDiGraph # type:ignore
 from haystack import logging
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
@@ -61,7 +61,7 @@ class PipelineBase:
         self._telemetry_runs = 0
         self._last_telemetry_sent: Optional[datetime] = None
         self.metadata = metadata or {}
-        self.graph = networkx.MultiDiGraph()
+        self.graph = MultiDiGraph()
         self._max_runs_per_component = max_runs_per_component
 
     def __eq__(self, other) -> bool:
