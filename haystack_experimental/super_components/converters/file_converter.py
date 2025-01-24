@@ -129,7 +129,7 @@ class AutoFileConverter(SuperComponentBase):
         pp = Pipeline()
 
         pp.add_component("router", router)
-        pp.add_component("csv", csv)
+
         pp.add_component("docx", docx)
         pp.add_component("html", html)
         pp.add_component("json", json)
@@ -139,10 +139,11 @@ class AutoFileConverter(SuperComponentBase):
         pp.add_component("pptx", pptx)
         pp.add_component("xlsx", xlsx)
         pp.add_component("joiner", joiner)
-        pp.add_component("tabular_joiner", tabular_joiner)
         pp.add_component("splitter", splitter)
+        pp.add_component("tabular_joiner", tabular_joiner)
+        pp.add_component("csv", csv)
 
-        pp.connect(f"router.{ConverterMimeType.CSV}", "csv")
+
         pp.connect(f"router.{ConverterMimeType.DOCX}", "docx")
         pp.connect(f"router.{ConverterMimeType.HTML}", "html")
         pp.connect(f"router.{ConverterMimeType.JSON}", "json")
@@ -152,6 +153,8 @@ class AutoFileConverter(SuperComponentBase):
         pp.connect(f"router.{ConverterMimeType.PPTX}", "pptx")
         pp.connect(f"router.{ConverterMimeType.XLSX}", "xlsx")
 
+        pp.connect("joiner.documents", "splitter.documents")
+        pp.connect("splitter.documents", "tabular_joiner.documents")
         pp.connect("docx.documents", "joiner.documents")
         pp.connect("html.documents", "joiner.documents")
         pp.connect("json.documents", "joiner.documents")
@@ -162,9 +165,8 @@ class AutoFileConverter(SuperComponentBase):
 
         pp.connect("csv.documents", "tabular_joiner.documents")
         pp.connect("xlsx.documents", "tabular_joiner.documents")
+        pp.connect(f"router.{ConverterMimeType.CSV}", "csv")
 
-        pp.connect("joiner.documents", "splitter.documents")
-        pp.connect("splitter.documents", "tabular_joiner.documents")
 
         output_mapping = {"tabular_joiner.documents": "documents"}
         input_mapping = {
