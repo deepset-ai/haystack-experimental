@@ -330,29 +330,14 @@ class Pipeline(PipelineBase):
         """
         return len(priority_queue) == 0 or priority_queue.peek()[0] > ComponentPriority.READY
 
-    @staticmethod
-    def _is_queue_blocked(pq: FIFOPriorityQueue) -> bool:
-        """
-        Checks if all the components in priority queue are blocked before pipeline run.
-
-        :param pq: Priority queue of component names.
-        """
-        queue_copy = deepcopy(pq)
-
-        while queue_copy:
-            component = queue_copy.peek()
-            if component[0] != ComponentPriority.BLOCKED:
-                return False
-            queue_copy.pop()
-        return True
-
     def validate_pipeline(self, priority_queue: FIFOPriorityQueue):
         """
-        Validate the pipeline to check if it is blocked or has valid no entry point.
+        Validate the pipeline to check if it is blocked or has no valid entry point.
 
         :param priority_queue: Priority queue of component names.
         """
-        if self._is_queue_blocked(priority_queue):
+        candidate = priority_queue.peek()
+        if candidate is not None and candidate[0] == ComponentPriority.BLOCKED:
             raise PipelineRuntimeError(
                 "Cannot run pipeline - all components are blocked. "
                 "This typically happens when:\n"
