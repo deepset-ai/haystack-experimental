@@ -5,7 +5,7 @@
 import warnings
 from copy import deepcopy
 from enum import IntEnum
-from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import logging, tracing
 from haystack.core.component import Component, InputSocket
@@ -121,7 +121,7 @@ class Pipeline(PipelineBase):
             span.set_tag("haystack.component.visits", component["visits"])
             span.set_content_tag("haystack.component.output", component_output)
 
-            return component_output, inputs
+            return cast(Dict[Any, Any], component_output), inputs
 
     @staticmethod
     def _consume_component_inputs(component_name: str, component: Dict, inputs: Dict) -> Tuple[Dict, Dict]:
@@ -231,7 +231,9 @@ class Pipeline(PipelineBase):
             or None if no component in the queue can run.
         :raises: PipelineMaxComponentRuns if the next runnable component has exceeded the maximum number of runs.
         """
-        priority_and_component_name: Union[Tuple[ComponentPriority, str], None] = priority_queue.get()
+        priority_and_component_name: Union[Tuple[ComponentPriority, str], None] = (
+            None if (item := priority_queue.get()) is None else (ComponentPriority(item[0]), str(item[1]))
+        )
 
         if priority_and_component_name is not None and priority_and_component_name[0] != ComponentPriority.BLOCKED:
             priority, component_name = priority_and_component_name
