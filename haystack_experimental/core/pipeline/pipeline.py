@@ -170,6 +170,12 @@ class Pipeline(PipelineBase):
         """
         Converts the inputs to the pipeline to the format that is needed for the internal `Pipeline.run` logic.
 
+        Example Input:
+        {'prompt_builder': {'question': 'Who lives in Paris?'}, 'retriever': {'query': 'Who lives in Paris?'}}
+        Example Output:
+        {'prompt_builder': {'question': [{'sender': None, 'value': 'Who lives in Paris?'}]},
+         'retriever': {'query': [{'sender': None, 'value': 'Who lives in Paris?'}]}}
+
         :param pipeline_inputs: Inputs to the pipeline.
         :returns: Converted inputs that can be used by the internal `Pipeline.run` logic.
         """
