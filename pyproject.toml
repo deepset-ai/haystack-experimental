@@ -48,6 +48,8 @@ dependencies = [
   # Linting
   "pylint",
   "ruff",
+  # PipelineBase.show
+  "ipython"
 ]
 
 [tool.hatch.envs.test]

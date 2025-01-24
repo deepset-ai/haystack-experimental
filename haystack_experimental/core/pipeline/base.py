@@ -9,7 +9,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, TextIO, Tuple, Type, TypeVar, Union
 
-from networkx import MultiDiGraph # type:ignore
 from haystack import logging
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
@@ -28,6 +27,7 @@ from haystack.core.serialization import DeserializationCallbacks, component_from
 from haystack.core.type_utils import _type_name, _types_are_compatible
 from haystack.marshal import Marshaller, YamlMarshaller
 from haystack.utils import is_in_jupyter, type_serialization
+from networkx import MultiDiGraph  # type:ignore
 
 DEFAULT_MARSHALLER = YamlMarshaller()
 
@@ -123,7 +123,7 @@ class PipelineBase:
         }
 
     @classmethod
-    def from_dict(
+    def from_dict(  # noqa: PLR0912
         cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs
     ) -> T:
         """

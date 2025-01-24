@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
 
 from haystack import logging, tracing
 from haystack.core.component import Component, InputSocket
+from haystack.core.errors import PipelineMaxComponentRuns, PipelineRuntimeError
 from haystack.telemetry import pipeline_running
 
-from haystack_experimental.core.errors import PipelineMaxComponentRuns, PipelineRuntimeError
 from haystack_experimental.core.pipeline.base import PipelineBase
 from haystack_experimental.core.pipeline.component_checks import (
     _NO_OUTPUT_PRODUCED,
