@@ -68,7 +68,7 @@ class DocumentIndexer(SuperComponentBase):
         self,
         embedder: Component,
         document_store: DocumentStore,
-        duplicate_policy: DuplicatePolicy = DuplicatePolicy.NONE,
+        duplicate_policy: DuplicatePolicy = DuplicatePolicy.OVERWRITE,
     ) -> None:
         self.embedder = embedder
         self.document_store = document_store
