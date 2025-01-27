@@ -7,7 +7,7 @@ import asyncio
 import pytest
 from pytest_bdd import when, then, parsers
 
-from haystack_experimental.core import AsyncPipeline, run_async_pipeline
+from haystack_experimental.core import AsyncPipeline
 import contextlib
 import dataclasses
 import uuid
@@ -114,7 +114,7 @@ def run_pipeline(
     results: List[_PipelineResult] = []
 
     async def run_inner(data, include_outputs_from):
-        return await run_async_pipeline(pipeline, data.inputs, include_outputs_from)
+        return await pipeline.run_async(data=data.inputs, include_outputs_from=include_outputs_from)
 
     for data in pipeline_run_data:
         try:

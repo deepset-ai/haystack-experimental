@@ -112,7 +112,7 @@ def pipeline_that_has_an_infinite_loop():
     target_fixture="pipeline_data",
 )
 def pipeline_complex():
-    pipeline = AsyncPipeline(max_runs_per_component=2)
+    pipeline = AsyncPipeline(max_runs_per_component=3)
     pipeline.add_component("greet_first", Greet(message="Hello, the value is {value}."))
     pipeline.add_component("accumulate_1", Accumulate())
     pipeline.add_component("add_two", AddFixedValue(add=2))
@@ -1065,7 +1065,7 @@ def pipeline_that_has_a_component_with_only_default_inputs_as_first_to_run_and_r
         ]
     )
 
-    pipe = AsyncPipeline(max_runs_per_component=1)
+    pipe = AsyncPipeline(max_runs_per_component=2)
 
     pipe.add_component("prompt_builder", PromptBuilder(template=template))
     pipe.add_component("generator", FakeGenerator())
@@ -1550,7 +1550,7 @@ def pipeline_that_has_a_loop_and_a_component_with_default_inputs_that_doesnt_rec
     llm = FakeGenerator()
     validator = FakeOutputValidator()
 
-    pipeline = AsyncPipeline(max_runs_per_component=1)
+    pipeline = AsyncPipeline(max_runs_per_component=2)
     pipeline.add_component("prompt_builder", prompt_builder)
 
     pipeline.add_component("llm", llm)
