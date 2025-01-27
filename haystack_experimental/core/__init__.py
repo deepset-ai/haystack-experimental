@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .pipeline import Pipeline
-from .pipeline.async_pipeline import AsyncPipeline
 from .super_component import SuperComponent, SuperComponentBase
+from .pipeline.async_pipeline import AsyncPipeline
 
 _all_ = ["Pipeline", "SuperComponent", "SuperComponentBase"]
