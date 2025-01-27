@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from haystack_experimental.super_components.indexers.document_indexer import DocumentIndexer
 
 __all__ = [
