@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+
+raise ImportError(
+    "The haystack-experimental 0.5.0 release does not support async pipelines. "
+    "Please use the haystack-experimental 0.4.0 release instead."
+)
+
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -11,7 +17,7 @@ from warnings import warn
 import networkx as nx
 from haystack import logging, tracing
 from haystack.core.component import Component
-from haystack.core.errors import PipelineMaxComponentRuns, PipelineRuntimeError
+from haystack.core.errors import PipelineError, PipelineMaxComponentRuns, PipelineRuntimeError
 from haystack.core.pipeline.base import (
     PipelineBase,
     _add_missing_input_defaults,
