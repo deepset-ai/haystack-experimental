@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .core import Pipeline, AsyncPipeline, run_async_pipeline
+from .core import AsyncPipeline, Pipeline
