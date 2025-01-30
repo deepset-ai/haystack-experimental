@@ -7,14 +7,8 @@ from typing import Any, Dict, List, Optional
 from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder
 from haystack.components.writers import DocumentWriter
-from haystack.core.serialization import (
-    DeserializationError,
-    component_from_dict,
-    component_to_dict,
-    import_class_by_name,
-)
 from haystack.document_stores.in_memory import InMemoryDocumentStore
-from haystack.document_stores.types import DocumentStore, DuplicatePolicy
+from haystack.document_stores.types import DuplicatePolicy
 
 from haystack_experimental.core.super_component import SuperComponentBase
 
