@@ -20,7 +20,7 @@ class TestDocumentIndexer:
     @pytest.fixture
     def indexer(self, document_store: InMemoryDocumentStore) -> DocumentIndexer:
         return DocumentIndexer(
-            embedder=SentenceTransformersDocumentEmbedder(),
+            embedder=SentenceTransformersDocumentEmbedder(device='cpu'),
             document_store=document_store,
         )
 
