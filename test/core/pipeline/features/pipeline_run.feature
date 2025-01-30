@@ -43,6 +43,14 @@ Feature: Pipeline running
         | that has a loop in the middle |
         | that has variadic component that receives a conditional input |
         | that has a string variadic component |
+        | that is an agent that can use RAG |
+        | that has a feedback loop |
+        | created in a non-standard order that has a loop |
+        | that has an agent with a feedback cycle |
+        | that passes outputs that are consumed in cycle to outside the cycle |
+        | with a component that has dynamic default inputs |
+        | with a component that has variadic dynamic default inputs |
+
 
     Scenario Outline: Running a bad Pipeline
         Given a pipeline <kind>
