@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional
 
 from haystack import Pipeline, component, default_from_dict, default_to_dict
@@ -25,7 +25,7 @@ from haystack.utils import deserialize_callable, serialize_callable
 from haystack_experimental.core.super_component import SuperComponentBase
 
 
-class ConverterMimeType(StrEnum):
+class ConverterMimeType(str, Enum):
     CSV = "text/csv"
     DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     HTML = "text/html"
@@ -92,15 +92,15 @@ class AutoFileConverter(SuperComponentBase):
         # initialize components
         router = FileTypeRouter(
             mime_types=[
-                ConverterMimeType.CSV,
-                ConverterMimeType.DOCX,
-                ConverterMimeType.HTML,
-                ConverterMimeType.JSON,
-                ConverterMimeType.MD,
-                ConverterMimeType.TEXT,
-                ConverterMimeType.PDF,
-                ConverterMimeType.PPTX,
-                ConverterMimeType.XLSX,
+                ConverterMimeType.CSV.value,
+                ConverterMimeType.DOCX.value,
+                ConverterMimeType.HTML.value,
+                ConverterMimeType.JSON.value,
+                ConverterMimeType.MD.value,
+                ConverterMimeType.TEXT.value,
+                ConverterMimeType.PDF.value,
+                ConverterMimeType.PPTX.value,
+                ConverterMimeType.XLSX.value,
             ]
         )
 
@@ -148,14 +148,14 @@ class AutoFileConverter(SuperComponentBase):
         pp.add_component("csv", csv)
 
 
-        pp.connect(f"router.{ConverterMimeType.DOCX}", "docx")
-        pp.connect(f"router.{ConverterMimeType.HTML}", "html")
-        pp.connect(f"router.{ConverterMimeType.JSON}", "json")
-        pp.connect(f"router.{ConverterMimeType.MD}", "md")
-        pp.connect(f"router.{ConverterMimeType.TEXT}", "txt")
-        pp.connect(f"router.{ConverterMimeType.PDF}", "pdf")
-        pp.connect(f"router.{ConverterMimeType.PPTX}", "pptx")
-        pp.connect(f"router.{ConverterMimeType.XLSX}", "xlsx")
+        pp.connect(f"router.{ConverterMimeType.DOCX.value}", "docx")
+        pp.connect(f"router.{ConverterMimeType.HTML.value}", "html")
+        pp.connect(f"router.{ConverterMimeType.JSON.value}", "json")
+        pp.connect(f"router.{ConverterMimeType.MD.value}", "md")
+        pp.connect(f"router.{ConverterMimeType.TEXT.value}", "txt")
+        pp.connect(f"router.{ConverterMimeType.PDF.value}", "pdf")
+        pp.connect(f"router.{ConverterMimeType.PPTX.value}", "pptx")
+        pp.connect(f"router.{ConverterMimeType.XLSX.value}", "xlsx")
 
         pp.connect("joiner.documents", "splitter.documents")
         pp.connect("splitter.documents", "tabular_joiner.documents")
@@ -169,7 +169,7 @@ class AutoFileConverter(SuperComponentBase):
 
         pp.connect("csv.documents", "tabular_joiner.documents")
         pp.connect("xlsx.documents", "tabular_joiner.documents")
-        pp.connect(f"router.{ConverterMimeType.CSV}", "csv")
+        pp.connect(f"router.{ConverterMimeType.CSV.value}", "csv")
 
 
         output_mapping = {"tabular_joiner.documents": "documents"}
