@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import ANY, Mock
+from uuid import UUID
 import pytest
 
 from haystack_experimental.super_components.indexers import DocumentIndexer
 
 from haystack import Document
+from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 
 class TestDocumentIndexer:
@@ -52,6 +54,40 @@ class TestDocumentIndexer:
         )
         assert isinstance(indexer, DocumentIndexer)
 
+    def test_from_dict_with_document_store(self) -> None:
+        indexer = DocumentIndexer.from_dict(
+            {
+                "init_parameters": {
+                    "model": None,
+                    "prefix": "",
+                    "suffix": "",
+                    "batch_size": 32,
+                    "embedding_separator": "\n",
+                    "meta_fields_to_embed": None,
+                    "document_store": {
+                        "init_parameters": {
+                            "bm25_tokenization_regex": r"(?u)\b\w\w+\b",
+                            "bm25_algorithm": "BM25L",
+                            "bm25_parameters": None,
+                            "embedding_similarity_function": "dot_product",
+                            "index": None,
+                        },
+                        "type": "haystack.document_stores.in_memory.document_store.InMemoryDocumentStore",
+                    },
+                    "duplicate_policy": "overwrite",
+                },
+                "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
+            }
+        )
+
+        assert isinstance(indexer, DocumentIndexer)
+        assert isinstance(indexer.document_store, InMemoryDocumentStore)
+        assert indexer.document_store.bm25_tokenization_regex == r"(?u)\b\w\w+\b"
+        assert indexer.document_store.bm25_algorithm == "BM25L"
+        assert indexer.document_store.bm25_parameters == {}
+        assert indexer.document_store.embedding_similarity_function == "dot_product"
+        assert UUID(indexer.document_store.index, version=4)
+
     def test_to_dict(self, indexer: DocumentIndexer) -> None:
         expected = {
             "init_parameters": {
@@ -62,6 +98,34 @@ class TestDocumentIndexer:
                 "embedding_separator": "\n",
                 "meta_fields_to_embed": None,
                 "document_store": None,
+                "duplicate_policy": "overwrite",
+            },
+            "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
+        }
+        assert indexer.to_dict() == expected
+
+    def test_to_dict_with_document_store(self) -> None:
+        document_store = InMemoryDocumentStore()
+        indexer = DocumentIndexer(document_store=document_store)
+
+        expected = {
+            "init_parameters": {
+                "model": None,
+                "prefix": "",
+                "suffix": "",
+                "batch_size": 32,
+                "embedding_separator": "\n",
+                "meta_fields_to_embed": None,
+                "document_store": {
+                    "init_parameters": {
+                        "bm25_tokenization_regex": r"(?u)\b\w\w+\b",
+                        "bm25_algorithm": "BM25L",
+                        "bm25_parameters": {},
+                        "embedding_similarity_function": "dot_product",
+                        "index": document_store.index,
+                    },
+                    "type": "haystack.document_stores.in_memory.document_store.InMemoryDocumentStore",
+                },
                 "duplicate_policy": "overwrite",
             },
             "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
