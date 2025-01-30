@@ -4,6 +4,8 @@
 
 from unittest.mock import ANY, Mock
 import pytest
+from haystack.utils import ComponentDevice
+
 from haystack_experimental.super_components.indexers import DocumentIndexer
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder
@@ -20,7 +22,7 @@ class TestDocumentIndexer:
     @pytest.fixture
     def indexer(self, document_store: InMemoryDocumentStore) -> DocumentIndexer:
         return DocumentIndexer(
-            embedder=SentenceTransformersDocumentEmbedder(device='cpu'),
+            embedder=SentenceTransformersDocumentEmbedder(device=ComponentDevice.from_str("cpu")),
             document_store=document_store,
         )
 
