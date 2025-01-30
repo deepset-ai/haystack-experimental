@@ -4,25 +4,16 @@
 
 from unittest.mock import ANY, Mock
 import pytest
+
 from haystack_experimental.super_components.indexers import DocumentIndexer
-from haystack.document_stores.in_memory import InMemoryDocumentStore
-from haystack.components.embedders import SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder
 
 from haystack import Document
-from haystack_experimental.super_components.indexers.document_indexer import InvalidEmbedderError
 
 
 class TestDocumentIndexer:
     @pytest.fixture
-    def document_store(self) -> InMemoryDocumentStore:
-        return InMemoryDocumentStore()
-
-    @pytest.fixture
-    def indexer(self, document_store: InMemoryDocumentStore) -> DocumentIndexer:
-        return DocumentIndexer(
-            embedder=SentenceTransformersDocumentEmbedder(),
-            document_store=document_store,
-        )
+    def indexer(self) -> DocumentIndexer:
+        return DocumentIndexer()
 
     @pytest.fixture
     def embedding_backend(self, indexer: DocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> Mock:
@@ -31,7 +22,10 @@ class TestDocumentIndexer:
             [0.3, 0.4, 0.01, 0.7],
             [0.1, 0.9, 0.87, 0.3],
         ]
-        monkeypatch.setattr(indexer.embedder, "embedding_backend", backend)
+
+        embedder = indexer.pipeline.get_component("embedder")
+        monkeypatch.setattr(embedder, "embedding_backend", backend)
+
         return backend
 
     def test_init(self, indexer: DocumentIndexer) -> None:
@@ -40,23 +34,18 @@ class TestDocumentIndexer:
         assert indexer.input_mapping == {"documents": ["embedder.documents"]}
         assert indexer.output_mapping == {"writer.documents_written": "documents_written"}
 
-    def test_init_with_unknown_embedder(self, document_store: InMemoryDocumentStore) -> None:
-        with pytest.raises(InvalidEmbedderError):
-            DocumentIndexer(embedder=SentenceTransformersTextEmbedder(), document_store=document_store)
-
     def test_from_dict(self) -> None:
         indexer = DocumentIndexer.from_dict(
             {
                 "init_parameters": {
-                    "document_store": {
-                        "init_parameters": {},
-                        "type": "haystack.document_stores.in_memory.document_store.InMemoryDocumentStore",
-                    },
+                    "model": None,
+                    "prefix": "",
+                    "suffix": "",
+                    "batch_size": 32,
+                    "embedding_separator": "\n",
+                    "meta_fields_to_embed": None,
+                    "document_store": None,
                     "duplicate_policy": "overwrite",
-                    "embedder": {
-                        "init_parameters": {},
-                        "type": "haystack.components.embedders.sentence_transformers_document_embedder.SentenceTransformersDocumentEmbedder",
-                    },
                 },
                 "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
             }
@@ -66,56 +55,26 @@ class TestDocumentIndexer:
     def test_to_dict(self, indexer: DocumentIndexer) -> None:
         expected = {
             "init_parameters": {
-                "document_store": {
-                    "init_parameters": {
-                        "bm25_algorithm": "BM25L",
-                        "bm25_parameters": {},
-                        "bm25_tokenization_regex": ANY,
-                        "embedding_similarity_function": "dot_product",
-                        "index": ANY,
-                    },
-                    "type": "haystack.document_stores.in_memory.document_store.InMemoryDocumentStore",
-                },
+                "model": None,
+                "prefix": "",
+                "suffix": "",
+                "batch_size": 32,
+                "embedding_separator": "\n",
+                "meta_fields_to_embed": None,
+                "document_store": None,
                 "duplicate_policy": "overwrite",
-                "embedder": {
-                    "init_parameters": {
-                        "batch_size": 32,
-                        "config_kwargs": None,
-                        "device": {
-                            "device": "mps",
-                            "type": "single",
-                        },
-                        "embedding_separator": "\n",
-                        "meta_fields_to_embed": [],
-                        "model": "sentence-transformers/all-mpnet-base-v2",
-                        "model_kwargs": None,
-                        "normalize_embeddings": False,
-                        "precision": "float32",
-                        "prefix": "",
-                        "progress_bar": True,
-                        "suffix": "",
-                        "token": {
-                            "env_vars": [
-                                "HF_API_TOKEN",
-                                "HF_TOKEN",
-                            ],
-                            "strict": False,
-                            "type": "env_var",
-                        },
-                        "tokenizer_kwargs": None,
-                        "truncate_dim": None,
-                        "trust_remote_code": False,
-                    },
-                    "type": "haystack.components.embedders.sentence_transformers_document_embedder.SentenceTransformersDocumentEmbedder",
-                },
             },
             "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
         }
         assert indexer.to_dict() == expected
 
-    def test_warm_up(self, indexer: DocumentIndexer, embedding_backend: Mock) -> None:
-        indexer.warm_up()
-        embedding_backend.assert_called_once
+    def test_warm_up(self, indexer: DocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> None:
+        with monkeypatch.context() as m:
+            m.setattr(indexer.pipeline, "warm_up", Mock())
+
+            indexer.warm_up()
+
+            indexer.pipeline.warm_up.assert_called_once()
 
     def test_run(self, indexer: DocumentIndexer, embedding_backend: Mock) -> None:
         documents = [
