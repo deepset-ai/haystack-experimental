@@ -82,7 +82,7 @@ class TestDocumentIndexer:
                         "batch_size": 32,
                         "config_kwargs": None,
                         "device": {
-                            "device": "mps",
+                            "device": "cpu",
                             "type": "single",
                         },
                         "embedding_separator": "\n",
