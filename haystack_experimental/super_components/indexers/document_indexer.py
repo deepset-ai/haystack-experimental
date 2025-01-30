@@ -49,7 +49,6 @@ class DocumentIndexer(SuperComponentBase):
         batch_size: int = 32,
         embedding_separator: str = "\n",
         meta_fields_to_embed: Optional[List[str]] = None,
-        document_store: Optional[DocumentStore] = None,
         duplicate_policy: DuplicatePolicy = DuplicatePolicy.OVERWRITE,
     ) -> None:
         """
@@ -61,7 +60,6 @@ class DocumentIndexer(SuperComponentBase):
         :param batch_size: The batch size to use for the embedding.
         :param embedding_separator: The separator to use for the embedding.
         :param meta_fields_to_embed: The meta fields to embed.
-        :param document_store: The document store to use.
         :param duplicate_policy: The duplicate policy to use.
         """
         self.model = model
@@ -70,7 +68,6 @@ class DocumentIndexer(SuperComponentBase):
         self.batch_size = batch_size
         self.embedding_separator = embedding_separator
         self.meta_fields_to_embed = meta_fields_to_embed
-        self.document_store = document_store
         self.duplicate_policy = duplicate_policy
 
         pipeline = Pipeline()
@@ -89,7 +86,7 @@ class DocumentIndexer(SuperComponentBase):
         pipeline.add_component(
             "writer",
             DocumentWriter(
-                document_store=self.document_store or InMemoryDocumentStore(),
+                document_store=InMemoryDocumentStore(),
                 policy=self.duplicate_policy,
             ),
         )
@@ -106,8 +103,6 @@ class DocumentIndexer(SuperComponentBase):
         """
         Serialize this instance to a dictionary.
         """
-        document_store = component_to_dict(self.document_store, "document_store") if self.document_store else None
-
         return default_to_dict(
             self,
             model=self.model,
@@ -116,7 +111,6 @@ class DocumentIndexer(SuperComponentBase):
             batch_size=self.batch_size,
             embedding_separator=self.embedding_separator,
             meta_fields_to_embed=self.meta_fields_to_embed,
-            document_store=document_store,
             duplicate_policy=self.duplicate_policy.value,
         )
 
@@ -126,14 +120,6 @@ class DocumentIndexer(SuperComponentBase):
         Load an instance of this component from a dictionary.
         """
         init_params = data.get("init_parameters", {})
-
-        # Deserialize document store
-        if (document_store := init_params.get("document_store")) and isinstance(document_store, dict):
-            if "type" not in document_store:
-                raise DeserializationError("Missing 'type' in serialization data for document_store parameter.")
-
-            document_store_type = import_class_by_name(document_store["type"])
-            init_params["document_store"] = component_from_dict(document_store_type, document_store, "document_store")
 
         # Deserialize policy
         if policy_value := init_params.get("duplicate_policy"):
