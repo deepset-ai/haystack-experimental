@@ -939,6 +939,15 @@ class PipelineBase:
             return ComponentPriority.DEFER_LAST
 
     def _get_component_with_graph_metadata_and_visits(self, component_name: str, visits: int) -> Dict[str, Any]:
+        """
+        Returns the component instance alongside input/output-socket metadata from the graph and adds current visits.
+
+        We can't store visits in the pipeline graph because this would prevent reentrance / thread-safe execution.
+
+        :param component_name: The name of the component.
+        :param visits: Number of visits for the component.
+        :returns: Dict including component instance, input/output-sockets and visits.
+        """
         comp_dict = self.graph.nodes[component_name]
         comp_dict = {**comp_dict, "visits": visits}
         return comp_dict
