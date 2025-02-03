@@ -127,10 +127,10 @@ class AsyncPipeline(PipelineBase):
                 comp_dict["visits"] += 1
 
                 if not isinstance(outputs, dict):
-    raise PipelineRuntimeError(
-        f"Component '{component_name}' returned an invalid output type. "
-        f"Expected a dict, but got {type(outputs).__name__} instead. "
-    )
+                    raise PipelineRuntimeError(
+                        f"Component '{component_name}' returned an invalid output type. "
+                        f"Expected a dict, but got {type(outputs).__name__} instead. "
+                    )
 
                 # Distribute outputs to downstream inputs; also prune outputs based on `include_outputs_from`
                 pruned, _ = self._write_component_outputs(
