@@ -132,7 +132,7 @@ class AsyncPipeline(PipelineBase):
         f"Expected a dict, but got {type(outputs).__name__} instead. "
     )
 
-                # Distribute outputs to downstream inputs; also prune outputs
+                # Distribute outputs to downstream inputs; also prune outputs based on `include_outputs_from`
                 pruned, _ = self._write_component_outputs(
                     component_name=component_name,
                     component_outputs=outputs,
