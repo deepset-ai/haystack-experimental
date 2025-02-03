@@ -34,7 +34,7 @@ Let’s generate traces for a `qa_rag_pipeline.yam`, we need the following argum
 
 All together:
 
-`python generate_traces.py --pipeline-file qa_rag_pipeline.yaml --pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}` 
+`python generate_traces.py --pipeline-file qa_rag_pipeline.yaml --pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}'` 
 
 This will generate 3 files:
 
