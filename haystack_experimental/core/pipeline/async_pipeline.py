@@ -270,7 +270,8 @@ class AsyncPipeline(PipelineBase):
                     # Already scheduled => stop
                     if component_name in scheduled_components:
                         return
-                    # Re-check the actual priority now
+                    # Priority is recalculated after each completed task
+
                     new_prio = self._calculate_priority(comp_dict, inputs_state.get(component_name, {}))
                     if new_prio == ComponentPriority.READY:
                         # It's now ready => schedule it
