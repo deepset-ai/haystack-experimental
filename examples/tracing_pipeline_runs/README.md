@@ -23,18 +23,18 @@ Make sure to:
 The `generate_traces.py` requires two arguments:
 
 - `--pipeline-file`  the location your YAML pipeline file 
-- `--pipeline-data` the input data for your pipeline
+- `--pipeline-data` the input data for your pipeline - a JSON string
 
 ### Example
 
 Let’s generate traces for a `qa_rag_pipeline.yam`, we need the following arguments
 
-- `--pipeline-file "yaml_pipelines/qa_rag_pipeline.yaml"`
+- `--pipeline-file qa_rag_pipeline.yaml`
 - `--pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}`
 
 All together:
 
-`python generate_traces.py --pipeline-file "yaml_pipelines/qa_rag_pipeline.yaml" --pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}` 
+`python generate_traces.py --pipeline-file qa_rag_pipeline.yaml --pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}` 
 
 This will generate 3 files:
 
