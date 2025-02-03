@@ -16,9 +16,8 @@ def remove_reset_color(text):
 def parse_log_file(file_path: str) -> List[Component]:
     components = []
     current_component = {}
-    
+
     with open(file_path, 'r') as f:
-        
         for line in f:
             line = remove_reset_color(line)
 
@@ -27,7 +26,7 @@ def parse_log_file(file_path: str) -> List[Component]:
                     components.append(Component(**current_component))
                     current_component = {}
                 continue
-            
+
             # Parse component properties
             if 'haystack.component.name=' in line:
                 current_component['name'] = line.split('=')[1].strip()
@@ -44,42 +43,45 @@ def parse_log_file(file_path: str) -> List[Component]:
             elif 'haystack.component.output=' in line:
                 current_component['output_str'] = line.split('=', 1)[1].strip()
 
-    # Add the last component if exists
+    # add the last component if exists
     if current_component:
         components.append(Component(**current_component))
-    
-    # Return components in reverse order to use as a stack
+
+    # return components in reverse order to use as a stack
     return components[::-1]
 
 def compare_traces(file1: str, file2: str) -> bool:
     stack1 = parse_log_file(file1)
     stack2 = parse_log_file(file2)
-    
+
     # check if the number of components is the same
     if len(stack1) != len(stack2):
         print(f"Different number of components: {len(stack1)} vs {len(stack2)}")
         return False
-    
+
     # compare components one by one
     for i in range(len(stack1)):
         comp1 = stack1[i]
         comp2 = stack2[i]
-        
+
         if comp1.name != comp2.name or comp1.type != comp2.type:
             print(f"Mismatch between {comp1.name} and {comp2.name} in component name/type:")
             print(f"{file1}: {comp1.name} ({comp1.type})")
+            print("")
             print(f"{file2}: {comp2.name} ({comp2.type})")
             return False
 
         if comp1.input_str != comp2.input_str:
             print(f"Mismatch between {comp1.name} and {comp2.name} inputs:")
             print(f"{file1}: {comp1.input_str}")
+            print("")
             print(f"{file2}: {comp2.input_str}")
             return False
 
         if comp1.output_str != comp2.output_str:
             print(f"Mismatch between {comp1.name} and {comp2.name} outputs:")
             print(f"{file1}: {comp1.output_str}")
+            print("")
             print(f"{file2}: {comp2.output_str}")
             return False
     
@@ -94,9 +96,9 @@ def main():
     
     are_identical = compare_traces(args.file1, args.file2)
     if are_identical:
-        print("The execution order is identical in both traces")
+        print("\nThe execution order is identical in both traces")
     else:
-        print("The execution order differs between traces")
+        print("\nThere are differences between traces")
 
 
 if __name__ == "__main__":
