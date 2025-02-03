@@ -1,28 +1,11 @@
-from typing import Dict
-
 import asyncio
-import time
-
-from haystack import component
 
 from haystack_experimental import AsyncPipeline
 
-@component
-class Waiter:
-    @component.output_types(waited_for=int)
-    def run(self, wait_for: int) -> Dict[str, int]:
-        time.sleep(wait_for)
-        return {'waited_for': wait_for}
 
-    @component.output_types(waited_for=int)
-    async def run_async(self, wait_for: int) -> Dict[str, int]:
-        await asyncio.sleep(wait_for)
-        return {'waited_for': wait_for}
-
-
-def test_async_pipeline_reentrance(spying_tracer):
+def test_async_pipeline_reentrance(waiting_component, spying_tracer):
     pp = AsyncPipeline()
-    pp.add_component("wait", Waiter())
+    pp.add_component("wait", waiting_component())
 
     run_data = [
         {"wait_for": 1},
