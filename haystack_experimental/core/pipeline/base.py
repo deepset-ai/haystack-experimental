@@ -834,7 +834,7 @@ class PipelineBase:
         return res
 
     @staticmethod
-    def _convert_from_legacy_format(pipeline_inputs: Dict[str, Any]) -> Dict[str, Dict[str, List]]:
+    def _convert_to_internal_format(pipeline_inputs: Dict[str, Any]) -> Dict[str, Dict[str, List]]:
         """
         Converts the inputs to the pipeline to the format that is needed for the internal `Pipeline.run` logic.
 

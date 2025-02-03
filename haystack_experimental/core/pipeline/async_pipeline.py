@@ -64,7 +64,7 @@ class AsyncPipeline(PipelineBase):
         # 2) Convert input data
         prepared_data = self._prepare_component_input_data(data)
         self._validate_input(prepared_data)
-        inputs_state = self._convert_from_legacy_format(prepared_data)
+        inputs_state = self._convert_to_internal_format(prepared_data)
 
         # For quick lookup of downstream receivers
         ordered_names = sorted(self.graph.nodes.keys())

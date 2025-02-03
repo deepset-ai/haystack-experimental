@@ -239,7 +239,7 @@ class Pipeline(PipelineBase):
                 "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
             },
         ) as span:
-            inputs = self._convert_from_legacy_format(pipeline_inputs=data)
+            inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(ordered_component_names, inputs)
 
             # check if pipeline is blocked before execution
