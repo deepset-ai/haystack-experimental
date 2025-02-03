@@ -226,6 +226,8 @@ class Pipeline(PipelineBase):
         # We create a list of components in the pipeline sorted by name, so that the algorithm runs deterministically
         # and independent of insertion order into the pipeline.
         ordered_component_names = sorted(self.graph.nodes.keys())
+
+        # We track component visits to decide if a component can run.
         component_visits = {component_name: 0 for component_name in ordered_component_names}
 
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -281,6 +283,6 @@ class Pipeline(PipelineBase):
                 if component_pipeline_outputs:
                     pipeline_outputs[component_name] = component_pipeline_outputs
                 if self._is_queue_stale(priority_queue):
-                    priority_queue = self._fill_queue(ordered_component_names, inputs)
+                    priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
             return pipeline_outputs
