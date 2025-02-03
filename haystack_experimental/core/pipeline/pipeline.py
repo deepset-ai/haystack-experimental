@@ -25,13 +25,18 @@ class Pipeline(PipelineBase):
     """
 
     def _run_component(
-        self, component: Dict[str, Any], inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
+        self,
+        component: Dict[str, Any],
+        inputs: Dict[str, Any],
+        component_visits: Dict[str, int],
+        parent_span: Optional[tracing.Span] = None
     ) -> Tuple[Dict, Dict]:
         """
         Runs a Component with the given inputs.
 
         :param component: Component with component metadata.
         :param inputs: Inputs for the Component.
+        :param component_visits: Current state of component visits.
         :param parent_span: The parent span to use for the newly created span.
             This is to allow tracing to be correctly linked to the pipeline run.
         :raises PipelineRuntimeError: If Component doesn't return a dictionary.
@@ -75,7 +80,7 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
             component_output = instance.run(**component_inputs)
-            component["visits"] += 1
+            component_visits[component_name] += 1
 
             if not isinstance(component_output, Mapping):
                 raise PipelineRuntimeError(
@@ -83,7 +88,7 @@ class Pipeline(PipelineBase):
                     "Components must always return dictionaries: check the documentation."
                 )
 
-            span.set_tag("haystack.component.visits", component["visits"])
+            span.set_tag("haystack.component.visits", component_visits[component_name])
             span.set_content_tag("haystack.component.output", component_output)
 
             return cast(Dict[Any, Any], component_output), inputs
@@ -205,9 +210,6 @@ class Pipeline(PipelineBase):
         """
         pipeline_running(self)
 
-        # Reset the visits count for each component
-        self._init_graph()
-
         # TODO: Remove this warmup once we can check reliably whether a component has been warmed up or not
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
         self.warm_up()
@@ -224,6 +226,7 @@ class Pipeline(PipelineBase):
         # We create a list of components in the pipeline sorted by name, so that the algorithm runs deterministically
         # and independent of insertion order into the pipeline.
         ordered_component_names = sorted(self.graph.nodes.keys())
+        component_visits = {component_name: 0 for component_name in ordered_component_names}
 
         # We need to access a component's receivers multiple times during a pipeline run.
         # We store them here for easy access.
@@ -240,13 +243,13 @@ class Pipeline(PipelineBase):
             },
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
-            priority_queue = self._fill_queue(ordered_component_names, inputs)
+            priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
             # check if pipeline is blocked before execution
             self.validate_pipeline(priority_queue)
 
             while True:
-                candidate = self._get_next_runnable_component(priority_queue)
+                candidate = self._get_next_runnable_component(priority_queue, component_visits)
                 if candidate is None:
                     break
 
@@ -265,7 +268,7 @@ class Pipeline(PipelineBase):
                         )
                         warnings.warn(msg)
 
-                component_outputs, inputs = self._run_component(component, inputs, parent_span=span)
+                component_outputs, inputs = self._run_component(component, inputs, component_visits, parent_span=span)
                 component_pipeline_outputs, inputs = self._write_component_outputs(
                     component_name=component_name,
                     component_outputs=component_outputs,

@@ -898,17 +898,21 @@ class PipelineBase:
 
         return consumed_inputs, inputs
 
-    def _fill_queue(self, component_names: List[str], inputs: Dict[str, Any]) -> FIFOPriorityQueue:
+    def _fill_queue(self, component_names: List[str], inputs: Dict[str, Any], component_visits: Dict[str, int]) -> FIFOPriorityQueue:
         """
         Calculates the execution priority for each component and inserts it into the priority queue.
 
         :param component_names: Names of the components to put into the queue.
         :param inputs: Inputs to the components.
+        :param component_visits: Visits of the components.
         :returns: A prioritized queue of component names.
         """
         priority_queue = FIFOPriorityQueue()
         for component_name in component_names:
-            component = self._get_component_with_graph_metadata(component_name)
+            component = self._get_component_with_graph_metadata_and_visits(
+                component_name,
+                component_visits[component_name]
+            )
             priority = self._calculate_priority(component, inputs.get(component_name, {}))
             priority_queue.push(component_name, priority)
 
@@ -934,16 +938,19 @@ class PipelineBase:
         else:
             return ComponentPriority.DEFER_LAST
 
-    def _get_component_with_graph_metadata(self, component_name: str) -> Dict[str, Any]:
-        return self.graph.nodes[component_name]
+    def _get_component_with_graph_metadata_and_visits(self, component_name: str, visits: int) -> Dict[str, Any]:
+        comp_dict = self.graph.nodes[component_name]
+        comp_dict = {**comp_dict, "visits": visits}
+        return comp_dict
 
     def _get_next_runnable_component(
-        self, priority_queue: FIFOPriorityQueue
+        self, priority_queue: FIFOPriorityQueue, component_visits: Dict[str, int]
     ) -> Union[Tuple[ComponentPriority, str, Dict[str, Any]], None]:
         """
         Returns the next runnable component alongside its metadata from the priority queue.
 
         :param priority_queue: Priority queue of component names.
+        :param component_visits: Current state of component visits.
         :returns: The next runnable component, the component name, and its priority
             or None if no component in the queue can run.
         :raises: PipelineMaxComponentRuns if the next runnable component has exceeded the maximum number of runs.
@@ -954,7 +961,10 @@ class PipelineBase:
 
         if priority_and_component_name is not None and priority_and_component_name[0] != ComponentPriority.BLOCKED:
             priority, component_name = priority_and_component_name
-            component = self._get_component_with_graph_metadata(component_name)
+            component = self._get_component_with_graph_metadata_and_visits(
+                component_name,
+                component_visits[component_name]
+            )
             if component["visits"] > self._max_runs_per_component:
                 msg = f"Maximum run count {self._max_runs_per_component} reached for component '{component_name}'"
                 raise PipelineMaxComponentRuns(msg)

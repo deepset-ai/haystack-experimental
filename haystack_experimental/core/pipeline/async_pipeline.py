@@ -49,7 +49,6 @@ class AsyncPipeline(PipelineBase):
 
         # 0) Basic pipeline init
         pipeline_running(self)  # telemetry
-        self._init_graph()      # sets up self.graph, etc.
         self.warm_up()          # optional warm-up (if needed)
 
         # 1) Prepare ephemeral state
@@ -71,9 +70,10 @@ class AsyncPipeline(PipelineBase):
         cached_receivers = {
             n: self._find_receivers_from(n) for n in ordered_names
         }
+        component_visits = {component_name: 0 for component_name in ordered_names}
 
         # We fill the queue once and raise if all components are BLOCKED
-        self.validate_pipeline(self._fill_queue(ordered_names, inputs_state))
+        self.validate_pipeline(self._fill_queue(ordered_names, inputs_state, component_visits))
 
         # Single parent span for entire pipeline execution
         with tracing.tracer.trace(
@@ -105,13 +105,12 @@ class AsyncPipeline(PipelineBase):
                 :param component_inputs: Inputs for the component.
                 :returns: Outputs from the component that can be yielded from run_async_generator.
                 """
-                comp_dict = self._get_component_with_graph_metadata(component_name)
-                if comp_dict["visits"] >= self._max_runs_per_component:
+                if component_visits[component_name] >= self._max_runs_per_component:
                     raise PipelineMaxComponentRuns(
                         f"Max runs for '{component_name}' reached."
                     )
 
-                instance: Component = comp_dict["instance"]
+                instance: Component = self.get_component(component_name)
                 with tracing.tracer.trace(
                     "haystack.component.run_async",
                     tags={
@@ -146,7 +145,7 @@ class AsyncPipeline(PipelineBase):
                             None, lambda: instance.run(**component_inputs)
                         )
 
-                comp_dict["visits"] += 1
+                component_visits[component_name] += 1
 
                 if not isinstance(outputs, dict):
                     raise PipelineRuntimeError(
@@ -154,7 +153,7 @@ class AsyncPipeline(PipelineBase):
                         f"Expected a dict, but got {type(outputs).__name__} instead. "
                     )
 
-                span.set_tag("haystack.component.visits", comp_dict["visits"])
+                span.set_tag("haystack.component.visits", component_visits[component_name])
                 span.set_content_tag("haystack.component.outputs", deepcopy(outputs))
 
                 # Distribute outputs to downstream inputs; also prune outputs based on `include_outputs_from`
@@ -200,7 +199,10 @@ class AsyncPipeline(PipelineBase):
 
                 # 2) Run the HIGHEST component by itself
                 scheduled_components.add(component_name)
-                comp_dict = self._get_component_with_graph_metadata(component_name)
+                comp_dict = self._get_component_with_graph_metadata_and_visits(
+                    component_name,
+                    component_visits[component_name]
+                )
                 component_inputs, _ = self._consume_component_inputs(
                     component_name, comp_dict, inputs_state
                 )
@@ -226,7 +228,10 @@ class AsyncPipeline(PipelineBase):
 
                 scheduled_components.add(component_name)
 
-                comp_dict = self._get_component_with_graph_metadata(component_name)
+                comp_dict = self._get_component_with_graph_metadata_and_visits(
+                    component_name,
+                    component_visits[component_name]
+                )
                 component_inputs, _ = self._consume_component_inputs(
                     component_name, comp_dict, inputs_state
                 )
@@ -290,7 +295,10 @@ class AsyncPipeline(PipelineBase):
                 :param component_name: The name of the component.
                 :returns: An async iterator of partial outputs.
                 """
-                comp_dict = self._get_component_with_graph_metadata(component_name)
+                comp_dict = self._get_component_with_graph_metadata_and_visits(
+                    component_name,
+                    component_visits[component_name]
+                )
                 while True:
                     # Already scheduled => stop
                     if component_name in scheduled_components:
@@ -325,8 +333,8 @@ class AsyncPipeline(PipelineBase):
             # -------------------------------------------------
             while True:
                 # 2) Build the priority queue of candidates
-                priority_queue = self._fill_queue(ordered_names, inputs_state)
-                candidate = self._get_next_runnable_component(priority_queue)
+                priority_queue = self._fill_queue(ordered_names, inputs_state, component_visits)
+                candidate = self._get_next_runnable_component(priority_queue, component_visits)
                 if candidate is None and running_tasks:
                     # We need to wait for one task to finish to make progress and potentially unblock the priority_queue
                     async for partial_result in _wait_for_one_task_to_complete():

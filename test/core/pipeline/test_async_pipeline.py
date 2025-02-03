@@ -25,8 +25,8 @@ def test_async_pipeline_reentrance(spying_tracer):
     pp.add_component("wait", Waiter())
 
     run_data = [
+        {"wait_for": 1},
         {"wait_for": 2},
-        {"wait_for": 3},
     ]
 
     async_loop = asyncio.new_event_loop()
