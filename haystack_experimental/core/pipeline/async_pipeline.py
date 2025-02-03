@@ -119,7 +119,7 @@ class AsyncPipeline(PipelineBase):
                     if getattr(instance, "__haystack_supports_async__", False):
                         outputs = await instance.run_async(**component_inputs)  # type: ignore
                     else:
-                        loop = asyncio.get_event_loop()
+                        loop = asyncio.get_running_loop()
                         outputs = await loop.run_in_executor(
                             None, lambda: instance.run(**component_inputs)
                         )
