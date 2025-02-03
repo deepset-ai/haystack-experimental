@@ -80,6 +80,7 @@ class AsyncPipeline(PipelineBase):
             "haystack.async_pipeline.run",
             tags={
                 "haystack.pipeline.input_data": data,
+                "haystack.pipeline.output_data": pipeline_outputs,
                 "haystack.pipeline.metadata": self.metadata,
                 "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
             },
@@ -112,8 +113,29 @@ class AsyncPipeline(PipelineBase):
 
                 instance: Component = comp_dict["instance"]
                 with tracing.tracer.trace(
-                    "haystack.component.run_async", parent_span=parent_span
-                ):
+                    "haystack.component.run_async",
+                    tags={
+                        "haystack.component.name": component_name,
+                        "haystack.component.type": instance.__class__.__name__,
+                        "haystack.component.input_types": {k: type(v).__name__ for k, v in component_inputs.items()},
+                        "haystack.component.input_spec": {
+                            key: {
+                                "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                                "senders": value.senders,
+                            }
+                            for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
+                        },
+                        "haystack.component.output_spec": {
+                            key: {
+                                "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                                "receivers": value.receivers,
+                            }
+                            for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
+                        },
+                    },
+                    parent_span=parent_span
+                ) as span:
+                    span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
                     logger.info("Running component {name}", name=component_name)
 
                     if getattr(instance, "__haystack_supports_async__", False):
@@ -131,6 +153,9 @@ class AsyncPipeline(PipelineBase):
                         f"Component '{component_name}' returned an invalid output type. "
                         f"Expected a dict, but got {type(outputs).__name__} instead. "
                     )
+
+                span.set_tag("haystack.component.visits", comp_dict["visits"])
+                span.set_content_tag("haystack.component.outputs", deepcopy(outputs))
 
                 # Distribute outputs to downstream inputs; also prune outputs based on `include_outputs_from`
                 pruned, _ = self._write_component_outputs(
