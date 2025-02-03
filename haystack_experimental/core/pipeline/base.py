@@ -898,13 +898,18 @@ class PipelineBase:
 
         return consumed_inputs, inputs
 
-    def _fill_queue(self, component_names: List[str], inputs: Dict[str, Any], component_visits: Dict[str, int]) -> FIFOPriorityQueue:
+    def _fill_queue(
+            self,
+            component_names: List[str],
+            inputs: Dict[str, Any],
+            component_visits: Dict[str, int]
+    ) -> FIFOPriorityQueue:
         """
         Calculates the execution priority for each component and inserts it into the priority queue.
 
         :param component_names: Names of the components to put into the queue.
         :param inputs: Inputs to the components.
-        :param component_visits: Visits of the components.
+        :param component_visits: Current state of component visits.
         :returns: A prioritized queue of component names.
         """
         priority_queue = FIFOPriorityQueue()
