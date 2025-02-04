@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .pipeline import Pipeline
-from .pipeline.async_pipeline import AsyncPipeline
+from .pipeline import AsyncPipeline, Pipeline
 
-_all_ = ["Pipeline"]
+_all_ = ["AsyncPipeline", "Pipeline"]
