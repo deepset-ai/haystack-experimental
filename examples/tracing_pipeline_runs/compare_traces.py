@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List
+
 import argparse
+import ast
 
 @dataclass
 class Component:
@@ -9,9 +11,19 @@ class Component:
     n_visits: int
     input_str: str
     output_str: str
+    input_parsed: any
+    output_parsed: any
 
+# ToDo: remove when custom tracer is working
 def remove_reset_color(text):
     return text.replace("\033[0m", "")
+
+def parse_structured_data(data_str: str) -> any:
+    try:
+        # Try to evaluate the string as a Python literal
+        return ast.literal_eval(data_str)
+    except (ValueError, SyntaxError):
+        return data_str
 
 def parse_log_file(file_path: str) -> List[Component]:
     components = []
@@ -19,10 +31,12 @@ def parse_log_file(file_path: str) -> List[Component]:
 
     with open(file_path, 'r') as f:
         for line in f:
-            line = remove_reset_color(line)
 
             if 'Operation: haystack.component.run' in line:
                 if current_component:
+                    # Parse structured data before creating Component
+                    current_component['input_parsed'] = parse_structured_data(current_component['input_str'])
+                    current_component['output_parsed'] = parse_structured_data(current_component['output_str'])
                     components.append(Component(**current_component))
                     current_component = {}
                 continue
@@ -45,12 +59,19 @@ def parse_log_file(file_path: str) -> List[Component]:
 
     # add the last component if exists
     if current_component:
+        current_component['input_parsed'] = parse_structured_data(current_component['input_str'])
+        current_component['output_parsed'] = parse_structured_data(current_component['output_str'])
         components.append(Component(**current_component))
 
     # return components in reverse order to use as a stack
     return components[::-1]
 
 def compare_traces(file1: str, file2: str) -> bool:
+    """
+    Compare two trace files.
+
+    Checks if the execution order, component names, types, inputs, outputs, and number of visits are the same.
+    """
     stack1 = parse_log_file(file1)
     stack2 = parse_log_file(file2)
 
@@ -71,18 +92,25 @@ def compare_traces(file1: str, file2: str) -> bool:
             print(f"{file2}: {comp2.name} ({comp2.type})")
             return False
 
-        if comp1.input_str != comp2.input_str:
-            print(f"Mismatch between {comp1.name} and {comp2.name} inputs:")
-            print(f"{file1}: {comp1.input_str}")
+        if comp1.n_visits != comp2.n_visits:
+            print(f"Mismatch between {comp1.name} and {comp2.name} in number of visits:")
+            print(f"{file1}: {comp1.n_visits}")
             print("")
-            print(f"{file2}: {comp2.input_str}")
+            print(f"{file2}: {comp2.n_visits}")
             return False
 
-        if comp1.output_str != comp2.output_str:
-            print(f"Mismatch between {comp1.name} and {comp2.name} outputs:")
-            print(f"{file1}: {comp1.output_str}")
+        if comp1.input_parsed != comp2.input_parsed:
+            print(f"Mismatch between {comp1.name} and {comp2.name} inputs:")
+            print(f"{file1}: {comp1.input_parsed}")
             print("")
-            print(f"{file2}: {comp2.output_str}")
+            print(f"{file2}: {comp2.input_parsed}")
+            return False
+
+        if comp1.output_parsed != comp2.output_parsed:
+            print(f"Mismatch between {comp1.name} and {comp2.name} outputs:")
+            print(f"{file1}: {comp1.output_parsed}")
+            print("")
+            print(f"{file2}: {comp2.output_parsed}")
             return False
     
     return True

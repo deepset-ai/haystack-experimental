@@ -1,10 +1,13 @@
 import time
+
+from haystack.tracing.logging_tracer import LoggingTracer
+# from custom_tracer import LoggingTracer
+
 from haystack_experimental.core.pipeline.pipeline import Pipeline as NewPipeline
 from haystack import Pipeline as OldPipeline
 
 import logging
 from haystack import tracing
-from haystack.tracing.logging_tracer import LoggingTracer
 
 import argparse
 import json
@@ -13,8 +16,7 @@ logging.basicConfig(filename='old_pipeline.log', format="%(levelname)s - %(name)
 logging.getLogger("haystack").setLevel(logging.DEBUG)
 
 tracing.tracer.is_content_tracing_enabled = True # set to "True" to enable tracing/logging content (inputs/outputs)
-tracing.enable_tracing(LoggingTracer())
-
+tracing.enable_tracing(LoggingTracer()) # enable a custom tracer
 
 def change_log_file(logger, new_log_file):
     for handler in logger.handlers:
