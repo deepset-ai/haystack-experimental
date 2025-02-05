@@ -54,4 +54,5 @@ Comparing the traces can have different results:
 - `The execution order differs between traces`
     - `Mismatch between components outputs`
     - `Mismatch between components inputs`
-    - `Mismatch between component name/type`
+    - `Mismatch between components name/type`
+    - `Mismatch between components in number of visits`
