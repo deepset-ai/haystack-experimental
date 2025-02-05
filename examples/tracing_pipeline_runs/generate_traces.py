@@ -5,13 +5,11 @@ import time
 
 from haystack import Pipeline as OldPipeline
 from haystack import tracing
-from haystack.tracing.logging_tracer import LoggingTracer
-# from custom_tracer import LoggingTracer
 
+from custom_tracer import LoggingTracer
 from haystack_experimental.core.pipeline.pipeline import Pipeline as NewPipeline
 
-logging.basicConfig(filename='old_pipeline.log', format="%(levelname)s - %(name)s -  %(message)s", level=logging.WARNING)
-logging.getLogger("haystack").setLevel(logging.DEBUG)
+logging.basicConfig(filename='old_pipeline.log', format="%(levelname)s - %(name)s -  %(message)s")
 
 tracing.tracer.is_content_tracing_enabled = True # set to "True" to enable tracing/logging content (inputs/outputs)
 tracing.enable_tracing(LoggingTracer()) # enable the custom tracer
@@ -41,7 +39,7 @@ def run_pipeline(pipeline_run, yam_pipeline_file_location, new=True):
     execution_time = end_time - start_time
     pipeline_type = "NewPipeline" if new else "OldPipeline"
 
-    with open("pipeline_execution_times.log", "a") as log_file:
+    with open("logs_good/pipeline_execution_times.log", "a") as log_file:
         log_file.write(f"{pipeline_type} execution time: {execution_time:.4f} seconds\n")
 
 def main():

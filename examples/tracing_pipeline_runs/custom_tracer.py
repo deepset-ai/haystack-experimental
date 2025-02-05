@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import contextlib
 import dataclasses
 from typing import Any, Dict, Iterator, Optional
@@ -6,6 +10,9 @@ from haystack import logging
 from haystack.tracing import Span, Tracer
 
 logger = logging.getLogger(__name__)
+
+import logging as std_logging
+logger.setLevel(std_logging.DEBUG)
 
 @dataclasses.dataclass
 class LoggingSpan(Span):
