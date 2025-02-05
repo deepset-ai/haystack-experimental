@@ -1,8 +1,8 @@
+import argparse
+import ast
 from dataclasses import dataclass
 from typing import List
 
-import argparse
-import ast
 
 @dataclass
 class Component:
@@ -13,10 +13,6 @@ class Component:
     output_str: str
     input_parsed: any
     output_parsed: any
-
-# ToDo: remove when custom tracer is working
-def remove_reset_color(text):
-    return text.replace("\033[0m", "")
 
 def parse_structured_data(data_str: str) -> any:
     try:

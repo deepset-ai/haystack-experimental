@@ -27,6 +27,11 @@ class LoggingTracer(Tracer):
     A simple tracer that logs the operation name and tags of a span.
     """
 
+    def __init__(self) -> None:
+        """
+        Initialize the LoggingTracer.
+        """
+
     @contextlib.contextmanager
     def trace(
         self, operation_name: str, tags: Optional[Dict[str, Any]] = None, parent_span: Optional[Span] = None
