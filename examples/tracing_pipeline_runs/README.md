@@ -32,7 +32,7 @@ To generate traces for a `qa_rag_pipeline.yaml`, we need the following arguments
 - `--pipeline-file qa_rag_pipeline.yaml`
 - `--pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}`
 
-All together:
+The command with arguments:
 
 `python generate_traces.py --pipeline-file qa_rag_pipeline.yaml --pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}'` 
 
