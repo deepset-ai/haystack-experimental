@@ -39,7 +39,7 @@ def run_pipeline(pipeline_run, yam_pipeline_file_location, new=True):
     execution_time = end_time - start_time
     pipeline_type = "NewPipeline" if new else "OldPipeline"
 
-    with open("logs_good/pipeline_execution_times.log", "a") as log_file:
+    with open("pipeline_execution_times.log", "a") as log_file:
         log_file.write(f"{pipeline_type} execution time: {execution_time:.4f} seconds\n")
 
 def main():

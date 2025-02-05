@@ -16,7 +16,7 @@ class Component:
 
 def parse_structured_data(data_str: str) -> any:
     try:
-        # Try to evaluate the string as a Python literal
+        # evaluate the string as a Python literal
         return ast.literal_eval(data_str)
     except (ValueError, SyntaxError):
         return data_str
