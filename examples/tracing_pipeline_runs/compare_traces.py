@@ -8,7 +8,7 @@ from typing import List
 class Component:
     name: str
     type: str
-    n_visits: int
+    visits: int
     input_str: str
     output_str: str
     input_parsed: any
@@ -25,33 +25,38 @@ def parse_log_file(file_path: str) -> List[Component]:
     components = []
     current_component = {}
 
+    haystack_prefixes = {
+        'name': 'haystack.component.name=',
+        'type': 'haystack.component.type=',
+        'visits': 'haystack.component.visits=',
+        'input': 'haystack.component.input=',
+        'output': 'haystack.component.output='
+    }
+
     with open(file_path, 'r') as f:
         for line in f:
 
             if 'Operation: haystack.component.run' in line:
                 if current_component:
-                    # Parse structured data before creating Component
+                    # parse structured data before creating Component
                     current_component['input_parsed'] = parse_structured_data(current_component['input_str'])
                     current_component['output_parsed'] = parse_structured_data(current_component['output_str'])
                     components.append(Component(**current_component))
                     current_component = {}
                 continue
 
-            # Parse component properties
-            if 'haystack.component.name=' in line:
-                current_component['name'] = line.split('=')[1].strip()
-
-            elif 'haystack.component.type=' in line:
-                current_component['type'] = line.split('=')[1].strip()
-
-            elif 'haystack.component.visits=' in line:
-                current_component['n_visits'] = int(line.split('=')[1].strip())
-
-            elif 'haystack.component.input=' in line:
-                current_component['input_str'] = line.split('=', 1)[1].strip()
-
-            elif 'haystack.component.output=' in line:
-                current_component['output_str'] = line.split('=', 1)[1].strip()
+            # parse component properties into current_component structure
+            for key, prefix in haystack_prefixes.items():
+                if prefix in line:
+                    value = line.split('=', 1)[1].strip()
+                    value = int(value) if key == 'visits' else value
+                    if key == 'input':
+                        current_component['input_str'] = value
+                    elif key == 'output':
+                        current_component['output_str'] = value
+                    else:
+                        current_component[key] = value
+                    break
 
     # add the last component if exists
     if current_component:
@@ -88,11 +93,11 @@ def compare_traces(file1: str, file2: str) -> bool:
             print(f"{file2}: {comp2.name} ({comp2.type})")
             return False
 
-        if comp1.n_visits != comp2.n_visits:
+        if comp1.visits != comp2.visits:
             print(f"Mismatch between {comp1.name} and {comp2.name} in number of visits:")
-            print(f"{file1}: {comp1.n_visits}")
+            print(f"{file1}: {comp1.visits}")
             print("")
-            print(f"{file2}: {comp2.n_visits}")
+            print(f"{file2}: {comp2.visits}")
             return False
 
         if comp1.input_parsed != comp2.input_parsed:
