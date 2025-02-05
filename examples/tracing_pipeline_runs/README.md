@@ -27,7 +27,7 @@ The `generate_traces.py` requires two arguments:
 
 ### Example
 
-Let’s generate traces for a `qa_rag_pipeline.yam`, we need the following arguments
+To generate traces for a `qa_rag_pipeline.yaml`, we need the following arguments:
 
 - `--pipeline-file qa_rag_pipeline.yaml`
 - `--pipeline-data '{"text_embedder": {"text": "What does Rhodes Statue look like?"}, "prompt_builder": {"question": "What does Rhodes Statue look like?"}}`
