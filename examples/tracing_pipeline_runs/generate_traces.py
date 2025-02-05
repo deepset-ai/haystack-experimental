@@ -6,6 +6,7 @@ import time
 from haystack import Pipeline as OldPipeline
 from haystack import tracing
 from haystack.tracing.logging_tracer import LoggingTracer
+# from custom_tracer import LoggingTracer
 
 from haystack_experimental.core.pipeline.pipeline import Pipeline as NewPipeline
 
