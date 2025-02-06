@@ -4,6 +4,6 @@
 
 from .pipeline import Pipeline
 from .pipeline.async_pipeline import AsyncPipeline
-from .super_component import SuperComponent, SuperComponentBase
+from .super_component import SuperComponent
 
-_all_ = ["Pipeline", "SuperComponent", "SuperComponentBase"]
+_all_ = ["Pipeline", "SuperComponent"]
