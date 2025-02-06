@@ -5,4 +5,4 @@
 from .async_pipeline import AsyncPipeline
 from .pipeline import Pipeline
 
-__all__ = ["Pipeline"]
+__all__ = ["AsyncPipeline", "Pipeline"]

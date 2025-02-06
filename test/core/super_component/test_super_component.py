@@ -13,6 +13,7 @@ from haystack.dataclasses import GeneratedAnswer
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 from haystack.utils.auth import Secret
+from haystack.core.serialization import default_from_dict, default_to_dict
 
 from haystack_experimental import SuperComponent
 
@@ -158,3 +159,34 @@ class TestSuperComponent:
         result = deserialized.run(query="What is the capital of France?")
         assert "documents" in result
         assert result["documents"][0].content == "Paris is the capital of France."
+
+    def test_subclass_serialization(self, rag_pipeline):
+        super_component = SuperComponent(rag_pipeline)
+        serialized = super_component.to_dict()
+
+        @component
+        class CustomSuperComponent(SuperComponent):
+            def __init__(self, pipeline, instance_attribute="test"):
+                self.instance_attribute = instance_attribute
+                super(CustomSuperComponent, self).__init__(pipeline)
+
+            def to_dict(self):
+                return default_to_dict(
+                    self,
+                    instance_attribute=self.instance_attribute,
+                    pipeline=self.pipeline.to_dict()
+                )
+
+            @classmethod
+            def from_dict(cls, data):
+                data["init_parameters"]["pipeline"] = Pipeline.from_dict(data["init_parameters"]["pipeline"])
+                return default_from_dict(cls, data)
+
+        custom_super_component = CustomSuperComponent(rag_pipeline)
+        custom_serialized = custom_super_component.to_dict()
+
+        assert custom_serialized["type"] == "test_super_component.CustomSuperComponent"
+
+        assert custom_super_component._to_super_component_dict() == serialized
+
+
