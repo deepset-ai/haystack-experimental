@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import Enum
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Dict
 
 from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.converters import (
@@ -18,11 +18,9 @@ from haystack.components.converters import (
     XLSXToDocument,
 )
 from haystack.components.joiners import DocumentJoiner
-from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
 from haystack.components.routers import FileTypeRouter
-from haystack.utils import deserialize_callable, serialize_callable
 
-from haystack_experimental.core.super_component import SuperComponentBase
+from haystack_experimental.core.super_component import SuperComponent
 
 
 class ConverterMimeType(str, Enum):
@@ -38,11 +36,11 @@ class ConverterMimeType(str, Enum):
 
 
 @component
-class AutoFileConverter(SuperComponentBase):
+class MultiFileConverter(SuperComponent):
     """
-    A file converter that handles multiple file types and their pre-processing.
+    A file converter that handles conversion of multiple file types.
 
-    The AutoFileConverter handles the following file types:
+    The MultiFileConverter handles the following file types:
     - CSV
     - DOCX
     - HTML
@@ -53,39 +51,18 @@ class AutoFileConverter(SuperComponentBase):
     - PPTX
     - XLSX
 
-    It splits all non-tabular data into Documents as specified by the splitting parameters.
-    Tabular data (CSV & XLSX) is returned without splitting.
-
     Usage:
     ```
-    converter = AutoFileConverter()
+    converter = MultiFileConverter()
     converter.run(sources=["test.txt", "test.pdf"], meta={})
     ```
     """
 
     def __init__( # noqa: PLR0915
         self,
-        split_by: Literal["function", "page", "passage", "period", "word", "line", "sentence"] = "word",
-        split_length: int = 250,
-        split_overlap: int = 30,
-        split_threshold: int = 0,
-        splitting_function: Optional[Callable[[str], List[str]]] = None,
-        respect_sentence_boundary: bool = True,
-        language: Language = "en",
-        use_split_rules: bool = True,
-        extend_abbreviations: bool = True,
         encoding: str = "utf-8",
         json_content_key: str = "content",
     ) -> None:
-        self.split_by = split_by
-        self.split_length = split_length
-        self.split_overlap = split_overlap
-        self.split_threshold = split_threshold
-        self.splitting_function = splitting_function
-        self.respect_sentence_boundary = respect_sentence_boundary
-        self.language = language
-        self.use_split_rules = use_split_rules
-        self.extend_abbreviations = extend_abbreviations
         self.encoding = encoding
         self.json_content_key = json_content_key
 
@@ -115,19 +92,8 @@ class AutoFileConverter(SuperComponentBase):
         xlsx = XLSXToDocument()
 
         joiner = DocumentJoiner()
-        tabular_joiner = DocumentJoiner()
 
-        splitter = DocumentSplitter(
-            split_by=self.split_by,
-            split_length=self.split_length,
-            split_overlap=self.split_overlap,
-            split_threshold=self.split_threshold,
-            splitting_function=self.splitting_function,
-            respect_sentence_boundary=self.respect_sentence_boundary,
-            language=self.language,
-            use_split_rules=self.use_split_rules,
-            extend_abbreviations=self.extend_abbreviations,
-        )
+
 
         # Create pipeline and add components
         pp = Pipeline()
@@ -143,11 +109,9 @@ class AutoFileConverter(SuperComponentBase):
         pp.add_component("pptx", pptx)
         pp.add_component("xlsx", xlsx)
         pp.add_component("joiner", joiner)
-        pp.add_component("splitter", splitter)
-        pp.add_component("tabular_joiner", tabular_joiner)
         pp.add_component("csv", csv)
 
-
+        pp.connect(f"router.{ConverterMimeType.CSV.value}", "csv")
         pp.connect(f"router.{ConverterMimeType.DOCX.value}", "docx")
         pp.connect(f"router.{ConverterMimeType.HTML.value}", "html")
         pp.connect(f"router.{ConverterMimeType.JSON.value}", "json")
@@ -157,8 +121,6 @@ class AutoFileConverter(SuperComponentBase):
         pp.connect(f"router.{ConverterMimeType.PPTX.value}", "pptx")
         pp.connect(f"router.{ConverterMimeType.XLSX.value}", "xlsx")
 
-        pp.connect("joiner.documents", "splitter.documents")
-        pp.connect("splitter.documents", "tabular_joiner.documents")
         pp.connect("docx.documents", "joiner.documents")
         pp.connect("html.documents", "joiner.documents")
         pp.connect("json.documents", "joiner.documents")
@@ -167,18 +129,17 @@ class AutoFileConverter(SuperComponentBase):
         pp.connect("pdf.documents", "joiner.documents")
         pp.connect("pptx.documents", "joiner.documents")
 
-        pp.connect("csv.documents", "tabular_joiner.documents")
-        pp.connect("xlsx.documents", "tabular_joiner.documents")
-        pp.connect(f"router.{ConverterMimeType.CSV.value}", "csv")
+        pp.connect("csv.documents", "joiner.documents")
+        pp.connect("xlsx.documents", "joiner.documents")
 
 
-        output_mapping = {"tabular_joiner.documents": "documents"}
+        output_mapping = {"joiner.documents": "documents"}
         input_mapping = {
             "sources": ["router.sources"],
             "meta": ["router.meta"]
         }
 
-        super(AutoFileConverter, self).__init__(
+        super(MultiFileConverter, self).__init__(
             pipeline=pp,
             output_mapping=output_mapping,
             input_mapping=input_mapping
@@ -188,32 +149,15 @@ class AutoFileConverter(SuperComponentBase):
         """
         Serialize this instance to a dictionary.
         """
-        if self.splitting_function is not None:
-            splitting_function = serialize_callable(self.splitting_function)
-        else:
-            splitting_function = self.splitting_function
-
         return default_to_dict(
             self,
-            split_by=self.split_by,
-            split_length=self.split_length,
-            split_overlap=self.split_overlap,
-            split_threshold=self.split_threshold,
-            splitting_function=splitting_function,
-            respect_sentence_boundary=self.respect_sentence_boundary,
-            language=self.language,
-            use_split_rules=self.use_split_rules,
-            extend_abbreviations=self.extend_abbreviations,
             encoding=self.encoding,
             json_content_key=self.json_content_key,
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AutoFileConverter":
+    def from_dict(cls, data: Dict[str, Any]) -> "MultiFileConverter":
         """
         Load this instance from a dictionary.
         """
-        if splitting_function := data["init_parameters"].get("splitting_function"):
-            data["init_parameters"]["splitting_function"] = deserialize_callable(splitting_function)
-
         return default_from_dict(cls, data)

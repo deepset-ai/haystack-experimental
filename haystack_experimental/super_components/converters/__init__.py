@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.super_components.converters.file_converter import AutoFileConverter
+from haystack_experimental.super_components.converters.multi_file_converter import MultiFileConverter
 
-_all_ = ["AutoFileConverter"]
+_all_ = ["MultiFileConverter"]

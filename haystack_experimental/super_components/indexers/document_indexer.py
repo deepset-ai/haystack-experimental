@@ -10,13 +10,13 @@ from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 
-from haystack_experimental.core.super_component import SuperComponentBase
+from haystack_experimental.core.super_component import SuperComponent
 
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
 
 
 @component
-class DocumentIndexer(SuperComponentBase):
+class DocumentIndexer(SuperComponent):
     """
     A document indexer that takes a list of documents and indexes them using the specified model.
 
