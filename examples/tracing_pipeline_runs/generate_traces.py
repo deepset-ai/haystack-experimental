@@ -15,6 +15,9 @@ tracing.tracer.is_content_tracing_enabled = True # set to "True" to enable traci
 tracing.enable_tracing(LoggingTracer()) # enable the custom tracer
 
 def change_log_file(logger, new_log_file):
+    """
+    Use to rotate the log file.
+    """
     for handler in logger.handlers:
         if isinstance(handler, logging.FileHandler):
             handler.close()
@@ -26,6 +29,9 @@ def change_log_file(logger, new_log_file):
     logger.addHandler(new_file_handler)
 
 def run_pipeline(pipeline_run, yam_pipeline_file_location, new=True):
+    """
+    Runs a pipeline loaded from yaml.
+    """
     with open(yam_pipeline_file_location, "r") as f_in:
         if new:
             pipeline = NewPipeline.loads(f_in)
@@ -43,6 +49,9 @@ def run_pipeline(pipeline_run, yam_pipeline_file_location, new=True):
         log_file.write(f"{pipeline_type} execution time: {execution_time:.4f} seconds\n")
 
 def main():
+    """
+    Main execution routine to generate pipeline traces.
+    """
     parser = argparse.ArgumentParser(description='Run pipeline comparison with configurable inputs')
     parser.add_argument('--pipeline-file', type=str, required=True,
                       help='Path to the YAML pipeline file')

@@ -15,6 +15,9 @@ class Component:
     output_parsed: any
 
 def parse_structured_data(data_str: str) -> any:
+    """
+    Utility function to parse a string as Python literal.
+    """
     try:
         # evaluate the string as a Python literal
         return ast.literal_eval(data_str)
@@ -22,6 +25,9 @@ def parse_structured_data(data_str: str) -> any:
         return data_str
 
 def parse_log_file(file_path: str) -> List[Component]:
+    """
+    Reads haystack traces from a logfile.
+    """
     components = []
     current_component = {}
 
@@ -117,6 +123,9 @@ def compare_traces(file1: str, file2: str) -> bool:
     return True
 
 def main():
+    """
+    Main execution routine to compare pipeline traces.
+    """
     parser = argparse.ArgumentParser(description='Compare component execution order between two trace files')
     parser.add_argument('file1', help='Path to the first trace file')
     parser.add_argument('file2', help='Path to the second trace file')
