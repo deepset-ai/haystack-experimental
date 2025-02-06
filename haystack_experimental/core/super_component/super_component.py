@@ -16,7 +16,7 @@ class InvalidMappingError(Exception):
     pass
 
 
-
+@component
 class SuperComponent:
     """
         A class for creating super components that wrap around a Pipeline.
