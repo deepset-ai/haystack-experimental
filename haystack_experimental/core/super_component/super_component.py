@@ -5,7 +5,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from haystack import Pipeline, component
-from haystack.core.serialization import default_from_dict, default_to_dict
+from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
 
 from haystack_experimental.core.super_component.utils import _delegate_default, is_compatible
 
@@ -21,14 +21,14 @@ class SuperComponent:
     """
         A class for creating super components that wrap around a Pipeline.
 
-        This wrapper allows for remapping of input and output socket names between the wrapped
+        This component allows for remapping of input and output socket names between the wrapped
         pipeline and the external interface. It handles type checking and verification of all
         mappings.
 
         :param pipeline: The pipeline wrapped by the component
-        :param input_mapping: Mapping from wrapper input names to lists of pipeline socket paths
+        :param input_mapping: Mapping from component input names to lists of pipeline socket paths
             in format "component_name.socket_name"
-        :param output_mapping: Mapping from pipeline socket paths to wrapper output names
+        :param output_mapping: Mapping from pipeline socket paths to component output names
         :raises InvalidMappingError: If any input or output mappings are invalid or if type
             conflicts are detected
         :raises ValueError: If no pipeline is provided
@@ -63,18 +63,23 @@ class SuperComponent:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert the pipeline wrapper to a dictionary representation.
+        Convert the SuperComponent to a dictionary representation.
 
-        :return: Dictionary containing serialized pipeline wrapper data
+        Must be overwritten for custom component implementations that inherit from SuperComponent.
+
+        :return: Dictionary containing serialized super component data
         """
         return self._to_super_component_dict()
+
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SuperComponent":
         """
-        Create a pipeline wrapper instance from a dictionary representation.
+        Create the SuperComponent instance from a dictionary representation.
 
-        :param data: Dictionary containing serialized pipeline wrapper data
+        Must be overwritten for custom component implementations that inherit from SuperComponent.
+
+        :param data: Dictionary containing serialized super component data
         :return: New PipelineWrapper instance
         """
         pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
@@ -416,5 +421,5 @@ class SuperComponent:
             pipeline=serialized_pipeline,
             input_mapping=self.input_mapping, output_mapping=self.output_mapping
         )
-        serialized["type"] = "haystack_experimental.core.super_component.super_component.SuperComponent"
+        serialized["type"] = generate_qualified_class_name(SuperComponent)
         return serialized
