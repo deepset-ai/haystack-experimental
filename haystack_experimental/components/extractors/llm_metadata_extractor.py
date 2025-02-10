@@ -10,20 +10,22 @@ from typing import Any, Dict, List, Optional, Union
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
-from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
+from haystack.components.generators.chat import AzureOpenAIChatGenerator, OpenAIChatGenerator
 from haystack.components.preprocessors import DocumentSplitter
+from haystack.dataclasses import ChatMessage
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, deserialize_secrets_inplace
+
 from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
 from haystack_experimental.util.utils import expand_page_range
 
 with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack>=1.0.2\"'") as amazon_bedrock_generator:
-    from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockGenerator
+    from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockChatGenerator
 
 with LazyImport(message="Run 'pip install \"google-vertex-haystack>=2.0.0\"'") as vertex_ai_gemini_generator:
-    from haystack_integrations.components.generators.google_vertex import VertexAIGeminiGenerator
+    from haystack_integrations.components.generators.google_vertex.chat.gemini import VertexAIGeminiChatGenerator
     from vertexai.generative_models import GenerationConfig
 
 
@@ -207,20 +209,20 @@ class LLMMetadataExtractor:
     def _init_generator(
         generator_api: LLMProvider,
         generator_api_params: Optional[Dict[str, Any]]
-    ) -> Union[OpenAIGenerator, AzureOpenAIGenerator, "AmazonBedrockGenerator", "VertexAIGeminiGenerator"]:
+    ) -> Union[OpenAIChatGenerator, AzureOpenAIChatGenerator, "AmazonBedrockChatGenerator", "VertexAIGeminiChatGenerator"]:
         """
         Initialize the chat generator based on the specified API provider and parameters.
         """
         if generator_api == LLMProvider.OPENAI:
-            return OpenAIGenerator(**generator_api_params)
+            return OpenAIChatGenerator(**generator_api_params)
         elif generator_api == LLMProvider.OPENAI_AZURE:
-            return AzureOpenAIGenerator(**generator_api_params)
+            return AzureOpenAIChatGenerator(**generator_api_params)
         elif generator_api == LLMProvider.AWS_BEDROCK:
             amazon_bedrock_generator.check()
-            return AmazonBedrockGenerator(**generator_api_params)
+            return AmazonBedrockChatGenerator(**generator_api_params)
         elif generator_api == LLMProvider.GOOGLE_VERTEX:
             vertex_ai_gemini_generator.check()
-            return VertexAIGeminiGenerator(**generator_api_params)
+            return VertexAIGeminiChatGenerator(**generator_api_params)
         else:
             raise ValueError(f"Unsupported generator API: {generator_api}")
 
@@ -319,7 +321,7 @@ class LLMMetadataExtractor:
         documents: List[Document],
         expanded_range: Optional[List[int]] = None
     ) -> List[Union[str, None]]:
-        all_prompts: List[Union[str, None]] = []
+        all_prompts: List[Union[ChatMessage, None]] = []
         for document in documents:
             if not document.content:
                 logger.warning(
@@ -341,19 +343,23 @@ class LLMMetadataExtractor:
                 doc_copy = document
 
             prompt_with_doc = self.builder.run(
-                template=self.prompt,
-                template_variables={"document": doc_copy}
-            )
-            all_prompts.append(prompt_with_doc["prompt"])
+                 template=self.prompt,
+                 template_variables={"document": doc_copy}
+             )
+
+            # build a ChatMessage with the prompt
+            message = ChatMessage.from_user(prompt_with_doc['prompt'])
+            all_prompts.append(message)
+
         return all_prompts
 
-    def _run_on_thread(self, prompt: Optional[str]) -> Dict[str, Any]:
+    def _run_on_thread(self, prompt: Optional[ChatMessage]) -> Dict[str, Any]:
         # If prompt is None, return an empty dictionary
         if prompt is None:
             return {"replies": ["{}"]}
 
         try:
-            result = self.llm_provider.run(prompt=prompt)
+            result = self.llm_provider.run(messages=[prompt])
         except Exception as e:
             logger.error(
                 "LLM {class_name} execution failed. Skipping metadata extraction. Failed with exception '{error}'.",
@@ -398,7 +404,7 @@ class LLMMetadataExtractor:
         if page_range:
             expanded_range = expand_page_range(page_range)
 
-        # Create prompts for each document
+        # Create ChatMessage prompts for each document
         all_prompts = self._prepare_prompts(documents=documents, expanded_range=expanded_range)
 
         # Run the LLM on each prompt
@@ -414,7 +420,7 @@ class LLMMetadataExtractor:
                 failed_documents.append(document)
                 continue
 
-            parsed_metadata = self._extract_metadata(result["replies"][0])
+            parsed_metadata = self._extract_metadata(result["replies"][0].text)
             if "error" in parsed_metadata:
                 document.meta["metadata_extraction_error"] = parsed_metadata["error"]
                 document.meta["metadata_extraction_response"] = result["replies"][0]
