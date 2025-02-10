@@ -15,7 +15,6 @@ from haystack.components.preprocessors import DocumentSplitter
 from haystack.dataclasses import ChatMessage
 from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_callable, deserialize_secrets_inplace
-
 from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
@@ -194,7 +193,6 @@ class LLMMetadataExtractor:
                 f"Prompt must have exactly one variable called 'document'. Found {','.join(variables)} in the prompt."
             )
         self.builder = PromptBuilder(prompt, required_variables=variables)
-
         self.raise_on_failure = raise_on_failure
         self.expected_keys = expected_keys or []
         self.generator_api = generator_api if isinstance(generator_api, LLMProvider) \
@@ -322,7 +320,7 @@ class LLMMetadataExtractor:
         self,
         documents: List[Document],
         expanded_range: Optional[List[int]] = None
-    ) -> List[Union[str, None]]:
+    ) -> List[Union[ChatMessage, None]]:
         all_prompts: List[Union[ChatMessage, None]] = []
         for document in documents:
             if not document.content:
@@ -350,7 +348,7 @@ class LLMMetadataExtractor:
              )
 
             # build a ChatMessage with the prompt
-            message = ChatMessage.from_user(prompt_with_doc['prompt'])
+            message = ChatMessage.from_user(prompt_with_doc["prompt"])
             all_prompts.append(message)
 
         return all_prompts
