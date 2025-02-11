@@ -1,6 +1,6 @@
 ---
-name: Remove an Experiment entirely
-about: 
+name: Remove Experiment
+about: Entirely remove an existing experiment without replacement
 title: ''
 labels: ''
 assignees: ''
