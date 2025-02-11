@@ -4,13 +4,12 @@
 
 from typing import Any, Callable, Dict, List, Literal, Optional
 
-from haystack import Pipeline, Document, component, default_from_dict, default_to_dict
-from haystack.utils import serialize_callable, deserialize_callable
-
-from haystack_experimental.core.super_component import SuperComponent
-
+from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.preprocessors.document_cleaner import DocumentCleaner
 from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
+from haystack.utils import deserialize_callable, serialize_callable
+
+from haystack_experimental.core.super_component import SuperComponent
 
 
 @component
@@ -21,7 +20,7 @@ class DocumentPreProcessor(SuperComponent):
     It composes a DocumentCleaner followed by a DocumentSplitter in a single pipeline.
     """
 
-    def __init__(
+    def __init__( # pylint: disable=R0917
         self,
         # --- DocumentCleaner arguments ---
         remove_empty_lines: bool = True,
@@ -60,12 +59,15 @@ class DocumentPreProcessor(SuperComponent):
         :param split_by: The unit of splitting: "function", "page", "passage", "period", "word", "line", or "sentence".
         :param split_length: The maximum number of units (words, lines, pages, etc.) in each split.
         :param split_overlap: The number of overlapping units between consecutive splits.
-        :param split_threshold: The minimum number of units per split. If a split is smaller than this, it's merged with the previous split.
+        :param split_threshold: The minimum number of units per split. If a split is smaller than this, it's merged
+            with the previous split.
         :param splitting_function: A custom function for splitting if `split_by="function"`.
         :param respect_sentence_boundary: If `True`, splits by words but tries not to break inside a sentence.
-        :param language: Language used by the sentence tokenizer if `split_by="sentence"` or `respect_sentence_boundary=True`.
+        :param language: Language used by the sentence tokenizer if `split_by="sentence"` or
+            `respect_sentence_boundary=True`.
         :param use_split_rules: Whether to apply additional splitting heuristics for the sentence splitter.
-        :param extend_abbreviations: Whether to extend the sentence splitter with curated abbreviations for certain languages.
+        :param extend_abbreviations: Whether to extend the sentence splitter with curated abbreviations for certain
+            languages.
         """
         # Store arguments for serialization
         self.remove_empty_lines = remove_empty_lines
@@ -128,7 +130,11 @@ class DocumentPreProcessor(SuperComponent):
         output_mapping = {"splitter.documents": "documents"}
 
         # Initialize the SuperComponent
-        super(DocumentPreProcessor, self).__init__(pipeline=pp, input_mapping=input_mapping, output_mapping=output_mapping)
+        super(DocumentPreProcessor, self).__init__(
+            pipeline=pp,
+            input_mapping=input_mapping,
+            output_mapping=output_mapping
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -165,6 +171,8 @@ class DocumentPreProcessor(SuperComponent):
         Load this instance from a dictionary.
         """
         if "splitting_function" in data["init_parameters"]:
-            data["init_parameters"]["splitting_function"] = deserialize_callable(data["init_parameters"]["splitting_function"])
+            data["init_parameters"]["splitting_function"] = deserialize_callable(
+                data["init_parameters"]["splitting_function"]
+            )
 
         return default_from_dict(cls, data)

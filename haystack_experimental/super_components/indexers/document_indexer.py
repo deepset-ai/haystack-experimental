@@ -1,19 +1,24 @@
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder
 from haystack.components.writers import DocumentWriter
-from haystack.document_stores.types import DuplicatePolicy, DocumentStore
-from haystack.utils import ComponentDevice, Secret, deserialize_secrets_inplace, deserialize_document_store_in_init_params_inplace
+from haystack.document_stores.types import DocumentStore, DuplicatePolicy
+from haystack.utils import (
+    ComponentDevice,
+    Secret,
+    deserialize_document_store_in_init_params_inplace,
+    deserialize_secrets_inplace,
+)
 from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kwargs
+
 from haystack_experimental.core.super_component import SuperComponent
 
 
 @component
 class DocumentIndexer(SuperComponent):
     """
-    A document indexer that takes a list of documents, embeds them using SentenceTransformers,
-    and stores them in a document store.
+    A document indexer that takes a list of documents, embeds them using SentenceTransformers, and stores them.
 
     Usage:
 
@@ -30,7 +35,7 @@ class DocumentIndexer(SuperComponent):
     ```
     """
 
-    def __init__(
+    def __init__( # pylint: disable=R0917
             self,
             document_store: DocumentStore,
             model: str = "sentence-transformers/all-mpnet-base-v2",
