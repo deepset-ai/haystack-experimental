@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**FAQ Check**
+**Steps for Moving an Experiment to Haystack Core**
 - [ ] Update import statements in example cookbook, remove experimental tag from cookbook, etc.
 - [ ] Close discussion in haystack-experimental
 - [ ] Remove pydocs
