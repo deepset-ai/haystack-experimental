@@ -1,14 +1,15 @@
-import boto3
 import os
-import pytest
 from unittest.mock import MagicMock
 
-from haystack import Pipeline, Document
+import boto3
+import pytest
+from haystack import Document, Pipeline
 from haystack.components.builders import PromptBuilder
 from haystack.components.writers import DocumentWriter
+from haystack.dataclasses import ChatMessage
 from haystack.document_stores.in_memory import InMemoryDocumentStore
-from haystack_experimental.components.extractors import LLMMetadataExtractor
-from haystack_experimental.components.extractors import LLMProvider
+
+from haystack_experimental.components.extractors import LLMMetadataExtractor, LLMProvider
 
 
 class TestLLMMetadataExtractor:
@@ -95,7 +96,10 @@ class TestLLMMetadataExtractor:
                     "model": "gpt-4o-mini",
                     "organization": None,
                     "streaming_callback": None,
-                    "system_prompt": None,
+                    "max_retries": None,
+                    "timeout": None,
+                    "tools": None,
+                    "tools_strict": False,
                 },
                 "max_workers": 3,
             },
@@ -106,11 +110,7 @@ class TestLLMMetadataExtractor:
             prompt="some prompt that was used with the LLM {{document.content}}",
             expected_keys=["key1", "key2"],
             generator_api=LLMProvider.AWS_BEDROCK,
-            generator_api_params={
-                "model": "meta.llama.test",
-                "max_length": 100,
-                "truncate": False,
-            },
+            generator_api_params={"model": "meta.llama.test"},
             raise_on_failure=True,
         )
         extractor_dict = extractor.to_dict()
@@ -146,11 +146,11 @@ class TestLLMMetadataExtractor:
                         "strict": False,
                     },
                     "model": "meta.llama.test",
-                    "model_family": None,
-                    "max_length": 100,
-                    "truncate": False,
+                    "stop_words": [],
+                    "generation_kwargs": {},
                     "streaming_callback": None,
                     "boto3_config": None,
+                    "tools": None,
                 },
                 "expected_keys": ["key1", "key2"],
                 "page_range": None,
@@ -179,7 +179,6 @@ class TestLLMMetadataExtractor:
                     "model": "gpt-4o-mini",
                     "organization": None,
                     "streaming_callback": None,
-                    "system_prompt": None,
                 },
             },
         }
@@ -225,10 +224,11 @@ class TestLLMMetadataExtractor:
                         "strict": False,
                     },
                     "model": "meta.llama.test",
-                    "max_length": 200,
-                    "truncate": False,
+                    "stop_words": [],
+                    "generation_kwargs": {},
                     "streaming_callback": None,
                     "boto3_config": None,
+                    "tools": None,
                 },
                 "expected_keys": ["key1", "key2"],
                 "page_range": None,
@@ -244,8 +244,6 @@ class TestLLMMetadataExtractor:
             == "some prompt that was used with the LLM {{document.content}}"
         )
         assert extractor.generator_api == LLMProvider.AWS_BEDROCK
-        assert extractor.llm_provider.max_length == 200
-        assert extractor.llm_provider.truncate is False
         assert extractor.llm_provider.model == "meta.llama.test"
 
     def test_warm_up(self, monkeypatch):
@@ -288,7 +286,7 @@ class TestLLMMetadataExtractor:
     def test_prepare_prompts(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
-            prompt="prompt {{document.content}}",
+            prompt="some_user_definer_prompt {{document.content}}",
             generator_api=LLMProvider.OPENAI,
         )
         docs = [
@@ -300,15 +298,16 @@ class TestLLMMetadataExtractor:
             ),
         ]
         prompts = extractor._prepare_prompts(docs)
+
         assert prompts == [
-            "prompt deepset was founded in 2018 in Berlin, and is known for its Haystack framework",
-            "prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library",
+            ChatMessage.from_dict({"_role": "user", "_meta": {}, "_name": None, "_content": [{"text": "some_user_definer_prompt deepset was founded in 2018 in Berlin, and is known for its Haystack framework"}]}),
+            ChatMessage.from_dict({"_role": "user", "_meta": {}, "_name": None, "_content": [{"text": "some_user_definer_prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library"}]})
         ]
 
     def test_prepare_prompts_empty_document(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
-            prompt="prompt {{document.content}}",
+            prompt="some_user_definer_prompt {{document.content}}",
             generator_api=LLMProvider.OPENAI,
         )
         docs = [
@@ -320,13 +319,14 @@ class TestLLMMetadataExtractor:
         prompts = extractor._prepare_prompts(docs)
         assert prompts == [
             None,
-            "prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library",
+            ChatMessage.from_dict(
+                {"_role": "user", "_meta": {}, "_name": None, "_content": [{"text": "some_user_definer_prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library"}]})
         ]
 
     def test_prepare_prompts_expanded_range(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
         extractor = LLMMetadataExtractor(
-            prompt="prompt {{document.content}}",
+            prompt="some_user_definer_prompt {{document.content}}",
             generator_api=LLMProvider.OPENAI,
             page_range=["1-2"],
         )
@@ -336,9 +336,11 @@ class TestLLMMetadataExtractor:
             )
         ]
         prompts = extractor._prepare_prompts(docs, expanded_range=[1, 2])
-        assert prompts == [
-            "prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library\fPage 2\f",
-        ]
+
+        assert prompts == [ChatMessage.from_dict({"_role": "user",
+ "_meta": {},
+ "_name": None,
+ "_content": [{"text": "some_user_definer_prompt Hugging Face is a company founded in Paris, France and is known for its Transformers library\x0cPage 2\x0c"}]})]
 
     def test_run_no_documents(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
