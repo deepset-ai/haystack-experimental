@@ -20,7 +20,7 @@ renderer:
   category_slug: experiments-api
   title: SuperComponent
   slug: experimental-supercomponent-api
-  order: 70
+  order: 60
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
