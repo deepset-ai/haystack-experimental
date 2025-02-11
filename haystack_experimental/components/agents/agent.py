@@ -6,7 +6,6 @@ from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
 from haystack.utils import Secret, deserialize_secrets_inplace
 from haystack.dataclasses import ChatMessage
-from haystack.utils.type_serialization import serialize_type, deserialize_type
 
 from haystack.tools import Tool
 
@@ -17,7 +16,7 @@ from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
 from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.components.tools import ToolInvoker
-from haystack_experimental.components.tools.tool_context import ToolContext
+from haystack_experimental.dataclasses.state import State, _validate_schema, _schema_to_dict, _schema_from_dict
 
 _PROVIDER_GENERATOR_MAPPING = {
     "openai": OpenAIChatGenerator,
@@ -70,8 +69,7 @@ class Agent:
         api_key: Secret = Secret.from_env_var("LLM_API_KEY", strict=False),
         handoff: str = "text",
         generation_kwargs: Optional[Dict[str, Any]] = None,
-        input_variables: Optional[Dict[str, Type]] = None,
-        output_variables: Optional[Dict[str, Type]] = None,
+        state_schema: Dict[str, Any] = None,
     ):
         """
         Initialize the agent component.
@@ -98,24 +96,24 @@ class Agent:
         if handoff not in valid_handoffs:
             raise ValueError(f"Handoff must be one of {valid_handoffs}")
 
+        _validate_schema(state_schema)
+
         # Store instance variables
         self.model = model
         self.generation_kwargs = generation_kwargs or {}
         self.tools = tools or []
         self.system_prompt = system_prompt
         self.handoff = handoff
-        self.input_variables = input_variables or {}
-        self.output_variables = output_variables or {}
+
+        self.state_schema = state_schema
         self.api_key = api_key
 
-        # Set input/output types
-        input_types = {"messages": List[ChatMessage]}
-        input_types.update(self.input_variables)
-        component.set_input_types(instance=self, **input_types)
-
+        component.set_input_type(instance=self, name="messages", type=List[ChatMessage])
         output_types = {"messages": List[ChatMessage]}
-        output_types.update(self.output_variables)
-        component.set_output_types(instance=self, **output_types)
+        for param, config in self.state_schema.items():
+            component.set_input_type(self, name=param, type=config["type"], default=None)
+            output_types[param] = config["type"]
+        component.set_output_types(self, **output_types)
 
         self._initialize_pipeline()
 
@@ -132,7 +130,7 @@ class Agent:
         )
         joiner = BranchJoiner(type_=List[ChatMessage])
         tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=False)
-        context_joiner = BranchJoiner(type_=ToolContext)
+        context_joiner = BranchJoiner(type_=State)
 
         # Configure router conditions
         if self.handoff == "text":
@@ -185,10 +183,10 @@ class Agent:
         self.pipeline.connect("tool_invoker.messages", "router.tool_messages")
         self.pipeline.connect("router.continue", "joiner.value")
         self.pipeline.connect(
-            "tool_invoker.context", "context_joiner.value"
+            "tool_invoker.state", "context_joiner.value"
         )
         self.pipeline.connect(
-            "context_joiner.value", "tool_invoker.context"
+            "context_joiner.value", "tool_invoker.state"
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -197,27 +195,15 @@ class Agent:
 
         :return: Dictionary with serialized data
         """
-        # Serialize type annotations
-        serialized_context_variables = {
-            name: serialize_type(type_)
-            for name, type_ in self.input_variables.items()
-        }
-        serialized_output_variables = {
-            name: serialize_type(type_) for name, type_ in self.output_variables.items()
-        }
-
-        serialized_tools = [t.to_dict() for t in self.tools]
-
         return default_to_dict(
             self,
             model=self.model,
             generation_kwargs=self.generation_kwargs,
-            tools=serialized_tools,
+            tools=[t.to_dict() for t in self.tools],
             api_key=self.api_key.to_dict(),
             system_prompt=self.system_prompt,
             handoff=self.handoff,
-            context_variables=serialized_context_variables,
-            output_variables=serialized_output_variables,
+            state_schema=_schema_to_dict(self.state_schema),
         )
 
     @classmethod
@@ -231,16 +217,8 @@ class Agent:
         init_params = data.get("init_parameters", {})
 
         # Deserialize type annotations
-        if "input_variables" in init_params:
-            init_params["input_variables"] = {
-                name: deserialize_type(type_)
-                for name, type_ in init_params["input_variables"].items()
-            }
-        if "output_variables" in init_params:
-            init_params["output_variables"] = {
-                name: deserialize_type(type_)
-                for name, type_ in init_params["output_variables"].items()
-            }
+        if "state_schema" in init_params:
+            init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
 
         if "tools" in init_params:
             init_params["tools"] = [Tool.from_dict(t) for t in init_params["tools"]]
@@ -257,11 +235,7 @@ class Agent:
         :param kwargs: Additional keyword arguments matching the defined input types
         :return: Dictionary containing messages and outputs matching the defined output types
         """
-        context = ToolContext(
-            input_schema=self.input_variables,
-            output_schema=self.output_variables,
-            inputs=kwargs
-        )
+        state = State(schema=self.state_schema, data=kwargs)
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
@@ -271,12 +245,12 @@ class Agent:
         result = self.pipeline.run(
             data={
                 "joiner": {"value": messages},
-                "context_joiner": {"value": context},
+                "context_joiner": {"value": state},
             },
             include_outputs_from={"context_joiner"},
         )
 
         return {
             "messages": result["router"]["handoff"],
-            **result["context_joiner"]["value"].outputs,
+            **result["context_joiner"]["value"].data,
         }
