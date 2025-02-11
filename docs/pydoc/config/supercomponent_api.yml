@@ -1,7 +1,10 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.extractors.llm_metadata_extractor"]
+    modules:
+      [
+        "haystack_experimental.core.super_component.super_component"
+      ]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
@@ -13,15 +16,15 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: Extracting information from documents.
+  excerpt: A class for creating super components that wrap around a pipeline.
   category_slug: experiments-api
-  title: Extractors
-  slug: experimental-generators-api
-  order: 50
+  title: SuperComponent
+  slug: experimental-supercomponent-api
+  order: 60
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: experimental_extractors.md
+    filename: experimental_supercomponent_api.md

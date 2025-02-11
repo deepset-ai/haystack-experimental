@@ -25,7 +25,7 @@ renderer:
   category_slug: experiments-api
   title: Retrievers
   slug: experimental-retrievers-api
-  order: 80
+  order: 40
   markdown:
     descriptive_class_title: false
     classdef_code_block: false

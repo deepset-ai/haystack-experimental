@@ -19,7 +19,7 @@ renderer:
   category_slug: experiments-api
   title: Evaluation Harness
   slug: experimental-evaluation-harness-api
-  order: 40
+  order: 20
   markdown:
     descriptive_class_title: false
     classdef_code_block: false

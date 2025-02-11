@@ -17,7 +17,7 @@ renderer:
   category_slug: experiments-api
   title: Generators
   slug: experimental-generators-api
-  order: 60
+  order: 30
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
