@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**FAQ Check**
+**Steps for Adding a new Experiment**
 - [ ] Create an example cookbook in https://github.com/deepset-ai/haystack-cookbook (no need to add an example notebook to haystack-experimental)
 - [ ] Open a new discussion in https://github.com/deepset-ai/haystack-experimental/discussions
 - [ ] Add experiment to pydocs
