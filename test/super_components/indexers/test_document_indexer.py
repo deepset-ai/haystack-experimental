@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import Mock
+from unittest.mock import Mock, ANY
 from uuid import UUID
 import pytest
 
@@ -17,7 +17,7 @@ from haystack.components.writers import DocumentWriter
 class TestDocumentIndexer:
     @pytest.fixture
     def indexer(self) -> DocumentIndexer:
-        return DocumentIndexer()
+        return DocumentIndexer(document_store=InMemoryDocumentStore())
 
     @pytest.fixture
     def embedding_backend(self, indexer: DocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> Mock:
@@ -53,7 +53,16 @@ class TestDocumentIndexer:
         indexer = DocumentIndexer.from_dict(
             {
                 "init_parameters": {
-                    "model": None,
+                    'document_store': {
+                        'init_parameters': {
+                            'bm25_algorithm': 'BM25L',
+                            'bm25_parameters': {},
+                            'bm25_tokenization_regex': '(?u)\\b\\w\\w+\\b',
+                            'embedding_similarity_function': 'dot_product',
+                            'index': '28f84766-11b7-4eac-bb75-3ee4e8d56958'
+                        },
+                        'type': 'haystack.document_stores.in_memory.document_store.InMemoryDocumentStore'
+                    },
                     "prefix": "",
                     "suffix": "",
                     "batch_size": 32,
@@ -67,18 +76,33 @@ class TestDocumentIndexer:
         assert isinstance(indexer, DocumentIndexer)
 
     def test_to_dict(self, indexer: DocumentIndexer) -> None:
-        expected = {
-            "init_parameters": {
-                "model": None,
-                "prefix": "",
-                "suffix": "",
-                "batch_size": 32,
-                "embedding_separator": "\n",
-                "meta_fields_to_embed": None,
-                "duplicate_policy": "overwrite",
-            },
-            "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
-        }
+        expected = {'init_parameters': {'batch_size': 32,
+                     'config_kwargs': None,
+                     'device': None,
+                     'document_store': {'init_parameters': {'bm25_algorithm': 'BM25L',
+                                                            'bm25_parameters': {},
+                                                            'bm25_tokenization_regex': '(?u)\\b\\w\\w+\\b',
+                                                            'embedding_similarity_function': 'dot_product',
+                                                            'index': ANY},
+                                        'type': 'haystack.document_stores.in_memory.document_store.InMemoryDocumentStore'},
+                     'duplicate_policy': 'overwrite',
+                     'embedding_separator': '\n',
+                     'meta_fields_to_embed': None,
+                     'model': 'sentence-transformers/all-mpnet-base-v2',
+                     'model_kwargs': None,
+                     'normalize_embeddings': False,
+                     'precision': 'float32',
+                     'prefix': '',
+                     'progress_bar': True,
+                     'suffix': '',
+                     'token': {'env_vars': ['HF_API_TOKEN', 'HF_TOKEN'],
+                               'strict': False,
+                               'type': 'env_var'},
+                     'tokenizer_kwargs': None,
+                     'truncate_dim': None,
+                     'trust_remote_code': False},
+                    'type': 'haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer'
+                    }
         assert indexer.to_dict() == expected
 
     def test_warm_up(self, indexer: DocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> None:
