@@ -1,6 +1,6 @@
 ---
-name: Add new Experiment
-about: 
+name: New Experiment
+about: Add a new experimental component or feature
 title: ''
 labels: ''
 assignees: ''
