@@ -1,6 +1,6 @@
 ---
-name: Move Experiment to Haystack Core or Integrations
-about: 
+name: Move Experiment
+about: Move an existing experiment to Haystack Core or Integrations
 title: ''
 labels: ''
 assignees: ''
