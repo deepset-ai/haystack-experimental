@@ -1,5 +1,5 @@
 ---
-name: New Experiment
+name: Add Experiment
 about: Add a new experimental component or feature
 title: ''
 labels: ''
