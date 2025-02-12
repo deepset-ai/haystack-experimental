@@ -17,7 +17,7 @@ renderer:
   category_slug: experiments-api
   title: Splitters
   slug: experimental-splitters-api
-  order: 100
+  order: 50
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
