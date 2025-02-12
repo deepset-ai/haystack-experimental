@@ -10,8 +10,7 @@ changes between them. We provide two scripts:
 
 In a Python virtual environment, install both the new and old pipeline.run() logic:
 
-- `pip install haystack-experimental==0.6.0`
-- `pip install haystack-ai==2.9.0`
+- `pip install haystack-experimental==0.6.0 haystack-ai==2.9.0`
 
 ## Generating the traces
 
