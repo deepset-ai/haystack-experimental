@@ -103,6 +103,17 @@ class ComponentTool(Tool):
         :param component: The Haystack component to wrap as a tool.
         :param name: Optional name for the tool (defaults to snake_case of component class name).
         :param description: Optional description (defaults to component's docstring).
+        :param parameters:
+            A JSON schema defining the parameters expected by the Tool.
+        :param inputs:
+            Optional dictionary mapping state keys to tool parameter names.
+            Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
+        :param outputs:
+            Optional dictionary defining how tool outputs map to state and message handling.
+            Example: {
+                "documents": {"source": "docs", "handler": custom_handler},
+                "message": {"source": "summary", "handler": format_summary}
+            }
         :raises ValueError: If the component is invalid or schema generation fails.
         """
         if not isinstance(component, Component):
