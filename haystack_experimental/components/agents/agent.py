@@ -1,4 +1,5 @@
 # type: ignore
+from idlelib.run import exit_now
 from typing import Dict, Any, List, Optional, Type
 
 from haystack import component, default_from_dict, default_to_dict
@@ -29,7 +30,7 @@ class Agent:
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
 
-    The component processes messages and executes tools until a handoff condition is met. The handoff can be triggered
+    The component processes messages and executes tools until a exit_condition condition is met. The exit_condition can be triggered
     either by a direct text response or by invoking a specific designated tool.
 
     ### Usage example
@@ -45,7 +46,7 @@ class Agent:
         model="anthropic:claude-3",
         generation_kwargs={"temperature": 0.7},
         tools=tools,
-        handoff="search",
+        exit_condition="search",
         input_variables=input_types,
         output_variables=output_types
     )
@@ -67,7 +68,7 @@ class Agent:
         tools: Optional[List[Tool]] = None,
         system_prompt: Optional[str] = None,
         api_key: Secret = Secret.from_env_var("LLM_API_KEY", strict=False),
-        handoff: str = "text",
+        exit_condition: str = "text",
         generation_kwargs: Optional[Dict[str, Any]] = None,
         state_schema: Dict[str, Any] = None,
     ):
@@ -77,11 +78,11 @@ class Agent:
         :param model: Model identifier in the format "provider:model_name"
         :param generation_kwargs: Keyword arguments for the chat model generator
         :param tools: List of Tool objects available to the agent
-        :param handoff: Either "text" if the agent should return when it generates a message without tool calls
+        :param exit_condition: Either "text" if the agent should return when it generates a message without tool calls
             or the name of a tool that will cause the agent to return once the tool was executed
         :param input_variables: Dictionary mapping input variable names to their types
         :param output_variables: Dictionary mapping output variable names to their types
-        :raises ValueError: If model string format is invalid or handoff is not valid
+        :raises ValueError: If model string format is invalid or exit_condition is not valid
         """
         if ":" not in model:
             raise ValueError("Model string must be in format 'provider:model_name'")
@@ -92,9 +93,9 @@ class Agent:
                 f"Provider must be one of {list(_PROVIDER_GENERATOR_MAPPING.keys())}"
             )
 
-        valid_handoffs = ["text"] + [tool.name for tool in tools]
-        if handoff not in valid_handoffs:
-            raise ValueError(f"Handoff must be one of {valid_handoffs}")
+        valid_exits = ["text"] + [tool.name for tool in tools]
+        if exit_condition not in valid_exits:
+            raise ValueError(f"Exit condition must be one of {valid_exits}")
 
         _validate_schema(state_schema)
 
@@ -103,7 +104,7 @@ class Agent:
         self.generation_kwargs = generation_kwargs or {}
         self.tools = tools or []
         self.system_prompt = system_prompt
-        self.handoff = handoff
+        self.exit_condition = exit_condition
 
         self.state_schema = state_schema
         self.api_key = api_key
@@ -133,12 +134,12 @@ class Agent:
         context_joiner = BranchJoiner(type_=State)
 
         # Configure router conditions
-        if self.handoff == "text":
-            handoff_condition = "{{ llm_messages[0].tool_call is none }}"
+        if self.exit_condition == "text":
+            exit_condition_template = "{{ llm_messages[0].tool_call is none }}"
         else:
-            handoff_condition = (
+            exit_condition_template = (
                 "{{ llm_messages[0].tool_call is none or (llm_messages[0].tool_call.tool_name == '"
-                + self.handoff
+                + self.exit_condition
                 + "' and not tool_messages[0].tool_call_result.error) }}"
             )
 
@@ -146,10 +147,10 @@ class Agent:
 
         routes = [
             {
-                "condition": handoff_condition,
+                "condition": exit_condition_template,
                 "output": router_output,
                 "output_type": List[ChatMessage],
-                "output_name": "handoff",
+                "output_name": "exit",
             },
             {
                 "condition": "{{ True }}",  # Default route
@@ -202,7 +203,7 @@ class Agent:
             tools=[t.to_dict() for t in self.tools],
             api_key=self.api_key.to_dict(),
             system_prompt=self.system_prompt,
-            handoff=self.handoff,
+            exit_condition=self.exit_condition,
             state_schema=_schema_to_dict(self.state_schema),
         )
 
@@ -229,7 +230,7 @@ class Agent:
 
     def run(self, messages: List[ChatMessage], **kwargs) -> Dict[str, Any]:
         """
-        Process messages and execute tools until a handoff condition is met.
+        Process messages and execute tools until the exit condition is met.
 
         :param messages: List of chat messages to process
         :param kwargs: Additional keyword arguments matching the defined input types
@@ -251,6 +252,6 @@ class Agent:
         )
 
         return {
-            "messages": result["router"]["handoff"],
+            "messages": result["router"]["exit"],
             **result["context_joiner"]["value"].data,
         }
