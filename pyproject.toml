@@ -57,11 +57,6 @@ extra-dependencies = [
   "transformers>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
   # RAG evaluation harness (SAS evaluator)
   "sentence-transformers>=3.0.0",
-  # Tools support
-  "jsonschema",
-  # Async
-  "opensearch-haystack",
-  "opensearch-py[async]",
   # LLMMetadataExtractor dependencies
   "amazon-bedrock-haystack>=1.1.1",
   "google-vertex-haystack>=2.0.0",
