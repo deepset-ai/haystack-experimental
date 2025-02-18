@@ -4,7 +4,6 @@ loaders:
     modules:
       [
         "haystack_experimental.document_stores.in_memory.document_store",
-        "haystack_experimental.document_stores.opensearch.document_store",
         "haystack_experimental.document_stores.types.protocol",
       ]
     ignore_when_discovered: ["__init__"]
