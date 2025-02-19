@@ -5,10 +5,9 @@
 import inspect
 from typing import Any, Callable, Dict, Optional
 
-from pydantic import create_model
-
 from haystack.tools.errors import SchemaGenerationError
 from haystack.tools.tool import Tool
+from pydantic import create_model
 
 
 def create_tool_from_function(
