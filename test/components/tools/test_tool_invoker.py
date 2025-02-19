@@ -247,7 +247,7 @@ class TestToolInvoker:
                                         "properties": {"location": {"type": "string"}},
                                         "required": ["location"],
                                     },
-                                    "function": "test.tools.test_tool_invoker.weather_function",
+                                    "function": "test.components.tools.test_tool_invoker.weather_function",
                                 },
                             }
                         ],
