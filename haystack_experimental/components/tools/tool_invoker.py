@@ -1,5 +1,3 @@
-# tool_invoker.py
-
 # SPDX-FileCopyrightText: ...
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,11 +7,11 @@ from typing import Any, Dict, List, Optional
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage, ToolCall
-from haystack.tools import Tool, deserialize_tools_inplace
 from haystack.tools.errors import ToolInvocationError
 
 from haystack_experimental.dataclasses.state import State
 from haystack_experimental.tools.component_tool import ComponentTool
+from haystack_experimental.tools import Tool, deserialize_tools_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +183,7 @@ class ToolInvoker:
 
             return result
 
-    @component.output_types(messages=List[ChatMessage], state=State)
+    @component.output_types(tool_messages=List[ChatMessage], state=State)
     def run(self, messages: List[ChatMessage], state: Optional[State] = None) -> Dict[str, Any]:
         """
         Look for tool calls in the ChatMessages. For each tool call:
@@ -195,7 +193,7 @@ class ToolInvoker:
 
         Returns:
           {
-            "messages": <list of ChatMessage with role=TOOL>,
+            "tool_messages": <list of ChatMessage with role=TOOL>,
             "state": <updated State>
           }
         """
@@ -254,7 +252,7 @@ class ToolInvoker:
                     self._prepare_tool_result_message(result=tool_text, tool_call=tool_call)
                 )
 
-        return {"messages": tool_messages, "state": state}
+        return {"tool_messages": tool_messages, "state": state}
 
     def to_dict(self) -> Dict[str, Any]:
         """
