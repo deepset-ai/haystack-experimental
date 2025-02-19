@@ -64,7 +64,7 @@ class TestTool:
                 "name": "weather",
                 "description": "Get weather report",
                 "parameters": parameters,
-                "function": "test_tool.get_weather_report",
+                "function": "test.tools.test_tool.get_weather_report",
             },
         }
 
@@ -75,7 +75,7 @@ class TestTool:
                 "name": "weather",
                 "description": "Get weather report",
                 "parameters": parameters,
-                "function": "test_tool.get_weather_report",
+                "function": "test.tools.test_tool.get_weather_report",
             },
         }
 
