@@ -27,6 +27,7 @@ class ToolNotFoundException(Exception):
     """
     Exception raised when a tool is not found in the list of available tools.
     """
+
     pass
 
 
@@ -34,6 +35,7 @@ class StringConversionError(Exception):
     """
     Exception raised when the conversion of a tool result to a string fails.
     """
+
     pass
 
 
