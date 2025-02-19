@@ -252,14 +252,9 @@ class TestAutoMergingRetriever:
                 doc_store_parents.write_documents([doc])
         retriever = AutoMergingRetriever(doc_store_parents, threshold=0.4)
 
-        retrieved_leaf_docs_id = [
-            '8e65095a31fe5da857e4f939198217d961ea2d5052a4d0f587ec5fc78c743779',
-            '00409c91c6bb2a989565e963f563aa5a081f6054ab8b7a9307246b3cc0f0d352',
-            'e88945a30bec3e084e6aa528bcc940b4a78b6a6353c4243632be3aae84a7f532',
-            '2d0cc69c40911586d51e3e9afbfed50a0b85475dcbd524c01b46ccf5bdc54d48'
-        ]
+        # simulate a scenario where we have 4 leaf-documents that matched some initial query
+        retrieved_leaf_docs = [d for d in docs['documents'] if d.content in {'The ', 'sun ', 'rose ', 'early '}]
 
-        retrieved_leaf_docs = [d for d in docs['documents'] if d.id in retrieved_leaf_docs_id]
         result = retriever.run(retrieved_leaf_docs)
 
         assert len(result['documents']) == 1
@@ -284,14 +279,12 @@ class TestAutoMergingRetriever:
                 doc_store_parents.write_documents([doc])
         retriever = AutoMergingRetriever(doc_store_parents, threshold=0.1)  # set a low threshold to hit root document
 
-        retrieved_leaf_docs_id = [
-            '7e654d8ae21cc9807e4c377288a590efe7a6d86606676e51992cf719a03a3f42',
-            'acb19c71330c1f7515046bbcbacfcdf8fe21d273c40485a6b3f6b8ea13d4adec',
-            '98480d4a5f97ebd330d2bc06640692d52a8af2265e2ea0e87abf09d6472c7af9',
-            'a61b5a9ea9edfbd1572c02f7289c644128dd144a476f9e349bd35fdc93590610'
+        # simulate a scenario where we have 4 leaf-documents that matched some initial query
+        retrieved_leaf_docs = [
+            d for d in docs['documents'] if
+            d.content in {'The sun rose early ', 'in the ', 'morning. It cast a ', 'over the trees. Birds '}
         ]
 
-        retrieved_leaf_docs = [d for d in docs['documents'] if d.id in retrieved_leaf_docs_id]
         result = retriever.run(retrieved_leaf_docs)
 
         assert len(result['documents']) == 1
