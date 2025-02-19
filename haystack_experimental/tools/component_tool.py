@@ -6,7 +6,6 @@ from dataclasses import fields, is_dataclass
 from inspect import getdoc
 from typing import Any, Callable, Dict, Optional, Union, get_args, get_origin
 
-from pyarrow import input_stream
 from pydantic import TypeAdapter
 
 from haystack import logging
@@ -18,8 +17,10 @@ from haystack.core.serialization import (
     import_class_by_name,
 )
 from haystack.lazy_imports import LazyImport
-from haystack.tools import Tool
 from haystack.tools.errors import SchemaGenerationError
+
+from haystack_experimental.tools import Tool
+
 
 with LazyImport(message="Run 'pip install docstring-parser'") as docstring_parser_import:
     from docstring_parser import parse
@@ -176,10 +177,15 @@ class ComponentTool(Tool):
         description = (description or component.__doc__ or name)
 
         # Create the Tool instance with the component invoker as the function to be called and the schema
-        super().__init__(name, description, tool_schema, component_invoker)
+        super().__init__(
+            name=name,
+            description=description,
+            parameters=tool_schema,
+            function=component_invoker,
+            inputs=inputs,
+            outputs=outputs
+        )
         self._component = component
-        self.inputs = inputs
-        self.outputs = outputs
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -214,7 +220,7 @@ class ComponentTool(Tool):
         param_descriptions = self._get_param_descriptions(component.run)
 
         for input_name, socket in component.__haystack_input__._sockets_dict.items():  # type: ignore[attr-defined]
-            if input_name in inputs:
+            if inputs is not None and input_name in inputs:
                 continue
             input_type = socket.type
             description = param_descriptions.get(input_name, f"Input '{input_name}' for the component.")

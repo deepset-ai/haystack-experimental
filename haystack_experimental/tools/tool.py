@@ -54,20 +54,18 @@ class Tool:
         except SchemaError as e:
             raise ValueError("The provided parameters do not define a valid JSON schema") from e
 
-        # Initialize empty dicts if None
-        if self.inputs is None:
-            self.inputs = {}
-        if self.outputs is None:
-            self.outputs = {}
 
         # Validate outputs structure if provided
-        for key, config in self.outputs.items():
-            if not isinstance(config, dict):
-                raise ValueError(f"Output configuration for key '{key}' must be a dictionary")
-            if "source" in config and not isinstance(config["source"], str):
-                raise ValueError(f"Output source for key '{key}' must be a string")
-            if "handler" in config and not callable(config["handler"]):
-                raise ValueError(f"Output handler for key '{key}' must be callable")
+        if self.outputs is not None:
+            for key, config in self.outputs.items():
+                if not isinstance(config, dict):
+                    raise ValueError(f"Output configuration for key '{key}' must be a dictionary")
+                if "source" not in config:
+                    raise ValueError(f"Output source for key '{key}' must be provided.")
+                if not isinstance(config["source"], str):
+                    raise ValueError(f"Output source for key '{key}' must be a string.")
+                if "handler" in config and not callable(config["handler"]):
+                    raise ValueError(f"Output handler for key '{key}' must be callable")
 
     @property
     def tool_spec(self) -> Dict[str, Any]:
