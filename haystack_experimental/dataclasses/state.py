@@ -2,57 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional, Dict
 
 from haystack.utils.callable_serialization import serialize_callable, deserialize_callable
 from haystack.utils.type_serialization import serialize_type, deserialize_type
 
-import inspect
+from haystack_experimental.dataclasses.state_utils import _is_valid_type, merge_values
 
-def _is_valid_type(obj: Any) -> bool:
-    # True if it's a normal class (e.g. str, dict, MyCustomClass)
-    # or a generic type (List[str], Dict[str, CustomClass], etc.)
-    return inspect.isclass(obj) or type(obj).__name__ in {"_GenericAlias", "GenericAlias"}
-
-
-def _default_merge_handler(current_value: Any, new_value: Any, declared_type: Any) -> Any:
-    """
-    Default merging logic for different types:
-      - Lists: extend if new_value is also a list, otherwise append
-      - Dicts: shallow update
-      - Primitives/other: replace entirely
-    """
-    if current_value is None:
-        return new_value
-
-    # Check if declared_type is a list (or List[...] annotation)
-    if declared_type is list or (hasattr(declared_type, "__origin__") and declared_type.__origin__ is list):
-        if isinstance(new_value, list):
-            if isinstance(current_value, list):
-                current_value.extend(new_value)
-                return current_value
-            else:
-                # current wasn't a list, just replace
-                return new_value
-        else:
-            # new_value isn't a list => append
-            if isinstance(current_value, list):
-                current_value.append(new_value)
-                return current_value
-            else:
-                return [current_value, new_value]
-
-    # Check if declared_type is a dict (or Dict[...] annotation)
-    if declared_type is dict or (hasattr(declared_type, "__origin__") and declared_type.__origin__ is dict):
-        if isinstance(new_value, dict) and isinstance(current_value, dict):
-            current_value.update(new_value)
-            return current_value
-        else:
-            # fallback: just replace
-            return new_value
-
-    # Otherwise, just replace
-    return new_value
 
 def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
     serialized_schema = {}
@@ -87,7 +43,6 @@ def _validate_schema(schema: Dict[str, Any]) -> None:
                 raise ValueError(
                     f"StateSchema: 'handler' for key '{param}' must be callable or None"
                 )
-
 
 
 class State:
@@ -157,7 +112,7 @@ class State:
                 # no known type => just replace
                 self._data[key] = value
             else:
-                self._data[key] = _default_merge_handler(current_value, value, declared_type)
+                self._data[key] = merge_values(current_value, value, declared_type)
 
     @property
     def data(self):
