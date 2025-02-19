@@ -259,11 +259,7 @@ class ToolInvoker:
                     tool_text = f"[Merging error: {e}]"
 
                 tool_messages.append(
-                    ChatMessage.from_tool(
-                        tool_result=tool_text,
-                        error=False,
-                        origin=tool_call
-                    )
+                    self._prepare_tool_result_message(result=tool_text, tool_call=tool_call)
                 )
 
         return {"messages": tool_messages, "state": state}
