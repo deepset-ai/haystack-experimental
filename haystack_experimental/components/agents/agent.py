@@ -1,5 +1,4 @@
 # type: ignore
-from idlelib.run import exit_now
 from typing import Dict, Any, List, Optional, Type
 
 from haystack import component, default_from_dict, default_to_dict
