@@ -109,22 +109,22 @@ file_editor_schema = {
       "required": ["message"],
       "properties": {
         "message": {
-          "type": "string",
+          "type": "string"
         },
         "content": {
-          "type": "string",
+          "type": "string"
         },
         "path": {
-          "type": "string",
+          "type": "string"
         },
         "original": {
-          "type": "string",
+          "type": "string"
         },
         "replacement": {
-          "type": "string",
+          "type": "string"
         }
-      },
+      }
     }
   },
-  "required": ["command", "payload"],
+  "required": ["command", "payload"]
 }
