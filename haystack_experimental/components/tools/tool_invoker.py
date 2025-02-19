@@ -12,6 +12,7 @@ from haystack.tools import Tool, deserialize_tools_inplace
 from haystack.tools.errors import ToolInvocationError
 
 from haystack_experimental.dataclasses.state import State
+from haystack_experimental.tools.component_tool import ComponentTool
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,13 @@ class ToolInvoker:
           - LLM overrides state if the same param is present in both
         """
         final_args = dict(llm_args)  # start with LLM-provided
-        func_params = self._get_function_parameters(tool.function)
+
+        # ComponentTool wraps the function with a function that accepts kwargs, so we need to look at input sockets
+        # to find out which parameters the tool accepts.
+        if isinstance(tool, ComponentTool):
+            func_params = tool._component.__haystack_input__._sockets_dict.keys()
+        else:
+            func_params = self._get_function_parameters(tool.function)
 
         # If this is a "ComponentTool" (or function-based tool) that has an 'inputs' mapping, use it.
         # Typically, a "Tool" might have .inputs = {"state_key": "tool_param_name"}
