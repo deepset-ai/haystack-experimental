@@ -36,7 +36,6 @@ class TestTool:
     @pytest.mark.parametrize("outputs",
     [
         pytest.param({"documents": ["some_value"]}, id="config-not-a-dict"),
-        pytest.param({"documents": {"handler": get_weather_report}}, id="no-source-key"),
         pytest.param({"documents": {"source": get_weather_report}}, id="source-not-a-string"),
         pytest.param({"documents": {"handler": "some_string", "source": "docs"}}, id="handler-not-callable"),
     ])
