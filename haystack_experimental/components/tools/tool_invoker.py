@@ -24,19 +24,23 @@ _TOOL_RESULT_CONVERSION_FAILURE = (
 
 
 class ToolNotFoundException(Exception):
-    """Exception raised when a tool is not found in the list of available tools."""
+    """
+    Exception raised when a tool is not found in the list of available tools.
+    """
     pass
 
 
 class StringConversionError(Exception):
-    """Exception raised when the conversion of a tool result to a string fails."""
+    """
+    Exception raised when the conversion of a tool result to a string fails.
+    """
     pass
 
 
 @component
 class ToolInvoker:
     """
-    Invokes tools based on prepared tool calls and returns results as ChatMessage objects.
+    Invokes tools based on prepared tool calls and returns the results as a list of ChatMessage objects.
 
     Also handles reading/writing from a shared `State`.
     At initialization, the ToolInvoker component is provided with a list of available tools.
