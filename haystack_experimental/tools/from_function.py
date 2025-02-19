@@ -92,7 +92,7 @@ def create_tool_from_function(
 
     for param_name, param in signature.parameters.items():
         # Skip adding parameter names that will be passed to the tool from State
-        if inputs and param_name in inputs:
+        if inputs and param_name in inputs.values():
             continue
 
         if param.annotation is param.empty:
