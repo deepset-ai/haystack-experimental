@@ -107,7 +107,7 @@ class State:
     ):
         _validate_schema(schema)
         self.schema = schema
-        self._data = data
+        self._data = data or {}
 
         if data:
             for key, val in data.items():
