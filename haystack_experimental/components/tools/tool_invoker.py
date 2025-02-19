@@ -2,6 +2,7 @@
 
 # SPDX-FileCopyrightText: ...
 # SPDX-License-Identifier: Apache-2.0
+
 import json
 import inspect
 from typing import Any, Dict, List, Optional
@@ -63,10 +64,6 @@ class ToolInvoker:
         self.raise_on_failure = raise_on_failure
         self.convert_result_to_json_string = convert_result_to_json_string
 
-    def _get_function_parameters(self, func) -> set:
-        """Return a set of parameter names from a function's signature."""
-        return set(inspect.signature(func).parameters.keys())
-
     def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
         """
         Convert tool result to ChatMessage (with role=TOOL).
@@ -101,8 +98,9 @@ class ToolInvoker:
             tool_result=tool_result_str, error=error, origin=tool_call
         )
 
+    @staticmethod
     def _inject_state_args(
-        self, tool: Tool, llm_args: Dict[str, Any], state: State
+        tool: Tool, llm_args: Dict[str, Any], state: State
     ) -> Dict[str, Any]:
         """
         Combine LLM-provided arguments (llm_args) with state-based arguments, respecting:
@@ -117,7 +115,7 @@ class ToolInvoker:
         if isinstance(tool, ComponentTool):
             func_params = tool._component.__haystack_input__._sockets_dict.keys()
         else:
-            func_params = self._get_function_parameters(tool.function)
+            func_params = set(inspect.signature(tool.function).parameters.keys())
 
         # If this is a "ComponentTool" (or function-based tool) that has an 'inputs' mapping, use it.
         # Typically, a "Tool" might have .inputs = {"state_key": "tool_param_name"}
@@ -133,7 +131,6 @@ class ToolInvoker:
                     final_args[param_name] = state.get(param_name)
 
         # ToolCall arguments from the LLM always override state if there's a collision.
-        # (We've already copied them in final_args.)
         return final_args
 
     @staticmethod
@@ -171,10 +168,7 @@ class ToolInvoker:
                 if state_key == "message":
                     # This is how we produce the final text for the LLM
                     if handler is not None:
-                        try:
-                            message_content = handler(output_value)
-                        except Exception:
-                            message_content = f"[Error in message handler for {state_key}]"
+                        message_content = handler(output_value)
                     else:
                         message_content = output_value
                 else:
@@ -186,7 +180,6 @@ class ToolInvoker:
             return message_content if message_content is not None else result
         else:
             # No explicit outputs => each key in result merges into state
-            # The entire dict is stringified for the LLM
             for k, v in result.items():
                 state.set(k, v)
 
@@ -207,7 +200,6 @@ class ToolInvoker:
           }
         """
         if state is None:
-            # If none provided, create an empty state
             state = State(schema={})
 
         tool_messages = []
