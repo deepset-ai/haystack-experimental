@@ -1,5 +1,8 @@
-# type: ignore
-from typing import Dict, Any, List, Optional, Type
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import Dict, Any, List, Optional
 
 from haystack import component, default_from_dict, default_to_dict
 from haystack.components.joiners import BranchJoiner

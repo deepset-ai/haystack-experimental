@@ -1,15 +1,15 @@
-# state.py
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
 
-import dataclasses
-from dataclasses import field
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from haystack.utils.callable_serialization import serialize_callable, deserialize_callable
 from haystack.utils.type_serialization import serialize_type, deserialize_type
 
 import inspect
 
-def _is_valid_type(obj) -> bool:
+def _is_valid_type(obj: Any) -> bool:
     # True if it's a normal class (e.g. str, dict, MyCustomClass)
     # or a generic type (List[str], Dict[str, CustomClass], etc.)
     return inspect.isclass(obj) or type(obj).__name__ in {"_GenericAlias", "GenericAlias"}
