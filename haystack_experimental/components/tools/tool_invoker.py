@@ -337,6 +337,7 @@ class ToolInvoker:
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes the component to a dictionary.
+
         :returns:
             Dictionary with serialized data.
         """
@@ -352,6 +353,7 @@ class ToolInvoker:
     def from_dict(cls, data: Dict[str, Any]) -> "ToolInvoker":
         """
         Deserializes the component from a dictionary.
+
         :param data:
             The dictionary to deserialize from.
         :returns:
