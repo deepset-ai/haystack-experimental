@@ -7,8 +7,6 @@ loaders:
         "haystack_experimental.components.retrievers.chat_message_retriever",
         "haystack_experimental.components.retrievers.in_memory.bm25_retriever",
         "haystack_experimental.components.retrievers.in_memory.embedding_retriever",
-        "haystack_experimental.components.retrievers.opensearch.bm25_retriever",
-        "haystack_experimental.components.retrievers.opensearch.embedding_retriever",
       ]
     ignore_when_discovered: ["__init__"]
 processors:
@@ -25,7 +23,7 @@ renderer:
   category_slug: experiments-api
   title: Retrievers
   slug: experimental-retrievers-api
-  order: 80
+  order: 40
   markdown:
     descriptive_class_title: false
     classdef_code_block: false

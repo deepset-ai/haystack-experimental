@@ -4,4 +4,4 @@
 
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
 
-_all_ = ["ToolInvoker"]
+__all__ = ["ToolInvoker"]

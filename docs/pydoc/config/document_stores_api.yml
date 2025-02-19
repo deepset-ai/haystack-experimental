@@ -4,7 +4,6 @@ loaders:
     modules:
       [
         "haystack_experimental.document_stores.in_memory.document_store",
-        "haystack_experimental.document_stores.opensearch.document_store",
         "haystack_experimental.document_stores.types.protocol",
       ]
     ignore_when_discovered: ["__init__"]
@@ -22,7 +21,7 @@ renderer:
   category_slug: experiments-api
   title: Document Stores
   slug: experimental-document-stores-api
-  order: 160
+  order: 10
   markdown:
     descriptive_class_title: false
     classdef_code_block: false

@@ -8,10 +8,9 @@ changes between them. We provide two scripts:
 
 ## Setup
 
-In a Python virtual environment, install both the new and old pipeline.run() logic
+In a Python virtual environment, install both the new and old pipeline.run() logic:
 
-- `git clone -b fix/pipeline_run https://github.com/deepset-ai/haystack-experimental`
-- `pip install haystack-ai`
+- `pip install haystack-experimental==0.6.0 haystack-ai==2.9.0`
 
 ## Generating the traces
 
