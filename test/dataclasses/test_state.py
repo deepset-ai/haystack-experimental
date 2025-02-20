@@ -2,7 +2,6 @@ import pytest
 from typing import List, Dict
 
 from haystack_experimental.dataclasses.state import State, _validate_schema
-from haystack.dataclasses.document import Document
 
 # Test fixtures
 @pytest.fixture
