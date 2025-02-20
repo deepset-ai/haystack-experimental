@@ -8,16 +8,21 @@ from haystack import component, default_from_dict, default_to_dict
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
+from haystack.lazy_imports import LazyImport
+from haystack.utils import Secret, deserialize_secrets_inplace
 from haystack.dataclasses import ChatMessage
 from haystack.tools import Tool
-from haystack.utils import Secret, deserialize_secrets_inplace
-from haystack_integrations.components.generators.anthropic.chat.chat_generator import (
-    AnthropicChatGenerator,
-)
+
+from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
+
+with LazyImport(message="Run 'pip install anthropic-haystack' to use Anthropic.") as anthropic_import:
+    from haystack_integrations.components.generators.anthropic.chat.chat_generator import (
+        AnthropicChatGenerator,
+    )
 
 _PROVIDER_GENERATOR_MAPPING = {
     "openai": OpenAIChatGenerator,
@@ -121,6 +126,9 @@ class Agent:
     def _initialize_pipeline(self) -> None:
         """Initialize the component pipeline with all necessary components and connections."""
         provider, model_name = self.model.split(":")
+
+        if provider == 'anthropic':
+            anthropic_import.check()
 
         # Initialize components
         generator = _PROVIDER_GENERATOR_MAPPING[provider](
