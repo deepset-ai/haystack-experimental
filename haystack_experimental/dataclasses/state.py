@@ -22,10 +22,10 @@ def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
 def _schema_from_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
     deserialized_schema = {}
     for param, config in schema.items():
-        deserialized_schema[param] = deserialize_type(config["type"])
+        deserialized_schema[param] = {"type": deserialize_type(config["type"])}
 
         if config.get("handler"):
-            deserialized_schema[param] = deserialize_callable(config["handler"])
+            deserialized_schema[param]["handler"] = deserialize_callable(config["handler"])
 
     return deserialized_schema
 
@@ -125,8 +125,10 @@ class State:
         """
         Return the entire internal state as a dictionary (shallow copy).
         """
+        # TODO: think about full state serialization
         return _schema_to_dict(self.schema)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "State":
+        # TODO: think about full state deserialization
         return cls(_schema_from_dict(data))
