@@ -87,7 +87,7 @@ class ComponentTool(Tool):
 
     """
 
-    def __init__(
+    def __init__( # pylint: disable=too-many-positional-arguments
             self,
             component: Component,
             name: Optional[str] = None,

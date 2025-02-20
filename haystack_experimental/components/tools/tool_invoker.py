@@ -277,6 +277,7 @@ class ToolInvoker:
 
         :param messages:
             A list of ChatMessage objects.
+        :param state: The runtime state that should be used by the tools.
         :returns:
             A dictionary with the key `tool_messages` containing a list of ChatMessage objects with tool role.
             Each ChatMessage objects wraps the result of a tool invocation.

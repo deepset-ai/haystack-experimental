@@ -62,7 +62,7 @@ class Agent:
     ```
     """
 
-    def __init__(
+    def __init__( # pylint: disable=too-many-positional-arguments
         self,
         model: str,
         tools: Optional[List[Tool]] = None,
@@ -87,7 +87,7 @@ class Agent:
         if ":" not in model:
             raise ValueError("Model string must be in format 'provider:model_name'")
 
-        provider, model_name = model.split(":")
+        provider, _ = model.split(":")
         if provider not in _PROVIDER_GENERATOR_MAPPING:
             raise ValueError(
                 f"Provider must be one of {list(_PROVIDER_GENERATOR_MAPPING.keys())}"
@@ -99,7 +99,6 @@ class Agent:
 
         _validate_schema(state_schema)
 
-        # Store instance variables
         self.model = model
         self.generation_kwargs = generation_kwargs or {}
         self.tools = tools or []
