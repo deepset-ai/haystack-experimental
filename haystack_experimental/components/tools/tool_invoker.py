@@ -271,11 +271,11 @@ class ToolInvoker:
             return result
 
     @component.output_types(tool_messages=List[ChatMessage], state=State)
-    def run(self, tool_messages: List[ChatMessage], state: Optional[State] = None) -> Dict[str, Any]:
+    def run(self, messages: List[ChatMessage], state: Optional[State] = None) -> Dict[str, Any]:
         """
         Processes ChatMessage objects containing tool calls and invokes the corresponding tools, if available.
 
-        :param tool_messages:
+        :param messages:
             A list of ChatMessage objects.
         :param state: The runtime state that should be used by the tools.
         :returns:

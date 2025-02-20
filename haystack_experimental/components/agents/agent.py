@@ -187,7 +187,7 @@ class Agent:
         self.pipeline.connect("joiner.value", "generator.messages")
         self.pipeline.connect("generator.replies", "router.llm_messages")
         self.pipeline.connect("joiner.value", "router.original_messages")
-        self.pipeline.connect("generator.replies", "tool_invoker.tool_messages")
+        self.pipeline.connect("generator.replies", "tool_invoker.messages")
         self.pipeline.connect("tool_invoker.tool_messages", "router.tool_messages")
         self.pipeline.connect("router.continue", "joiner.value")
         self.pipeline.connect(
