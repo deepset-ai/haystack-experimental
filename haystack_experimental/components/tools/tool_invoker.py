@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import inspect
+import json
 from typing import Any, Dict, List, Optional
 
 from haystack import component, default_from_dict, default_to_dict, logging
@@ -11,8 +11,8 @@ from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.tools.errors import ToolInvocationError
 
 from haystack_experimental.dataclasses.state import State
-from haystack_experimental.tools.component_tool import ComponentTool
 from haystack_experimental.tools import Tool, deserialize_tools_inplace
+from haystack_experimental.tools.component_tool import ComponentTool
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,7 @@ class ToolInvoker:
     ):
         """
         Initialize the ToolInvoker component.
+
         :param tools:
             A list of tools that can be invoked.
         :param raise_on_failure:
@@ -141,6 +142,7 @@ class ToolInvoker:
     def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
         """
         Prepares a ChatMessage with the result of a tool invocation.
+
         :param result:
             The tool result.
         :returns:
@@ -177,10 +179,12 @@ class ToolInvoker:
         tool: Tool, llm_args: Dict[str, Any], state: State
     ) -> Dict[str, Any]:
         """
-        Combine LLM-provided arguments (llm_args) with state-based arguments, respecting:
+        Combine LLM-provided arguments (llm_args) with state-based arguments.
+
+        Tool arguments take precedence in the following order:
+          - LLM overrides state if the same param is present in both
           - local tool.inputs mappings (if any)
           - function signature name matching
-          - LLM overrides state if the same param is present in both
         """
         final_args = dict(llm_args)  # start with LLM-provided
 
@@ -210,12 +214,19 @@ class ToolInvoker:
     @staticmethod
     def _merge_tool_outputs(tool: Tool, result: Any, state: State) -> Any:
         """
-        Merge a tool result into the global state. If `result` is a dictionary and there's an
-        `outputs` mapping on the tool, apply it. Otherwise, do default merges keyed by dictionary keys.
+        Merge a tool result into the global state.
 
-        Return the string that should appear as the final "tool role" message for the LLM.
-          - By default, we convert the entire result to a string.
-          - If the tool defines "message" in outputs, that "message" becomes the conversation text.
+        If `result` is a dictionary and there's an `outputs` mapping on the tool, apply it.
+        Otherwise, do default merges keyed by dictionary keys.
+
+        The return value becomes the final "tool role" message for the LLM:
+         - By default, converts the entire result to a string
+         - If tool defines "message" in outputs, that "message" becomes the conversation text
+
+        :param tool: Tool instance to merge results from
+        :param result: Result value from tool execution
+        :param state: Global state to merge results into
+        :returns: String to use as the tool's response message in conversation
         """
         if not isinstance(result, dict):
             # Not a dict => just treat it as a single output
@@ -266,6 +277,7 @@ class ToolInvoker:
 
         :param messages:
             A list of ChatMessage objects.
+        :param state: The runtime state that should be used by the tools.
         :returns:
             A dictionary with the key `tool_messages` containing a list of ChatMessage objects with tool role.
             Each ChatMessage objects wraps the result of a tool invocation.

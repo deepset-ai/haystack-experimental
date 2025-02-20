@@ -4,4 +4,4 @@
 
 from haystack_experimental.components.agents.agent import Agent
 
-_all_ = ["Agent"]
+__all__ = ["Agent"]

@@ -1,79 +1,62 @@
-# state.py
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
 
-import dataclasses
-from dataclasses import field
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
-from haystack.utils.callable_serialization import serialize_callable, deserialize_callable
-from haystack.utils.type_serialization import serialize_type, deserialize_type
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
+from haystack.utils.type_serialization import deserialize_type, serialize_type
 
-import inspect
+from haystack_experimental.dataclasses.state_utils import _is_valid_type, merge_values
 
-def _is_valid_type(obj) -> bool:
-    # True if it's a normal class (e.g. str, dict, MyCustomClass)
-    # or a generic type (List[str], Dict[str, CustomClass], etc.)
-    return inspect.isclass(obj) or type(obj).__name__ in {"_GenericAlias", "GenericAlias"}
-
-
-def _default_merge_handler(current_value: Any, new_value: Any, declared_type: Any) -> Any:
-    """
-    Default merging logic for different types:
-      - Lists: extend if new_value is also a list, otherwise append
-      - Dicts: shallow update
-      - Primitives/other: replace entirely
-    """
-    if current_value is None:
-        return new_value
-
-    # Check if declared_type is a list (or List[...] annotation)
-    if declared_type is list or (hasattr(declared_type, "__origin__") and declared_type.__origin__ is list):
-        if isinstance(new_value, list):
-            if isinstance(current_value, list):
-                current_value.extend(new_value)
-                return current_value
-            else:
-                # current wasn't a list, just replace
-                return new_value
-        else:
-            # new_value isn't a list => append
-            if isinstance(current_value, list):
-                current_value.append(new_value)
-                return current_value
-            else:
-                return [current_value, new_value]
-
-    # Check if declared_type is a dict (or Dict[...] annotation)
-    if declared_type is dict or (hasattr(declared_type, "__origin__") and declared_type.__origin__ is dict):
-        if isinstance(new_value, dict) and isinstance(current_value, dict):
-            current_value.update(new_value)
-            return current_value
-        else:
-            # fallback: just replace
-            return new_value
-
-    # Otherwise, just replace
-    return new_value
 
 def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a schema dictionary to a serializable format.
+
+    Converts each parameter's type and optional handler function into a serializable
+    format using type and callable serialization utilities.
+
+    :param schema: Dictionary mapping parameter names to their type and handler configs
+    :returns: Dictionary with serialized type and handler information
+    """
     serialized_schema = {}
     for param, config in schema.items():
-        serialized_schema[param] = serialize_type(config["type"])
+        serialized_schema[param] = {"type": serialize_type(config["type"])}
         if config.get("handler"):
-            serialized_schema[param] = serialize_callable(config["handler"])
+            serialized_schema[param]["handler"] = serialize_callable(config["handler"])
 
     return serialized_schema
 
 def _schema_from_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a serialized schema dictionary back to its original format.
+
+    Deserializes the type and optional handler function for each parameter from their
+    serialized format back into Python types and callables.
+
+    :param schema: Dictionary containing serialized schema information
+    :returns: Dictionary with deserialized type and handler configurations
+    """
     deserialized_schema = {}
     for param, config in schema.items():
-        deserialized_schema[param] = deserialize_type(config["type"])
+        deserialized_schema[param] = {"type": deserialize_type(config["type"])}
 
         if config.get("handler"):
-            deserialized_schema[param] = deserialize_callable(config["handler"])
+            deserialized_schema[param]["handler"] = deserialize_callable(config["handler"])
 
     return deserialized_schema
 
 def _validate_schema(schema: Dict[str, Any]) -> None:
+    """
+    Validate that a schema dictionary meets all required constraints.
+
+    Checks that each parameter definition has a valid type field and that any handler
+    specified is a callable function.
+
+    :param schema: Dictionary mapping parameter names to their type and handler configs
+    :raises ValueError: If schema validation fails due to missing or invalid fields
+    """
     for param, definition in schema.items():
         if "type" not in definition:
             raise ValueError(f"StateSchema: Key '{param}' is missing a 'type' entry.")
@@ -82,12 +65,10 @@ def _validate_schema(schema: Dict[str, Any]) -> None:
                 f"StateSchema: 'type' for key '{param}' must be a Python type, "
                 f"got {definition['type']}"
             )
-        if "handler" in definition and definition["handler"] is not None:
-            if not callable(definition["handler"]):
-                raise ValueError(
-                    f"StateSchema: 'handler' for key '{param}' must be callable or None"
-                )
-
+        if definition.get("handler") is not None and not callable(definition["handler"]):
+            raise ValueError(
+                f"StateSchema: 'handler' for key '{param}' must be callable or None"
+            )
 
 
 class State:
@@ -114,6 +95,13 @@ class State:
                 self.set(key, val, force=True)
 
     def get(self, key: str, default: Any = None) -> Any:
+        """
+        Retrieve a value from the state by key.
+
+        :param key: Key to look up in the state
+        :param default: Value to return if key is not found
+        :returns: Value associated with key or default if not found
+        """
         return self._data.get(key, default)
 
     def set(
@@ -124,14 +112,20 @@ class State:
         force: bool = False
     ) -> None:
         """
-        Merge or overwrite 'value' into _data[key] according to:
+        Set or merge a value in the state according to schema rules.
+
+        Value is merged or overwritten according to these rules:
           - If force=True, just overwrite
-          - else if the schema for 'key' has a custom handler, use it
           - else if handler_override is given, use that
+          - else if the schema for 'key' has a custom handler, use it
           - else use default merge logic
+
+        :param key: Key to store the value under
+        :param value: Value to store or merge
+        :param handler_override: Optional function to override default merge behavior
+        :param force: If True, overwrites existing value without merging
         """
         # If key not in schema, we consider no special merging => just store
-        # or you can choose to raise an error if it's not in schema
         definition = self.schema.get(key, {})
         declared_type = definition.get("type")
         declared_handler = definition.get("handler")
@@ -157,21 +151,40 @@ class State:
                 # no known type => just replace
                 self._data[key] = value
             else:
-                self._data[key] = _default_merge_handler(current_value, value, declared_type)
+                self._data[key] = merge_values(current_value, value, declared_type)
 
     @property
     def data(self):
+        """
+        All current data of the state.
+        """
         return self._data
 
     def has(self, key: str) -> bool:
+        """
+        Check if a key exists in the state.
+
+        :param key: Key to check for existence
+        :returns: True if key exists in state, False otherwise
+        """
         return key in self._data
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Return the entire internal state as a dictionary (shallow copy).
+        Convert the state schema to a serializable dictionary format.
+
+        :returns: Dictionary containing serialized schema information
         """
+        # TODO: think about full state serialization
         return _schema_to_dict(self.schema)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "State":
+        """
+        Create a State instance from a serialized dictionary.
+
+        :param data: Dictionary containing serialized schema information
+        :returns: New State instance initialized with deserialized schema
+        """
+        # TODO: think about full state deserialization
         return cls(_schema_from_dict(data))

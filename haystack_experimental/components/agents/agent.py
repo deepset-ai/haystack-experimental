@@ -1,20 +1,20 @@
-# type: ignore
-from typing import Dict, Any, List, Optional, Type
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
 
-from haystack import component, default_from_dict, default_to_dict
+from typing import Any, Dict, List, Optional
+
+from haystack import component, default_from_dict, default_to_dict, Pipeline
+from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
+from haystack.dataclasses import ChatMessage
 from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_secrets_inplace
-from haystack.dataclasses import ChatMessage
 
-from haystack.tools import Tool
-
-from haystack.components.generators.chat.openai import OpenAIChatGenerator
-
-from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.components.tools import ToolInvoker
-from haystack_experimental.dataclasses.state import State, _validate_schema, _schema_to_dict, _schema_from_dict
+from haystack_experimental.tools import Tool
+from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
 with LazyImport(message="Run 'pip install anthropic-haystack' to use Anthropic.") as anthropic_import:
     from haystack_integrations.components.generators.anthropic.chat.chat_generator import (
@@ -32,8 +32,8 @@ class Agent:
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
 
-    The component processes messages and executes tools until a exit_condition condition is met. The exit_condition can be triggered
-    either by a direct text response or by invoking a specific designated tool.
+    The component processes messages and executes tools until a exit_condition condition is met.
+    The exit_condition can be triggered either by a direct text response or by invoking a specific designated tool.
 
     ### Usage example
     ```python
@@ -64,7 +64,7 @@ class Agent:
     ```
     """
 
-    def __init__(
+    def __init__( # pylint: disable=too-many-positional-arguments
         self,
         model: str,
         tools: Optional[List[Tool]] = None,
@@ -72,7 +72,7 @@ class Agent:
         api_key: Secret = Secret.from_env_var("LLM_API_KEY", strict=False),
         exit_condition: str = "text",
         generation_kwargs: Optional[Dict[str, Any]] = None,
-        state_schema: Dict[str, Any] = None,
+        state_schema: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the agent component.
@@ -89,26 +89,26 @@ class Agent:
         if ":" not in model:
             raise ValueError("Model string must be in format 'provider:model_name'")
 
-        provider, model_name = model.split(":")
+        provider, _ = model.split(":")
         if provider not in _PROVIDER_GENERATOR_MAPPING:
             raise ValueError(
                 f"Provider must be one of {list(_PROVIDER_GENERATOR_MAPPING.keys())}"
             )
 
-        valid_exits = ["text"] + [tool.name for tool in tools]
+
+        valid_exits = ["text"] + [tool.name for tool in tools or []]
         if exit_condition not in valid_exits:
             raise ValueError(f"Exit condition must be one of {valid_exits}")
 
-        _validate_schema(state_schema)
+        if state_schema is not None:
+            _validate_schema(state_schema)
+        self.state_schema = state_schema or {}
 
-        # Store instance variables
         self.model = model
         self.generation_kwargs = generation_kwargs or {}
         self.tools = tools or []
         self.system_prompt = system_prompt
         self.exit_condition = exit_condition
-
-        self.state_schema = state_schema
         self.api_key = api_key
 
         component.set_input_type(instance=self, name="messages", type=List[ChatMessage])
@@ -124,7 +124,7 @@ class Agent:
         """Initialize the component pipeline with all necessary components and connections."""
         provider, model_name = self.model.split(":")
 
-        if provider == 'anthropic':
+        if provider == "anthropic":
             anthropic_import.check()
 
         # Initialize components
@@ -148,7 +148,9 @@ class Agent:
                 + "' and not tool_messages[0].tool_call_result.error) }}"
             )
 
-        router_output = "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')|assistant_message(none, none, llm_messages[0].tool_calls) %}{{ original_messages + [assistant_msg] + tool_messages }}"
+        router_output = "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"\
+                        "|assistant_message(none, none, llm_messages[0].tool_calls) %}"\
+                        "{{ original_messages + [assistant_msg] + tool_messages }}"
 
         routes = [
             {

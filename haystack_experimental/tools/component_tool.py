@@ -6,8 +6,6 @@ from dataclasses import fields, is_dataclass
 from inspect import getdoc
 from typing import Any, Callable, Dict, Optional, Union, get_args, get_origin
 
-from pydantic import TypeAdapter
-
 from haystack import logging
 from haystack.core.component import Component
 from haystack.core.serialization import (
@@ -18,9 +16,9 @@ from haystack.core.serialization import (
 )
 from haystack.lazy_imports import LazyImport
 from haystack.tools.errors import SchemaGenerationError
+from pydantic import TypeAdapter
 
 from haystack_experimental.tools import Tool
-
 
 with LazyImport(message="Run 'pip install docstring-parser'") as docstring_parser_import:
     from docstring_parser import parse
@@ -89,7 +87,7 @@ class ComponentTool(Tool):
 
     """
 
-    def __init__(
+    def __init__( # pylint: disable=too-many-positional-arguments
             self,
             component: Component,
             name: Optional[str] = None,
@@ -132,7 +130,7 @@ class ComponentTool(Tool):
             raise ValueError(msg)
 
         # Create the tools schema from the component run method parameters
-        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs)
+        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
 
         def component_invoker(**kwargs):
             """
