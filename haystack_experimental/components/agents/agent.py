@@ -10,11 +10,11 @@ from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
 from haystack.dataclasses import ChatMessage
 from haystack.lazy_imports import LazyImport
-from haystack.tools import Tool
 from haystack.utils import Secret, deserialize_secrets_inplace
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.core.pipeline import Pipeline
+from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
 with LazyImport(message="Run 'pip install anthropic-haystack' to use Anthropic.") as anthropic_import:
