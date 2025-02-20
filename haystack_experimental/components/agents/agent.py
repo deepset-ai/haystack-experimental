@@ -30,8 +30,8 @@ class Agent:
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
 
-    The component processes messages and executes tools until a exit_condition condition is met. The exit_condition can be triggered
-    either by a direct text response or by invoking a specific designated tool.
+    The component processes messages and executes tools until a exit_condition condition is met.
+    The exit_condition can be triggered either by a direct text response or by invoking a specific designated tool.
 
     ### Usage example
     ```python
@@ -143,7 +143,9 @@ class Agent:
                 + "' and not tool_messages[0].tool_call_result.error) }}"
             )
 
-        router_output = "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')|assistant_message(none, none, llm_messages[0].tool_calls) %}{{ original_messages + [assistant_msg] + tool_messages }}"
+        router_output = "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"\
+                        "|assistant_message(none, none, llm_messages[0].tool_calls) %}"\
+                        "{{ original_messages + [assistant_msg] + tool_messages }}"
 
         routes = [
             {
