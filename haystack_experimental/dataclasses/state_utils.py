@@ -91,7 +91,7 @@ def merge_dicts(current: Union[Dict[str, T], T], new: Union[Dict[str, T], T]) ->
     return new  # Replace
 
 
-def merge_values(current_value: T, new_value: T, declared_type: Any) -> T:
+def merge_values(current_value: Any, new_value: Any, declared_type: Any) -> Any:
     """
     Merge values based on their types and declared type hint.
 

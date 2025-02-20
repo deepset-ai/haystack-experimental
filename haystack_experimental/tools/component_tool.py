@@ -130,7 +130,7 @@ class ComponentTool(Tool):
             raise ValueError(msg)
 
         # Create the tools schema from the component run method parameters
-        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs)
+        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
 
         def component_invoker(**kwargs):
             """

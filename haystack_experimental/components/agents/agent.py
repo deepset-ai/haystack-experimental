@@ -70,7 +70,7 @@ class Agent:
         api_key: Secret = Secret.from_env_var("LLM_API_KEY", strict=False),
         exit_condition: str = "text",
         generation_kwargs: Optional[Dict[str, Any]] = None,
-        state_schema: Dict[str, Any] = None,
+        state_schema: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the agent component.
@@ -93,19 +93,20 @@ class Agent:
                 f"Provider must be one of {list(_PROVIDER_GENERATOR_MAPPING.keys())}"
             )
 
-        valid_exits = ["text"] + [tool.name for tool in tools]
+
+        valid_exits = ["text"] + [tool.name for tool in tools or []]
         if exit_condition not in valid_exits:
             raise ValueError(f"Exit condition must be one of {valid_exits}")
 
-        _validate_schema(state_schema)
+        if state_schema is not None:
+            _validate_schema(state_schema)
+        self.state_schema = state_schema or {}
 
         self.model = model
         self.generation_kwargs = generation_kwargs or {}
         self.tools = tools or []
         self.system_prompt = system_prompt
         self.exit_condition = exit_condition
-
-        self.state_schema = state_schema
         self.api_key = api_key
 
         component.set_input_type(instance=self, name="messages", type=List[ChatMessage])
