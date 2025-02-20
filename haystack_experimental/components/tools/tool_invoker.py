@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import inspect
+import json
 from typing import Any, Dict, List, Optional
 
 from haystack import component, default_from_dict, default_to_dict, logging
@@ -11,8 +11,8 @@ from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.tools.errors import ToolInvocationError
 
 from haystack_experimental.dataclasses.state import State
-from haystack_experimental.tools.component_tool import ComponentTool
 from haystack_experimental.tools import Tool, deserialize_tools_inplace
+from haystack_experimental.tools.component_tool import ComponentTool
 
 logger = logging.getLogger(__name__)
 

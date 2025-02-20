@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Optional, Dict
+from typing import Any, Callable, Dict, Optional
 
-from haystack.utils.callable_serialization import serialize_callable, deserialize_callable
-from haystack.utils.type_serialization import serialize_type, deserialize_type
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
+from haystack.utils.type_serialization import deserialize_type, serialize_type
 
 from haystack_experimental.dataclasses.state_utils import _is_valid_type, merge_values
 

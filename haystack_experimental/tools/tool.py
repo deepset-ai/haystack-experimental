@@ -5,12 +5,11 @@
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional
 
-from jsonschema import Draft202012Validator
-from jsonschema.exceptions import SchemaError
-
 from haystack.core.serialization import generate_qualified_class_name, import_class_by_name
 from haystack.tools.errors import ToolInvocationError
 from haystack.utils import deserialize_callable, serialize_callable
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 
 
 @dataclass

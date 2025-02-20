@@ -2,24 +2,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from haystack import component, default_from_dict, default_to_dict
+from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
-from haystack.utils import Secret, deserialize_secrets_inplace
 from haystack.dataclasses import ChatMessage
-
 from haystack.tools import Tool
-
+from haystack.utils import Secret, deserialize_secrets_inplace
 from haystack_integrations.components.generators.anthropic.chat.chat_generator import (
     AnthropicChatGenerator,
 )
-from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
-from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.components.tools import ToolInvoker
-from haystack_experimental.dataclasses.state import State, _validate_schema, _schema_to_dict, _schema_from_dict
+from haystack_experimental.core.pipeline import Pipeline
+from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
 _PROVIDER_GENERATOR_MAPPING = {
     "openai": OpenAIChatGenerator,
