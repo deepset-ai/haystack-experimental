@@ -4,7 +4,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from haystack import component, default_from_dict, default_to_dict
+from haystack import component, default_from_dict, default_to_dict, Pipeline
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
@@ -13,7 +13,6 @@ from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_secrets_inplace
 
 from haystack_experimental.components.tools import ToolInvoker
-from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
