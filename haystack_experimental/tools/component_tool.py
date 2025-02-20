@@ -6,8 +6,6 @@ from dataclasses import fields, is_dataclass
 from inspect import getdoc
 from typing import Any, Callable, Dict, Optional, Union, get_args, get_origin
 
-from pydantic import TypeAdapter
-
 from haystack import logging
 from haystack.core.component import Component
 from haystack.core.serialization import (
@@ -18,9 +16,9 @@ from haystack.core.serialization import (
 )
 from haystack.lazy_imports import LazyImport
 from haystack.tools.errors import SchemaGenerationError
+from pydantic import TypeAdapter
 
 from haystack_experimental.tools import Tool
-
 
 with LazyImport(message="Run 'pip install docstring-parser'") as docstring_parser_import:
     from docstring_parser import parse
