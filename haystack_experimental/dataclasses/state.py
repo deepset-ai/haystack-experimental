@@ -13,9 +13,9 @@ from haystack_experimental.dataclasses.state_utils import _is_valid_type, merge_
 def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
     serialized_schema = {}
     for param, config in schema.items():
-        serialized_schema[param] = serialize_type(config["type"])
+        serialized_schema[param] = {"type": serialize_type(config["type"])}
         if config.get("handler"):
-            serialized_schema[param] = serialize_callable(config["handler"])
+            serialized_schema[param]["handler"] = serialize_callable(config["handler"])
 
     return serialized_schema
 

@@ -134,6 +134,9 @@ def test_state_to_dict(basic_schema):
     assert "numbers" in serialized
     assert "metadata" in serialized
     assert "name" in serialized
+    assert serialized["numbers"]["type"] == "list"
+    assert serialized["metadata"]["type"] == "dict"
+    assert serialized["name"]["type"] == "str"
 
 
 def test_state_from_dict():
