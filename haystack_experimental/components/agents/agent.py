@@ -8,12 +8,10 @@ from haystack import component, default_from_dict, default_to_dict
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
-from haystack.lazy_imports import LazyImport
-from haystack.utils import Secret, deserialize_secrets_inplace
 from haystack.dataclasses import ChatMessage
+from haystack.lazy_imports import LazyImport
 from haystack.tools import Tool
-
-from haystack.components.generators.chat.openai import OpenAIChatGenerator
+from haystack.utils import Secret, deserialize_secrets_inplace
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.core.pipeline import Pipeline
@@ -127,7 +125,7 @@ class Agent:
         """Initialize the component pipeline with all necessary components and connections."""
         provider, model_name = self.model.split(":")
 
-        if provider == 'anthropic':
+        if provider == "anthropic":
             anthropic_import.check()
 
         # Initialize components
