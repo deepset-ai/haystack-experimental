@@ -82,8 +82,7 @@ class Agent:
         :param tools: List of Tool objects available to the agent
         :param exit_condition: Either "text" if the agent should return when it generates a message without tool calls
             or the name of a tool that will cause the agent to return once the tool was executed
-        :param input_variables: Dictionary mapping input variable names to their types
-        :param output_variables: Dictionary mapping output variable names to their types
+        :param state_schema: The schema for the runtime state used by the tools.
         :raises ValueError: If model string format is invalid or exit_condition is not valid
         """
         if ":" not in model:
