@@ -17,7 +17,17 @@ class DocumentPreProcessor(SuperComponent):
     """
     A SuperComponent that cleans documents and then splits them.
 
-    It composes a DocumentCleaner followed by a DocumentSplitter in a single pipeline.
+    This component composes a DocumentCleaner followed by a DocumentSplitter in a single pipeline.
+    It takes a list of documents as input and returns a processed list of documents.
+
+    Usage:
+    ```python
+    from haystack import Document
+    doc = Document(content="I love pizza!")
+    preprocessor = DocumentPreProcessor()
+    results = preprocessor.run(documents=[doc])
+    print(result["documents"])
+    ```
     """
 
     def __init__( # pylint: disable=R0917
