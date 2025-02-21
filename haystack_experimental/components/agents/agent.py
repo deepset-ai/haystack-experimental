@@ -115,7 +115,6 @@ class Agent:
         self.api_key = api_key
         self.max_runs_per_component = max_runs_per_component
 
-        component.set_input_type(instance=self, name="messages", type=List[ChatMessage])
         output_types = {"messages": List[ChatMessage]}
         for param, config in self.state_schema.items():
             component.set_input_type(self, name=param, type=config["type"], default=None)
