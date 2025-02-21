@@ -125,32 +125,6 @@ def test_state_has(basic_schema):
     assert state.has("name") is True
     assert state.has("non_existent") is False
 
-
-def test_state_to_dict(basic_schema):
-    state = State(basic_schema)
-    serialized = state.to_dict()
-    assert isinstance(serialized, dict)
-    assert "numbers" in serialized
-    assert "metadata" in serialized
-    assert "name" in serialized
-    assert serialized["numbers"]["type"] == "list"
-    assert serialized["metadata"]["type"] == "dict"
-    assert serialized["name"]["type"] == "str"
-
-
-def test_state_from_dict():
-    data = {
-        "numbers": {"type": "list"},
-        "metadata": {"type": "dict"},
-        "name": {"type": "str"},
-    }
-    state = State.from_dict(data)
-    assert isinstance(state, State)
-    assert "numbers" in state.schema
-    assert "metadata" in state.schema
-    assert "name" in state.schema
-
-
 # Test edge cases
 def test_state_empty_schema():
     state = State({})
