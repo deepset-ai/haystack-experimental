@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 import importlib
 
@@ -21,6 +21,9 @@ from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from haystack_integrations.components.generators.anthropic.chat.chat_generator import AnthropicChatGenerator
 
 
 @component
@@ -41,12 +44,9 @@ class Agent:
     output_types = {"total_tokens": int}
 
     agent = Agent(
-        model="anthropic:claude-3",
-        generation_kwargs={"temperature": 0.7},
+        chat_generator=OpenAIChatGenerator(),
         tools=tools,
         exit_condition="search",
-        input_variables=input_types,
-        output_variables=output_types
     )
 
     # Run the agent
