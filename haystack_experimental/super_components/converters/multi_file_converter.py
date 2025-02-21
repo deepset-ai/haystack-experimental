@@ -63,6 +63,12 @@ class MultiFileConverter(SuperComponent):
         encoding: str = "utf-8",
         json_content_key: str = "content",
     ) -> None:
+        """
+        Initialize the MultiFileConverter.
+
+        :param encoding: The encoding to use when reading files.
+        :param json_content_key: The key to use as content-field in a document when converting json-files.
+        """
         self.encoding = encoding
         self.json_content_key = json_content_key
 
