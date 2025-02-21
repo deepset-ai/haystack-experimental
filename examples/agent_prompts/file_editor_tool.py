@@ -1,4 +1,4 @@
-file_editor_prompt = '''
+file_editor_prompt = """
 Use the file editor to edit an existing file in the repository.
 
 You must provide a 'command' for the action that you want to perform:
@@ -94,7 +94,7 @@ Example:
         "message": "revert: undo previous commit due to failing tests"
     }
 }
-'''
+"""
 
 file_editor_schema = {
   "type": "object",

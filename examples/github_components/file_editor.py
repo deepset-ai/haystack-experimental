@@ -1,14 +1,16 @@
+from base64 import b64decode, b64encode
 from enum import StrEnum
 from typing import Any, Dict, Optional, Union
+
 import requests
-from haystack import component, logging, default_from_dict, default_to_dict
+from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.utils import Secret, deserialize_secrets_inplace
-from base64 import b64encode, b64decode
 
 logger = logging.getLogger(__name__)
 
 class Command(StrEnum):
-    """Available commands for file operations in GitHub.
+    """
+    Available commands for file operations in GitHub.
     
     Attributes:
         EDIT: Edit an existing file by replacing content
@@ -66,7 +68,7 @@ class GithubFileEditor:
     )
     ```
     """
-    
+
     def __init__(
         self,
         github_token: Secret = Secret.from_env_var("GITHUB_TOKEN"),
@@ -84,18 +86,18 @@ class GithubFileEditor:
         """
         if not isinstance(github_token, Secret):
             raise TypeError("github_token must be a Secret")
-            
+
         self.github_token = github_token
         self.default_repo = repo
         self.default_branch = branch
         self.raise_on_failure = raise_on_failure
-        
+
         self.headers = {
             "Accept": "application/vnd.github.v3+json",
             "Authorization": f"Bearer {self.github_token.resolve_value()}",
             "User-Agent": "Haystack/GithubFileEditor"
         }
-        
+
     def _get_file_content(self, owner: str, repo: str, path: str, branch: str) -> tuple[str, str]:
         """Get file content and SHA from GitHub."""
         url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
@@ -104,14 +106,14 @@ class GithubFileEditor:
         data = response.json()
         content = b64decode(data["content"]).decode("utf-8")
         return content, data["sha"]
-        
+
     def _update_file(
-        self, 
-        owner: str, 
-        repo: str, 
-        path: str, 
-        content: str, 
-        message: str, 
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        content: str,
+        message: str,
         sha: str,
         branch: str
     ) -> bool:
@@ -134,33 +136,33 @@ class GithubFileEditor:
         response.raise_for_status()
         last_commit = response.json()[0]
         commit_author = last_commit["author"]["login"]
-        
+
         # Get current user
         user_response = requests.get("https://api.github.com/user", headers=self.headers)
         user_response.raise_for_status()
         current_user = user_response.json()["login"]
-        
+
         return commit_author == current_user
 
     def _edit_file(self, owner: str, repo: str, payload: Dict[str, str], branch: str) -> str:
         """Handle file editing."""
         try:
             content, sha = self._get_file_content(owner, repo, payload["path"], branch)
-            
+
             # Check if original string is unique
             occurrences = content.count(payload["original"])
             if occurrences == 0:
                 return "Error: Original string not found in file"
             if occurrences > 1:
                 return "Error: Original string appears multiple times. Please provide more context"
-                
+
             # Perform the replacement
             new_content = content.replace(payload["original"], payload["replacement"])
             success = self._update_file(
                 owner, repo, payload["path"], new_content, payload["message"], sha, branch
             )
             return "Edit successful" if success else "Edit failed"
-            
+
         except requests.RequestException as e:
             if self.raise_on_failure:
                 raise
@@ -171,26 +173,26 @@ class GithubFileEditor:
         try:
             if not self._check_last_commit(owner, repo, branch):
                 return "Error: Last commit was not made by the current user"
-                
+
             # Reset to previous commit
             url = f"https://api.github.com/repos/{owner}/{repo}/git/refs/heads/{branch}"
             commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-            
+
             # Get the previous commit SHA
             commits = requests.get(
-                commits_url, 
-                headers=self.headers, 
+                commits_url,
+                headers=self.headers,
                 params={"per_page": 2, "sha": branch}
             ).json()
             previous_sha = commits[1]["sha"]
-            
+
             # Update branch reference to previous commit
             payload = {"sha": previous_sha, "force": True}
             response = requests.patch(url, headers=self.headers, json=payload)
             response.raise_for_status()
-            
+
             return "Successfully undid last change"
-            
+
         except requests.RequestException as e:
             if self.raise_on_failure:
                 raise
@@ -201,17 +203,17 @@ class GithubFileEditor:
         try:
             url = f"https://api.github.com/repos/{owner}/{repo}/contents/{payload['path']}"
             content = b64encode(payload["content"].encode("utf-8")).decode("utf-8")
-            
+
             data = {
                 "message": payload["message"],
                 "content": content,
                 "branch": branch
             }
-            
+
             response = requests.put(url, headers=self.headers, json=data)
             response.raise_for_status()
             return "File created successfully"
-            
+
         except requests.RequestException as e:
             if self.raise_on_failure:
                 raise
@@ -222,17 +224,17 @@ class GithubFileEditor:
         try:
             content, sha = self._get_file_content(owner, repo, payload["path"], branch)
             url = f"https://api.github.com/repos/{owner}/{repo}/contents/{payload['path']}"
-            
+
             data = {
                 "message": payload["message"],
                 "sha": sha,
                 "branch": branch
             }
-            
+
             response = requests.delete(url, headers=self.headers, json=data)
             response.raise_for_status()
             return "File deleted successfully"
-            
+
         except requests.RequestException as e:
             if self.raise_on_failure:
                 raise
@@ -259,20 +261,20 @@ class GithubFileEditor:
             if self.default_repo is None:
                 return {"result": "Error: No repository specified. Either provide it in initialization or in run() method"}
             repo = self.default_repo
-            
+
         working_branch = branch if branch is not None else self.default_branch
         owner, repo_name = repo.split("/")
-        
+
         command_handlers = {
             Command.EDIT: self._edit_file,
             Command.UNDO: self._undo_changes,
             Command.CREATE: self._create_file,
             Command.DELETE: self._delete_file
         }
-        
+
         if command not in command_handlers:
             return {"result": f"Error: Unknown command '{command}'"}
-            
+
         result = command_handlers[command](owner, repo_name, payload, working_branch)
         return {"result": result}
 

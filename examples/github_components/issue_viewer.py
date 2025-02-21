@@ -1,9 +1,10 @@
-from typing import List, Optional, Any, Dict
 import re
+from typing import Any, Dict, List, Optional
+
 import requests
-from haystack import component, Document, logging, default_from_dict, default_to_dict
-from haystack.utils.auth import Secret
+from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.utils import deserialize_secrets_inplace
+from haystack.utils.auth import Secret
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-system_prompt = f"""
+system_prompt = """
 The assistant is Haystack-Agent, created by deepset.
 Haystack-Agent creates Pull Requests that resolve GitHub issues.
 

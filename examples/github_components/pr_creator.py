@@ -1,7 +1,8 @@
-from typing import Any, Dict
 import re
+from typing import Any, Dict
+
 import requests
-from haystack import component, logging, default_from_dict, default_to_dict
+from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.utils import Secret, deserialize_secrets_inplace
 
 logger = logging.getLogger(__name__)

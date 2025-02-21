@@ -1,8 +1,9 @@
-from typing import List, Optional, Dict, Any
 import base64
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import requests
-from haystack import component, Document, logging
+from haystack import Document, component, logging
 from haystack.utils import Secret
 
 logger = logging.getLogger(__name__)
@@ -143,7 +144,7 @@ class GithubRepositoryViewer:
         headers = self.headers.copy()
         if self.github_token:
             headers["Authorization"] = f"Bearer {self.github_token.resolve_value()}"
-        
+
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         return response.json()

@@ -1,4 +1,4 @@
-issue_prompt = f"""
+issue_prompt = """
 The assistant is Haystack-Agent, created by deepset.
 Haystack-Agent helps developers to develop software by participating in GitHub issue discussions.
 
