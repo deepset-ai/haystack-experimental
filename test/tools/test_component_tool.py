@@ -120,7 +120,7 @@ class DocumentProcessor:
         """
         return {"concatenated": "\n".join(doc.content for doc in documents[:top_k])}
 
-def test_output_handler(old, new):
+def output_handler(old, new):
     """
     Output handler to test serialization.
     """
@@ -578,7 +578,7 @@ class TestToolComponentInPipelineWithOpenAI:
             name="simple_tool",
             description="A simple tool",
             inputs={"test": "input"},
-            outputs={"output": {"source": "out", "handler": test_output_handler}},
+            outputs={"output": {"source": "out", "handler": output_handler}},
         )
 
         # Test serialization
@@ -588,7 +588,7 @@ class TestToolComponentInPipelineWithOpenAI:
         assert tool_dict["data"]["description"] == "A simple tool"
         assert "component" in tool_dict["data"]
         assert tool_dict["data"]["inputs"] == {"test": "input"}
-        assert tool_dict["data"]["outputs"]["output"]["handler"] == "test.tools.test_component_tool.test_output_handler"
+        assert tool_dict["data"]["outputs"]["output"]["handler"] == "test.tools.test_component_tool.output_handler"
 
         # Test deserialization
         new_tool = ComponentTool.from_dict(tool_dict)
