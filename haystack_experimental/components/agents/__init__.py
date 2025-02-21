@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.tools.tool_invoker import ToolInvoker
+from haystack_experimental.components.agents.agent import Agent
 
-__all__ = ["ToolInvoker"]
+__all__ = ["Agent"]

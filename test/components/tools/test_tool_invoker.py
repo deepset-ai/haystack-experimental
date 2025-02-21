@@ -4,9 +4,10 @@ import datetime
 from haystack import Pipeline
 
 from haystack.dataclasses import ChatMessage, ToolCall, ToolCallResult, ChatRole
-from haystack.tools.tool import Tool, ToolInvocationError
-from haystack.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException, StringConversionError
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
+
+from haystack_experimental.tools.tool import Tool, ToolInvocationError
+from haystack_experimental.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException, StringConversionError
 
 
 def weather_function(location):
@@ -104,14 +105,14 @@ class TestToolInvoker:
 
     def test_run_no_messages(self, invoker):
         result = invoker.run(messages=[])
-        assert result == {"tool_messages": []}
+        assert result["tool_messages"] == []
 
     def test_run_no_tool_calls(self, invoker):
         user_message = ChatMessage.from_user(text="Hello!")
         assistant_message = ChatMessage.from_assistant(text="How can I help you?")
 
         result = invoker.run(messages=[user_message, assistant_message])
-        assert result == {"tool_messages": []}
+        assert result["tool_messages"] == []
 
     def test_run_multiple_tool_calls(self, invoker):
         tool_calls = [
@@ -197,7 +198,7 @@ class TestToolInvoker:
     def test_to_dict(self, invoker, weather_tool):
         data = invoker.to_dict()
         assert data == {
-            "type": "haystack.components.tools.tool_invoker.ToolInvoker",
+            "type": "haystack_experimental.components.tools.tool_invoker.ToolInvoker",
             "init_parameters": {
                 "tools": [weather_tool.to_dict()],
                 "raise_on_failure": True,
@@ -207,7 +208,7 @@ class TestToolInvoker:
 
     def test_from_dict(self, weather_tool):
         data = {
-            "type": "haystack.components.tools.tool_invoker.ToolInvoker",
+            "type": "haystack_experimental.components.tools.tool_invoker.ToolInvoker",
             "init_parameters": {
                 "tools": [weather_tool.to_dict()],
                 "raise_on_failure": True,
@@ -234,11 +235,11 @@ class TestToolInvoker:
             "max_runs_per_component": 100,
             "components": {
                 "invoker": {
-                    "type": "haystack.components.tools.tool_invoker.ToolInvoker",
+                    "type": "haystack_experimental.components.tools.tool_invoker.ToolInvoker",
                     "init_parameters": {
                         "tools": [
                             {
-                                "type": "haystack.tools.tool.Tool",
+                                "type": "haystack_experimental.tools.tool.Tool",
                                 "data": {
                                     "name": "weather_tool",
                                     "description": "Provides weather information for a given location.",
@@ -248,6 +249,8 @@ class TestToolInvoker:
                                         "required": ["location"],
                                     },
                                     "function": "test.components.tools.test_tool_invoker.weather_function",
+                                    "inputs": None,
+                                    "outputs": None,
                                 },
                             }
                         ],
