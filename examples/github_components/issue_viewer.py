@@ -21,7 +21,7 @@ class GithubIssueViewer:
     ### Usage example
     ```python
     from haystack.components.fetchers import GithubIssueViewer
- 
+
     viewer = GithubIssueViewer(github_token=Secret.from_env_var("GITHUB_TOKEN"))
     docs = viewer.run(
         url="https://github.com/owner/repo/issues/123"

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class Command(StrEnum):
     """
     Available commands for file operations in GitHub.
-    
+
     Attributes:
         EDIT: Edit an existing file by replacing content
         UNDO: Revert the last commit if made by the same user
@@ -27,22 +27,22 @@ class Command(StrEnum):
 class GithubFileEditor:
     """
     A Haystack component for editing files in GitHub repositories.
-    
+
     Supports editing, undoing changes, deleting files, and creating new files
     through the GitHub API.
-    
+
     ### Usage example
     ```python
     from haystack.components.actions import GithubFileEditor
     from haystack.utils import Secret
-    
+
     # Initialize with default repo and branch
     editor = GithubFileEditor(
         github_token=Secret.from_env_var("GITHUB_TOKEN"),
         repo="owner/repo",
         branch="main"
     )
-    
+
     # Edit a file using default repo and branch
     result = editor.run(
         command=Command.EDIT,
@@ -53,7 +53,7 @@ class GithubFileEditor:
             "message": "Renamed function for clarity"
         }
     )
-    
+
     # Edit a file in a different repo/branch
     result = editor.run(
         command=Command.EDIT,
@@ -78,7 +78,7 @@ class GithubFileEditor:
     ):
         """
         Initialize the component.
-        
+
         :param github_token: GitHub personal access token for API authentication
         :param repo: Default repository in owner/repo format
         :param branch: Default branch to work with
@@ -250,7 +250,7 @@ class GithubFileEditor:
     ) -> Dict[str, str]:
         """
         Process GitHub file operations.
-        
+
         :param command: Operation to perform ("edit", "undo", "create", "delete")
         :param payload: Dictionary containing command-specific parameters
         :param repo: Repository in owner/repo format (overrides default if provided)
@@ -259,7 +259,9 @@ class GithubFileEditor:
         """
         if repo is None:
             if self.default_repo is None:
-                return {"result": "Error: No repository specified. Either provide it in initialization or in run() method"}
+                return {
+                    "result": "Error: No repository specified. Either provide it in initialization or in run() method"
+                }
             repo = self.default_repo
 
         working_branch = branch if branch is not None else self.default_branch

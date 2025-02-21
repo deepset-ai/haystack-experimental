@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class GithubPRCreator:
     """
     A Haystack component for creating pull requests from a fork back to the original repository.
+
     Uses the authenticated user's fork to create the PR and links it to an existing issue.
 
     ### Usage example
@@ -108,8 +109,7 @@ class GithubPRCreator:
             draft: bool = False
     ) -> Dict[str, str]:
         """
-        Create a new pull request from your fork to the original repository,
-        linked to the specified issue.
+        Create a new pull request from your fork to the original repository, linked to the specified issue.
 
         :param issue_url: URL of the GitHub issue to link the PR to
         :param title: Title of the pull request

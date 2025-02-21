@@ -249,7 +249,9 @@ class GithubRepositoryViewer:
             return {"documents": self._create_directory_documents(items)}
 
         except Exception as e:
-            error_doc = self._create_error_document(f"Error processing repository path {path}: {str(e)}. Seems like the file does not exist.", path)
+            error_doc = self._create_error_document(
+                f"Error processing repository path {path}: {str(e)}. Seems like the file does not exist.", path
+            )
             if self.raise_on_failure:
                 raise
             logger.warning(
