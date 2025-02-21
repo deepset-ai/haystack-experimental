@@ -87,8 +87,8 @@ class MultiFileConverter(SuperComponent):
             ],
             # Ensure common extensions are registered. Tests on Windows fail otherwise.
             additional_mimetypes = {
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx", 
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx", 
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx"
             }
         )

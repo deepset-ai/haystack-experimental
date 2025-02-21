@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from haystack_experimental.super_components.indexers.sentence_transformers_document_indexer import (
-    SentenceTransformersDocumentIndexer
+    SentenceTransformersDocumentIndexer,
 )
 
 __all__ = [
