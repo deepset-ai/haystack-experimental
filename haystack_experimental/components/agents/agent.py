@@ -2,29 +2,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from haystack import component, default_from_dict, default_to_dict, Pipeline
+import importlib
+
+from haystack import component, default_from_dict, default_to_dict, Pipeline, logging
+from haystack.core.component import Component
+from haystack.core.pipeline.base import PipelineError
+from haystack.core.serialization import component_from_dict
+
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
 from haystack.dataclasses import ChatMessage
-from haystack.lazy_imports import LazyImport
-from haystack.utils import Secret, deserialize_secrets_inplace
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
-with LazyImport(message="Run 'pip install anthropic-haystack' to use Anthropic.") as anthropic_import:
-    from haystack_integrations.components.generators.anthropic.chat.chat_generator import (
-        AnthropicChatGenerator,
-    )
-
-_PROVIDER_GENERATOR_MAPPING = { "openai": OpenAIChatGenerator}
-
-if anthropic_import.is_successful():
-    _PROVIDER_GENERATOR_MAPPING["anthropic"] = AnthropicChatGenerator
+logger = logging.getLogger(__name__)
 
 
 @component
@@ -66,39 +62,25 @@ class Agent:
 
     def __init__( # pylint: disable=too-many-positional-arguments
         self,
-        model: str,
+        chat_generator: Union[OpenAIChatGenerator, "AnthropicChatGenerator"],
         tools: Optional[List[Tool]] = None,
         system_prompt: Optional[str] = None,
-        api_key: Secret = Secret.from_env_var("LLM_API_KEY", strict=False),
         exit_condition: str = "text",
-        generation_kwargs: Optional[Dict[str, Any]] = None,
         state_schema: Optional[Dict[str, Any]] = None,
         max_runs_per_component: int = 100,
     ):
         """
         Initialize the agent component.
 
-        :param model: Model identifier in the format "provider:model_name"
+        :param chat_generator: An instance of the chat generator that your agent should use.
         :param tools: List of Tool objects available to the agent
         :param system_prompt: System prompt for the agent.
-        :param api_key: API key used for authentication.
         :param exit_condition: Either "text" if the agent should return when it generates a message without tool calls
             or the name of a tool that will cause the agent to return once the tool was executed
-        :param generation_kwargs: Keyword arguments for the chat model generator
         :param state_schema: The schema for the runtime state used by the tools.
         :param max_runs_per_component: Maximum number of runs per component. Agent will raise an exception if a
             component exceeds the maximum number of runs per component.
         """
-        if ":" not in model:
-            raise ValueError("Model string must be in format 'provider:model_name'")
-
-        provider, _ = model.split(":")
-        if provider not in _PROVIDER_GENERATOR_MAPPING:
-            raise ValueError(
-                f"Provider must be one of {list(_PROVIDER_GENERATOR_MAPPING.keys())}"
-            )
-
-
         valid_exits = ["text"] + [tool.name for tool in tools or []]
         if exit_condition not in valid_exits:
             raise ValueError(f"Exit condition must be one of {valid_exits}")
@@ -107,12 +89,10 @@ class Agent:
             _validate_schema(state_schema)
         self.state_schema = state_schema or {}
 
-        self.model = model
-        self.generation_kwargs = generation_kwargs or {}
+        self.chat_generator = chat_generator
         self.tools = tools or []
         self.system_prompt = system_prompt
         self.exit_condition = exit_condition
-        self.api_key = api_key
         self.max_runs_per_component = max_runs_per_component
 
         output_types = {"messages": List[ChatMessage]}
@@ -135,18 +115,6 @@ class Agent:
 
     def _initialize_pipeline(self) -> None:
         """Initialize the component pipeline with all necessary components and connections."""
-        provider, model_name = self.model.split(":")
-
-        if provider == "anthropic":
-            anthropic_import.check()
-
-        # Initialize components
-        generator = _PROVIDER_GENERATOR_MAPPING[provider](
-            model=model_name,
-            tools=self.tools,
-            api_key=self.api_key,
-            generation_kwargs=self.generation_kwargs,
-        )
         joiner = BranchJoiner(type_=List[ChatMessage])
         tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=False)
         context_joiner = BranchJoiner(type_=State)
@@ -188,7 +156,7 @@ class Agent:
 
         # Set up pipeline
         self.pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
-        self.pipeline.add_component(instance=generator, name="generator")
+        self.pipeline.add_component(instance=self.chat_generator, name="generator")
         self.pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self.pipeline.add_component(instance=router, name="router")
         self.pipeline.add_component(instance=joiner, name="joiner")
@@ -218,10 +186,8 @@ class Agent:
         """
         return default_to_dict(
             self,
-            model=self.model,
-            generation_kwargs=self.generation_kwargs,
+            chat_generator=self.chat_generator.to_dict(),
             tools=[t.to_dict() for t in self.tools],
-            api_key=self.api_key.to_dict(),
             system_prompt=self.system_prompt,
             exit_condition=self.exit_condition,
             state_schema=_schema_to_dict(self.state_schema),
@@ -231,12 +197,14 @@ class Agent:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Agent":
         """
-        Deserialize the component from a dictionary.
+        Deserialize the agent from a dictionary.
 
         :param data: Dictionary to deserialize from
-        :return: Deserialized component
+        :return: Deserialized agent
         """
         init_params = data.get("init_parameters", {})
+
+        init_params["chat_generator"] = Agent._load_component(init_params["chat_generator"])
 
         # Deserialize type annotations
         if "state_schema" in init_params:
@@ -245,9 +213,30 @@ class Agent:
         if "tools" in init_params:
             init_params["tools"] = [Tool.from_dict(t) for t in init_params["tools"]]
 
-        deserialize_secrets_inplace(init_params, ["api_key"])
-
         return default_from_dict(cls, data)
+
+    @staticmethod
+    def _load_component(component_data: Dict[str, Any]) -> Component:
+        if component_data["type"] not in component.registry:
+            try:
+                # Import the module first...
+                module, _ = component_data["type"].rsplit(".", 1)
+                logger.debug("Trying to import module {module_name}", module_name=module)
+                importlib.import_module(module)
+                # ...then try again
+                if component_data["type"] not in component.registry:
+                    raise PipelineError(
+                        f"Successfully imported module {module} but can't find it in the component registry."
+                        "This is unexpected and most likely a bug."
+                    )
+            except (ImportError, PipelineError) as e:
+                raise PipelineError(f"Component '{component_data['type']}' not imported.") from e
+
+        # Create a new one
+        component_class = component.registry[component_data["type"]]
+        instance = component_from_dict(component_class, component_data, "")
+
+        return instance
 
     def run(self, messages: List[ChatMessage], **kwargs) -> Dict[str, Any]:
         """
@@ -266,6 +255,7 @@ class Agent:
             data={
                 "joiner": {"value": messages},
                 "context_joiner": {"value": state},
+                "generator": {"tools": self.tools}
             },
             include_outputs_from={"context_joiner"},
         )
