@@ -21,10 +21,10 @@ with LazyImport(message="Run 'pip install anthropic-haystack' to use Anthropic."
         AnthropicChatGenerator,
     )
 
-_PROVIDER_GENERATOR_MAPPING = {
-    "openai": OpenAIChatGenerator,
-    "anthropic": AnthropicChatGenerator,
-}
+_PROVIDER_GENERATOR_MAPPING = { "openai": OpenAIChatGenerator}
+
+if anthropic_import.is_successful():
+    _PROVIDER_GENERATOR_MAPPING["anthropic"] = AnthropicChatGenerator
 
 
 @component
