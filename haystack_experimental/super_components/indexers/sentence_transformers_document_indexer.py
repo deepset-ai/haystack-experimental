@@ -28,13 +28,15 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
 
     ```python
     >>> from haystack import Document
+    >>> from haystack.document_stores.in_memory import InMemoryDocumentStore
+    >>> document_store = InMemoryDocumentStore()
     >>> doc = Document(content="I love pizza!")
-    >>> indexer = SentenceTransformersDocumentIndexer()
+    >>> indexer = SentenceTransformersDocumentIndexer(document_store=document_store)
     >>> indexer.warm_up()
     >>> result = indexer.run(documents=[doc])
     >>> print(result)
     {'documents_written': 1}
-    >>> indexer.pipeline.get_component("writer").document_store.count_documents()
+    >>> document_store.count_documents()
     1
     ```
     """
