@@ -4,7 +4,13 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from haystack import component, default_from_dict, default_to_dict, Pipeline
+import importlib
+
+from haystack import component, default_from_dict, default_to_dict, Pipeline, logging
+from haystack.core.component import Component
+from haystack.core.pipeline.base import PipelineError
+from haystack.core.serialization import component_from_dict
+
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
@@ -14,6 +20,7 @@ from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
+logger = logging.getLogger(__name__)
 
 
 @component
@@ -190,14 +197,14 @@ class Agent:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Agent":
         """
-        Deserialize the component from a dictionary.
+        Deserialize the agent from a dictionary.
 
         :param data: Dictionary to deserialize from
-        :return: Deserialized component
+        :return: Deserialized agent
         """
         init_params = data.get("init_parameters", {})
 
-        init_params["chat_generator"] = init_params["chat_generator"].from_dict()
+        init_params["chat_generator"] = Agent._load_component(init_params["chat_generator"])
 
         # Deserialize type annotations
         if "state_schema" in init_params:
@@ -207,6 +214,29 @@ class Agent:
             init_params["tools"] = [Tool.from_dict(t) for t in init_params["tools"]]
 
         return default_from_dict(cls, data)
+
+    @staticmethod
+    def _load_component(component_data: Dict[str, Any]) -> Component:
+        if component_data["type"] not in component.registry:
+            try:
+                # Import the module first...
+                module, _ = component_data["type"].rsplit(".", 1)
+                logger.debug("Trying to import module {module_name}", module_name=module)
+                importlib.import_module(module)
+                # ...then try again
+                if component_data["type"] not in component.registry:
+                    raise PipelineError(
+                        f"Successfully imported module {module} but can't find it in the component registry."
+                        "This is unexpected and most likely a bug."
+                    )
+            except (ImportError, PipelineError) as e:
+                raise PipelineError(f"Component '{component_data['type']}' not imported.") from e
+
+        # Create a new one
+        component_class = component.registry[component_data["type"]]
+        instance = component_from_dict(component_class, component_data, "")
+
+        return instance
 
     def run(self, messages: List[ChatMessage], **kwargs) -> Dict[str, Any]:
         """
