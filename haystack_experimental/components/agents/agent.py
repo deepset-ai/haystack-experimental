@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 import importlib
 
@@ -21,6 +21,9 @@ from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from haystack_integrations.components.generators.anthropic.chat.chat_generator import AnthropicChatGenerator
 
 
 @component
@@ -41,12 +44,9 @@ class Agent:
     output_types = {"total_tokens": int}
 
     agent = Agent(
-        model="anthropic:claude-3",
-        generation_kwargs={"temperature": 0.7},
+        chat_generator=OpenAIChatGenerator(),
         tools=tools,
         exit_condition="search",
-        input_variables=input_types,
-        output_variables=output_types
     )
 
     # Run the agent
@@ -68,6 +68,7 @@ class Agent:
         exit_condition: str = "text",
         state_schema: Optional[Dict[str, Any]] = None,
         max_runs_per_component: int = 100,
+        raise_on_tool_invocation_failure: bool = False,
     ):
         """
         Initialize the agent component.
@@ -80,6 +81,8 @@ class Agent:
         :param state_schema: The schema for the runtime state used by the tools.
         :param max_runs_per_component: Maximum number of runs per component. Agent will raise an exception if a
             component exceeds the maximum number of runs per component.
+        :param raise_on_tool_invocation_failure: Should the agent raise an exception when a tool invocation fails?
+            If set to False, the exception will be turned into a chat message and passed to the LLM.
         """
         valid_exits = ["text"] + [tool.name for tool in tools or []]
         if exit_condition not in valid_exits:
@@ -94,6 +97,7 @@ class Agent:
         self.system_prompt = system_prompt
         self.exit_condition = exit_condition
         self.max_runs_per_component = max_runs_per_component
+        self.raise_on_tool_invocation_failure = raise_on_tool_invocation_failure
 
         output_types = {"messages": List[ChatMessage]}
         for param, config in self.state_schema.items():
@@ -116,7 +120,7 @@ class Agent:
     def _initialize_pipeline(self) -> None:
         """Initialize the component pipeline with all necessary components and connections."""
         joiner = BranchJoiner(type_=List[ChatMessage])
-        tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=False)
+        tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
         context_joiner = BranchJoiner(type_=State)
 
         # Configure router conditions
@@ -192,6 +196,7 @@ class Agent:
             exit_condition=self.exit_condition,
             state_schema=_schema_to_dict(self.state_schema),
             max_runs_per_component=self.max_runs_per_component,
+            raise_on_tool_invocation_failure=self.raise_on_tool_invocation_failure,
         )
 
     @classmethod

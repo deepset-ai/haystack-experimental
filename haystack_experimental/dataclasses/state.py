@@ -168,23 +168,3 @@ class State:
         :returns: True if key exists in state, False otherwise
         """
         return key in self._data
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the state schema to a serializable dictionary format.
-
-        :returns: Dictionary containing serialized schema information
-        """
-        # TODO: think about full state serialization
-        return _schema_to_dict(self.schema)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "State":
-        """
-        Create a State instance from a serialized dictionary.
-
-        :param data: Dictionary containing serialized schema information
-        :returns: New State instance initialized with deserialized schema
-        """
-        # TODO: think about full state deserialization
-        return cls(_schema_from_dict(data))

@@ -120,6 +120,11 @@ class DocumentProcessor:
         """
         return {"concatenated": "\n".join(doc.content for doc in documents[:top_k])}
 
+def output_handler(old, new):
+    """
+    Output handler to test serialization.
+    """
+    return old + new
 
 ## Unit tests
 class TestToolComponent:
@@ -568,7 +573,13 @@ class TestToolComponentInPipelineWithOpenAI:
     def test_component_tool_serde(self):
         component = SimpleComponent()
 
-        tool = ComponentTool(component=component, name="simple_tool", description="A simple tool")
+        tool = ComponentTool(
+            component=component,
+            name="simple_tool",
+            description="A simple tool",
+            inputs={"test": "input"},
+            outputs={"output": {"source": "out", "handler": output_handler}},
+        )
 
         # Test serialization
         tool_dict = tool.to_dict()
@@ -576,12 +587,16 @@ class TestToolComponentInPipelineWithOpenAI:
         assert tool_dict["data"]["name"] == "simple_tool"
         assert tool_dict["data"]["description"] == "A simple tool"
         assert "component" in tool_dict["data"]
+        assert tool_dict["data"]["inputs"] == {"test": "input"}
+        assert tool_dict["data"]["outputs"]["output"]["handler"] == "test.tools.test_component_tool.output_handler"
 
         # Test deserialization
         new_tool = ComponentTool.from_dict(tool_dict)
         assert new_tool.name == tool.name
         assert new_tool.description == tool.description
         assert new_tool.parameters == tool.parameters
+        assert new_tool.inputs == tool.inputs
+        assert new_tool.outputs == tool.outputs
         assert isinstance(new_tool._component, SimpleComponent)
 
     def test_pipeline_component_fails(self):

@@ -16,6 +16,7 @@ from haystack.core.serialization import (
 )
 from haystack.lazy_imports import LazyImport
 from haystack.tools.errors import SchemaGenerationError
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from pydantic import TypeAdapter
 
 from haystack_experimental.tools import Tool
@@ -129,6 +130,7 @@ class ComponentTool(Tool):
             )
             raise ValueError(msg)
 
+        self.unresolved_parameters = parameters
         # Create the tools schema from the component run method parameters
         tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
 
@@ -189,9 +191,25 @@ class ComponentTool(Tool):
         """
         Serializes the ComponentTool to a dictionary.
         """
-        # we do not serialize the function in this case: it can be recreated from the component at deserialization time
-        serialized = {"name": self.name, "description": self.description, "parameters": self.parameters}
-        serialized["component"] = component_to_dict(obj=self._component, name=self.name)
+        serialized_component = component_to_dict(obj=self._component, name=self.name)
+
+        serialized = {
+            "component": serialized_component,
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.unresolved_parameters,
+            "inputs": self.inputs,
+        }
+
+        if self.outputs is not None:
+            serialized_outputs = {}
+            for key, config in self.outputs.items():
+                serialized_config = config.copy()
+                if "handler" in config:
+                    serialized_config["handler"] = serialize_callable(config["handler"])
+                serialized_outputs[key] = serialized_config
+            serialized["outputs"] = serialized_outputs
+
         return {"type": generate_qualified_class_name(type(self)), "data": serialized}
 
     @classmethod
@@ -202,7 +220,25 @@ class ComponentTool(Tool):
         inner_data = data["data"]
         component_class = import_class_by_name(inner_data["component"]["type"])
         component = component_from_dict(cls=component_class, data=inner_data["component"], name=inner_data["name"])
-        return cls(component=component, name=inner_data["name"], description=inner_data["description"])
+
+        if "outputs" in inner_data and inner_data["outputs"]:
+            deserialized_outputs = {}
+            for key, config in inner_data["outputs"].items():
+                deserialized_config = config.copy()
+                if "handler" in config:
+                    deserialized_config["handler"] = deserialize_callable(config["handler"])
+                deserialized_outputs[key] = deserialized_config
+            inner_data["outputs"] = deserialized_outputs
+
+
+        return cls(
+            component=component,
+            name=inner_data["name"],
+            description=inner_data["description"],
+            parameters=inner_data.get("parameters", None),
+            inputs=inner_data.get("inputs", None),
+            outputs=inner_data.get("outputs", None),
+        )
 
     def _create_tool_parameters_schema(self, component: Component, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
