@@ -70,7 +70,7 @@ class TestDocumentIndexer:
                     "meta_fields_to_embed": None,
                     "duplicate_policy": "overwrite",
                 },
-                "type": "haystack_experimental.super_components.indexers.sentence_transfoermers_document_indexer.SentenceTransformersDocumentIndexer",
+                "type": "haystack_experimental.super_components.indexers.sentence_transformers_document_indexer.SentenceTransformersDocumentIndexer",
             }
         )
         assert isinstance(indexer, SentenceTransformersDocumentIndexer)
