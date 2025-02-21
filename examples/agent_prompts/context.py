@@ -124,7 +124,7 @@ faster. The pipeline validates that:
 
 - The components exist in the pipeline.
 - The components' outputs and inputs match and are explicitly indicated. For example, if a component produces two
-outputs, when connecting it to another component, you must indicate which output connects to which input. 
+outputs, when connecting it to another component, you must indicate which output connects to which input.
 - The components' types match.
 - For input types other than `Variadic`, checks if the input is already occupied by another connection.
 
