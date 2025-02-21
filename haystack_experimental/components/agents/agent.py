@@ -120,6 +120,16 @@ class Agent:
 
         self._initialize_pipeline()
 
+        self._is_warmed_up = False
+
+    def warm_up(self) -> None:
+        """
+        Warm up the Agent.
+        """
+        if not self._is_warmed_up:
+            self.pipeline.warm_up()
+            self._is_warmed_up = True
+
     def _initialize_pipeline(self) -> None:
         """Initialize the component pipeline with all necessary components and connections."""
         provider, model_name = self.model.split(":")
@@ -247,8 +257,6 @@ class Agent:
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
-
-        self.pipeline.warm_up()
 
         result = self.pipeline.run(
             data={
