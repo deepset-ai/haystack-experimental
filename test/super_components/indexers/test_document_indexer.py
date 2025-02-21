@@ -6,7 +6,7 @@ from unittest.mock import Mock, ANY
 from uuid import UUID
 import pytest
 
-from haystack_experimental.super_components.indexers import DocumentIndexer
+from haystack_experimental.super_components.indexers import SentenceTransformersDocumentIndexer
 
 from haystack import Document, Pipeline
 from haystack.document_stores.in_memory import InMemoryDocumentStore
@@ -16,11 +16,11 @@ from haystack.components.writers import DocumentWriter
 
 class TestDocumentIndexer:
     @pytest.fixture
-    def indexer(self) -> DocumentIndexer:
-        return DocumentIndexer(document_store=InMemoryDocumentStore())
+    def indexer(self) -> SentenceTransformersDocumentIndexer:
+        return SentenceTransformersDocumentIndexer(document_store=InMemoryDocumentStore())
 
     @pytest.fixture
-    def embedding_backend(self, indexer: DocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    def embedding_backend(self, indexer: SentenceTransformersDocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> Mock:
         backend = Mock()
         backend.embed.return_value = [
             [0.3, 0.4, 0.01, 0.7],
@@ -32,7 +32,7 @@ class TestDocumentIndexer:
 
         return backend
 
-    def test_init(self, indexer: DocumentIndexer) -> None:
+    def test_init(self, indexer: SentenceTransformersDocumentIndexer) -> None:
         assert isinstance(indexer.pipeline, Pipeline)
         assert indexer.input_mapping == {"documents": ["embedder.documents"]}
         assert indexer.output_mapping == {"writer.documents_written": "documents_written"}
@@ -50,7 +50,7 @@ class TestDocumentIndexer:
         assert UUID(writer.document_store.index, version=4)
 
     def test_from_dict(self) -> None:
-        indexer = DocumentIndexer.from_dict(
+        indexer = SentenceTransformersDocumentIndexer.from_dict(
             {
                 "init_parameters": {
                     'document_store': {
@@ -70,12 +70,12 @@ class TestDocumentIndexer:
                     "meta_fields_to_embed": None,
                     "duplicate_policy": "overwrite",
                 },
-                "type": "haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer",
+                "type": "haystack_experimental.super_components.indexers.sentence_transfoermers_document_indexer.SentenceTransformersDocumentIndexer",
             }
         )
-        assert isinstance(indexer, DocumentIndexer)
+        assert isinstance(indexer, SentenceTransformersDocumentIndexer)
 
-    def test_to_dict(self, indexer: DocumentIndexer) -> None:
+    def test_to_dict(self, indexer: SentenceTransformersDocumentIndexer) -> None:
         expected = {'init_parameters': {'batch_size': 32,
                      'config_kwargs': None,
                      'device': None,
@@ -101,11 +101,11 @@ class TestDocumentIndexer:
                      'tokenizer_kwargs': None,
                      'truncate_dim': None,
                      'trust_remote_code': False},
-                    'type': 'haystack_experimental.super_components.indexers.document_indexer.DocumentIndexer'
+                    'type': 'haystack_experimental.super_components.indexers.sentence_transformers_document_indexer.SentenceTransformersDocumentIndexer'
                     }
         assert indexer.to_dict() == expected
 
-    def test_warm_up(self, indexer: DocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_warm_up(self, indexer: SentenceTransformersDocumentIndexer, monkeypatch: pytest.MonkeyPatch) -> None:
         with monkeypatch.context() as m:
             m.setattr(indexer.pipeline, "warm_up", Mock())
 
@@ -113,7 +113,7 @@ class TestDocumentIndexer:
 
             indexer.pipeline.warm_up.assert_called_once()
 
-    def test_run(self, indexer: DocumentIndexer, embedding_backend: Mock) -> None:
+    def test_run(self, indexer: SentenceTransformersDocumentIndexer, embedding_backend: Mock) -> None:
         documents = [
             Document(content="Test document"),
             Document(content="Another test document"),

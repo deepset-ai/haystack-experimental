@@ -20,7 +20,7 @@ from haystack_experimental.core.super_component import SuperComponent
 
 
 @component
-class DocumentIndexer(SuperComponent):
+class SentenceTransformersDocumentIndexer(SuperComponent):
     """
     A document indexer that takes a list of documents, embeds them using SentenceTransformers, and stores them.
 
@@ -29,7 +29,7 @@ class DocumentIndexer(SuperComponent):
     ```python
     >>> from haystack import Document
     >>> doc = Document(content="I love pizza!")
-    >>> indexer = DocumentIndexer()
+    >>> indexer = SentenceTransformersDocumentIndexer()
     >>> indexer.warm_up()
     >>> result = indexer.run(documents=[doc])
     >>> print(result)
@@ -61,7 +61,7 @@ class DocumentIndexer(SuperComponent):
             duplicate_policy: DuplicatePolicy = DuplicatePolicy.OVERWRITE,
     ) -> None:
         """
-        Initialize the DocumentIndexer component.
+        Initialize the SentenceTransformersDocumentIndexer component.
 
         :param document_store: The document store where the documents should be stored.
         :param model: The embedding model to use (local path or Hugging Face model ID).
@@ -134,7 +134,7 @@ class DocumentIndexer(SuperComponent):
 
         pipeline.connect("embedder.documents", "writer.documents")
 
-        super(DocumentIndexer, self).__init__(
+        super(SentenceTransformersDocumentIndexer, self).__init__(
             pipeline=pipeline,
             input_mapping={"documents": ["embedder.documents"]},
             output_mapping={"writer.documents_written": "documents_written"},
@@ -172,7 +172,7 @@ class DocumentIndexer(SuperComponent):
         return serialization_dict
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DocumentIndexer":
+    def from_dict(cls, data: Dict[str, Any]) -> "SentenceTransformersDocumentIndexer":
         """
         Load an instance of this component from a dictionary.
         """
