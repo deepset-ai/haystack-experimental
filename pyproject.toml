@@ -62,8 +62,6 @@ extra-dependencies = [
   "google-vertex-haystack>=2.0.0",
   # HierachicalSplitter w/ split_by="sentence"
   "nltk",
-  # Agent dependencies
-  "anthropic-haystack"
 ]
 
 [tool.hatch.envs.test.scripts]

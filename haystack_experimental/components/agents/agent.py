@@ -21,10 +21,10 @@ with LazyImport(message="Run 'pip install anthropic-haystack' to use Anthropic."
         AnthropicChatGenerator,
     )
 
-_PROVIDER_GENERATOR_MAPPING = {
-    "openai": OpenAIChatGenerator,
-    "anthropic": AnthropicChatGenerator,
-}
+_PROVIDER_GENERATOR_MAPPING = { "openai": OpenAIChatGenerator}
+
+if anthropic_import.is_successful():
+    _PROVIDER_GENERATOR_MAPPING["anthropic"] = AnthropicChatGenerator
 
 
 @component
@@ -73,18 +73,21 @@ class Agent:
         exit_condition: str = "text",
         generation_kwargs: Optional[Dict[str, Any]] = None,
         state_schema: Optional[Dict[str, Any]] = None,
+        max_runs_per_component: int = 100,
     ):
         """
         Initialize the agent component.
 
         :param model: Model identifier in the format "provider:model_name"
-        :param generation_kwargs: Keyword arguments for the chat model generator
         :param tools: List of Tool objects available to the agent
+        :param system_prompt: System prompt for the agent.
+        :param api_key: API key used for authentication.
         :param exit_condition: Either "text" if the agent should return when it generates a message without tool calls
             or the name of a tool that will cause the agent to return once the tool was executed
-        :param input_variables: Dictionary mapping input variable names to their types
-        :param output_variables: Dictionary mapping output variable names to their types
-        :raises ValueError: If model string format is invalid or exit_condition is not valid
+        :param generation_kwargs: Keyword arguments for the chat model generator
+        :param state_schema: The schema for the runtime state used by the tools.
+        :param max_runs_per_component: Maximum number of runs per component. Agent will raise an exception if a
+            component exceeds the maximum number of runs per component.
         """
         if ":" not in model:
             raise ValueError("Model string must be in format 'provider:model_name'")
@@ -110,8 +113,8 @@ class Agent:
         self.system_prompt = system_prompt
         self.exit_condition = exit_condition
         self.api_key = api_key
+        self.max_runs_per_component = max_runs_per_component
 
-        component.set_input_type(instance=self, name="messages", type=List[ChatMessage])
         output_types = {"messages": List[ChatMessage]}
         for param, config in self.state_schema.items():
             component.set_input_type(self, name=param, type=config["type"], default=None)
@@ -119,6 +122,16 @@ class Agent:
         component.set_output_types(self, **output_types)
 
         self._initialize_pipeline()
+
+        self._is_warmed_up = False
+
+    def warm_up(self) -> None:
+        """
+        Warm up the Agent.
+        """
+        if not self._is_warmed_up:
+            self.pipeline.warm_up()
+            self._is_warmed_up = True
 
     def _initialize_pipeline(self) -> None:
         """Initialize the component pipeline with all necessary components and connections."""
@@ -174,7 +187,7 @@ class Agent:
         )
 
         # Set up pipeline
-        self.pipeline = Pipeline()
+        self.pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
         self.pipeline.add_component(instance=generator, name="generator")
         self.pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self.pipeline.add_component(instance=router, name="router")
@@ -212,6 +225,7 @@ class Agent:
             system_prompt=self.system_prompt,
             exit_condition=self.exit_condition,
             state_schema=_schema_to_dict(self.state_schema),
+            max_runs_per_component=self.max_runs_per_component,
         )
 
     @classmethod
@@ -247,8 +261,6 @@ class Agent:
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
-
-        self.pipeline.warm_up()
 
         result = self.pipeline.run(
             data={
