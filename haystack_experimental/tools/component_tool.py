@@ -105,6 +105,7 @@ class ComponentTool(Tool):
         :param description: Optional description (defaults to component's docstring).
         :param parameters:
             A JSON schema defining the parameters expected by the Tool.
+            Will fall back to the parameters defined in the component's run method signature if not provided.
         :param inputs:
             Optional dictionary mapping state keys to tool parameter names.
             Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
@@ -130,7 +131,7 @@ class ComponentTool(Tool):
             )
             raise ValueError(msg)
 
-        self.unresolved_parameters = parameters
+        self._unresolved_parameters = parameters
         # Create the tools schema from the component run method parameters
         tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
 
@@ -197,7 +198,7 @@ class ComponentTool(Tool):
             "component": serialized_component,
             "name": self.name,
             "description": self.description,
-            "parameters": self.unresolved_parameters,
+            "parameters": self._unresolved_parameters,
             "inputs": self.inputs,
         }
 

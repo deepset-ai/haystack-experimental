@@ -117,7 +117,7 @@ class Tool:
         init_parameters["function"] = deserialize_callable(init_parameters["function"])
 
         # Deserialize output handlers if they exist
-        if "outputs" in init_parameters and init_parameters["outputs"] is not None:
+        if "outputs" in init_parameters and init_parameters["outputs"]:
             deserialized_outputs = {}
             for key, config in init_parameters["outputs"].items():
                 deserialized_config = config.copy()

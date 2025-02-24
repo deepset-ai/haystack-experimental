@@ -2,21 +2,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import importlib
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from haystack import Pipeline, component, default_from_dict, default_to_dict, logging
-from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack.components.joiners import BranchJoiner
-from haystack.components.routers.conditional_router import ConditionalRouter
+import importlib
+
+from haystack import component, default_from_dict, default_to_dict, Pipeline, logging
 from haystack.core.component import Component
 from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
+
+from haystack.components.generators.chat.openai import OpenAIChatGenerator
+from haystack.components.joiners import BranchJoiner
+from haystack.components.routers.conditional_router import ConditionalRouter
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.tools import ToolInvoker
-from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 from haystack_experimental.tools import Tool
+from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +40,6 @@ class Agent:
     from haystack.tools.tool import Tool
 
     tools = [Tool(name="calculator", description="..."), Tool(name="search", description="...")]
-    input_types = {"search_depth": int}
-    output_types = {"total_tokens": int}
 
     agent = Agent(
         chat_generator=OpenAIChatGenerator(),
@@ -49,12 +49,10 @@ class Agent:
 
     # Run the agent
     result = agent.run(
-        messages=[ChatMessage.from_user("Find information about Haystack")],
-        search_depth=2
+        messages=[ChatMessage.from_user("Find information about Haystack")]
     )
 
     assert "messages" in result  # Contains conversation history
-    assert "total_tokens" in result  # Contains tool execution outputs
     ```
     """
 
