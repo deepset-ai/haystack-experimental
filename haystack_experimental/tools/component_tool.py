@@ -131,7 +131,7 @@ class ComponentTool(Tool):
             )
             raise ValueError(msg)
 
-        self.unresolved_parameters = parameters
+        self._unresolved_parameters = parameters
         # Create the tools schema from the component run method parameters
         tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
 
@@ -198,7 +198,7 @@ class ComponentTool(Tool):
             "component": serialized_component,
             "name": self.name,
             "description": self.description,
-            "parameters": self.unresolved_parameters,
+            "parameters": self._unresolved_parameters,
             "inputs": self.inputs,
         }
 
