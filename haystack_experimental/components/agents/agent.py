@@ -40,8 +40,6 @@ class Agent:
     from haystack.tools.tool import Tool
 
     tools = [Tool(name="calculator", description="..."), Tool(name="search", description="...")]
-    input_types = {"search_depth": int}
-    output_types = {"total_tokens": int}
 
     agent = Agent(
         chat_generator=OpenAIChatGenerator(),
@@ -51,12 +49,10 @@ class Agent:
 
     # Run the agent
     result = agent.run(
-        messages=[ChatMessage.from_user("Find information about Haystack")],
-        search_depth=2
+        messages=[ChatMessage.from_user("Find information about Haystack")]
     )
 
     assert "messages" in result  # Contains conversation history
-    assert "total_tokens" in result  # Contains tool execution outputs
     ```
     """
 
