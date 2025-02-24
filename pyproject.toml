@@ -62,6 +62,8 @@ extra-dependencies = [
   "google-vertex-haystack>=2.0.0",
   # HierachicalSplitter w/ split_by="sentence"
   "nltk",
+  # Needed for type checking in Agent
+  "anthropic-haystack",
   # Tests for MultiFileConverter
   "python-docx",
   "trafilatura",
