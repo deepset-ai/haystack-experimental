@@ -105,6 +105,7 @@ class ComponentTool(Tool):
         :param description: Optional description (defaults to component's docstring).
         :param parameters:
             A JSON schema defining the parameters expected by the Tool.
+            Will fall back to the parameters defined in the component's run method signature if not provided.
         :param inputs:
             Optional dictionary mapping state keys to tool parameter names.
             Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
