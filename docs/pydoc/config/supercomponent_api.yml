@@ -3,7 +3,10 @@ loaders:
     search_path: [../../../]
     modules:
       [
-        "haystack_experimental.core.super_component.super_component"
+        "haystack_experimental.core.super_component.super_component",
+        "haystack_experimental.super_components.converters.multi_file_converter",
+        "haystack_experimental.super_components.indexers.sentence_transformers_document_indexer",
+        "haystack_experimental.super_components.preprocessors.document_preprocessor"
       ]
     ignore_when_discovered: ["__init__"]
 processors:
@@ -16,9 +19,9 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: A class for creating super components that wrap around a pipeline.
+  excerpt: A class for super components that wrap around a pipeline.
   category_slug: experiments-api
-  title: SuperComponent
+  title: SuperComponents
   slug: experimental-supercomponent-api
   order: 60
   markdown:
