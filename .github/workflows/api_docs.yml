@@ -23,6 +23,7 @@ jobs:
         id: version_finder
         run: |
           curl -s "https://dash.readme.com/api/v1/version" --header "authorization: Basic ${{ secrets.README_API_KEY }}" > out
+          # Ensure proper semantic version sorting (2.2.0 comes before 2.10.0)
           VERSIONS=$(jq -c '[ .[] | select(.version | startswith("2.")) | { version: .version, major: (.version | split(".")[0] | tonumber), minor: (.version | split(".")[1] // "0" | gsub("[^0-9]"; "") | tonumber) } ] | sort_by(.major, .minor) | map(.version) | .[-${{ env.SYNC_LAST_N_HAYSTACK_VERSIONS }}:]' out)
           {
             echo 'versions<<EOF'
