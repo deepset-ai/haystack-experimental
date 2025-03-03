@@ -2,23 +2,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
-
 import importlib
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from haystack import component, default_from_dict, default_to_dict, Pipeline, logging
-from haystack.core.component import Component
-from haystack.core.pipeline.base import PipelineError
-from haystack.core.serialization import component_from_dict
-
+from haystack import Pipeline, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
+from haystack.core.component import Component
+from haystack.core.pipeline.base import PipelineError
+from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
+from haystack.utils.callable_serialization import deserialize_callable
 
 from haystack_experimental.components.tools import ToolInvoker
-from haystack_experimental.tools import Tool
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
+from haystack_experimental.tools import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +211,8 @@ class Agent:
             init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
 
         if "tools" in init_params:
-            init_params["tools"] = [Tool.from_dict(t) for t in init_params["tools"]]
+            # We deserialize the tools 'from_dict' classmethod to make sure we deserialize the right tool
+            init_params["tools"] = [deserialize_callable(f"{t['type']}.from_dict")(t) for t in init_params["tools"]]
 
         return default_from_dict(cls, data)
 
