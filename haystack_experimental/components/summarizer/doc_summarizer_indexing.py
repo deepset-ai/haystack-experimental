@@ -13,7 +13,7 @@ from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 
-from techniques.llm.openai_summarisation import summarize
+from openai_summarisation import summarize
 
 
 @component
@@ -29,6 +29,9 @@ class Summarizer:
             summary = summarize(doc.content, detail=detail, model=self.model)
             summaries.append(Document(content=summary, meta=doc.meta, id=doc.id))
         return {"summary": summaries}
+
+
+
 
 @component
 class ChunksRetriever:
