@@ -70,6 +70,7 @@ class Summarizer:
 
     summarizer = Summarizer(generator_api="openai")
     summarizer.run(documents=[doc])
+    ```
     """
 
     def __init__(   # pylint: disable=too-many-positional-arguments
