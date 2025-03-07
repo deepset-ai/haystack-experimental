@@ -3,16 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import Enum
-from typing import Optional, Union, Any
+from typing import Any, Optional, Union
 
-from haystack import component, Document, default_from_dict
-from haystack import logging, default_to_dict
-from haystack.components.generators.chat import OpenAIChatGenerator, AzureOpenAIChatGenerator
+from haystack import Document, component, default_from_dict, default_to_dict, logging
+from haystack.components.generators.chat import AzureOpenAIChatGenerator, OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 from haystack.lazy_imports import LazyImport
-from haystack.utils import deserialize_secrets_inplace, deserialize_callable
+from haystack.utils import deserialize_callable, deserialize_secrets_inplace
 from tqdm import tqdm
-
 
 with LazyImport(message="Run 'pip install tiktoken'") as tiktoken_import:
     import tiktoken
@@ -74,7 +72,7 @@ class Summarizer:
     summarizer.run(documents=[doc])
     """
 
-    def __init__(
+    def __init__(   # pylint: disable=too-many-positional-arguments
         self,
         generator_api: Union[str, LLMProvider],
         generator_api_params: Optional[dict[str, Any]] = None,
@@ -231,19 +229,19 @@ class Summarizer:
         """
 
         chunks = text.split(delimiter)
-        
+
         # combine chunks to optimize token usage
         combined_chunks, _, dropped_chunk_count = self._combine_chunks(
-            chunks, 
-            max_tokens, 
-            chunk_delimiter=delimiter, 
+            chunks,
+            max_tokens,
+            chunk_delimiter=delimiter,
             add_ellipsis_overflow=True
         )
 
         # warning if chunks were dropped
         if dropped_chunk_count > 0:
             logger.warning(f"{dropped_chunk_count} chunks were dropped due to overflow")
-            
+
         # add delimiters
         return [f"{chunk}{delimiter}" for chunk in combined_chunks]
 
@@ -261,12 +259,12 @@ class Summarizer:
         :param max_tokens: Maximum token count for each combined chunk
         :param chunk_delimiter: String used to join chunks together
         :param add_ellipsis_overflow: Whether to add "..." for chunks that exceed max_tokens
-            
+
         :returns:
             Tuple containing:
-            - List of combined text blocks
-            - List of original chunk indices for each combined block
-            - Count of chunks dropped due to overflow
+                - List of combined text blocks
+                - List of original chunk indices for each combined block
+                - Count of chunks dropped due to overflow
         """
         dropped_chunk_count = 0
         output = []  # Combined chunks
@@ -282,11 +280,11 @@ class Summarizer:
                     candidate.append("...")
                     dropped_chunk_count += 1
                 continue  # Skip this chunk as it would break downstream assumptions
-            
+
             # check if adding this chunk would exceed max_tokens
             candidate_with_new_chunk = candidate + [chunk]
             extended_candidate_text = chunk_delimiter.join(candidate_with_new_chunk)
-            
+
             if self.num_tokens(extended_candidate_text) > max_tokens:
                 # save current candidate and start a new one
                 output.append(chunk_delimiter.join(candidate))
@@ -311,7 +309,7 @@ class Summarizer:
         max_chunks = len(self._chunk_on_delimiter(text, minimum_chunk_size, chunk_delimiter))
         min_chunks = 1
         num_chunks = int(min_chunks + detail * (max_chunks - min_chunks))
-        
+
         # determine appropriate chunk size
         document_length = self.num_tokens(text)
         chunk_size = max(minimum_chunk_size, document_length // num_chunks)
@@ -321,26 +319,27 @@ class Summarizer:
     def _process_chunks(self, text_chunks, summarize_recursively):
         """
         Processes each chunk individually, asking the LLM to summarize it, and accumulates all the summaries.
+
         The parameter `summarize_recursively` allows to use previous summaries as context for the next chunk.
         """
         accumulated_summaries = []
-        
+
         for chunk in tqdm(text_chunks):
             if summarize_recursively and accumulated_summaries:
-                accumulated_summaries_string = '\n\n'.join(accumulated_summaries)
+                accumulated_summaries_string = "\n\n".join(accumulated_summaries)
                 user_message_content = (
                     f"Previous summaries:\n\n{accumulated_summaries_string}\n\n"
                     f"Text to summarize next:\n\n{chunk}"
                 )
             else:
                 user_message_content = chunk
-                
+
             # prepare the message and make the LLM call
             messages = [ChatMessage.from_system(SYSTEM_PROMPT), ChatMessage.from_user(user_message_content)]
             # ToDo: some error handling here
             result = self.llm_provider.run(messages=messages)
             accumulated_summaries.append(result["replies"][0].text)
-            
+
         return accumulated_summaries
 
     def summarize(self,
@@ -371,7 +370,7 @@ class Summarizer:
         accumulated_summaries = self._process_chunks(text_chunks, summarize_recursively)
 
         # combine all summaries
-        return '\n\n'.join(accumulated_summaries)
+        return "\n\n".join(accumulated_summaries)
 
     @component.output_types(summary=list[Document])
     def run(
@@ -381,6 +380,17 @@ class Summarizer:
         minimum_chunk_size: Optional[int] = None,
         summarize_recursively: Optional[bool] = None
     ):
+        """
+        Run the summarizer on a list of documents.
+
+        :param documents: List of documents to summarize
+        :param detail: The level of detail for the summary (0-1), defaults to 0 overwriting the component's default.
+        :param minimum_chunk_size: The minimum token count per chunk, defaults to 500 overwriting the
+                                   component's default.
+        :param summarize_recursively: Whether to use previous summaries as context, defaults to False overwriting the
+                                      component's default.
+        """
+
         # let's allow to change some of the parameters at run time
         detail = self.detail if detail is None else detail
         minimum_chunk_size = self.minimum_chunk_size if minimum_chunk_size is None else minimum_chunk_size

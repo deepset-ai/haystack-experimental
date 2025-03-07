@@ -8,6 +8,7 @@ from haystack.tracing import Span, Tracer
 logger = logging.getLogger(__name__)
 
 import logging as std_logging
+
 logger.setLevel(std_logging.DEBUG)
 
 @dataclasses.dataclass
@@ -51,7 +52,7 @@ class LoggingTracer(Tracer):
         custom_span = LoggingSpan(operation_name, tags=tags or {})
 
         def convert_to_dict(value):
-            if hasattr(value, 'to_dict') and callable(getattr(value, 'to_dict')):
+            if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
                 return value.to_dict()
 
             elif isinstance(value, dict):

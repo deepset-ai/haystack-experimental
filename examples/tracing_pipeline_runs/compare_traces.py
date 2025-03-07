@@ -32,21 +32,21 @@ def parse_log_file(file_path: str) -> List[Component]:
     current_component = {}
 
     haystack_prefixes = {
-        'name': 'haystack.component.name=',
-        'type': 'haystack.component.type=',
-        'visits': 'haystack.component.visits=',
-        'input': 'haystack.component.input=',
-        'output': 'haystack.component.output='
+        "name": "haystack.component.name=",
+        "type": "haystack.component.type=",
+        "visits": "haystack.component.visits=",
+        "input": "haystack.component.input=",
+        "output": "haystack.component.output="
     }
 
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         for line in f:
 
-            if 'Operation: haystack.component.run' in line:
+            if "Operation: haystack.component.run" in line:
                 if current_component:
                     # parse structured data before creating Component
-                    current_component['input_parsed'] = parse_structured_data(current_component['input_str'])
-                    current_component['output_parsed'] = parse_structured_data(current_component['output_str'])
+                    current_component["input_parsed"] = parse_structured_data(current_component["input_str"])
+                    current_component["output_parsed"] = parse_structured_data(current_component["output_str"])
                     components.append(Component(**current_component))
                     current_component = {}
                 continue
@@ -54,20 +54,20 @@ def parse_log_file(file_path: str) -> List[Component]:
             # parse component properties into current_component structure
             for key, prefix in haystack_prefixes.items():
                 if prefix in line:
-                    value = line.split('=', 1)[1].strip()
-                    value = int(value) if key == 'visits' else value
-                    if key == 'input':
-                        current_component['input_str'] = value
-                    elif key == 'output':
-                        current_component['output_str'] = value
+                    value = line.split("=", 1)[1].strip()
+                    value = int(value) if key == "visits" else value
+                    if key == "input":
+                        current_component["input_str"] = value
+                    elif key == "output":
+                        current_component["output_str"] = value
                     else:
                         current_component[key] = value
                     break
 
     # add the last component if exists
     if current_component:
-        current_component['input_parsed'] = parse_structured_data(current_component['input_str'])
-        current_component['output_parsed'] = parse_structured_data(current_component['output_str'])
+        current_component["input_parsed"] = parse_structured_data(current_component["input_str"])
+        current_component["output_parsed"] = parse_structured_data(current_component["output_str"])
         components.append(Component(**current_component))
 
     # return components in reverse order to use as a stack
@@ -119,19 +119,19 @@ def compare_traces(file1: str, file2: str) -> bool:
             print("")
             print(f"{file2}: {comp2.output_parsed}")
             return False
-    
+
     return True
 
 def main():
     """
     Main execution routine to compare pipeline traces.
     """
-    parser = argparse.ArgumentParser(description='Compare component execution order between two trace files')
-    parser.add_argument('file1', help='Path to the first trace file')
-    parser.add_argument('file2', help='Path to the second trace file')
-    
+    parser = argparse.ArgumentParser(description="Compare component execution order between two trace files")
+    parser.add_argument("file1", help="Path to the first trace file")
+    parser.add_argument("file2", help="Path to the second trace file")
+
     args = parser.parse_args()
-    
+
     are_identical = compare_traces(args.file1, args.file2)
     if are_identical:
         print("\nThe execution order is identical in both traces")

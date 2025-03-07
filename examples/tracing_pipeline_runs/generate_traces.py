@@ -3,13 +3,13 @@ import json
 import logging
 import time
 
+from custom_tracer import LoggingTracer
 from haystack import Pipeline as OldPipeline
 from haystack import tracing
 
-from custom_tracer import LoggingTracer
 from haystack_experimental.core.pipeline.pipeline import Pipeline as NewPipeline
 
-logging.basicConfig(filename='old_pipeline.log', format="%(levelname)s - %(name)s -  %(message)s")
+logging.basicConfig(filename="old_pipeline.log", format="%(levelname)s - %(name)s -  %(message)s")
 
 tracing.tracer.is_content_tracing_enabled = True # set to "True" to enable tracing/logging content (inputs/outputs)
 tracing.enable_tracing(LoggingTracer()) # enable the custom tracer
@@ -52,14 +52,14 @@ def main():
     """
     Main execution routine to generate pipeline traces.
     """
-    parser = argparse.ArgumentParser(description='Run pipeline comparison with configurable inputs')
-    parser.add_argument('--pipeline-file', type=str, required=True,
-                      help='Path to the YAML pipeline file')
-    parser.add_argument('--pipeline-data', type=str, required=True,
-                      help='JSON string containing the pipeline run data')
-    
+    parser = argparse.ArgumentParser(description="Run pipeline comparison with configurable inputs")
+    parser.add_argument("--pipeline-file", type=str, required=True,
+                      help="Path to the YAML pipeline file")
+    parser.add_argument("--pipeline-data", type=str, required=True,
+                      help="JSON string containing the pipeline run data")
+
     args = parser.parse_args()
-    
+
     # Parse the JSON string into a dictionary
     try:
         pipeline_run_data = json.loads(args.pipeline_data)
@@ -71,5 +71,5 @@ def main():
     run_pipeline(pipeline_run_data, args.pipeline_file, new=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

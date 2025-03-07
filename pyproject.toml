@@ -71,7 +71,9 @@ extra-dependencies = [
   "mdit_plain",
   "pypdf",
   "python-pptx",
-  "openpyxl"
+  "openpyxl",
+  # Summarizer
+  "tiktoken"
 ]
 
 [tool.hatch.envs.test.scripts]
