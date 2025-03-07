@@ -270,8 +270,8 @@ class Summarizer:
         dropped_chunk_count = 0
         output = []  # Combined chunks
         output_indices = []  # Original indices of chunks in each combined block
-        candidate = []  # Current chunk being built
-        candidate_indices = []
+        candidate: list[str] = []  # Current chunk being built
+        candidate_indices: list[int] = []
 
         for chunk_i, chunk in enumerate(chunks):
             # check if single chunk exceeds max_tokens
@@ -401,7 +401,7 @@ class Summarizer:
             summary = self.summarize(
                 doc.content,
                 detail=detail,
-                minimum_chunk_size=minimum_chunk_size,
+                minimum_chunk_size=minimum_chunk_size,  # type: ignore # already checked, cannot be None here
                 summarize_recursively=summarize_recursively
             )
             doc.meta["summary_detail"] = summary
