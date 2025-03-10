@@ -13,11 +13,10 @@ from haystack.core.component import Component
 from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
-from haystack.utils.callable_serialization import deserialize_callable
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
-from haystack_experimental.tools import Tool
+from haystack_experimental.tools import Tool, deserialize_tools_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ class Agent:
     ```
     """
 
-    def __init__( # pylint: disable=too-many-positional-arguments
+    def __init__(  # pylint: disable=too-many-positional-arguments
         self,
         chat_generator: Union[OpenAIChatGenerator, "AnthropicChatGenerator"],
         tools: Optional[List[Tool]] = None,
@@ -128,9 +127,11 @@ class Agent:
                 + "' and not tool_messages[0].tool_call_result.error) }}"
             )
 
-        router_output = "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"\
-                        "|assistant_message(none, none, llm_messages[0].tool_calls) %}"\
-                        "{{ original_messages + [assistant_msg] + tool_messages }}"
+        router_output = (
+            "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"
+            "|assistant_message(none, none, llm_messages[0].tool_calls) %}"
+            "{{ original_messages + [assistant_msg] + tool_messages }}"
+        )
 
         routes = [
             {
@@ -159,9 +160,7 @@ class Agent:
         self.pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self.pipeline.add_component(instance=router, name="router")
         self.pipeline.add_component(instance=joiner, name="joiner")
-        self.pipeline.add_component(
-            instance=context_joiner, name="context_joiner"
-        )
+        self.pipeline.add_component(instance=context_joiner, name="context_joiner")
 
         # Connect components
         self.pipeline.connect("joiner.value", "generator.messages")
@@ -170,12 +169,8 @@ class Agent:
         self.pipeline.connect("generator.replies", "tool_invoker.messages")
         self.pipeline.connect("tool_invoker.tool_messages", "router.tool_messages")
         self.pipeline.connect("router.continue", "joiner.value")
-        self.pipeline.connect(
-            "tool_invoker.state", "context_joiner.value"
-        )
-        self.pipeline.connect(
-            "context_joiner.value", "tool_invoker.state"
-        )
+        self.pipeline.connect("tool_invoker.state", "context_joiner.value")
+        self.pipeline.connect("context_joiner.value", "tool_invoker.state")
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -210,9 +205,7 @@ class Agent:
         if "state_schema" in init_params:
             init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
 
-        if "tools" in init_params:
-            # We deserialize the tools 'from_dict' classmethod to make sure we deserialize the right tool
-            init_params["tools"] = [deserialize_callable(f"{t['type']}.from_dict")(t) for t in init_params["tools"]]
+        deserialize_tools_inplace(init_params, key="tools")
 
         return default_from_dict(cls, data)
 
@@ -256,7 +249,7 @@ class Agent:
             data={
                 "joiner": {"value": messages},
                 "context_joiner": {"value": state},
-                "generator": {"tools": self.tools}
+                "generator": {"tools": self.tools},
             },
             include_outputs_from={"context_joiner"},
         )

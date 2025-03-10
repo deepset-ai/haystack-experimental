@@ -19,6 +19,11 @@ install the latest experimental features, run:
 $ pip install -U haystack-experimental
 ```
 
+Install from the `main` branch to try the newest features:
+```sh
+pip install git+https://github.com/deepset-ai/haystack-experimental.git@main
+```
+
 > [!IMPORTANT]
 > The latest version of the experimental package is only tested against the latest version of Haystack. Compatibility
 > with older versions of Haystack is not guaranteed.
