@@ -4,7 +4,6 @@ loaders:
     modules:
       [
         "haystack_experimental.components.writers.chat_message_writer",
-        "haystack_experimental.components.writers.document_writer",
       ]
     ignore_when_discovered: ["__init__"]
 processors:
