@@ -7,4 +7,4 @@ from haystack_experimental.components.writers.chat_message_writer import (
 )
 from haystack_experimental.components.writers.document_writer import DocumentWriter
 
-_all_ = ["ChatMessageWriter", "DocumentWriter"]
+_all_ = ["ChatMessageWriter"]
