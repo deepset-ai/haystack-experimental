@@ -11,5 +11,5 @@ assignees: ''
 - [ ] Hide example cookbook (similar to [this example](https://github.com/deepset-ai/haystack-cookbook/blob/main/index.toml#L86))
 - [ ] Close discussion in haystack-experimental with removal information
 - [ ] Remove pydocs
-- [ ] Remove experiment from catalog in haystack-experimental README.md
+- [ ] Move experiment from _active experiments_ in the catalog in haystack-experimental README.md to _discontinued experiments_
 - [ ] Remove example notebook from haystack-experimental if it exists
