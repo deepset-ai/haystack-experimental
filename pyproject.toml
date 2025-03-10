@@ -65,13 +65,14 @@ extra-dependencies = [
   # Needed for type checking in Agent
   "anthropic-haystack",
   # Tests for MultiFileConverter
-  "python-docx",
-  "trafilatura",
   "markdown-it-py",
   "mdit_plain",
+  "openpyxl",
+  "pandas",
   "pypdf",
+  "python-docx",
   "python-pptx",
-  "openpyxl"
+  "trafilatura"
 ]
 
 [tool.hatch.envs.test.scripts]

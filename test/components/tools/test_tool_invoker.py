@@ -232,6 +232,7 @@ class TestToolInvoker:
         pipeline_dict = pipeline.to_dict()
         assert pipeline_dict == {
             "metadata": {},
+            'connection_type_validation': True,
             "max_runs_per_component": 100,
             "components": {
                 "invoker": {

@@ -277,7 +277,6 @@ class TestToolComponent:
                         "properties": {
                             "id": {"type": "string", "description": "Field 'id' of 'Document'."},
                             "content": {"type": "string", "description": "Field 'content' of 'Document'."},
-                            "dataframe": {"type": "string", "description": "Field 'dataframe' of 'Document'."},
                             "blob": {
                                 "type": "object",
                                 "description": "Field 'blob' of 'Document'.",
