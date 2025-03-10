@@ -49,7 +49,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`InMemoryChatMessageStore`][6]                                     | Memory Store                             | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                   | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`ChatMessageRetriever`][7]                                         | Memory Component                         | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                   | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`ChatMessageWriter`][8]                                            | Memory Component                         | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                   | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`EvaluationHarness`][9]                                            | Evaluation orchestrator                  | October 2024      | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/rag_eval_harness.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>                              | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/74)  |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/agent.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/super_component/super_component.py
@@ -58,7 +57,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
 [8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
-[9]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 
 ### Adopted experiments
 | Name                                                                                   | Type                           | Final release |
@@ -69,10 +67,11 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 ### Discontinued experiments
 
-| Name                     | Type                       | Final release | Cookbook                                                                                                                                 |
-|--------------------------| -------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `OpenAIFunctionCaller`   | Function Calling Component | 0.3.0         | None                                                                                                                                     |
-| `OpenAPITool`            | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
+| Name                   | Type                       | Final release | Cookbook                                                                                                                                 |
+|------------------------|----------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `OpenAIFunctionCaller` | Function Calling Component | 0.3.0         | None                                                                                                                                     |
+| `OpenAPITool`          | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
+| `EvaluationHarness`    | Evaluation orchestrator    | 0.7.0         | None                                                                                                                                     |
 
 ## Usage
 
