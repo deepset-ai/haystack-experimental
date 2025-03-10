@@ -45,7 +45,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 |---------------------------------------------------------------------|------------------------------------------|-------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
 | [`Agent`][1]                                                        | Simplify Agent development               | April 2025        | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/github_issue_resolver_agent.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                       | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/189) |
 | [`SuperComponent`][2]                                               | Component                                | February 2025     | None         |                                                                                                                                                                                                                                                                        | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/189) |
-| [`LLMMetadataExtractor`][3]                                         | Metadata extraction with LLM             | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-experimental/blob/main/examples/metadata_extraction_with_llm_metadata_extractor.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/130) |
 | [`Auto-Merging Retriever`][4] & [`HierarchicalDocumentSplitter`][5] | Document Splitting & Retrieval Technique | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/auto_merging_retriever.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                            | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/78)  |
 | [`InMemoryChatMessageStore`][6]                                     | Memory Store                             | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                   | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`ChatMessageRetriever`][7]                                         | Memory Component                         | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>                   | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
@@ -54,7 +53,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/agent.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/super_component/super_component.py
-[3]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/extractors/llm_metadata_extractor.py
 [4]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/auto_merging_retriever.py
 [5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/splitters/hierarchical_doc_splitter.py
 [6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
@@ -63,10 +61,11 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [9]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 
 ### Adopted experiments
-| Name                                                                                   | Type                    | Final release | Cookbook                                                                                                                                 |
-|----------------------------------------------------------------------------------------|-------------------------|---------------| ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker` | Tool Calling support    | 0.4.0         | |
-| `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                  | AsyncPipeline execution | 0.7.0         | |
+| Name                                                                                   | Type                           | Final release |
+|----------------------------------------------------------------------------------------|--------------------------------|---------------|
+| `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker` | Tool Calling support           | 0.4.0         |
+| `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                  | AsyncPipeline execution        | 0.7.0         |
+| `LLMMetadataExtractor`                                                                 | Metadata extraction with LLM   | 0.7.0         |
 
 ### Discontinued experiments
 
