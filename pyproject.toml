@@ -54,20 +54,18 @@ dependencies = [
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  "transformers>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
-  # HierachicalSplitter w/ split_by="sentence"
-  "nltk",
-  # Needed for type checking in Agent
-  "anthropic-haystack",
+  "anthropic-haystack", # Needed for type checking in Agent
+  "docstring-parser", # ComponentTool
   # Tests for MultiFileConverter
   "markdown-it-py",
   "mdit_plain",
+  "nltk", # HierachicalSplitter w/ split_by="sentence"
   "openpyxl",
-  "pandas",
   "pypdf",
   "python-docx",
   "python-pptx",
-  "trafilatura"
+  "trafilatura",
+  "transformers>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
 ]
 
 [tool.hatch.envs.test.scripts]
