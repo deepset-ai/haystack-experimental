@@ -5,8 +5,7 @@
 from typing import Awaitable, Callable, Optional, Union
 
 from haystack.dataclasses import StreamingChunk
-
-from haystack_experimental.util import is_callable_async_compatible
+from haystack.utils.asynchronous import is_callable_async_compatible
 
 StreamingCallbackT = Callable[[StreamingChunk], None]
 AsyncStreamingCallbackT = Callable[[StreamingChunk], Awaitable[None]]
