@@ -116,15 +116,18 @@ class TestHierarchicalDocumentSplitter:
         expected = pipeline.to_dict()
 
         assert expected.keys() == {
-            "metadata",
-            "max_runs_per_component",
-            "components",
             "connections",
+            'connection_type_validation',
+            "components",
+            "max_runs_per_component",
+            "metadata",
         }
+
         assert expected["components"].keys() == {
             "hierarchical_doc_splitter",
             "doc_writer",
         }
+        
         assert expected["components"]["hierarchical_doc_splitter"] == {
             "type": "haystack_experimental.components.splitters.hierarchical_doc_splitter.HierarchicalDocumentSplitter",
             "init_parameters": {
