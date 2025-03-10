@@ -115,8 +115,9 @@ class TestHierarchicalDocumentSplitter:
         pipeline.connect("hierarchical_doc_splitter", "doc_writer")
         expected = pipeline.to_dict()
 
-        assert set(expected.keys()) == {
+        assert expected.keys() == {
             "connections",
+            'connection_type_validation',
             "components",
             "max_runs_per_component",
             "metadata",
