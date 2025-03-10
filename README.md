@@ -69,10 +69,10 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 ### Discontinued experiments
 
-| Name                        | Type                       | Final release | Cookbook                                                                                                                                 |
-| --------------------------- | -------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| [`OpenAIFunctionCaller`][2] | Function Calling Component | 0.3.0         | None                                                                                                                                     |
-| [`OpenAPITool`][3]          | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
+| Name                     | Type                       | Final release | Cookbook                                                                                                                                 |
+|--------------------------| -------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `OpenAIFunctionCaller`   | Function Calling Component | 0.3.0         | None                                                                                                                                     |
+| `OpenAPITool`            | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
 
 ## Usage
 
