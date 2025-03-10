@@ -61,10 +61,11 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [9]: https://github.com/deepset-ai/haystack-experimental/tree/main/haystack_experimental/evaluation/harness
 
 ### Adopted experiments
-| Name                                                                                   | Type                    | Final release | Cookbook                                                                                                                                 |
-|----------------------------------------------------------------------------------------|-------------------------|---------------| ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker` | Tool Calling support    | 0.4.0         | |
-| `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                  | AsyncPipeline execution | 0.7.0         | |
+| Name                                                                                   | Type                           | Final release |
+|----------------------------------------------------------------------------------------|--------------------------------|---------------|
+| `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker` | Tool Calling support           | 0.4.0         |
+| `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                  | AsyncPipeline execution        | 0.7.0         |
+| `LLMMetadataExtractor`                                                                 | Metadata extraction with LLM   | 0.7.0         |
 
 ### Discontinued experiments
 
