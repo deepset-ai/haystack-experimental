@@ -22,6 +22,10 @@ from haystack_experimental.tools import Tool, ComponentTool
 
 import os
 
+
+def streaming_callback_for_serde(chunk: StreamingChunk):
+    pass
+
 def weather_function(location):
     weather_info = {
         "Berlin": {"weather": "mostly sunny", "temperature": 7, "unit": "celsius"},
@@ -112,6 +116,23 @@ class TestAgent:
         assert isinstance(deserialized_agent.chat_generator, OpenAIChatGenerator)
         assert deserialized_agent.tools[0].function is weather_function
         assert isinstance(deserialized_agent.tools[1]._component, PromptBuilder)
+
+    def test_serde_with_streaming_callback(self, weather_tool, component_tool):
+        os.environ["FAKE_OPENAI_KEY"] = "fake-key"
+        generator = OpenAIChatGenerator(api_key=Secret.from_env_var("FAKE_OPENAI_KEY"))
+        agent = Agent(
+            chat_generator=generator,
+            tools=[weather_tool, component_tool],
+            streaming_callback=streaming_callback_for_serde,
+        )
+
+        serialized_agent = agent.to_dict()
+
+        init_parameters = serialized_agent["init_parameters"]
+        assert init_parameters["streaming_callback"] == "test.components.agents.test_agent.streaming_callback_for_serde"
+
+        deserialized_agent = Agent.from_dict(serialized_agent)
+        assert deserialized_agent.streaming_callback is streaming_callback_for_serde
 
     def test_run_with_params_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
         chat_generator = OpenAIChatGenerator(
