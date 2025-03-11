@@ -13,7 +13,7 @@ from haystack.core.component import Component
 from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
-from haystack.dataclasses.streaming_chunk import StreamingChunk, SyncStreamingCallbackT
+from haystack.dataclasses.streaming_chunk import SyncStreamingCallbackT
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 
 from haystack_experimental.components.tools import ToolInvoker
