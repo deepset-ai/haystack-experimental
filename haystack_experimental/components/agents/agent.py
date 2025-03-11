@@ -247,10 +247,10 @@ class Agent:
         return instance
 
     def run(
-            self,
-            messages: List[ChatMessage],
-            streaming_callback: Optional[SyncStreamingCallbackT] = None,
-            **kwargs
+        self,
+        messages: List[ChatMessage],
+        streaming_callback: Optional[SyncStreamingCallbackT] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Process messages and execute tools until the exit condition is met.
