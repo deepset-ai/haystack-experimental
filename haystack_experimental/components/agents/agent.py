@@ -13,6 +13,8 @@ from haystack.core.component import Component
 from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
+from haystack.dataclasses.streaming_chunk import SyncStreamingCallbackT
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
@@ -63,6 +65,7 @@ class Agent:
         state_schema: Optional[Dict[str, Any]] = None,
         max_runs_per_component: int = 100,
         raise_on_tool_invocation_failure: bool = False,
+        streaming_callback: Optional[SyncStreamingCallbackT] = None,
     ):
         """
         Initialize the agent component.
@@ -77,6 +80,7 @@ class Agent:
             component exceeds the maximum number of runs per component.
         :param raise_on_tool_invocation_failure: Should the agent raise an exception when a tool invocation fails?
             If set to False, the exception will be turned into a chat message and passed to the LLM.
+        :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
         """
         valid_exits = ["text"] + [tool.name for tool in tools or []]
         if exit_condition not in valid_exits:
@@ -92,6 +96,7 @@ class Agent:
         self.exit_condition = exit_condition
         self.max_runs_per_component = max_runs_per_component
         self.raise_on_tool_invocation_failure = raise_on_tool_invocation_failure
+        self.streaming_callback = streaming_callback
 
         output_types = {"messages": List[ChatMessage]}
         for param, config in self.state_schema.items():
@@ -178,6 +183,11 @@ class Agent:
 
         :return: Dictionary with serialized data
         """
+        if self.streaming_callback is not None:
+            streaming_callback = serialize_callable(self.streaming_callback)
+        else:
+            streaming_callback = None
+
         return default_to_dict(
             self,
             chat_generator=self.chat_generator.to_dict(),
@@ -187,6 +197,7 @@ class Agent:
             state_schema=_schema_to_dict(self.state_schema),
             max_runs_per_component=self.max_runs_per_component,
             raise_on_tool_invocation_failure=self.raise_on_tool_invocation_failure,
+            streaming_callback=streaming_callback
         )
 
     @classmethod
@@ -201,9 +212,12 @@ class Agent:
 
         init_params["chat_generator"] = Agent._load_component(init_params["chat_generator"])
 
-        # Deserialize type annotations
         if "state_schema" in init_params:
             init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
+
+        if init_params.get("streaming_callback") is not None:
+            init_params["streaming_callback"] = deserialize_callable(init_params["streaming_callback"])
+
 
         deserialize_tools_inplace(init_params, key="tools")
 
@@ -232,11 +246,17 @@ class Agent:
 
         return instance
 
-    def run(self, messages: List[ChatMessage], **kwargs) -> Dict[str, Any]:
+    def run(
+        self,
+        messages: List[ChatMessage],
+        streaming_callback: Optional[SyncStreamingCallbackT] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
         """
         Process messages and execute tools until the exit condition is met.
 
         :param messages: List of chat messages to process
+        :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
         :param kwargs: Additional keyword arguments matching the defined input types
         :return: Dictionary containing messages and outputs matching the defined output types
         """
@@ -245,11 +265,17 @@ class Agent:
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
 
+        generator_inputs = {"tools": self.tools}
+
+        selected_callback = streaming_callback or self.streaming_callback
+        if selected_callback is not None:
+            generator_inputs["streaming_callback"] = selected_callback
+
         result = self.pipeline.run(
             data={
                 "joiner": {"value": messages},
                 "context_joiner": {"value": state},
-                "generator": {"tools": self.tools},
+                "generator": generator_inputs,
             },
             include_outputs_from={"context_joiner"},
         )

@@ -4,5 +4,4 @@
 
 from haystack_experimental.components.writers.chat_message_writer import ChatMessageWriter
 
-
 _all_ = ["ChatMessageWriter"]
