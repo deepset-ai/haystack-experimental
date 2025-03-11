@@ -5,3 +5,4 @@
 from haystack_experimental.util.asynchronous import is_callable_async_compatible
 
 __all__ = ["is_callable_async_compatible"]
+
