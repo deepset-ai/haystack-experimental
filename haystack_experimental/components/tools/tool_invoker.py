@@ -18,25 +18,26 @@ logger = logging.getLogger(__name__)
 
 _TOOL_INVOCATION_FAILURE = "Tool invocation failed with error: {error}."
 _TOOL_NOT_FOUND = "Tool {tool_name} not found in the list of tools. Available tools are: {available_tools}."
-_TOOL_RESULT_CONVERSION_FAILURE = (
-    "Failed to convert tool result to string using '{conversion_function}'. Error: {error}."
-)
 
 
-class ToolNotFoundException(Exception):
-    """
-    Exception raised when a tool is not found in the list of available tools.
-    """
-
-    pass
+class ToolInvokerError(Exception):
+    """Base exception class for ToolInvoker errors."""
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
-class StringConversionError(Exception):
-    """
-    Exception raised when the conversion of a tool result to a string fails.
-    """
+class ToolNotFoundException(ToolInvokerError):
+    """Exception raised when a tool is not found in the list of available tools."""
+    def __init__(self, tool_name: str, available_tools: List[str]):
+        message = f"Tool '{tool_name}' not found. Available tools: {', '.join(available_tools)}"
+        super().__init__(message)
 
-    pass
+
+class StringConversionError(ToolInvokerError):
+    """Exception raised when the conversion of a tool result to a string fails."""
+    def __init__(self, conversion_function: str, error: Exception):
+        message = f"Failed to convert tool result using '{conversion_function}'. Error: {error}"
+        super().__init__(message)
 
 
 @component
@@ -139,6 +140,19 @@ class ToolInvoker:
         self.raise_on_failure = raise_on_failure
         self.convert_result_to_json_string = convert_result_to_json_string
 
+    def _handle_error(self, error: Exception) -> str:
+        """
+        Handles errors by logging and either raising or returning a fallback message.
+
+        :param error: The exception instance.
+        :returns: The fallback message when raise_on_failure is False.
+        :raises: The provided error if raise_on_failure is True.
+        """
+        logger.error("{error_exception}", error_exception=error)
+        if self.raise_on_failure:
+            raise error
+        return str(error)
+
     def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
         """
         Prepares a ChatMessage with the result of a tool invocation.
@@ -152,24 +166,16 @@ class ToolInvoker:
             and `raise_on_failure` is True.
         """
         error = False
-        if self.convert_result_to_json_string:
-            try:
+        try:
+            if self.convert_result_to_json_string:
                 # We disable ensure_ascii so special chars like emojis are not converted
                 tool_result_str = json.dumps(result, ensure_ascii=False)
-            except Exception as e:
-                if self.raise_on_failure:
-                    raise StringConversionError("Failed to convert tool result to string using `json.dumps`") from e
-                tool_result_str = _TOOL_RESULT_CONVERSION_FAILURE.format(error=e, conversion_function="json.dumps")
-                error = True
-
-            return ChatMessage.from_tool(tool_result=tool_result_str, error=error, origin=tool_call)
-
-        try:
-            tool_result_str = str(result)
+            else:
+                tool_result_str = str(result)
         except Exception as e:
-            if self.raise_on_failure:
-                raise StringConversionError("Failed to convert tool result to string using `str`") from e
-            tool_result_str = _TOOL_RESULT_CONVERSION_FAILURE.format(error=e, conversion_function="str")
+            conversion_method = "json.dumps" if self.convert_result_to_json_string else "str"
+            error_message = self._handle_error(StringConversionError(conversion_method, e))
+            tool_result_str = error_message
             error = True
 
         return ChatMessage.from_tool(tool_result=tool_result_str, error=error, origin=tool_call)
@@ -195,20 +201,18 @@ class ToolInvoker:
         else:
             func_params = set(inspect.signature(tool.function).parameters.keys())
 
-        # If this is a "ComponentTool" (or function-based tool) that has an 'inputs' mapping, use it.
+        # Determine the source of parameter mappings (explicit tool inputs or direct function parameters)
         # Typically, a "Tool" might have .inputs = {"state_key": "tool_param_name"}
         if hasattr(tool, "inputs") and isinstance(tool.inputs, dict):
-            # Only pull from state if the LLM did *not* provide a value.
-            for state_key, param_name in tool.inputs.items():
-                if param_name not in final_args and state.has(state_key):
-                    final_args[param_name] = state.get(state_key)
+            param_mappings = tool.inputs
         else:
-            # Fallback: auto-match by name if function param is in state, not overridden by LLM
-            for param_name in func_params:
-                if param_name not in final_args and state.has(param_name):
-                    final_args[param_name] = state.get(param_name)
+            param_mappings = {name: name for name in func_params}
 
-        # ToolCall arguments from the LLM always override state if there's a collision.
+        # Populate final_args from state if not provided by LLM
+        for state_key, param_name in param_mappings.items():
+            if param_name not in final_args and state.has(state_key):
+                final_args[param_name] = state.get(state_key)
+
         return final_args
 
     @staticmethod
