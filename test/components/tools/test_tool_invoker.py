@@ -172,7 +172,7 @@ class TestToolInvoker:
         result = faulty_invoker.run(messages=[tool_call_message])
         tool_message = result["tool_messages"][0]
         assert tool_message.tool_call_results[0].error
-        assert "invocation failed" in tool_message.tool_call_results[0].result
+        assert "Failed to invoke" in tool_message.tool_call_results[0].result
 
     def test_string_conversion_error(self, invoker):
         invoker.convert_result_to_json_string = True

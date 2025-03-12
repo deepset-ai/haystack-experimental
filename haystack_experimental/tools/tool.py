@@ -53,7 +53,6 @@ class Tool:
         except SchemaError as e:
             raise ValueError("The provided parameters do not define a valid JSON schema") from e
 
-
         # Validate outputs structure if provided
         if self.outputs is not None:
             for key, config in self.outputs.items():

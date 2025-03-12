@@ -16,9 +16,6 @@ from haystack_experimental.tools.component_tool import ComponentTool
 
 logger = logging.getLogger(__name__)
 
-_TOOL_INVOCATION_FAILURE = "Tool invocation failed with error: {error}."
-_TOOL_NOT_FOUND = "Tool {tool_name} not found in the list of tools. Available tools are: {available_tools}."
-
 
 class ToolInvokerError(Exception):
     """Base exception class for ToolInvoker errors."""
@@ -38,6 +35,11 @@ class StringConversionError(ToolInvokerError):
     def __init__(self, conversion_function: str, error: Exception):
         message = f"Failed to convert tool result using '{conversion_function}'. Error: {error}"
         super().__init__(message)
+
+
+class ToolOutputMergeError(ToolInvokerError):
+    """Exception raised when merging tool outputs into state fails."""
+    pass
 
 
 @component
@@ -142,11 +144,11 @@ class ToolInvoker:
 
     def _handle_error(self, error: Exception) -> str:
         """
-        Handles errors by logging and either raising or returning a fallback message.
+        Handles errors by logging and either raising or returning a fallback error message.
 
         :param error: The exception instance.
-        :returns: The fallback message when raise_on_failure is False.
-        :raises: The provided error if raise_on_failure is True.
+        :returns: The fallback error message when `raise_on_failure` is False.
+        :raises: The provided error if `raise_on_failure` is True.
         """
         logger.error("{error_exception}", error_exception=error)
         if self.raise_on_failure:
@@ -305,34 +307,31 @@ class ToolInvoker:
 
             for tool_call in tool_calls:
                 tool_name = tool_call.tool_name
-                llm_args = tool_call.arguments.copy()
 
                 if tool_name not in self._tools_with_names:
-                    msg = _TOOL_NOT_FOUND.format(
-                        tool_name=tool_name,
-                        available_tools=list(self._tools_with_names.keys()),
-                    )
-                    if self.raise_on_failure:
-                        raise ToolNotFoundException(msg)
                     tool_messages.append(
-                        ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True)
+                        ChatMessage.from_tool(
+                            tool_result=self._handle_error(
+                                ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
+                            ),
+                            origin=tool_call,
+                            error=True
+                        )
                     )
                     continue
 
                 tool_to_invoke = self._tools_with_names[tool_name]
 
                 # 1) Combine user + state inputs
+                llm_args = tool_call.arguments.copy()
                 final_args = self._inject_state_args(tool_to_invoke, llm_args, state)
 
                 # 2) Invoke the tool
                 try:
                     tool_result = tool_to_invoke.invoke(**final_args)
                 except ToolInvocationError as e:
-                    if self.raise_on_failure:
-                        raise
-                    msg = _TOOL_INVOCATION_FAILURE.format(error=e)
                     tool_messages.append(
-                        ChatMessage.from_tool(tool_result=msg, origin=tool_call, error=True)
+                        ChatMessage.from_tool(tool_result=self._handle_error(e), origin=tool_call, error=True)
                     )
                     continue
 
@@ -340,13 +339,9 @@ class ToolInvoker:
                 try:
                     tool_text = self._merge_tool_outputs(tool_to_invoke, tool_result, state)
                 except Exception as e:
-                    if self.raise_on_failure:
-                        raise
-                    tool_text = f"[Merging error: {e}]"
+                    tool_text = self._handle_error(ToolOutputMergeError(f"Failed to merge tool outputs: {e}"))
 
-                tool_messages.append(
-                    self._prepare_tool_result_message(result=tool_text, tool_call=tool_call)
-                )
+                tool_messages.append(self._prepare_tool_result_message(result=tool_text, tool_call=tool_call))
 
         return {"tool_messages": tool_messages, "state": state}
 
