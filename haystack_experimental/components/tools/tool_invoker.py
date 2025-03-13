@@ -187,9 +187,7 @@ class ToolInvoker:
         return ChatMessage.from_tool(tool_result=tool_result_str, error=error, origin=tool_call)
 
     @staticmethod
-    def _inject_state_args(
-        tool: Tool, llm_args: Dict[str, Any], state: State
-    ) -> Dict[str, Any]:
+    def _inject_state_args(tool: Tool, llm_args: Dict[str, Any], state: State) -> Dict[str, Any]:
         """
         Combine LLM-provided arguments (llm_args) with state-based arguments.
 
@@ -315,26 +313,21 @@ class ToolInvoker:
         if state is None:
             state = State(schema={})
 
+        # Only keep messages with tool calls
+        messages_with_tool_calls = [message for message in messages if message.tool_calls]
+
         tool_messages = []
-
-        for message in messages:
-            tool_calls = message.tool_calls
-            if not tool_calls:
-                continue
-
-            for tool_call in tool_calls:
+        for message in messages_with_tool_calls:
+            for tool_call in message.tool_calls:
                 tool_name = tool_call.tool_name
 
+                # Check if the tool is available, otherwise return an error message
                 if tool_name not in self._tools_with_names:
                     error_message = self._handle_error(
                         ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
                     )
                     tool_messages.append(
-                        ChatMessage.from_tool(
-                            tool_result=error_message,
-                            origin=tool_call,
-                            error=True
-                        )
+                        ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
                     )
                     continue
 
@@ -348,9 +341,8 @@ class ToolInvoker:
                 try:
                     tool_result = tool_to_invoke.invoke(**final_args)
                 except ToolInvocationError as e:
-                    tool_messages.append(
-                        ChatMessage.from_tool(tool_result=self._handle_error(e), origin=tool_call, error=True)
-                    )
+                    error_message = self._handle_error(e)
+                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
                     continue
 
                 # 3) Merge outputs into state & create a single ChatMessage for the LLM
