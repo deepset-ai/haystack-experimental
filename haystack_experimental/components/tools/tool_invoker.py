@@ -152,6 +152,7 @@ class ToolInvoker:
         """
         logger.error("{error_exception}", error_exception=error)
         if self.raise_on_failure:
+            # We re-raise the original error maintaining the exception chain
             raise error
         return str(error)
 
@@ -176,9 +177,12 @@ class ToolInvoker:
                 tool_result_str = str(result)
         except Exception as e:
             conversion_method = "json.dumps" if self.convert_result_to_json_string else "str"
-            error_message = self._handle_error(StringConversionError(conversion_method, e))
-            tool_result_str = error_message
-            error = True
+            try:
+                tool_result_str = self._handle_error(StringConversionError(conversion_method, e))
+                error = True
+            except StringConversionError as conversion_error:
+                # If _handle_error re-raises, this properly preserves the chain
+                raise conversion_error from e
 
         return ChatMessage.from_tool(tool_result=tool_result_str, error=error, origin=tool_call)
 
@@ -322,11 +326,12 @@ class ToolInvoker:
                 tool_name = tool_call.tool_name
 
                 if tool_name not in self._tools_with_names:
+                    error_message = self._handle_error(
+                        ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
+                    )
                     tool_messages.append(
                         ChatMessage.from_tool(
-                            tool_result=self._handle_error(
-                                ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
-                            ),
+                            tool_result=error_message,
                             origin=tool_call,
                             error=True
                         )
@@ -352,9 +357,17 @@ class ToolInvoker:
                 try:
                     tool_text = self._merge_tool_outputs(tool_to_invoke, tool_result, state)
                 except Exception as e:
-                    tool_text = self._handle_error(
-                        ToolOutputMergeError(f"Failed to merge tool outputs into State: {e}")
-                    )
+                    try:
+                        error_message = self._handle_error(
+                            ToolOutputMergeError(f"Failed to merge tool outputs into State: {e}")
+                        )
+                        tool_messages.append(
+                            ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
+                        )
+                        continue
+                    except ToolOutputMergeError as propagated_e:
+                        # Re-raise with proper error chain
+                        raise propagated_e from e
 
                 tool_messages.append(self._prepare_tool_result_message(result=tool_text, tool_call=tool_call))
 
