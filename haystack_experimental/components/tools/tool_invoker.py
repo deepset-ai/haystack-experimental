@@ -32,8 +32,8 @@ class ToolNotFoundException(ToolInvokerError):
 
 class StringConversionError(ToolInvokerError):
     """Exception raised when the conversion of a tool result to a string fails."""
-    def __init__(self, conversion_function: str, error: Exception):
-        message = f"Failed to convert tool result using '{conversion_function}'. Error: {error}"
+    def __init__(self, tool_name: str, conversion_function: str, error: Exception):
+        message = f"Failed to convert tool result from tool {tool_name} using '{conversion_function}'. Error: {error}"
         super().__init__(message)
 
 
@@ -178,7 +178,7 @@ class ToolInvoker:
         except Exception as e:
             conversion_method = "json.dumps" if self.convert_result_to_json_string else "str"
             try:
-                tool_result_str = self._handle_error(StringConversionError(conversion_method, e))
+                tool_result_str = self._handle_error(StringConversionError(tool_call.tool_name, conversion_method, e))
                 error = True
             except StringConversionError as conversion_error:
                 # If _handle_error re-raises, this properly preserves the chain
@@ -351,7 +351,7 @@ class ToolInvoker:
                 except Exception as e:
                     try:
                         error_message = self._handle_error(
-                            ToolOutputMergeError(f"Failed to merge tool outputs into State: {e}")
+                            ToolOutputMergeError(f"Failed to merge tool outputs from tool {tool_name} into State: {e}")
                         )
                         tool_messages.append(
                             ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
