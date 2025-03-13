@@ -6,6 +6,7 @@ from haystack import Pipeline
 from haystack.dataclasses import ChatMessage, ToolCall, ToolCallResult, ChatRole
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
+from haystack_experimental.dataclasses.state import State
 from haystack_experimental.tools.tool import Tool, ToolInvocationError
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException, StringConversionError
 
@@ -82,6 +83,40 @@ class TestToolInvoker:
         new_tool.name = "weather_tool"
         with pytest.raises(ValueError):
             ToolInvoker(tools=[weather_tool, new_tool])
+
+    def test_inject_state_args_no_tool_inputs(self):
+        weather_tool = Tool(
+            name="weather_tool",
+            description="Provides weather information for a given location.",
+            parameters=weather_parameters,
+            function=weather_function,
+        )
+        state = State(schema={"location": {"type": str}}, data={"location": "Berlin"})
+        args = ToolInvoker._inject_state_args(tool=weather_tool, llm_args={}, state=state)
+        assert args == {"location": "Berlin"}
+
+    def test_inject_state_args_with_tool_inputs(self):
+        weather_tool = Tool(
+            name="weather_tool",
+            description="Provides weather information for a given location.",
+            parameters=weather_parameters,
+            function=weather_function,
+            inputs={"loc": "location"}
+        )
+        state = State(schema={"location": {"type": str}}, data={"loc": "Berlin"})
+        args = ToolInvoker._inject_state_args(tool=weather_tool, llm_args={}, state=state)
+        assert args == {"location": "Berlin"}
+
+    def test_inject_state_args_param_in_state_and_llm(self):
+        weather_tool = Tool(
+            name="weather_tool",
+            description="Provides weather information for a given location.",
+            parameters=weather_parameters,
+            function=weather_function,
+        )
+        state = State(schema={"location": {"type": str}}, data={"location": "Berlin"})
+        args = ToolInvoker._inject_state_args(tool=weather_tool, llm_args={"location": "Paris"}, state=state)
+        assert args == {"location": "Paris"}
 
     def test_run(self, invoker):
         tool_call = ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})
