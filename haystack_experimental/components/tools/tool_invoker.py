@@ -4,7 +4,7 @@
 
 import inspect
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage, ToolCall
@@ -217,64 +217,75 @@ class ToolInvoker:
 
         return final_args
 
-    @staticmethod
-    def _merge_tool_outputs(tool: Tool, result: Any, state: State) -> Any:
+    def _merge_tool_outputs(self, tool: Tool, result: Any, state: State) -> Any:
         """
-        Merge a tool result into the global state.
+        Merges the tool result into the global state and determines the response message.
 
-        If `result` is a dictionary and there's an `outputs` mapping on the tool, apply it.
-        Otherwise, do default merges keyed by dictionary keys.
+        This method processes the output of a tool execution and integrates it into the global state.
+        It also determines what message, if any, should be returned for further processing in a conversation.
 
-        The return value becomes the final "tool role" message for the LLM:
-         - By default, converts the entire result to a string
-         - If tool defines "message" in outputs, that "message" becomes the conversation text
+        Processing Steps:
+        1. If `result` is not a dictionary, it is treated as a single output and returned directly.
+        2. If the `tool` does not define an `outputs` mapping, the entire `result` dictionary is merged into the state
+           as key-value pairs. The return value in this case is simply the full `result` dictionary.
+        3. If the tool defines an `outputs` mapping (a dictionary describing how the tool's output should be processed),
+           the method delegates to `_handle_tool_outputs` to process the output accordingly.
+           This allows certain fields in `result` to be mapped explicitly to state fields or formatted using custom
+           handlers.
 
-        :param tool: Tool instance to merge results from
-        :param result: Result value from tool execution
-        :param state: Global state to merge results into
-        :returns: String to use as the tool's response message in conversation
+        :param tool: Tool instance containing optional `outputs` mapping to guide result processing.
+        :param result: The output from tool execution. Can be a dictionary, or any other type.
+        :param state: The global State object to which results should be merged.
+        :returns: Three possible values:
+            - A string message for conversation
+            - The merged result dictionary
+            - Or the raw result if not a dictionary
         """
+        # If result is not a dictionary, return it as the output message.
         if not isinstance(result, dict):
-            # Not a dict => just treat it as a single output
             return result
 
-        # If the tool has an .outputs mapping with local overrides
-        # e.g. tool.outputs = {
-        #   "message": {"source": "documents", "handler": docs_to_str},
-        #   "documents": {"source": "documents", "handler": None}
-        # }
-        # Then "message" is special: it forms the chat message text
-        # The rest is merged into state
-        if hasattr(tool, "outputs") and isinstance(tool.outputs, dict) and tool.outputs:
-            message_content = None
-            for state_key, config in tool.outputs.items():
-                # Where do we pull the data from in `result`?
-                # If "source" is given, use that subkey. Otherwise, entire result
-                source_key = config.get("source", None)
-                output_value = result if source_key is None else result.get(source_key)
+        # If there is no specific `outputs` mapping, we default to merging all result keys into the state.
+        if not hasattr(tool, "outputs") or not isinstance(tool.outputs, dict):
+            for key, value in result.items():
+                state.set(key, value)
+            return result
 
-                # Apply local handler if any
-                handler = config.get("handler", None)
+        # Handle tool outputs with specific mapping for message and state updates
+        return self._handle_tool_outputs(tool.outputs, result, state)
 
-                if state_key == "message":
-                    # This is how we produce the final text for the LLM
-                    if handler is not None:
-                        message_content = handler(output_value)
-                    else:
-                        message_content = output_value
+    @staticmethod
+    def _handle_tool_outputs(outputs: dict, result: dict, state: State) -> Union[dict, str]:
+        """
+        Handles the `outputs` mapping from the tool and updates the state accordingly.
+
+        :param outputs: Mapping of outputs from the tool.
+        :param result: Result of the tool execution.
+        :param state: Global state to merge results into.
+        :returns: Final message for LLM or the entire result.
+        """
+        message_content = None
+
+        for state_key, config in outputs.items():
+            # Get the source key from the output config, otherwise use the entire result
+            source_key = config.get("source", None)
+            output_value = result if source_key is None else result.get(source_key)
+
+            # Get the handler function, if any
+            handler = config.get("handler", None)
+
+            if state_key == "message":
+                # Handle the message output separately
+                if handler is not None:
+                    message_content = handler(output_value)
                 else:
-                    # It's a state field => merge
-                    # If there's a local custom handler, pass it as override
-                    state.set(state_key, output_value, handler_override=handler)
+                    message_content = str(output_value)
+            else:
+                # Merge other outputs into the state
+                state.set(state_key, output_value, handler_override=handler)
 
-            # If no explicit "message" key, fallback to the entire result
-            return message_content if message_content is not None else result
-        else:
-            # No explicit outputs => each key in result merges into state
-            for k, v in result.items():
-                state.set(k, v)
-
-            return result
+        # If no "message" key was found, return the result or message content
+        return message_content if message_content is not None else result
 
     @component.output_types(tool_messages=List[ChatMessage], state=State)
     def run(self, messages: List[ChatMessage], state: Optional[State] = None) -> Dict[str, Any]:
@@ -294,6 +305,8 @@ class ToolInvoker:
             If the tool invocation fails and `raise_on_failure` is True.
         :raises StringConversionError:
             If the conversion of the tool result to a string fails and `raise_on_failure` is True.
+        :raises ToolOutputMergeError:
+            If merging tool outputs into state fails and `raise_on_failure` is True.
         """
         if state is None:
             state = State(schema={})
@@ -339,7 +352,9 @@ class ToolInvoker:
                 try:
                     tool_text = self._merge_tool_outputs(tool_to_invoke, tool_result, state)
                 except Exception as e:
-                    tool_text = self._handle_error(ToolOutputMergeError(f"Failed to merge tool outputs: {e}"))
+                    tool_text = self._handle_error(
+                        ToolOutputMergeError(f"Failed to merge tool outputs into State: {e}")
+                    )
 
                 tool_messages.append(self._prepare_tool_result_message(result=tool_text, tool_call=tool_call))
 
