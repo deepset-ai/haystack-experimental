@@ -192,8 +192,8 @@ class TestToolInvoker:
         with pytest.raises(ToolNotFoundException):
             invoker.run(messages=[tool_call_message])
 
-    def test_tool_not_found_does_not_raise_exception(self, invoker):
-        invoker.raise_on_failure = False
+    def test_tool_not_found_does_not_raise_exception(self, weather_tool):
+        invoker = ToolInvoker(tools=[weather_tool], raise_on_failure=False, convert_result_to_json_string=False)
 
         tool_call = ToolCall(tool_name="non_existent_tool", arguments={"location": "Berlin"})
         tool_call_message = ChatMessage.from_assistant(tool_calls=[tool_call])
@@ -211,8 +211,8 @@ class TestToolInvoker:
         with pytest.raises(ToolInvocationError):
             faulty_invoker.run(messages=[tool_call_message])
 
-    def test_tool_invocation_error_does_not_raise_exception(self, faulty_invoker):
-        faulty_invoker.raise_on_failure = False
+    def test_tool_invocation_error_does_not_raise_exception(self, faulty_tool):
+        faulty_invoker = ToolInvoker(tools=[faulty_tool], raise_on_failure=False, convert_result_to_json_string=False)
 
         tool_call = ToolCall(tool_name="faulty_tool", arguments={"location": "Berlin"})
         tool_call_message = ChatMessage.from_assistant(tool_calls=[tool_call])
@@ -222,8 +222,8 @@ class TestToolInvoker:
         assert tool_message.tool_call_results[0].error
         assert "Failed to invoke" in tool_message.tool_call_results[0].result
 
-    def test_string_conversion_error(self, invoker):
-        invoker.convert_result_to_json_string = True
+    def test_string_conversion_error(self, weather_tool):
+        invoker = ToolInvoker(tools=[weather_tool], raise_on_failure=True, convert_result_to_json_string=True)
 
         tool_call = ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})
 
@@ -231,9 +231,8 @@ class TestToolInvoker:
         with pytest.raises(StringConversionError):
             invoker._prepare_tool_result_message(result=tool_result, tool_call=tool_call)
 
-    def test_string_conversion_error_does_not_raise_exception(self, invoker):
-        invoker.convert_result_to_json_string = True
-        invoker.raise_on_failure = False
+    def test_string_conversion_error_does_not_raise_exception(self, weather_tool):
+        invoker = ToolInvoker(tools=[weather_tool], raise_on_failure=False, convert_result_to_json_string=True)
 
         tool_call = ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})
 
