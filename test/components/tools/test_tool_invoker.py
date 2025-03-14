@@ -4,10 +4,12 @@ import datetime
 from haystack import Pipeline
 
 from haystack.dataclasses import ChatMessage, ToolCall, ToolCallResult, ChatRole
+from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
 from haystack_experimental.dataclasses.state import State
 from haystack_experimental.tools.tool import Tool, ToolInvocationError
+from haystack_experimental.tools.component_tool import ComponentTool
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker, ToolNotFoundException, StringConversionError
 
 
@@ -94,6 +96,17 @@ class TestToolInvoker:
         state = State(schema={"location": {"type": str}}, data={"location": "Berlin"})
         args = ToolInvoker._inject_state_args(tool=weather_tool, llm_args={}, state=state)
         assert args == {"location": "Berlin"}
+
+    def test_inject_state_args_no_tool_inputs_component_tool(self):
+        comp = PromptBuilder(template="Hello, {{name}}!")
+        prompt_tool = ComponentTool(
+            component=comp,
+            name="prompt_tool",
+            description="Creates a personalized greeting prompt.",
+        )
+        state = State(schema={"name": {"type": str}}, data={"name": "James"})
+        args = ToolInvoker._inject_state_args(tool=prompt_tool, llm_args={}, state=state)
+        assert args == {"name": "James"}
 
     def test_inject_state_args_with_tool_inputs(self):
         weather_tool = Tool(

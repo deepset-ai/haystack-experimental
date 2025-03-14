@@ -201,7 +201,7 @@ class ToolInvoker:
         # ComponentTool wraps the function with a function that accepts kwargs, so we need to look at input sockets
         # to find out which parameters the tool accepts.
         if isinstance(tool, ComponentTool):
-            func_params = tool._component.__haystack_input__._sockets_dict.keys()
+            func_params = set(tool._component.__haystack_input__._sockets_dict.keys())
         else:
             func_params = set(inspect.signature(tool.function).parameters.keys())
 
