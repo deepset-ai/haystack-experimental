@@ -36,8 +36,10 @@ class Agent:
 
     ### Usage example
     ```python
+    from haystack.components.generators.chat import OpenAIChatGenerator
     from haystack.dataclasses import ChatMessage
     from haystack.tools.tool import Tool
+    from haystack_experimental.components.agents import Agent
 
     tools = [Tool(name="calculator", description="..."), Tool(name="search", description="...")]
 
