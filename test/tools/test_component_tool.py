@@ -158,10 +158,10 @@ class TestToolComponent:
     def test_from_component_with_inputs(self):
         component = SimpleComponent()
 
-        tool = ComponentTool(component=component, inputs={"text": "text"})
+        tool = ComponentTool(component=component, inputs_from_state={"text": "text"})
 
 
-        assert tool.inputs == {"text": "text"}
+        assert tool.inputs_from_state == {"text": "text"}
         # Inputs should be excluded from schema generation
         assert tool.parameters == {
             "type": "object",
@@ -171,9 +171,9 @@ class TestToolComponent:
     def test_from_component_with_outputs(self):
         component = SimpleComponent()
 
-        tool = ComponentTool(component=component, outputs={"replies": {"source": "reply"}})
+        tool = ComponentTool(component=component, outputs_to_state={"replies": {"source": "reply"}})
 
-        assert tool.outputs == {"replies": {"source": "reply"}}
+        assert tool.outputs_to_state == {"replies": {"source": "reply"}}
 
     def test_from_component_with_dataclass(self):
         component = UserGreeter()
@@ -578,8 +578,8 @@ class TestToolComponentInPipelineWithOpenAI:
             component=component,
             name="simple_tool",
             description="A simple tool",
-            inputs={"test": "input"},
-            outputs={"output": {"source": "out", "handler": output_handler}},
+            inputs_from_state={"test": "input"},
+            outputs_to_state={"output": {"source": "out", "handler": output_handler}},
         )
 
         # Test serialization
@@ -596,8 +596,8 @@ class TestToolComponentInPipelineWithOpenAI:
         assert new_tool.name == tool.name
         assert new_tool.description == tool.description
         assert new_tool.parameters == tool.parameters
-        assert new_tool.inputs == tool.inputs
-        assert new_tool.outputs == tool.outputs
+        assert new_tool.inputs_from_state == tool.inputs_from_state
+        assert new_tool.outputs_to_state == tool.outputs_to_state
         assert isinstance(new_tool._component, SimpleComponent)
 
     def test_pipeline_component_fails(self):

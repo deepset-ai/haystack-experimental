@@ -89,14 +89,15 @@ class ComponentTool(Tool):
 
     """
 
-    def __init__( # pylint: disable=too-many-positional-arguments
-            self,
-            component: Component,
-            name: Optional[str] = None,
-            description: Optional[str] = None,
-            parameters: Optional[Dict[str, Any]] = None,
-            inputs: Optional[Dict[str, Any]] = None,
-            outputs: Optional[Dict[str, Any]] = None,
+    def __init__(
+        self,
+        component: Component,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        *,
+        inputs_from_state: Optional[Dict[str, Any]] = None,
+        outputs_to_state: Optional[Dict[str, Any]] = None,
     ):
         """
         Create a Tool instance from a Haystack component.
@@ -107,11 +108,11 @@ class ComponentTool(Tool):
         :param parameters:
             A JSON schema defining the parameters expected by the Tool.
             Will fall back to the parameters defined in the component's run method signature if not provided.
-        :param inputs:
+        :param inputs_from_state:
             Optional dictionary mapping state keys to tool parameter names.
             Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
-        :param outputs:
-            Optional dictionary defining how tool outputs map to state and message handling.
+        :param outputs_to_state:
+            Optional dictionary defining how tool outputs map to keys within state as well as optional handlers.
             Example: {
                 "documents": {"source": "docs", "handler": custom_handler},
                 "message": {"source": "summary", "handler": format_summary}
@@ -134,7 +135,7 @@ class ComponentTool(Tool):
 
         self._unresolved_parameters = parameters
         # Create the tools schema from the component run method parameters
-        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
+        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs_from_state or {})
 
         def component_invoker(**kwargs):
             """
@@ -175,7 +176,6 @@ class ComponentTool(Tool):
                 ]
             ).lstrip("_")
 
-
         description = (description or component.__doc__ or name)
 
         # Create the Tool instance with the component invoker as the function to be called and the schema
@@ -184,8 +184,8 @@ class ComponentTool(Tool):
             description=description,
             parameters=tool_schema,
             function=component_invoker,
-            inputs=inputs,
-            outputs=outputs
+            inputs_from_state=inputs_from_state,
+            outputs_to_state=outputs_to_state
         )
         self._component = component
 
@@ -200,12 +200,12 @@ class ComponentTool(Tool):
             "name": self.name,
             "description": self.description,
             "parameters": self._unresolved_parameters,
-            "inputs": self.inputs,
+            "inputs": self.inputs_from_state,
         }
 
-        if self.outputs is not None:
+        if self.outputs_to_state is not None:
             serialized_outputs = {}
-            for key, config in self.outputs.items():
+            for key, config in self.outputs_to_state.items():
                 serialized_config = config.copy()
                 if "handler" in config:
                     serialized_config["handler"] = serialize_callable(config["handler"])
@@ -238,8 +238,8 @@ class ComponentTool(Tool):
             name=inner_data["name"],
             description=inner_data["description"],
             parameters=inner_data.get("parameters", None),
-            inputs=inner_data.get("inputs", None),
-            outputs=inner_data.get("outputs", None),
+            inputs_from_state=inner_data.get("inputs", None),
+            outputs_to_state=inner_data.get("outputs", None),
         )
 
     def _create_tool_parameters_schema(self, component: Component, inputs: Dict[str, Any]) -> Dict[str, Any]:

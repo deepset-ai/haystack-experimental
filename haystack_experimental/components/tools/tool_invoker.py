@@ -206,9 +206,9 @@ class ToolInvoker:
             func_params = set(inspect.signature(tool.function).parameters.keys())
 
         # Determine the source of parameter mappings (explicit tool inputs or direct function parameters)
-        # Typically, a "Tool" might have .inputs = {"state_key": "tool_param_name"}
-        if hasattr(tool, "inputs") and isinstance(tool.inputs, dict):
-            param_mappings = tool.inputs
+        # Typically, a "Tool" might have .inputs_from_state = {"state_key": "tool_param_name"}
+        if hasattr(tool, "inputs_from_state") and isinstance(tool.inputs_from_state, dict):
+            param_mappings = tool.inputs_from_state
         else:
             param_mappings = {name: name for name in func_params}
 
@@ -247,14 +247,14 @@ class ToolInvoker:
         if not isinstance(result, dict):
             return result
 
-        # If there is no specific `outputs` mapping, we default to merging all result keys into the state.
-        if not hasattr(tool, "outputs") or not isinstance(tool.outputs, dict):
+        # If there is no specific `outputs_to_state` mapping, we default to merging all result keys into the state.
+        if not hasattr(tool, "outputs_to_state") or not isinstance(tool.outputs_to_state, dict):
             for key, value in result.items():
                 state.set(key, value)
             return result
 
         # Handle tool outputs with specific mapping for message and state updates
-        return self._handle_tool_outputs(tool.outputs, result, state)
+        return self._handle_tool_outputs(tool.outputs_to_state, result, state)
 
     @staticmethod
     def _handle_tool_outputs(outputs: dict, result: dict, state: State) -> Union[dict, str]:
