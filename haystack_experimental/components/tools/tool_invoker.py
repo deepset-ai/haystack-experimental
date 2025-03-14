@@ -227,9 +227,9 @@ class ToolInvoker:
         It also determines what message, if any, should be returned for further processing in a conversation.
 
         Processing Steps:
-        1. If `result` is not a dictionary, it is treated as a single output and returned directly.
-        2. If the `tool` does not define an `outputs` mapping, the entire `result` dictionary is merged into the state
-           as key-value pairs. The return value in this case is simply the full `result` dictionary.
+        1. If `result` is not a dictionary, nothing is stored into state and the full `result` is returned.
+        2. If the `tool` does not define an `outputs` mapping nothing is stored into state.
+           The return value in this case is simply the full `result` dictionary.
         3. If the tool defines an `outputs` mapping (a dictionary describing how the tool's output should be processed),
            the method delegates to `_handle_tool_outputs` to process the output accordingly.
            This allows certain fields in `result` to be mapped explicitly to state fields or formatted using custom
@@ -247,10 +247,8 @@ class ToolInvoker:
         if not isinstance(result, dict):
             return result
 
-        # If there is no specific `outputs` mapping, we default to merging all result keys into the state.
+        # If there is no specific `outputs` mapping, we jus
         if not hasattr(tool, "outputs") or not isinstance(tool.outputs, dict):
-            for key, value in result.items():
-                state.set(key, value)
             return result
 
         # Handle tool outputs with specific mapping for message and state updates

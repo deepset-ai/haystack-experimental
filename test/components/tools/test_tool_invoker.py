@@ -355,7 +355,7 @@ class TestMergeToolOutputs:
             state=state
         )
         assert merged_results == {"weather": "sunny", "temperature": 14, "unit": "celsius"}
-        assert state.data == {"weather": "sunny", "temperature": 14, "unit": "celsius"}
+        assert state.data == {}
 
     def test_merge_tool_outputs_with_output_mapping(self):
         weather_tool = Tool(
