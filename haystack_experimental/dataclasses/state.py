@@ -28,6 +28,7 @@ def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
 
     return serialized_schema
 
+
 def _schema_from_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert a serialized schema dictionary back to its original format.
@@ -46,6 +47,7 @@ def _schema_from_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
             deserialized_schema[param]["handler"] = deserialize_callable(config["handler"])
 
     return deserialized_schema
+
 
 def _validate_schema(schema: Dict[str, Any]) -> None:
     """
