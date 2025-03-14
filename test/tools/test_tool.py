@@ -24,8 +24,8 @@ class TestTool:
         assert tool.description == "Get weather report"
         assert tool.parameters == parameters
         assert tool.function == get_weather_report
-        assert tool.inputs is None
-        assert tool.outputs is None
+        assert tool.inputs_from_state is None
+        assert tool.outputs_to_state is None
 
     def test_init_invalid_parameters(self):
         parameters = {"type": "invalid", "properties": {"city": {"type": "string"}}}
@@ -47,7 +47,7 @@ class TestTool:
                 description="irrelevant",
                 parameters=parameters,
                 function=get_weather_report,
-                outputs=outputs
+                outputs_to_state=outputs
             )
 
     def test_tool_spec(self):
@@ -75,7 +75,7 @@ class TestTool:
     def test_to_dict(self):
         tool = Tool(
             name="weather", description="Get weather report", parameters=parameters, function=get_weather_report,
-            outputs={"documents": {"handler": get_weather_report, "source": "docs"}},
+            outputs_to_state={"documents": {"handler": get_weather_report, "source": "docs"}},
         )
 
         assert tool.to_dict() == {
@@ -85,8 +85,8 @@ class TestTool:
                 "description": "Get weather report",
                 "parameters": parameters,
                 "function": "test.tools.test_tool.get_weather_report",
-                "inputs": None,
-                "outputs": {"documents": {"source": "docs", "handler": "test.tools.test_tool.get_weather_report"}},
+                "inputs_from_state": None,
+                "outputs_to_state": {"documents": {"source": "docs", "handler": "test.tools.test_tool.get_weather_report"}},
             },
         }
 
@@ -98,7 +98,7 @@ class TestTool:
                 "description": "Get weather report",
                 "parameters": parameters,
                 "function": "test.tools.test_tool.get_weather_report",
-                "outputs": {"documents": {"source": "docs", "handler": "test.tools.test_tool.get_weather_report"}},
+                "outputs_to_state": {"documents": {"source": "docs", "handler": "test.tools.test_tool.get_weather_report"}},
             },
         }
 
@@ -108,8 +108,8 @@ class TestTool:
         assert tool.description == "Get weather report"
         assert tool.parameters == parameters
         assert tool.function == get_weather_report
-        assert tool.outputs["documents"]["source"] == "docs"
-        assert tool.outputs["documents"]["handler"] == get_weather_report
+        assert tool.outputs_to_state["documents"]["source"] == "docs"
+        assert tool.outputs_to_state["documents"]["handler"] == get_weather_report
 
 
 
