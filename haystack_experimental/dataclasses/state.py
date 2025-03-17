@@ -8,8 +8,7 @@ from haystack import logging
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.type_serialization import deserialize_type, serialize_type
 
-from haystack_experimental.dataclasses.state_utils import _is_valid_type, _is_list_type, merge_lists, replace_values
-
+from haystack_experimental.dataclasses.state_utils import _is_list_type, _is_valid_type, merge_lists, replace_values
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +106,7 @@ class State:
         self._data = data or {}
 
         # Set default handlers if not provided in schema
-        for key, definition in schema.items():
+        for definition in schema.values():
             # Skip if handler is already defined and not None
             if definition.get("handler") is not None:
                 continue
