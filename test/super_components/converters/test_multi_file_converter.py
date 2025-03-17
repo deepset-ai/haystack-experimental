@@ -1,6 +1,7 @@
+from typing import Union
+
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 from haystack import Document
 from haystack.dataclasses import ByteStream
@@ -68,14 +69,23 @@ class TestMultiFileConverter:
     )
     @pytest.mark.integration
     def test_run(self, test_files_path, converter, suffix, file_path):
-        paths = [test_files_path / file_path]
+        unclassified_bytestream = ByteStream(b"unclassified content")
+        unclassified_bytestream.meta["content_type"] = "unknown_type"
+
+        paths = [test_files_path / file_path, unclassified_bytestream]
+
         output = converter.run(sources=paths)
         docs = output["documents"]
+        unclassified = output["unclassified"]
 
         assert len(docs) == 1
         assert isinstance(docs[0], Document)
         assert docs[0].content is not None
         assert docs[0].meta["file_path"].endswith(suffix)
+
+        assert len(unclassified) == 1
+        assert isinstance(unclassified[0], Union[str, Path, ByteStream])
+        assert unclassified[0].meta["content_type"] == "unknown_type"
 
     def test_run_with_meta(self, test_files_path, converter):
         """Test conversion with metadata"""

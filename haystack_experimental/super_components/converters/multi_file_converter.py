@@ -54,13 +54,13 @@ class MultiFileConverter(SuperComponent):
     Usage:
     ```
     from haystack_experimental.super_components.converters import MultiFileConverter
-    
+
     converter = MultiFileConverter()
     converter.run(sources=["test.txt", "test.pdf"], meta={})
     ```
     """
 
-    def __init__( # noqa: PLR0915
+    def __init__(  # noqa: PLR0915
         self,
         encoding: str = "utf-8",
         json_content_key: str = "content",
@@ -88,11 +88,11 @@ class MultiFileConverter(SuperComponent):
                 ConverterMimeType.XLSX.value,
             ],
             # Ensure common extensions are registered. Tests on Windows fail otherwise.
-            additional_mimetypes = {
+            additional_mimetypes={
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-                "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx"
-            }
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+            },
         )
 
         csv = CSVToDocument(encoding=self.encoding)
@@ -106,8 +106,6 @@ class MultiFileConverter(SuperComponent):
         xlsx = XLSXToDocument()
 
         joiner = DocumentJoiner()
-
-
 
         # Create pipeline and add components
         pp = Pipeline()
@@ -146,20 +144,11 @@ class MultiFileConverter(SuperComponent):
         pp.connect("csv.documents", "joiner.documents")
         pp.connect("xlsx.documents", "joiner.documents")
 
-
-        output_mapping = {
-            "joiner.documents": "documents",
-            "router.unclassified": "unclassified"
-        }
-        input_mapping = {
-            "sources": ["router.sources"],
-            "meta": ["router.meta"]
-        }
+        output_mapping = {"joiner.documents": "documents", "router.unclassified": "unclassified"}
+        input_mapping = {"sources": ["router.sources"], "meta": ["router.meta"]}
 
         super(MultiFileConverter, self).__init__(
-            pipeline=pp,
-            output_mapping=output_mapping,
-            input_mapping=input_mapping
+            pipeline=pp, output_mapping=output_mapping, input_mapping=input_mapping
         )
 
     def to_dict(self) -> Dict[str, Any]:
