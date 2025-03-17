@@ -2,18 +2,18 @@ import pytest
 from typing import Any, List, Dict, Optional, Union, TypeVar, Generic
 from dataclasses import dataclass
 
-from haystack_experimental.dataclasses.state_utils import merge_values, is_list_type, is_dict_type, merge_lists, merge_dicts, _is_valid_type
+from haystack_experimental.dataclasses.state_utils import merge_values, _is_list_type, is_dict_type, merge_lists, merge_dicts, _is_valid_type
 
 import inspect
 
 def test_is_list_type():
     """Test the list type detection function."""
-    assert is_list_type(list) is True
-    assert is_list_type(List[int]) is True
-    assert is_list_type(List[str]) is True
-    assert is_list_type(dict) is False
-    assert is_list_type(int) is False
-    assert is_list_type(Union[List[int], None]) is False
+    assert _is_list_type(list) is True
+    assert _is_list_type(List[int]) is True
+    assert _is_list_type(List[str]) is True
+    assert _is_list_type(dict) is False
+    assert _is_list_type(int) is False
+    assert _is_list_type(Union[List[int], None]) is False
 
 
 def test_is_dict_type():

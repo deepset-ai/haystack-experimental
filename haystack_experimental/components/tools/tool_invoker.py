@@ -247,7 +247,7 @@ class ToolInvoker:
         if not isinstance(result, dict):
             return result
 
-        # If there is no specific `outputs` mapping, we jus
+        # If there is no specific `outputs` mapping, we just return the full result
         if not hasattr(tool, "outputs") or not isinstance(tool.outputs, dict):
             return result
 
