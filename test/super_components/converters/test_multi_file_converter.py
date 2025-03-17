@@ -84,7 +84,7 @@ class TestMultiFileConverter:
         assert docs[0].meta["file_path"].endswith(suffix)
 
         assert len(unclassified) == 1
-        assert isinstance(unclassified[0], Union[str, Path, ByteStream])
+        assert isinstance(unclassified[0], ByteStream)
         assert unclassified[0].meta["content_type"] == "unknown_type"
 
     def test_run_with_meta(self, test_files_path, converter):
