@@ -160,8 +160,8 @@ def test_tool_decorator_with_inputs_and_outputs():
 
 
     assert get_weather.name == "get_weather"
-    assert get_weather.inputs == {"format": "format"}
-    assert get_weather.outputs == {"output": {"source": "output"}}
+    assert get_weather.inputs_from_state == {"format": "format"}
+    assert get_weather.outputs_to_state == {"output": {"source": "output"}}
     # Inputs should be excluded from auto-generated parameters
     assert get_weather.parameters == {
         "type": "object",

@@ -114,7 +114,7 @@ class TestToolInvoker:
             description="Provides weather information for a given location.",
             parameters=weather_parameters,
             function=weather_function,
-            inputs={"loc": "location"}
+            inputs_from_state={"loc": "location"}
         )
         state = State(schema={"location": {"type": str}}, data={"loc": "Berlin"})
         args = ToolInvoker._inject_state_args(tool=weather_tool, llm_args={}, state=state)
@@ -297,8 +297,8 @@ class TestToolInvoker:
                                         "required": ["location"],
                                     },
                                     "function": "test.components.tools.test_tool_invoker.weather_function",
-                                    "inputs": None,
-                                    "outputs": None,
+                                    "inputs_from_state": None,
+                                    "outputs_to_state": None,
                                 },
                             }
                         ],
@@ -363,7 +363,7 @@ class TestMergeToolOutputs:
             description="Provides weather information for a given location.",
             parameters=weather_parameters,
             function=weather_function,
-            outputs={"weather": {"source": "weather"}}
+            outputs_to_state={"weather": {"source": "weather"}}
         )
         invoker = ToolInvoker(tools=[weather_tool])
         state = State(schema={"weather": {"type": str}})
@@ -381,7 +381,7 @@ class TestMergeToolOutputs:
             description="Provides weather information for a given location.",
             parameters=weather_parameters,
             function=weather_function,
-            outputs={"weather": {}}
+            outputs_to_state={"weather": {}}
         )
         invoker = ToolInvoker(tools=[weather_tool])
         state = State(schema={"weather": {"type": str}})
@@ -400,7 +400,7 @@ class TestMergeToolOutputs:
             description="Provides weather information for a given location.",
             parameters=weather_parameters,
             function=weather_function,
-            outputs={"temperature": {"source": "temperature", "handler": handler}}
+            outputs_to_state={"temperature": {"source": "temperature", "handler": handler}}
         )
         invoker = ToolInvoker(tools=[weather_tool])
         state = State(schema={"temperature": {"type": str}})
@@ -418,7 +418,7 @@ class TestMergeToolOutputs:
             description="Provides weather information for a given location.",
             parameters=weather_parameters,
             function=weather_function,
-            outputs={"message": {"source": "weather"}}
+            outputs_to_state={"message": {"source": "weather"}}
         )
         invoker = ToolInvoker(tools=[weather_tool])
         state = State(schema={})
