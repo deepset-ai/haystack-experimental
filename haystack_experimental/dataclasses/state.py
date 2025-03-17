@@ -155,11 +155,6 @@ class State:
 
         # if the current value is None just replace
         current_value = self._data.get(key, None)
-        if current_value is None:
-            self._data[key] = value
-            return
-
-        # if the current value is not None, we need to merge
         handler = handler_override or definition["handler"]
         self._data[key] = handler(current_value, value)
 

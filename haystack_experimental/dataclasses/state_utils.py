@@ -35,8 +35,7 @@ def _is_valid_type(obj: Any) -> bool:
         return True
 
     # Handle normal classes and generic types
-    return (inspect.isclass(obj) or
-            type(obj).__name__ in {"_GenericAlias", "GenericAlias"})
+    return inspect.isclass(obj) or type(obj).__name__ in {"_GenericAlias", "GenericAlias"}
 
 
 def _is_list_type(type_hint: Any) -> bool:
@@ -57,6 +56,11 @@ def merge_lists(current: Union[List[T], T], new: Union[List[T], T]) -> List[T]:
     :param new: The new value to merge, which may or may not be a list
     :return: A new list containing the merged values
     """
+    # If the current value is None, return the new value as a list
+    if current is None:
+        return new if isinstance(new, list) else [new]
+
+    # If the current value is not none, then merge
     current_list = current if isinstance(current, list) else [current]
     new_list = new if isinstance(new, list) else [new]
     return current_list + new_list

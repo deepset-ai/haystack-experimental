@@ -3,7 +3,7 @@ from typing import List, Dict
 
 from haystack_experimental.dataclasses.state import State, _validate_schema
 
-# Test fixtures
+
 @pytest.fixture
 def basic_schema():
     return {
@@ -25,7 +25,6 @@ def complex_schema():
     }
 
 
-# Test _validate_schema
 def test_validate_schema_valid(basic_schema):
     # Should not raise any exceptions
     _validate_schema(basic_schema)
@@ -55,7 +54,6 @@ def test_validate_schema_invalid_handler():
         _validate_schema(invalid_schema)
 
 
-# Test State class
 def test_state_initialization(basic_schema):
     # Test empty initialization
     state = State(basic_schema)
@@ -98,17 +96,6 @@ def test_state_set_with_handler(complex_schema):
     assert state.get("numbers") == [1, 2, 3, 4, 5, 6]
 
 
-def test_state_set_with_force(basic_schema):
-    state = State(basic_schema)
-
-    # Set initial value
-    state.set("numbers", [1, 2])
-
-    # Force update should replace instead of merge
-    state.set("numbers", [3, 4], force=True)
-    assert state.get("numbers") == [3, 4]
-
-
 def test_state_set_with_handler_override(basic_schema):
     state = State(basic_schema)
 
@@ -125,12 +112,12 @@ def test_state_has(basic_schema):
     assert state.has("name") is True
     assert state.has("non_existent") is False
 
-# Test edge cases
+
 def test_state_empty_schema():
     state = State({})
     assert state.data == {}
-    state.set("any_key", "value")  # Should work with empty schema
-    assert state.get("any_key") == "value"
+    with pytest.raises(ValueError, match="Key 'any_key' not found in schema"):
+        state.set("any_key", "value")
 
 
 def test_state_none_values(basic_schema):
@@ -141,18 +128,14 @@ def test_state_none_values(basic_schema):
     assert state.get("name") == "value"
 
 
-def test_state_invalid_types(basic_schema):
+def test_state_merge_lists(basic_schema):
     state = State(basic_schema)
-    # Setting wrong type should still work (Python's dynamic typing)
     state.set("numbers", "not_a_list")
-    assert state.get("numbers") == "not_a_list"
-
-    # Next set with correct type should handle the invalid previous value
+    assert state.get("numbers") == ["not_a_list"]
     state.set("numbers", [1, 2])
-    assert state.get("numbers") == [1, 2]
+    assert state.get("numbers") == ["not_a_list", 1, 2]
 
 
-# Test complex nested structures
 def test_state_nested_structures():
     schema = {
         "complex": {
