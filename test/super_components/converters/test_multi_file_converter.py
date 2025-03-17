@@ -1,11 +1,10 @@
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch
 
 from haystack import Document
 from haystack.dataclasses import ByteStream
 from haystack_experimental.core.super_component import SuperComponent
 from haystack_experimental.super_components.converters.multi_file_converter import MultiFileConverter
+
 
 @pytest.fixture
 def converter():

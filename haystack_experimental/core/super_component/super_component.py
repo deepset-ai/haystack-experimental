@@ -6,13 +6,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from haystack import Pipeline, component
 from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
+from haystack.core.type_utils import _types_are_compatible
 
 from haystack_experimental.core.super_component.utils import _delegate_default, is_compatible
 
 
 class InvalidMappingError(Exception):
     """Raised when input or output mappings are invalid or type conflicts are found."""
-
     pass
 
 
@@ -35,10 +35,10 @@ class SuperComponent:
         """
 
     def __init__(
-            self,
-            pipeline: Pipeline,
-            input_mapping: Optional[Dict[str, List[str]]] = None,
-            output_mapping: Optional[Dict[str, str]] = None,
+        self,
+        pipeline: Pipeline,
+        input_mapping: Optional[Dict[str, List[str]]] = None,
+        output_mapping: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Initialize the component with optional I/O mappings.
@@ -47,11 +47,25 @@ class SuperComponent:
         :param input_mapping: Optional input name mapping configuration
         :param output_mapping: Optional output name mapping configuration
         """
+        if pipeline is None:
+            raise ValueError("Pipeline must be provided to SuperComponent.")
+
         self.pipeline: Pipeline = pipeline
+        self.warmed_up = False
         self.input_mapping: Optional[Dict[str, List[str]]] = input_mapping
         self.output_mapping: Optional[Dict[str, str]] = output_mapping
-        self._set_io_types()
-        self.warmed_up = False
+
+        # Set input types based on pipeline and mapping
+        input_types = self._resolve_input_types()
+        for input_name, info in input_types.items():
+            if info["is_mandatory"]:
+                component.set_input_type(self, input_name, info["type"])
+            else:
+                component.set_input_type(self, input_name, info["type"], default=_delegate_default)
+
+        # Set output types based on pipeline and mapping
+        output_types = self._resolve_output_types()
+        component.set_output_types(self, **output_types)
 
     def warm_up(self) -> None:
         """
@@ -71,7 +85,6 @@ class SuperComponent:
         """
         return self._to_super_component_dict()
 
-
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SuperComponent":
         """
@@ -84,7 +97,6 @@ class SuperComponent:
         """
         pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
         data["init_parameters"]["pipeline"] = pipeline
-
         return default_from_dict(cls, data)
 
     def run(self, **kwargs: Any) -> Dict[str, Any]:
@@ -101,23 +113,9 @@ class SuperComponent:
         :raises ValueError: If no pipeline is configured
         :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
-        if not self.pipeline:
-            raise ValueError("No pipeline configured. Provide a valid pipeline before calling run().")
-
         pipeline_inputs = self._prepare_pipeline_inputs(kwargs)
         pipeline_outputs = self.pipeline.run(data=pipeline_inputs)
         return self._process_pipeline_outputs(pipeline_outputs)
-
-    def _set_io_types(self) -> None:
-        """
-        Initialize pipeline by resolving input/output types and setting them on wrapper.
-
-        :raises InvalidMappingError: If type conflicts are found in input or output mappings
-        """
-        input_types = self._resolve_input_types()
-        self._set_input_types(input_types)
-        output_types = self._resolve_output_types()
-        component.set_output_types(self, **output_types)
 
     @staticmethod
     def _split_component_path(path: str) -> Tuple[str, str]:
@@ -147,7 +145,7 @@ class SuperComponent:
         """
         pipeline_inputs = self.pipeline.inputs(include_components_with_connected_inputs=False)
 
-        if input_mapping := self.input_mapping or self.pipeline.metadata.get("input_mapping"):
+        if input_mapping := self.input_mapping:
             return self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
         else:
             return self._handle_auto_input_mapping(pipeline_inputs)
@@ -179,13 +177,16 @@ class SuperComponent:
 
                 socket_info = pipeline_inputs[comp_name][socket_name]
                 if existing_socket_info := aggregated_inputs.get(wrapper_input_name):
+                    # TODO is_compatible should determine least common denominator of type overlap
+                    #      and set that as the type for the wrapper input
                     if not is_compatible(existing_socket_info["type"], socket_info["type"]):
                         raise InvalidMappingError(
                             f"Type conflict for input '{socket_name}': "
                             f"found {existing_socket_info['type']} and {socket_info['type']}"
                         )
 
-                    # If any socket requires mandatory inputs it has to take precedence
+                    # If any socket requires mandatory inputs then pass it to the wrapper
+                    # TODO We should also use the type from the mandatory socket
                     if not aggregated_inputs[wrapper_input_name]["is_mandatory"]:
                         aggregated_inputs[wrapper_input_name]["is_mandatory"] = socket_info["is_mandatory"]
                 else:
@@ -207,32 +208,22 @@ class SuperComponent:
         for inputs_dict in pipeline_inputs.values():
             for socket_name, socket_info in inputs_dict.items():
                 if existing_socket_info := aggregated_inputs.get(socket_name):
+                    # TODO is_compatible should determine least common denominator of type overlap
+                    #      and set that as the type for the wrapper input
                     if not is_compatible(existing_socket_info["type"], socket_info["type"]):
                         raise InvalidMappingError(
                             f"Type conflict for input '{socket_name}': "
                             f"found {existing_socket_info['type']} and {socket_info['type']}"
                         )
 
-                    # If any socket requires mandatory inputs it has to take precedence
+                    # If any socket requires mandatory inputs then pass it to the wrapper
+                    # TODO We should also use the type from the mandatory socket
                     if not existing_socket_info["is_mandatory"]:
                         aggregated_inputs[socket_name]["is_mandatory"] = socket_info["is_mandatory"]
                 else:
                     aggregated_inputs[socket_name] = socket_info
 
-
         return aggregated_inputs
-
-    def _set_input_types(self, aggregated_inputs: Dict[str, Dict[str, Any]]) -> None:
-        """
-        Sets the components input types.
-
-        :param aggregated_inputs: The input types to set.
-        """
-        for input_name, info in aggregated_inputs.items():
-            if info["is_mandatory"]:
-                component.set_input_type(self, input_name, info["type"])
-            else:
-                component.set_input_type(self, input_name, info["type"], default=_delegate_default)
 
     def _resolve_output_types(self) -> Dict[str, Any]:
         """
@@ -306,8 +297,8 @@ class SuperComponent:
         :return: Dictionary of pipeline inputs in required format
         """
         # We delegate defaults to the existing default values of the components in the pipeline.
-        filtered_inputs = {param: value for param, value in inputs.items() if value != _delegate_default }
-        if input_mapping := self.input_mapping or self.pipeline.metadata.get("input_mapping"):
+        filtered_inputs = {param: value for param, value in inputs.items() if value != _delegate_default}
+        if input_mapping := self.input_mapping:
             return self._map_explicit_inputs(input_mapping=input_mapping, inputs=filtered_inputs)
         else:
             return self._map_auto_inputs(filtered_inputs)
@@ -419,7 +410,8 @@ class SuperComponent:
         serialized = default_to_dict(
             self,
             pipeline=serialized_pipeline,
-            input_mapping=self.input_mapping, output_mapping=self.output_mapping
+            input_mapping=self.input_mapping,
+            output_mapping=self.output_mapping
         )
         serialized["type"] = generate_qualified_class_name(SuperComponent)
         return serialized

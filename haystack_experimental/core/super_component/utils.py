@@ -10,7 +10,9 @@ from haystack.core.component.types import HAYSTACK_GREEDY_VARIADIC_ANNOTATION, H
 class _delegate_default:
     """Custom object for delegating filling of default values to the underlying components."""
 
+
 T = TypeVar("T")
+
 
 def is_compatible(type1: T, type2: T, unwrap_nested: bool = True) -> bool:
     """
@@ -99,6 +101,7 @@ def _handle_union_type_matches(type1: T, type2: T, type1_origin: T, type2_origin
         return any(any(_types_are_compatible(arg1, arg2)
                        for arg2 in get_args(type2))
                    for arg1 in get_args(type1))
+
 
 def _unwrap_all(t: T, recursive: bool) -> T:
     """

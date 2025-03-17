@@ -17,6 +17,7 @@ from haystack.core.serialization import default_from_dict, default_to_dict
 
 from haystack_experimental import SuperComponent
 
+
 @pytest.fixture
 def mock_openai_generator(monkeypatch):
     """Create a mock OpenAI Generator for testing."""
@@ -45,6 +46,7 @@ def document_store(documents):
     store.write_documents(documents, policy=DuplicatePolicy.OVERWRITE)
     return store
 
+
 @pytest.fixture
 def rag_pipeline(document_store):
     """Create a simple RAG pipeline."""
@@ -56,9 +58,13 @@ def rag_pipeline(document_store):
 
     pipeline = Pipeline()
     pipeline.add_component("retriever", InMemoryBM25Retriever(document_store=document_store))
-    pipeline.add_component("prompt_builder",
-                           PromptBuilder(
-                               template="Given these documents: {{documents|join(', ',attribute='content')}} Answer: {{query}}"))
+    pipeline.add_component(
+        "prompt_builder",
+        PromptBuilder(
+            template="Given these documents: {{documents|join(', ',attribute='content')}} Answer: {{query}}",
+            required_variables="*"
+        )
+    )
     pipeline.add_component("llm", FakeGenerator())
     pipeline.add_component("answer_builder", AnswerBuilder())
     pipeline.add_component("joiner", DocumentJoiner())
@@ -92,7 +98,6 @@ class TestSuperComponent:
         assert set(output_sockets.keys()) == {"final_answers"}
         assert output_sockets["final_answers"].type == List[GeneratedAnswer]
 
-
         input_sockets = wrapper.__haystack_input__._sockets_dict
         assert set(input_sockets.keys()) == {"search_query"}
         assert input_sockets["search_query"].type == str
@@ -103,27 +108,24 @@ class TestSuperComponent:
         assert isinstance(result["final_answers"][0], GeneratedAnswer)
 
     def test_auto_resolution(self, rag_pipeline):
-        wrapper = SuperComponent(
-            pipeline=rag_pipeline
-        )
+        wrapper = SuperComponent(pipeline=rag_pipeline)
 
         output_sockets = wrapper.__haystack_output__._sockets_dict
         assert set(output_sockets.keys()) == {"answers", "documents"}
         assert output_sockets["answers"].type == List[GeneratedAnswer]
 
-
         input_sockets = wrapper.__haystack_input__._sockets_dict
         assert set(input_sockets.keys()) == {
             "documents",
-             "filters",
-             "meta",
-             "pattern",
-             "query",
-             "reference_pattern",
-             "scale_score",
-             "template",
-             "template_variables",
-             "top_k"
+            "filters",
+            "meta",
+            "pattern",
+            "query",
+            "reference_pattern",
+            "scale_score",
+            "template",
+            "template_variables",
+            "top_k"
         }
         assert input_sockets["query"].type == str
 
@@ -185,8 +187,5 @@ class TestSuperComponent:
         custom_super_component = CustomSuperComponent(rag_pipeline)
         custom_serialized = custom_super_component.to_dict()
 
-        assert custom_serialized["type"] == "test_super_component.CustomSuperComponent"
-
+        assert custom_serialized["type"] == "test.core.super_component.test_super_component.CustomSuperComponent"
         assert custom_super_component._to_super_component_dict() == serialized
-
-
