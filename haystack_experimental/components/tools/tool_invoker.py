@@ -228,14 +228,14 @@ class ToolInvoker:
 
         Processing Steps:
         1. If `result` is not a dictionary, nothing is stored into state and the full `result` is returned.
-        2. If the `tool` does not define an `outputs` mapping nothing is stored into state.
+        2. If the `tool` does not define an `outputs_to_state` mapping nothing is stored into state.
            The return value in this case is simply the full `result` dictionary.
-        3. If the tool defines an `outputs` mapping (a dictionary describing how the tool's output should be processed),
-           the method delegates to `_handle_tool_outputs` to process the output accordingly.
+        3. If the tool defines an `outputs_to_state` mapping (a dictionary describing how the tool's output should be
+           processed), the method delegates to `_handle_tool_outputs` to process the output accordingly.
            This allows certain fields in `result` to be mapped explicitly to state fields or formatted using custom
            handlers.
 
-        :param tool: Tool instance containing optional `outputs` mapping to guide result processing.
+        :param tool: Tool instance containing optional `outputs_to_state` mapping to guide result processing.
         :param result: The output from tool execution. Can be a dictionary, or any other type.
         :param state: The global State object to which results should be merged.
         :returns: Three possible values:
@@ -247,7 +247,7 @@ class ToolInvoker:
         if not isinstance(result, dict):
             return result
 
-        # If there is no specific `outputs` mapping, we just return the full result
+        # If there is no specific `outputs_to_state` mapping, we just return the full result
         if not hasattr(tool, "outputs_to_state") or not isinstance(tool.outputs_to_state, dict):
             return result
 
@@ -255,18 +255,18 @@ class ToolInvoker:
         return self._handle_tool_outputs(tool.outputs_to_state, result, state)
 
     @staticmethod
-    def _handle_tool_outputs(outputs: dict, result: dict, state: State) -> Union[dict, str]:
+    def _handle_tool_outputs(outputs_to_state: dict, result: dict, state: State) -> Union[dict, str]:
         """
-        Handles the `outputs` mapping from the tool and updates the state accordingly.
+        Handles the `outputs_to_state` mapping from the tool and updates the state accordingly.
 
-        :param outputs: Mapping of outputs from the tool.
+        :param outputs_to_state: Mapping of outputs from the tool.
         :param result: Result of the tool execution.
         :param state: Global state to merge results into.
         :returns: Final message for LLM or the entire result.
         """
         message_content = None
 
-        for state_key, config in outputs.items():
+        for state_key, config in outputs_to_state.items():
             # Get the source key from the output config, otherwise use the entire result
             source_key = config.get("source", None)
             output_value = result if source_key is None else result.get(source_key)
