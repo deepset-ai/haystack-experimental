@@ -5,8 +5,8 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from haystack import Pipeline, component
+from haystack.core.pipeline.utils import parse_connect_string
 from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
-from haystack.core.type_utils import _types_are_compatible
 
 from haystack_experimental.core.super_component.utils import _delegate_default, is_compatible
 
@@ -55,8 +55,14 @@ class SuperComponent:
         self.input_mapping: Optional[Dict[str, List[str]]] = input_mapping
         self.output_mapping: Optional[Dict[str, str]] = output_mapping
 
-        # Set input types based on pipeline and mapping
-        input_types = self._resolve_input_types()
+        # Determine input types based on pipeline and mapping
+        pipeline_inputs = self.pipeline.inputs()
+        if input_mapping is not None:
+            input_types = self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
+        else:
+            input_types = self._handle_auto_input_mapping(pipeline_inputs)
+
+        # Set input types on the component
         for input_name, info in input_types.items():
             if info["is_mandatory"]:
                 component.set_input_type(self, input_name, info["type"])
@@ -64,7 +70,11 @@ class SuperComponent:
                 component.set_input_type(self, input_name, info["type"], default=_delegate_default)
 
         # Set output types based on pipeline and mapping
-        output_types = self._resolve_output_types()
+        pipeline_outputs = self.pipeline.outputs()
+        if output_mapping is not None:
+            output_types = self._handle_explicit_output_mapping(pipeline_outputs, output_mapping)
+        else:
+            output_types = self._handle_auto_output_mapping(pipeline_outputs)
         component.set_output_types(self, **output_types)
 
     def warm_up(self) -> None:
@@ -118,7 +128,7 @@ class SuperComponent:
         return self._process_pipeline_outputs(pipeline_outputs)
 
     @staticmethod
-    def _split_component_path(path: str) -> Tuple[str, str]:
+    def _split_component_path(path: str) -> Tuple[str, Optional[str]]:
         """
         Split a component path into component name and socket name.
 
@@ -126,29 +136,10 @@ class SuperComponent:
         :return: Tuple of (component_name, socket_name)
         :raises InvalidMappingError: If path format is invalid
         """
-        try:
-            comp_name, socket_name = path.split(".")
-            return comp_name, socket_name
-        except ValueError:
-            raise InvalidMappingError(f"Invalid path format: {path}. Expected 'component_name.socket_name'")
-
-    def _resolve_input_types(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Resolve input types from pipeline and set them on the component.
-
-        Examines the pipeline's declared inputs and merges them with the input mapping
-        to check for type conflicts and set appropriate input types on the wrapper component.
-
-        :returns: The resolved input type data according to auto-resolution or input mapping.
-        :raises InvalidMappingError: If type conflicts are found or mapped components/sockets
-            don't exist
-        """
-        pipeline_inputs = self.pipeline.inputs(include_components_with_connected_inputs=False)
-
-        if input_mapping := self.input_mapping:
-            return self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
-        else:
-            return self._handle_auto_input_mapping(pipeline_inputs)
+        comp_name, socket_name = parse_connect_string(path)
+        if socket_name is None:
+            raise InvalidMappingError(f"Invalid path format: '{path}'. Expected 'component_name.socket_name'.")
+        return comp_name, socket_name
 
     def _handle_explicit_input_mapping(  # noqa: PLR0912
         self, pipeline_inputs: Dict[str, Dict[str, Any]], input_mapping: Dict[str, List[str]]
@@ -181,14 +172,16 @@ class SuperComponent:
                     #      and set that as the type for the wrapper input
                     if not is_compatible(existing_socket_info["type"], socket_info["type"]):
                         raise InvalidMappingError(
-                            f"Type conflict for input '{socket_name}': "
-                            f"found {existing_socket_info['type']} and {socket_info['type']}"
+                            f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
+                            f"We already have type {existing_socket_info['type']} for '{socket_name}' which is not"
+                            f"compatible with {socket_info['type']}."
                         )
 
-                    # If any socket requires mandatory inputs then pass it to the wrapper
-                    # TODO We should also use the type from the mandatory socket
+                    # If any socket requires mandatory inputs then pass it to the wrapper and use the type from the
+                    # mandatory socket
                     if not aggregated_inputs[wrapper_input_name]["is_mandatory"]:
                         aggregated_inputs[wrapper_input_name]["is_mandatory"] = socket_info["is_mandatory"]
+                        aggregated_inputs[wrapper_input_name]["type"] = socket_info["type"]
                 else:
                     aggregated_inputs[wrapper_input_name] = socket_info
 
@@ -205,39 +198,27 @@ class SuperComponent:
         """
         aggregated_inputs: Dict[str, Dict[str, Any]] = {}
 
-        for inputs_dict in pipeline_inputs.values():
+        for comp_name, inputs_dict in pipeline_inputs.items():
             for socket_name, socket_info in inputs_dict.items():
                 if existing_socket_info := aggregated_inputs.get(socket_name):
                     # TODO is_compatible should determine least common denominator of type overlap
                     #      and set that as the type for the wrapper input
                     if not is_compatible(existing_socket_info["type"], socket_info["type"]):
                         raise InvalidMappingError(
-                            f"Type conflict for input '{socket_name}': "
-                            f"found {existing_socket_info['type']} and {socket_info['type']}"
+                            f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
+                            f"We already have type {existing_socket_info['type']} for '{socket_name}' which is not"
+                            f"compatible with {socket_info['type']}."
                         )
 
-                    # If any socket requires mandatory inputs then pass it to the wrapper
-                    # TODO We should also use the type from the mandatory socket
+                    # If any socket requires mandatory inputs then pass it to the wrapper and use the type from the
+                    # mandatory socket
                     if not existing_socket_info["is_mandatory"]:
                         aggregated_inputs[socket_name]["is_mandatory"] = socket_info["is_mandatory"]
+                        aggregated_inputs[socket_name]["type"] = socket_info["type"]
                 else:
                     aggregated_inputs[socket_name] = socket_info
 
         return aggregated_inputs
-
-    def _resolve_output_types(self) -> Dict[str, Any]:
-        """
-        Resolve output types based on pipeline outputs and mapping.
-
-        :return: Dictionary mapping wrapper output names to their types
-        :raises InvalidMappingError: If mapping is invalid or output conflicts exist
-        """
-        pipeline_outputs = self.pipeline.outputs(include_components_with_connected_outputs=False)
-
-        if output_mapping := self.output_mapping or self.pipeline.metadata.get("output_mapping"):
-            return self._handle_explicit_output_mapping(pipeline_outputs, output_mapping)
-        else:
-            return self._handle_auto_output_mapping(pipeline_outputs)
 
     def _handle_explicit_output_mapping(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
@@ -259,7 +240,7 @@ class SuperComponent:
             if socket_name not in pipeline_outputs[comp_name]:
                 raise InvalidMappingError(f"Output socket '{socket_name}' not found in component '{comp_name}'.")
             if wrapper_output_name in resolved_outputs:
-                raise InvalidMappingError(f"Duplicate wrapper output name '{wrapper_output_name}' in output_mapping.")
+                raise InvalidMappingError(f"Duplicate output name '{wrapper_output_name}' in output_mapping.")
 
             resolved_outputs[wrapper_output_name] = pipeline_outputs[comp_name][socket_name]["type"]
 
@@ -282,7 +263,7 @@ class SuperComponent:
                 if socket_name in used_output_names:
                     raise InvalidMappingError(
                         f"Output name conflict: '{socket_name}' is produced by multiple components. "
-                        "Please provide an output_mapping to disambiguate."
+                        "Please provide an output_mapping to resolve this conflict."
                     )
                 resolved_outputs[socket_name] = socket_info["type"]
                 used_output_names.add(socket_name)
@@ -354,7 +335,7 @@ class SuperComponent:
         :return: Dictionary of processed outputs
         :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
-        if output_mapping := self.output_mapping or self.pipeline.metadata.get("output_mapping"):
+        if output_mapping := self.output_mapping:
             return self._map_explicit_outputs(pipeline_outputs, output_mapping)
         else:
             return self._map_auto_outputs(pipeline_outputs)
@@ -383,21 +364,11 @@ class SuperComponent:
 
         :param pipeline_outputs: Raw outputs from pipeline execution
         :return: Dictionary of mapped outputs
-        :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
         outputs: Dict[str, Any] = {}
-        seen: set[str] = set()
-
         for comp_output_dict in pipeline_outputs.values():
             for socket_name, value in comp_output_dict.items():
-                if socket_name in seen:
-                    raise InvalidMappingError(
-                        f"Output conflict: output '{socket_name}' is produced by multiple components. "
-                        "Please provide an output_mapping to disambiguate."
-                    )
                 outputs[socket_name] = value
-                seen.add(socket_name)
-
         return outputs
 
     def _to_super_component_dict(self) -> Dict[str, Any]:
