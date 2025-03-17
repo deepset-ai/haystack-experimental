@@ -53,6 +53,8 @@ class MultiFileConverter(SuperComponent):
 
     Usage:
     ```
+    from haystack_experimental.super_components.converters import MultiFileConverter
+    
     converter = MultiFileConverter()
     converter.run(sources=["test.txt", "test.pdf"], meta={})
     ```
@@ -145,7 +147,10 @@ class MultiFileConverter(SuperComponent):
         pp.connect("xlsx.documents", "joiner.documents")
 
 
-        output_mapping = {"joiner.documents": "documents"}
+        output_mapping = {
+            "joiner.documents": "documents",
+            "router.unclassified": "unclassified"
+        }
         input_mapping = {
             "sources": ["router.sources"],
             "meta": ["router.meta"]
