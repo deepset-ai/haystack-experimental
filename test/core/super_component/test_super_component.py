@@ -16,6 +16,7 @@ from haystack.utils.auth import Secret
 from haystack.core.serialization import default_from_dict, default_to_dict
 
 from haystack_experimental import SuperComponent
+from haystack_experimental.core.super_component.super_component import InvalidMappingError
 
 
 @pytest.fixture
@@ -78,36 +79,63 @@ def rag_pipeline(document_store):
 
 
 class TestSuperComponent:
+    def test_split_component_path(self):
+        path = "router.chat_query"
+        components = SuperComponent._split_component_path(path)
+        assert components == ("router", "chat_query")
 
-    def test_explicit_mapping(self, rag_pipeline):
-        # Create wrapper with input/output mappings
-        input_mapping = {
-            "search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]
-        }
-        output_mapping = {
-            "answer_builder.answers": "final_answers"
-        }
+    def test_split_component_path_error(self):
+        path = "router"
+        with pytest.raises(InvalidMappingError):
+            SuperComponent._split_component_path(path)
 
-        wrapper = SuperComponent(
-            pipeline=rag_pipeline,
-            input_mapping=input_mapping,
-            output_mapping=output_mapping
-        )
-
-        output_sockets = wrapper.__haystack_output__._sockets_dict
-        assert set(output_sockets.keys()) == {"final_answers"}
-        assert output_sockets["final_answers"].type == List[GeneratedAnswer]
-
+    def test_explicit_input_mapping(self, rag_pipeline):
+        input_mapping = {"search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]}
+        wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping,)
         input_sockets = wrapper.__haystack_input__._sockets_dict
         assert set(input_sockets.keys()) == {"search_query"}
         assert input_sockets["search_query"].type == str
 
-        # Test normal query flow
+    def test_explicit_output_mapping(self, rag_pipeline):
+        output_mapping = {"answer_builder.answers": "final_answers"}
+        wrapper = SuperComponent(pipeline=rag_pipeline, output_mapping=output_mapping)
+        output_sockets = wrapper.__haystack_output__._sockets_dict
+        assert set(output_sockets.keys()) == {"final_answers"}
+        assert output_sockets["final_answers"].type == List[GeneratedAnswer]
+
+    def test_super_component_run(self, rag_pipeline):
+        input_mapping = {"search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]}
+        output_mapping = {"answer_builder.answers": "final_answers"}
+        wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping, output_mapping=output_mapping)
         result = wrapper.run(search_query="What is the capital of France?")
         assert "final_answers" in result
         assert isinstance(result["final_answers"][0], GeneratedAnswer)
 
-    def test_auto_resolution(self, rag_pipeline):
+    def test_auto_input_mapping(self, rag_pipeline):
+        pipeline_inputs = rag_pipeline.inputs()
+        aggregated_inputs = SuperComponent._handle_auto_input_mapping(pipeline_inputs)
+        assert set(aggregated_inputs.keys()) == {
+            "documents",
+            "filters",
+            "meta",
+            "pattern",
+            "query",
+            "reference_pattern",
+            "scale_score",
+            "template",
+            "template_variables",
+            "top_k"
+        }
+        assert aggregated_inputs["query"]["type"] == str
+
+    def test_auto_output_mapping(self, rag_pipeline):
+        pipeline_outputs = rag_pipeline.outputs()
+        aggregated_outputs = SuperComponent._handle_auto_output_mapping(pipeline_outputs)
+        assert set(aggregated_outputs.keys()) == {"answers", "documents"}
+        assert aggregated_outputs["answers"] == List[GeneratedAnswer]
+        assert aggregated_outputs["documents"] == List[Document]
+
+    def test_auto_mapping_sockets(self, rag_pipeline):
         wrapper = SuperComponent(pipeline=rag_pipeline)
 
         output_sockets = wrapper.__haystack_output__._sockets_dict
@@ -128,12 +156,6 @@ class TestSuperComponent:
             "top_k"
         }
         assert input_sockets["query"].type == str
-
-        # Test normal query flow
-        result = wrapper.run(query="What is the capital of France?")
-        assert "answers" in result
-        assert isinstance(result["answers"][0], GeneratedAnswer)
-        assert "documents" in result
 
     def test_wrapper_serialization(self, document_store):
         """Test serialization and deserialization of pipeline wrapper."""
