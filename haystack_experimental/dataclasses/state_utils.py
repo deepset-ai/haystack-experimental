@@ -50,25 +50,25 @@ def _is_list_type(type_hint: Any) -> bool:
 
 def merge_lists(current: Union[List[T], T], new: Union[List[T], T]) -> List[T]:
     """
-    Merge two values according to list merging rules.
+    Merges two values into a single list.
 
-    :param current: The current value, which may or may not be a list
-    :param new: The new value to merge, which may or may not be a list
-    :return: A new list containing the merged values
+    If either `current` or `new` is not already a list, it is converted into one.
+    The function ensures that both inputs are treated as lists and concatenates them.
+
+    If `current` is None, it is treated as an empty list.
+
+    :param current: The existing value(s), either a single item or a list.
+    :param new: The new value(s) to merge, either a single item or a list.
+    :return: A list containing elements from both `current` and `new`.
     """
-    # If the current value is None, return the new value as a list
-    if current is None:
-        return new if isinstance(new, list) else [new]
-
-    # If the current value is not none, then merge
-    current_list = current if isinstance(current, list) else [current]
+    current_list = [] if current is None else current if isinstance(current, list) else [current]
     new_list = new if isinstance(new, list) else [new]
     return current_list + new_list
 
 
 def replace_values(current: Any, new: Any) -> Any:
     """
-    Replace the current value with the new value.
+    Replace the `current` value with the `new` value.
 
     :param current: The existing value
     :param new: The new value to replace
