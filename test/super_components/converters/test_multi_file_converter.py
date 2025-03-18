@@ -4,7 +4,7 @@
 
 import pytest
 
-from haystack import Document
+from haystack import Document, Pipeline
 from haystack.dataclasses import ByteStream
 from haystack_experimental.core.super_component import SuperComponent
 from haystack_experimental.super_components.converters.multi_file_converter import MultiFileConverter
@@ -141,3 +141,19 @@ class TestMultiFileConverter:
         # Verify we got a document for each file
         assert len(docs) == len(paths)
         assert all(isinstance(doc, Document) for doc in docs)
+
+    def test_run_in_pipeline(self, test_files_path, converter):
+        pipeline = Pipeline(max_runs_per_component=1)
+        pipeline.add_component("converter", converter)
+
+        paths = [
+            test_files_path / "txt" / "doc_1.txt",
+            test_files_path / "pdf" / "sample_pdf_1.pdf",
+        ]
+
+        output = pipeline.run(data={"sources": paths})
+        docs = output["converter"]["documents"]
+
+        assert len(docs) == 2
+        assert all(isinstance(doc, Document) for doc in docs)
+        assert all(doc.content is not None for doc in docs)
