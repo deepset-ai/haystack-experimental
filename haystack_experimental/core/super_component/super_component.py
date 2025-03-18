@@ -202,8 +202,6 @@ class SuperComponent:
                     aggregated_inputs[wrapper_input_name] = socket_info
                     continue
 
-                # TODO is_compatible should determine least common denominator of type overlap and set that as the type
-                #      for the wrapper input
                 if not is_compatible(existing_socket_info["type"], socket_info["type"]):
                     raise InvalidMappingError(
                         f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
