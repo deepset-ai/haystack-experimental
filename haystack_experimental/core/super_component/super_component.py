@@ -51,35 +51,27 @@ class SuperComponent:
 
         # Determine input types based on pipeline and mapping
         pipeline_inputs = self.pipeline.inputs()
-        if input_mapping is None:
-            resolved_input_mapping = self._create_input_mapping(pipeline_inputs)
-        else:
-            resolved_input_mapping = input_mapping
-        self._validate_input_mapping(pipeline_inputs, input_mapping)
+        resolved_input_mapping = input_mapping if input_mapping is not None else self._create_input_mapping(
+            pipeline_inputs
+        )
+        self._validate_input_mapping(pipeline_inputs, resolved_input_mapping)
         input_types = self._handle_explicit_input_mapping(pipeline_inputs, resolved_input_mapping)
-
         # Set input types on the component
         for input_name, info in input_types.items():
-            if info["is_mandatory"]:
-                component.set_input_type(self, input_name, info["type"])
-            else:
-                component.set_input_type(self, input_name, info["type"], default=_delegate_default)
+            component.set_input_type(self, name=input_name, **info)
 
         self.input_mapping: Dict[str, List[str]] = resolved_input_mapping
         self._original_input_mapping = input_mapping
 
         # Set output types based on pipeline and mapping
         pipeline_outputs = self.pipeline.outputs()
-        if output_mapping is None:
-            resolved_output_mapping = self._create_output_mapping(pipeline_outputs)
-        else:
-            resolved_output_mapping = output_mapping
-        self._validate_output_mapping(pipeline_outputs, output_mapping)
+        resolved_output_mapping = output_mapping if output_mapping is not None else self._create_output_mapping(
+            pipeline_outputs
+        )
+        self._validate_output_mapping(pipeline_outputs, resolved_output_mapping)
         output_types = self._handle_explicit_output_mapping(pipeline_outputs, resolved_output_mapping)
-
         # Set output types on the component
         component.set_output_types(self, **output_types)
-
         self.output_mapping: Dict[str, str] = resolved_output_mapping
         self._original_output_mapping = output_mapping
 
@@ -199,7 +191,9 @@ class SuperComponent:
                 # Add to aggregated inputs
                 existing_socket_info = aggregated_inputs.get(wrapper_input_name)
                 if existing_socket_info is None:
-                    aggregated_inputs[wrapper_input_name] = socket_info
+                    aggregated_inputs[wrapper_input_name] = {"type": socket_info["type"]}
+                    if not socket_info["is_mandatory"]:
+                        aggregated_inputs[wrapper_input_name]["default"] = _delegate_default
                     continue
 
                 if not is_compatible(existing_socket_info["type"], socket_info["type"]):
@@ -208,10 +202,9 @@ class SuperComponent:
                         f"Existing type: {existing_socket_info['type']}, new type: {socket_info['type']}."
                     )
 
-                # If any socket requires mandatory inputs then pass it to the wrapper and use the type from the
-                # mandatory socket
-                if not aggregated_inputs[wrapper_input_name]["is_mandatory"]:
-                    aggregated_inputs[wrapper_input_name]["is_mandatory"] = socket_info["is_mandatory"]
+                # If any socket requires mandatory inputs then the aggregated input is also considered mandatory.
+                # So we use the type of the mandatory input.
+                if socket_info["is_mandatory"]:
                     aggregated_inputs[wrapper_input_name]["type"] = socket_info["type"]
 
         return aggregated_inputs
