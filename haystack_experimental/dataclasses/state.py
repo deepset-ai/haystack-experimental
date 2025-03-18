@@ -4,13 +4,10 @@
 
 from typing import Any, Callable, Dict, Optional
 
-from haystack import logging
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.type_serialization import deserialize_type, serialize_type
 
 from haystack_experimental.dataclasses.state_utils import _is_list_type, _is_valid_type, merge_lists, replace_values
-
-logger = logging.getLogger(__name__)
 
 
 def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
