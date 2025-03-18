@@ -133,8 +133,7 @@ class State:
         Set or merge a value in the state according to schema rules.
 
         Value is merged or overwritten according to these rules:
-          - if the current value in the state is None, replace it
-          - else if handler_override is given, use that
+          - if handler_override is given, use that
           - else use the handler defined in the schema for 'key'
 
         :param key: Key to store the value under
