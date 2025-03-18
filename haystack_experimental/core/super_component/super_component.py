@@ -19,20 +19,12 @@ class InvalidMappingError(Exception):
 @component
 class SuperComponent:
     """
-        A class for creating super components that wrap around a Pipeline.
+    A class for creating super components that wrap around a Pipeline.
 
-        This component allows for remapping of input and output socket names between the wrapped
-        pipeline and the external interface. It handles type checking and verification of all
-        mappings.
-
-        :param pipeline: The pipeline wrapped by the component
-        :param input_mapping: Mapping from component input names to lists of pipeline socket paths
-            in format "component_name.socket_name"
-        :param output_mapping: Mapping from pipeline socket paths to component output names
-        :raises InvalidMappingError: If any input or output mappings are invalid or if type
-            conflicts are detected
-        :raises ValueError: If no pipeline is provided
-        """
+    This component allows for remapping of input and output socket names between the wrapped pipeline and the
+    SuperComponent's input and output names. This is useful for creating higher-level components that abstract
+    away the details of the wrapped pipeline.
+    """
 
     def __init__(
         self,
@@ -41,11 +33,15 @@ class SuperComponent:
         output_mapping: Optional[Dict[str, str]] = None,
     ) -> None:
         """
-        Initialize the component with optional I/O mappings.
+        Creates a SuperComponent with optional input and output mappings.
 
-        :param pipeline: The pipeline to wrap
-        :param input_mapping: Optional input name mapping configuration
-        :param output_mapping: Optional output name mapping configuration
+        :param pipeline: The pipeline instance to be wrapped
+        :param input_mapping: A dictionary mapping component input names to pipeline input socket paths.
+            If not provided, a default input mapping will be created based on all pipeline inputs.
+        :param output_mapping: A dictionary mapping pipeline output socket paths to component output names.
+            If not provided, a default output mapping will be created based on all pipeline outputs.
+        :raises InvalidMappingError: Raised if any mapping is invalid or type conflicts occur
+        :raises ValueError: Raised if no pipeline is provided
         """
         if pipeline is None:
             raise ValueError("Pipeline must be provided to SuperComponent.")
@@ -89,7 +85,7 @@ class SuperComponent:
 
     def warm_up(self) -> None:
         """
-        Warms up the pipeline if it has not been warmed up before.
+        Warms up the SuperComponent by warming up the wrapped pipeline.
         """
         if not self._warmed_up:
             self.pipeline.warm_up()
@@ -97,23 +93,25 @@ class SuperComponent:
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convert the SuperComponent to a dictionary representation.
+        Serializes the SuperComponent into a dictionary.
 
-        Must be overwritten for custom component implementations that inherit from SuperComponent.
+        Must be overwritten for prebuilt super components that inherit from SuperComponent.
 
-        :return: Dictionary containing serialized super component data
+        :returns:
+            Dictionary with serialized data.
         """
         return self._to_super_component_dict()
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SuperComponent":
         """
-        Create the SuperComponent instance from a dictionary representation.
+        Deserializes the SuperComponent from a dictionary.
 
         Must be overwritten for custom component implementations that inherit from SuperComponent.
 
-        :param data: Dictionary containing serialized super component data
-        :return: New PipelineWrapper instance
+        :param data: The dictionary to deserialize from.
+        :returns:
+            The deserialized SuperComponent.
         """
         pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
         data["init_parameters"]["pipeline"] = pipeline
@@ -121,17 +119,18 @@ class SuperComponent:
 
     def run(self, **kwargs: Any) -> Dict[str, Any]:
         """
-        Run the wrapped pipeline with the given inputs.
+        Runs the wrapped pipeline with the provided inputs.
 
-        This method:
-        1. Maps input kwargs to pipeline component inputs
-        2. Executes the pipeline
-        3. Maps pipeline outputs back to wrapper outputs
+        Steps:
+        1. Maps the inputs from kwargs to pipeline component inputs
+        2. Runs the pipeline
+        3. Maps the pipeline outputs to the SuperComponent's outputs
 
-        :param kwargs: Keyword arguments matching wrapper input names
-        :return: Dictionary mapping wrapper output names to values
-        :raises ValueError: If no pipeline is configured
-        :raises InvalidMappingError: If output conflicts occur during auto-mapping
+        :param kwargs: Keyword arguments matching the SuperComponent's input names
+        :returns:
+            Dictionary containing the SuperComponent's output values
+        :raises RuntimeError:
+            If the SuperComponent wasn't warmed up before calling 'run()'
         """
         if self._warmed_up is False:
             raise RuntimeError("SuperComponent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
@@ -142,13 +141,15 @@ class SuperComponent:
         return self._map_explicit_outputs(pipeline_outputs, self.output_mapping)
 
     @staticmethod
-    def _split_component_path(path: str) -> Tuple[str, Optional[str]]:
+    def _split_component_path(path: str) -> Tuple[str, str]:
         """
-        Split a component path into component name and socket name.
+        Splits a component path into a component name and a socket name.
 
-        :param path: String in format "component_name.socket_name"
-        :return: Tuple of (component_name, socket_name)
-        :raises InvalidMappingError: If path format is invalid
+        :param path: A string in the format "component_name.socket_name".
+        :returns:
+            A tuple containing (component_name, socket_name).
+        :raises InvalidMappingError:
+            If the path format is incorrect.
         """
         comp_name, socket_name = parse_connect_string(path)
         if socket_name is None:
@@ -158,6 +159,14 @@ class SuperComponent:
     def _validate_input_mapping(
         self, pipeline_inputs: Dict[str, Dict[str, Any]], input_mapping: Dict[str, List[str]]
     ) -> None:
+        """
+        Validates the input mapping to ensure that specified components and sockets exist in the pipeline.
+
+        :param pipeline_inputs: A dictionary containing pipeline input specifications.
+        :param input_mapping: A dictionary mapping wrapper input names to pipeline socket paths.
+        :raises InvalidMappingError:
+            If the input mapping is invalid or contains nonexistent components or sockets.
+        """
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
             if not isinstance(pipeline_input_paths, list):
                 raise InvalidMappingError(f"Input paths for '{wrapper_input_name}' must be a list of strings.")
@@ -168,7 +177,7 @@ class SuperComponent:
                 if socket_name not in pipeline_inputs[comp_name]:
                     raise InvalidMappingError(f"Input socket '{socket_name}' not found in component '{comp_name}'.")
 
-    def _handle_explicit_input_mapping(  # noqa: PLR0912
+    def _handle_explicit_input_mapping(
         self, pipeline_inputs: Dict[str, Dict[str, Any]], input_mapping: Dict[str, List[str]]
     ) -> Dict[str, Dict[str, Any]]:
         """
@@ -176,8 +185,10 @@ class SuperComponent:
 
         :param pipeline_inputs: Dictionary of pipeline input specifications
         :param input_mapping: Mapping from wrapper inputs to pipeline socket paths
-        :returns: The resolved input type data resolved according to the input mapping.
-        :raises InvalidMappingError: If mapping is invalid or type conflicts exist
+        :returns:
+            The resolved input type data resolved according to the input mapping.
+        :raises InvalidMappingError:
+            If the input mapping contains type conflicts.
         """
         aggregated_inputs: Dict[str, Dict[str, Any]] = {}
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
@@ -214,6 +225,7 @@ class SuperComponent:
 
         :param pipeline_inputs: Dictionary of pipeline input specifications
         :returns:
+            Dictionary mapping SuperComponent input names to pipeline socket paths
         """
         input_mapping: Dict[str, List[str]] = {}
         for comp_name, inputs_dict in pipeline_inputs.items():
@@ -228,6 +240,14 @@ class SuperComponent:
     def _validate_output_mapping(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
     ) -> None:
+        """
+        Validates the output mapping to ensure that specified components and sockets exist in the pipeline.
+
+        :param pipeline_outputs: A dictionary containing pipeline output specifications.
+        :param output_mapping: A dictionary mapping pipeline socket paths to wrapper output names.
+        :raises InvalidMappingError:
+            If the output mapping is invalid or contains nonexistent components or sockets.
+        """
         for pipeline_output_path, wrapper_output_name in output_mapping.items():
             if not isinstance(wrapper_output_name, str):
                 raise InvalidMappingError("Output names in output_mapping must be strings.")
@@ -245,8 +265,10 @@ class SuperComponent:
 
         :param pipeline_outputs: Dictionary of pipeline output specifications
         :param output_mapping: Mapping from pipeline paths to wrapper output names
-        :return: Dictionary of resolved output types
-        :raises InvalidMappingError: If mapping is invalid
+        :returns:
+            Dictionary of resolved output types
+        :raises InvalidMappingError:
+            If the output mapping contains duplicate output names
         """
         resolved_outputs = {}
         for pipeline_output_path, wrapper_output_name in output_mapping.items():
@@ -258,6 +280,13 @@ class SuperComponent:
 
     @staticmethod
     def _create_output_mapping(pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Create an output mapping from pipeline outputs.
+
+        :param pipeline_outputs: Dictionary of pipeline output specifications
+        :returns:
+            Dictionary mapping pipeline socket paths to SuperComponent output names
+        """
         output_mapping = {}
         used_output_names: set[str] = set()
         for comp_name, outputs_dict in pipeline_outputs.items():
