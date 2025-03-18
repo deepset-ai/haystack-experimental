@@ -107,13 +107,14 @@ class TestSuperComponent:
         input_mapping = {"search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]}
         output_mapping = {"answer_builder.answers": "final_answers"}
         wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping, output_mapping=output_mapping)
+        wrapper.warm_up()
         result = wrapper.run(search_query="What is the capital of France?")
         assert "final_answers" in result
         assert isinstance(result["final_answers"][0], GeneratedAnswer)
 
     def test_auto_input_mapping(self, rag_pipeline):
         pipeline_inputs = rag_pipeline.inputs()
-        aggregated_inputs = SuperComponent._handle_auto_input_mapping(pipeline_inputs)
+        aggregated_inputs, auto_input_mapping = SuperComponent._handle_auto_input_mapping(pipeline_inputs)
         assert set(aggregated_inputs.keys()) == {
             "documents",
             "filters",
@@ -130,7 +131,7 @@ class TestSuperComponent:
 
     def test_auto_output_mapping(self, rag_pipeline):
         pipeline_outputs = rag_pipeline.outputs()
-        aggregated_outputs = SuperComponent._handle_auto_output_mapping(pipeline_outputs)
+        aggregated_outputs, auto_output_mapping = SuperComponent._handle_auto_output_mapping(pipeline_outputs)
         assert set(aggregated_outputs.keys()) == {"answers", "documents"}
         assert aggregated_outputs["answers"] == List[GeneratedAnswer]
         assert aggregated_outputs["documents"] == List[Document]
@@ -180,6 +181,7 @@ class TestSuperComponent:
         assert deserialized.input_mapping == wrapper.input_mapping
         assert deserialized.output_mapping == wrapper.output_mapping
 
+        deserialized.warm_up()
         result = deserialized.run(query="What is the capital of France?")
         assert "documents" in result
         assert result["documents"][0].content == "Paris is the capital of France."

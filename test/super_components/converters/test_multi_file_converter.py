@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 
 from haystack import Document
@@ -8,7 +12,9 @@ from haystack_experimental.super_components.converters.multi_file_converter impo
 
 @pytest.fixture
 def converter():
-    return MultiFileConverter()
+    converter = MultiFileConverter()
+    converter.warm_up()
+    return converter
 
 
 class TestMultiFileConverter:

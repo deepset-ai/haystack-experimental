@@ -51,16 +51,16 @@ class SuperComponent:
             raise ValueError("Pipeline must be provided to SuperComponent.")
 
         self.pipeline: Pipeline = pipeline
-        self.warmed_up = False
-        self.input_mapping: Optional[Dict[str, List[str]]] = input_mapping
-        self.output_mapping: Optional[Dict[str, str]] = output_mapping
+        self._warmed_up = False
 
         # Determine input types based on pipeline and mapping
         pipeline_inputs = self.pipeline.inputs()
-        if input_mapping is not None:
-            input_types = self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
+        if input_mapping is None:
+            input_types, auto_input_mapping = self._handle_auto_input_mapping(pipeline_inputs)
+            resolved_input_mapping = auto_input_mapping
         else:
-            input_types = self._handle_auto_input_mapping(pipeline_inputs)
+            input_types = self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
+            resolved_input_mapping = input_mapping
 
         # Set input types on the component
         for input_name, info in input_types.items():
@@ -69,21 +69,31 @@ class SuperComponent:
             else:
                 component.set_input_type(self, input_name, info["type"], default=_delegate_default)
 
+        self.input_mapping: Dict[str, List[str]] = resolved_input_mapping
+        self._original_input_mapping = input_mapping
+
         # Set output types based on pipeline and mapping
         pipeline_outputs = self.pipeline.outputs()
-        if output_mapping is not None:
-            output_types = self._handle_explicit_output_mapping(pipeline_outputs, output_mapping)
+        if output_mapping is None:
+            output_types, auto_output_mapping = self._handle_auto_output_mapping(pipeline_outputs)
+            resolved_output_mapping = auto_output_mapping
         else:
-            output_types = self._handle_auto_output_mapping(pipeline_outputs)
+            output_types = self._handle_explicit_output_mapping(pipeline_outputs, output_mapping)
+            resolved_output_mapping = output_mapping
+
+        # Set output types on the component
         component.set_output_types(self, **output_types)
+
+        self.output_mapping: Dict[str, str] = resolved_output_mapping
+        self._original_output_mapping = output_mapping
 
     def warm_up(self) -> None:
         """
         Warms up the pipeline if it has not been warmed up before.
         """
-        if not self.warmed_up:
+        if not self._warmed_up:
             self.pipeline.warm_up()
-            self.warmed_up = True
+            self._warmed_up = True
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -123,9 +133,13 @@ class SuperComponent:
         :raises ValueError: If no pipeline is configured
         :raises InvalidMappingError: If output conflicts occur during auto-mapping
         """
-        pipeline_inputs = self._prepare_pipeline_inputs(kwargs)
+        if self._warmed_up is False:
+            raise RuntimeError("SuperComponent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
+
+        filtered_inputs = {param: value for param, value in kwargs.items() if value != _delegate_default}
+        pipeline_inputs = self._map_explicit_inputs(input_mapping=self.input_mapping, inputs=filtered_inputs)
         pipeline_outputs = self.pipeline.run(data=pipeline_inputs)
-        return self._process_pipeline_outputs(pipeline_outputs)
+        return self._map_explicit_outputs(pipeline_outputs, self.output_mapping)
 
     @staticmethod
     def _split_component_path(path: str) -> Tuple[str, Optional[str]]:
@@ -188,7 +202,9 @@ class SuperComponent:
         return aggregated_inputs
 
     @staticmethod
-    def _handle_auto_input_mapping(pipeline_inputs: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def _handle_auto_input_mapping(
+        pipeline_inputs: Dict[str, Dict[str, Any]]
+    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]]]:
         """
         Handle case where input mapping should be auto-detected.
 
@@ -197,6 +213,7 @@ class SuperComponent:
         :raises InvalidMappingError: If type conflicts exist between components
         """
         aggregated_inputs: Dict[str, Dict[str, Any]] = {}
+        input_mapping: Dict[str, List[str]] = {}
 
         for comp_name, inputs_dict in pipeline_inputs.items():
             for socket_name, socket_info in inputs_dict.items():
@@ -215,10 +232,14 @@ class SuperComponent:
                     if not existing_socket_info["is_mandatory"]:
                         aggregated_inputs[socket_name]["is_mandatory"] = socket_info["is_mandatory"]
                         aggregated_inputs[socket_name]["type"] = socket_info["type"]
+
+                    # Add the component name to the input mapping
+                    input_mapping[socket_name].append(f"{comp_name}.{socket_name}")
                 else:
                     aggregated_inputs[socket_name] = socket_info
+                    input_mapping[socket_name] = [f"{comp_name}.{socket_name}"]
 
-        return aggregated_inputs
+        return aggregated_inputs, input_mapping
 
     def _handle_explicit_output_mapping(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
@@ -247,7 +268,9 @@ class SuperComponent:
         return resolved_outputs
 
     @staticmethod
-    def _handle_auto_output_mapping(pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _handle_auto_output_mapping(
+        pipeline_outputs: Dict[str, Dict[str, Any]]
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
         """
         Handle case where output mapping should be auto-detected.
 
@@ -256,6 +279,7 @@ class SuperComponent:
         :raises InvalidMappingError: If output conflicts exist
         """
         resolved_outputs = {}
+        output_mapping = {}
         used_output_names: set[str] = set()
 
         for outputs_dict in pipeline_outputs.values():
@@ -267,22 +291,9 @@ class SuperComponent:
                     )
                 resolved_outputs[socket_name] = socket_info["type"]
                 used_output_names.add(socket_name)
+                output_mapping[socket_name] = socket_name
 
-        return resolved_outputs
-
-    def _prepare_pipeline_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-        """
-        Prepare inputs for pipeline execution.
-
-        :param inputs: Input arguments provided to wrapper
-        :return: Dictionary of pipeline inputs in required format
-        """
-        # We delegate defaults to the existing default values of the components in the pipeline.
-        filtered_inputs = {param: value for param, value in inputs.items() if value != _delegate_default}
-        if input_mapping := self.input_mapping:
-            return self._map_explicit_inputs(input_mapping=input_mapping, inputs=filtered_inputs)
-        else:
-            return self._map_auto_inputs(filtered_inputs)
+        return resolved_outputs, output_mapping
 
     def _map_explicit_inputs(
         self, input_mapping: Dict[str, List[str]], inputs: Dict[str, Any]
@@ -310,36 +321,6 @@ class SuperComponent:
 
         return pipeline_inputs
 
-    def _map_auto_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-        """
-        Map inputs automatically based on matching names.
-
-        :param inputs: Input arguments provided to wrapper
-        :return: Dictionary of mapped pipeline inputs
-        """
-        pipeline_inputs: Dict[str, Dict[str, Any]] = {}
-        pipeline_decl_inputs = self.pipeline.inputs(include_components_with_connected_inputs=False)
-
-        for comp_name, inputs_dict in pipeline_decl_inputs.items():
-            for socket_name in inputs_dict.keys():
-                if socket_name in inputs:
-                    pipeline_inputs.setdefault(comp_name, {})[socket_name] = inputs[socket_name]
-
-        return pipeline_inputs
-
-    def _process_pipeline_outputs(self, pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Maps pipeline outputs to the SuperComponent outputs.
-
-        :param pipeline_outputs: Raw outputs from pipeline execution
-        :return: Dictionary of processed outputs
-        :raises InvalidMappingError: If output conflicts occur during auto-mapping
-        """
-        if output_mapping := self.output_mapping:
-            return self._map_explicit_outputs(pipeline_outputs, output_mapping)
-        else:
-            return self._map_auto_outputs(pipeline_outputs)
-
     def _map_explicit_outputs(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
     ) -> Dict[str, Any]:
@@ -357,20 +338,6 @@ class SuperComponent:
                 outputs[wrapper_output_name] = pipeline_outputs[comp_name][socket_name]
         return outputs
 
-    @staticmethod
-    def _map_auto_outputs(pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Map outputs automatically based on matching names.
-
-        :param pipeline_outputs: Raw outputs from pipeline execution
-        :return: Dictionary of mapped outputs
-        """
-        outputs: Dict[str, Any] = {}
-        for comp_output_dict in pipeline_outputs.values():
-            for socket_name, value in comp_output_dict.items():
-                outputs[socket_name] = value
-        return outputs
-
     def _to_super_component_dict(self) -> Dict[str, Any]:
         """
         Convert to a SuperComponent dictionary representation.
@@ -381,8 +348,8 @@ class SuperComponent:
         serialized = default_to_dict(
             self,
             pipeline=serialized_pipeline,
-            input_mapping=self.input_mapping,
-            output_mapping=self.output_mapping
+            input_mapping=self._original_input_mapping,
+            output_mapping=self._original_output_mapping
         )
         serialized["type"] = generate_qualified_class_name(SuperComponent)
         return serialized
