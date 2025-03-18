@@ -168,8 +168,9 @@ class SuperComponent:
         """
         aggregated_inputs: Dict[str, Dict[str, Any]] = {}
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
+
             if not isinstance(pipeline_input_paths, list):
-                pipeline_input_paths = [pipeline_input_paths]
+                raise InvalidMappingError(f"Input paths for '{wrapper_input_name}' must be a list of strings.")
 
             for path in pipeline_input_paths:
                 comp_name, socket_name = self._split_component_path(path)
@@ -254,6 +255,9 @@ class SuperComponent:
         """
         resolved_outputs = {}
         for pipeline_output_path, wrapper_output_name in output_mapping.items():
+            if not isinstance(wrapper_output_name, str):
+                raise InvalidMappingError("Output names in output_mapping must be strings.")
+
             comp_name, socket_name = self._split_component_path(pipeline_output_path)
 
             if comp_name not in pipeline_outputs:
@@ -309,9 +313,6 @@ class SuperComponent:
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
             if wrapper_input_name not in inputs:
                 continue
-
-            if not isinstance(pipeline_input_paths, list):
-                pipeline_input_paths = [pipeline_input_paths]
 
             for socket_path in pipeline_input_paths:
                 comp_name, input_name = self._split_component_path(socket_path)

@@ -158,6 +158,13 @@ class TestSuperComponent:
         }
         assert input_sockets["query"].type == str
 
+    def test_run_no_warm_up(self):
+        pipeline = Pipeline()
+        pipeline.add_component("retriever", InMemoryBM25Retriever(document_store=InMemoryDocumentStore()))
+        wrapper = SuperComponent(pipeline=pipeline)
+        with pytest.raises(RuntimeError):
+            wrapper.run(query="What is the capital of France?")
+
     def test_wrapper_serialization(self, document_store):
         """Test serialization and deserialization of pipeline wrapper."""
         pipeline = Pipeline()
