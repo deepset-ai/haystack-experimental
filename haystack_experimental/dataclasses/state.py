@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.type_serialization import deserialize_type, serialize_type
 
-from haystack_experimental.dataclasses.state_utils import _is_valid_type, merge_values
+from haystack_experimental.dataclasses.state_utils import _is_list_type, _is_valid_type, merge_lists, replace_values
 
 
 def _schema_to_dict(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -78,7 +78,7 @@ class State:
     A dataclass that wraps a StateSchema and maintains an internal _data dictionary.
 
     Each schema entry has:
-      {
+      "parameter_name": {
         "type": SomeType,
         "handler": Optional[Callable[[Any, Any], Any]]
       }
@@ -88,13 +88,30 @@ class State:
         schema: Dict[str, Any],
         data: Optional[Dict[str, Any]] = None
     ):
+        """
+        Initialize a State object with a schema and optional data.
+
+        :param schema: Dictionary mapping parameter names to their type and handler configs.
+            Type must be a valid Python type, and handler must be a callable function or None.
+            If handler is None, the default handler for the type will be used. The default handlers are:
+                - For list types: `haystack_experimental.dataclasses.state_utils.merge_lists`
+                - For all other types: `haystack_experimental.dataclasses.state_utils.replace_values`
+        :param data: Optional dictionary of initial data to populate the state
+        """
         _validate_schema(schema)
         self.schema = schema
         self._data = data or {}
 
-        if data:
-            for key, val in data.items():
-                self.set(key, val, force=True)
+        # Set default handlers if not provided in schema
+        for definition in schema.values():
+            # Skip if handler is already defined and not None
+            if definition.get("handler") is not None:
+                continue
+            # Set default handler based on type
+            if _is_list_type(definition["type"]):
+                definition["handler"] = merge_lists
+            else:
+                definition["handler"] = replace_values
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -110,50 +127,28 @@ class State:
         self,
         key: str,
         value: Any,
-        handler_override: Optional[Callable[[Any, Any], Any]] = None,
-        force: bool = False
+        handler_override: Optional[Callable[[Any, Any], Any]] = None
     ) -> None:
         """
         Set or merge a value in the state according to schema rules.
 
         Value is merged or overwritten according to these rules:
-          - If force=True, just overwrite
-          - else if handler_override is given, use that
-          - else if the schema for 'key' has a custom handler, use it
-          - else use default merge logic
+          - if handler_override is given, use that
+          - else use the handler defined in the schema for 'key'
 
         :param key: Key to store the value under
         :param value: Value to store or merge
-        :param handler_override: Optional function to override default merge behavior
-        :param force: If True, overwrites existing value without merging
+        :param handler_override: Optional function to override the default merge behavior
         """
-        # If key not in schema, we consider no special merging => just store
-        definition = self.schema.get(key, {})
-        declared_type = definition.get("type")
-        declared_handler = definition.get("handler")
+        # If key not in schema, we throw an error
+        definition = self.schema.get(key, None)
+        if definition is None:
+            raise ValueError(f"State: Key '{key}' not found in schema. Schema: {self.schema}")
 
-        if force or (not declared_type and not declared_handler and not handler_override):
-            self._data[key] = value
-            return
-
+        # Get current value from state and apply handler
         current_value = self._data.get(key, None)
-
-        # if the current value was None and no merging needed, just store
-        if current_value is None and not declared_handler and not handler_override:
-            self._data[key] = value
-            return
-
-        # pick the handler (override > declared > default)
-        handler = handler_override or declared_handler
-        if handler:
-            self._data[key] = handler(current_value, value)
-        else:
-            # default merging
-            if declared_type is None:
-                # no known type => just replace
-                self._data[key] = value
-            else:
-                self._data[key] = merge_values(current_value, value, declared_type)
+        handler = handler_override or definition["handler"]
+        self._data[key] = handler(current_value, value)
 
     @property
     def data(self):
