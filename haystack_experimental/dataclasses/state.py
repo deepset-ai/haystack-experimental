@@ -147,9 +147,6 @@ class State:
         # If key not in schema, we throw an error
         definition = self.schema.get(key, None)
         if definition is None:
-            logger.error(
-                "State: Key '{state_key}' not found in schema. Schema: {schema}", state_key=key, schema=self.schema
-            )
             raise ValueError(f"State: Key '{key}' not found in schema. Schema: {self.schema}")
 
         # if the current value is None just replace
