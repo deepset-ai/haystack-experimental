@@ -1,7 +1,4 @@
-from typing import Union
-
 import pytest
-from pathlib import Path
 
 from haystack import Document
 from haystack.dataclasses import ByteStream
