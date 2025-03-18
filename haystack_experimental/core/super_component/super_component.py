@@ -56,11 +56,12 @@ class SuperComponent:
         # Determine input types based on pipeline and mapping
         pipeline_inputs = self.pipeline.inputs()
         if input_mapping is None:
-            input_types, auto_input_mapping = self._handle_auto_input_mapping(pipeline_inputs)
+            auto_input_mapping = self._create_input_mapping(pipeline_inputs)
             resolved_input_mapping = auto_input_mapping
         else:
-            input_types = self._handle_explicit_input_mapping(pipeline_inputs, input_mapping)
+            self._validate_input_mapping(pipeline_inputs, input_mapping)
             resolved_input_mapping = input_mapping
+        input_types = self._handle_explicit_input_mapping(pipeline_inputs, resolved_input_mapping)
 
         # Set input types on the component
         for input_name, info in input_types.items():
@@ -155,6 +156,19 @@ class SuperComponent:
             raise InvalidMappingError(f"Invalid path format: '{path}'. Expected 'component_name.socket_name'.")
         return comp_name, socket_name
 
+    def _validate_input_mapping(
+        self, pipeline_inputs: Dict[str, Dict[str, Any]], input_mapping: Dict[str, List[str]]
+    ) -> None:
+        for wrapper_input_name, pipeline_input_paths in input_mapping.items():
+            if not isinstance(pipeline_input_paths, list):
+                raise InvalidMappingError(f"Input paths for '{wrapper_input_name}' must be a list of strings.")
+            for path in pipeline_input_paths:
+                comp_name, socket_name = self._split_component_path(path)
+                if comp_name not in pipeline_inputs:
+                    raise InvalidMappingError(f"Component '{comp_name}' not found in pipeline inputs.")
+                if socket_name not in pipeline_inputs[comp_name]:
+                    raise InvalidMappingError(f"Input socket '{socket_name}' not found in component '{comp_name}'.")
+
     def _handle_explicit_input_mapping(  # noqa: PLR0912
         self, pipeline_inputs: Dict[str, Dict[str, Any]], input_mapping: Dict[str, List[str]]
     ) -> Dict[str, Dict[str, Any]]:
@@ -168,79 +182,53 @@ class SuperComponent:
         """
         aggregated_inputs: Dict[str, Dict[str, Any]] = {}
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
-
-            if not isinstance(pipeline_input_paths, list):
-                raise InvalidMappingError(f"Input paths for '{wrapper_input_name}' must be a list of strings.")
-
             for path in pipeline_input_paths:
                 comp_name, socket_name = self._split_component_path(path)
-
-                if comp_name not in pipeline_inputs:
-                    raise InvalidMappingError(f"Component '{comp_name}' not found in pipeline inputs.")
-
-                if socket_name not in pipeline_inputs[comp_name]:
-                    raise InvalidMappingError(f"Input socket '{socket_name}' not found in component '{comp_name}'.")
-
                 socket_info = pipeline_inputs[comp_name][socket_name]
-                if existing_socket_info := aggregated_inputs.get(wrapper_input_name):
-                    # TODO is_compatible should determine least common denominator of type overlap
-                    #      and set that as the type for the wrapper input
-                    if not is_compatible(existing_socket_info["type"], socket_info["type"]):
-                        raise InvalidMappingError(
-                            f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
-                            f"We already have type {existing_socket_info['type']} for '{socket_name}' which is not"
-                            f"compatible with {socket_info['type']}."
-                        )
 
-                    # If any socket requires mandatory inputs then pass it to the wrapper and use the type from the
-                    # mandatory socket
-                    if not aggregated_inputs[wrapper_input_name]["is_mandatory"]:
-                        aggregated_inputs[wrapper_input_name]["is_mandatory"] = socket_info["is_mandatory"]
-                        aggregated_inputs[wrapper_input_name]["type"] = socket_info["type"]
-                else:
+                # Add to aggregated inputs
+                existing_socket_info = aggregated_inputs.get(wrapper_input_name)
+                if existing_socket_info is None:
                     aggregated_inputs[wrapper_input_name] = socket_info
+                    continue
+
+                # TODO is_compatible should determine least common denominator of type overlap and set that as the type
+                #      for the wrapper input
+                if not is_compatible(existing_socket_info["type"], socket_info["type"]):
+                    raise InvalidMappingError(
+                        f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
+                        f"Existing type: {existing_socket_info['type']}, new type: {socket_info['type']}."
+                    )
+
+                # If any socket requires mandatory inputs then pass it to the wrapper and use the type from the
+                # mandatory socket
+                if not aggregated_inputs[wrapper_input_name]["is_mandatory"]:
+                    aggregated_inputs[wrapper_input_name]["is_mandatory"] = socket_info["is_mandatory"]
+                    aggregated_inputs[wrapper_input_name]["type"] = socket_info["type"]
 
         return aggregated_inputs
 
     @staticmethod
-    def _handle_auto_input_mapping(
-        pipeline_inputs: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]]]:
+    def _create_input_mapping(pipeline_inputs: Dict[str, Dict[str, Any]]) -> Dict[str, List[str]]:
         """
-        Handle case where input mapping should be auto-detected.
+        Create an input mapping from pipeline inputs.
 
         :param pipeline_inputs: Dictionary of pipeline input specifications
-        :returns: The resolved input type data resolved according to auto-resolution.
-        :raises InvalidMappingError: If type conflicts exist between components
+        :returns:
         """
-        aggregated_inputs: Dict[str, Dict[str, Any]] = {}
         input_mapping: Dict[str, List[str]] = {}
 
         for comp_name, inputs_dict in pipeline_inputs.items():
             for socket_name, socket_info in inputs_dict.items():
-                if existing_socket_info := aggregated_inputs.get(socket_name):
-                    # TODO is_compatible should determine least common denominator of type overlap
-                    #      and set that as the type for the wrapper input
-                    if not is_compatible(existing_socket_info["type"], socket_info["type"]):
-                        raise InvalidMappingError(
-                            f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
-                            f"We already have type {existing_socket_info['type']} for '{socket_name}' which is not"
-                            f"compatible with {socket_info['type']}."
-                        )
 
-                    # If any socket requires mandatory inputs then pass it to the wrapper and use the type from the
-                    # mandatory socket
-                    if not existing_socket_info["is_mandatory"]:
-                        aggregated_inputs[socket_name]["is_mandatory"] = socket_info["is_mandatory"]
-                        aggregated_inputs[socket_name]["type"] = socket_info["type"]
-
-                    # Add the component name to the input mapping
-                    input_mapping[socket_name].append(f"{comp_name}.{socket_name}")
-                else:
-                    aggregated_inputs[socket_name] = socket_info
+                existing_socket_info = input_mapping.get(socket_name)
+                if existing_socket_info is None:
                     input_mapping[socket_name] = [f"{comp_name}.{socket_name}"]
+                    continue
 
-        return aggregated_inputs, input_mapping
+                input_mapping[socket_name].append(f"{comp_name}.{socket_name}")
+
+        return input_mapping
 
     def _handle_explicit_output_mapping(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]

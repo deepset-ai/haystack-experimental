@@ -91,7 +91,7 @@ class TestSuperComponent:
 
     def test_explicit_input_mapping(self, rag_pipeline):
         input_mapping = {"search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]}
-        wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping,)
+        wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping)
         input_sockets = wrapper.__haystack_input__._sockets_dict
         assert set(input_sockets.keys()) == {"search_query"}
         assert input_sockets["search_query"].type == str
@@ -103,19 +103,10 @@ class TestSuperComponent:
         assert set(output_sockets.keys()) == {"final_answers"}
         assert output_sockets["final_answers"].type == List[GeneratedAnswer]
 
-    def test_super_component_run(self, rag_pipeline):
-        input_mapping = {"search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]}
-        output_mapping = {"answer_builder.answers": "final_answers"}
-        wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping, output_mapping=output_mapping)
-        wrapper.warm_up()
-        result = wrapper.run(search_query="What is the capital of France?")
-        assert "final_answers" in result
-        assert isinstance(result["final_answers"][0], GeneratedAnswer)
-
     def test_auto_input_mapping(self, rag_pipeline):
-        pipeline_inputs = rag_pipeline.inputs()
-        aggregated_inputs, auto_input_mapping = SuperComponent._handle_auto_input_mapping(pipeline_inputs)
-        assert set(aggregated_inputs.keys()) == {
+        wrapper = SuperComponent(pipeline=rag_pipeline)
+        input_sockets = wrapper.__haystack_input__._sockets_dict
+        assert set(input_sockets.keys()) == {
             "documents",
             "filters",
             "meta",
@@ -127,7 +118,6 @@ class TestSuperComponent:
             "template_variables",
             "top_k"
         }
-        assert aggregated_inputs["query"]["type"] == str
 
     def test_auto_output_mapping(self, rag_pipeline):
         pipeline_outputs = rag_pipeline.outputs()
@@ -157,6 +147,15 @@ class TestSuperComponent:
             "top_k"
         }
         assert input_sockets["query"].type == str
+
+    def test_super_component_run(self, rag_pipeline):
+        input_mapping = {"search_query": ["retriever.query", "prompt_builder.query", "answer_builder.query"]}
+        output_mapping = {"answer_builder.answers": "final_answers"}
+        wrapper = SuperComponent(pipeline=rag_pipeline, input_mapping=input_mapping, output_mapping=output_mapping)
+        wrapper.warm_up()
+        result = wrapper.run(search_query="What is the capital of France?")
+        assert "final_answers" in result
+        assert isinstance(result["final_answers"][0], GeneratedAnswer)
 
     def test_run_no_warm_up(self):
         pipeline = Pipeline()
