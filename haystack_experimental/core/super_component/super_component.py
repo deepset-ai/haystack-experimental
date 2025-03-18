@@ -56,11 +56,10 @@ class SuperComponent:
         # Determine input types based on pipeline and mapping
         pipeline_inputs = self.pipeline.inputs()
         if input_mapping is None:
-            auto_input_mapping = self._create_input_mapping(pipeline_inputs)
-            resolved_input_mapping = auto_input_mapping
+            resolved_input_mapping = self._create_input_mapping(pipeline_inputs)
         else:
-            self._validate_input_mapping(pipeline_inputs, input_mapping)
             resolved_input_mapping = input_mapping
+        self._validate_input_mapping(pipeline_inputs, input_mapping)
         input_types = self._handle_explicit_input_mapping(pipeline_inputs, resolved_input_mapping)
 
         # Set input types on the component
@@ -76,11 +75,11 @@ class SuperComponent:
         # Set output types based on pipeline and mapping
         pipeline_outputs = self.pipeline.outputs()
         if output_mapping is None:
-            output_types, auto_output_mapping = self._handle_auto_output_mapping(pipeline_outputs)
-            resolved_output_mapping = auto_output_mapping
+            resolved_output_mapping = self._create_output_mapping(pipeline_outputs)
         else:
-            output_types = self._handle_explicit_output_mapping(pipeline_outputs, output_mapping)
             resolved_output_mapping = output_mapping
+        self._validate_output_mapping(pipeline_outputs, output_mapping)
+        output_types = self._handle_explicit_output_mapping(pipeline_outputs, resolved_output_mapping)
 
         # Set output types on the component
         component.set_output_types(self, **output_types)
@@ -217,18 +216,26 @@ class SuperComponent:
         :returns:
         """
         input_mapping: Dict[str, List[str]] = {}
-
         for comp_name, inputs_dict in pipeline_inputs.items():
             for socket_name, socket_info in inputs_dict.items():
-
                 existing_socket_info = input_mapping.get(socket_name)
                 if existing_socket_info is None:
                     input_mapping[socket_name] = [f"{comp_name}.{socket_name}"]
                     continue
-
                 input_mapping[socket_name].append(f"{comp_name}.{socket_name}")
-
         return input_mapping
+
+    def _validate_output_mapping(
+        self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
+    ) -> None:
+        for pipeline_output_path, wrapper_output_name in output_mapping.items():
+            if not isinstance(wrapper_output_name, str):
+                raise InvalidMappingError("Output names in output_mapping must be strings.")
+            comp_name, socket_name = self._split_component_path(pipeline_output_path)
+            if comp_name not in pipeline_outputs:
+                raise InvalidMappingError(f"Component '{comp_name}' not found among pipeline outputs.")
+            if socket_name not in pipeline_outputs[comp_name]:
+                raise InvalidMappingError(f"Output socket '{socket_name}' not found in component '{comp_name}'.")
 
     def _handle_explicit_output_mapping(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
@@ -243,49 +250,26 @@ class SuperComponent:
         """
         resolved_outputs = {}
         for pipeline_output_path, wrapper_output_name in output_mapping.items():
-            if not isinstance(wrapper_output_name, str):
-                raise InvalidMappingError("Output names in output_mapping must be strings.")
-
             comp_name, socket_name = self._split_component_path(pipeline_output_path)
-
-            if comp_name not in pipeline_outputs:
-                raise InvalidMappingError(f"Component '{comp_name}' not found among pipeline outputs.")
-            if socket_name not in pipeline_outputs[comp_name]:
-                raise InvalidMappingError(f"Output socket '{socket_name}' not found in component '{comp_name}'.")
             if wrapper_output_name in resolved_outputs:
                 raise InvalidMappingError(f"Duplicate output name '{wrapper_output_name}' in output_mapping.")
-
             resolved_outputs[wrapper_output_name] = pipeline_outputs[comp_name][socket_name]["type"]
-
         return resolved_outputs
 
     @staticmethod
-    def _handle_auto_output_mapping(
-        pipeline_outputs: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
-        """
-        Handle case where output mapping should be auto-detected.
-
-        :param pipeline_outputs: Dictionary of pipeline output specifications
-        :return: Dictionary of resolved output types
-        :raises InvalidMappingError: If output conflicts exist
-        """
-        resolved_outputs = {}
+    def _create_output_mapping(pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
         output_mapping = {}
         used_output_names: set[str] = set()
-
-        for outputs_dict in pipeline_outputs.values():
+        for comp_name, outputs_dict in pipeline_outputs.items():
             for socket_name, socket_info in outputs_dict.items():
                 if socket_name in used_output_names:
                     raise InvalidMappingError(
                         f"Output name conflict: '{socket_name}' is produced by multiple components. "
                         "Please provide an output_mapping to resolve this conflict."
                     )
-                resolved_outputs[socket_name] = socket_info["type"]
                 used_output_names.add(socket_name)
-                output_mapping[socket_name] = socket_name
-
-        return resolved_outputs, output_mapping
+                output_mapping[f"{comp_name}.{socket_name}"] = socket_name
+        return output_mapping
 
     def _map_explicit_inputs(
         self, input_mapping: Dict[str, List[str]], inputs: Dict[str, Any]

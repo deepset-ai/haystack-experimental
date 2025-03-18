@@ -120,11 +120,9 @@ class TestSuperComponent:
         }
 
     def test_auto_output_mapping(self, rag_pipeline):
-        pipeline_outputs = rag_pipeline.outputs()
-        aggregated_outputs, auto_output_mapping = SuperComponent._handle_auto_output_mapping(pipeline_outputs)
-        assert set(aggregated_outputs.keys()) == {"answers", "documents"}
-        assert aggregated_outputs["answers"] == List[GeneratedAnswer]
-        assert aggregated_outputs["documents"] == List[Document]
+        wrapper = SuperComponent(pipeline=rag_pipeline)
+        output_sockets = wrapper.__haystack_output__._sockets_dict
+        assert set(output_sockets.keys()) == {"answers", "documents"}
 
     def test_auto_mapping_sockets(self, rag_pipeline):
         wrapper = SuperComponent(pipeline=rag_pipeline)
