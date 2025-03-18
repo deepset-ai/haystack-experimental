@@ -355,7 +355,7 @@ class TestMergeToolOutputs:
             state=state
         )
         assert merged_results == {"weather": "sunny", "temperature": 14, "unit": "celsius"}
-        assert state.data == {"weather": "sunny", "temperature": 14, "unit": "celsius"}
+        assert state.data == {}
 
     def test_merge_tool_outputs_with_output_mapping(self):
         weather_tool = Tool(
@@ -381,17 +381,17 @@ class TestMergeToolOutputs:
             description="Provides weather information for a given location.",
             parameters=weather_parameters,
             function=weather_function,
-            outputs_to_state={"weather": {}}
+            outputs_to_state={"all_weather_results": {}}
         )
         invoker = ToolInvoker(tools=[weather_tool])
-        state = State(schema={"weather": {"type": str}})
+        state = State(schema={"all_weather_results": {"type": str}})
         merged_results = invoker._merge_tool_outputs(
             tool=weather_tool,
             result={"weather": "sunny", "temperature": 14, "unit": "celsius"},
             state=state
         )
         assert merged_results == {"weather": "sunny", "temperature": 14, "unit": "celsius"}
-        assert state.data == {"weather": {"weather": "sunny", "temperature": 14, "unit": "celsius"}}
+        assert state.data == {"all_weather_results": {"weather": "sunny", "temperature": 14, "unit": "celsius"}}
 
     def test_merge_tool_outputs_with_output_mapping_and_handler(self):
         handler = lambda old, new: f"{new}"
