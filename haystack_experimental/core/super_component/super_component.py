@@ -220,7 +220,7 @@ class SuperComponent:
         """
         input_mapping: Dict[str, List[str]] = {}
         for comp_name, inputs_dict in pipeline_inputs.items():
-            for socket_name, socket_info in inputs_dict.items():
+            for socket_name in inputs_dict.keys():
                 existing_socket_info = input_mapping.get(socket_name)
                 if existing_socket_info is None:
                     input_mapping[socket_name] = [f"{comp_name}.{socket_name}"]
@@ -281,7 +281,7 @@ class SuperComponent:
         output_mapping = {}
         used_output_names: set[str] = set()
         for comp_name, outputs_dict in pipeline_outputs.items():
-            for socket_name, socket_info in outputs_dict.items():
+            for socket_name in outputs_dict.keys():
                 if socket_name in used_output_names:
                     raise InvalidMappingError(
                         f"Output name conflict: '{socket_name}' is produced by multiple components. "
