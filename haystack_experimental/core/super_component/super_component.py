@@ -329,7 +329,7 @@ class SuperComponent:
 
     def _process_pipeline_outputs(self, pipeline_outputs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Process outputs from pipeline execution.
+        Maps pipeline outputs to the SuperComponent outputs.
 
         :param pipeline_outputs: Raw outputs from pipeline execution
         :return: Dictionary of processed outputs
