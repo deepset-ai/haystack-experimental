@@ -146,7 +146,7 @@ class State:
         if definition is None:
             raise ValueError(f"State: Key '{key}' not found in schema. Schema: {self.schema}")
 
-        # if the current value is None just replace
+        # Get current value from state and apply handler
         current_value = self._data.get(key, None)
         handler = handler_override or definition["handler"]
         self._data[key] = handler(current_value, value)
