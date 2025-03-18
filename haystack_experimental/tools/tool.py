@@ -77,7 +77,9 @@ class Tool:
         try:
             result = self.function(**kwargs)
         except Exception as e:
-            raise ToolInvocationError(f"Failed to invoke Tool `{self.name}` with parameters {kwargs}") from e
+            raise ToolInvocationError(
+                f"Failed to invoke Tool `{self.name}` with parameters {kwargs}. Error: {e}"
+            ) from e
         return result
 
     def to_dict(self) -> Dict[str, Any]:
