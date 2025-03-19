@@ -122,11 +122,13 @@ class DocumentProcessor:
         """
         return {"concatenated": "\n".join(doc.content for doc in documents[:top_k])}
 
+
 def output_handler(old, new):
     """
     Output handler to test serialization.
     """
     return old + new
+
 
 ## Unit tests
 class TestToolComponent:
@@ -159,7 +161,6 @@ class TestToolComponent:
         component = SimpleComponent()
 
         tool = ComponentTool(component=component, inputs_from_state={"text": "text"})
-
 
         assert tool.inputs_from_state == {"text": "text"}
         # Inputs should be excluded from schema generation
@@ -588,8 +589,8 @@ class TestToolComponentInPipelineWithOpenAI:
         assert tool_dict["data"]["name"] == "simple_tool"
         assert tool_dict["data"]["description"] == "A simple tool"
         assert "component" in tool_dict["data"]
-        assert tool_dict["data"]["inputs"] == {"test": "input"}
-        assert tool_dict["data"]["outputs"]["output"]["handler"] == "test.tools.test_component_tool.output_handler"
+        assert tool_dict["data"]["inputs_from_state"] == {"test": "input"}
+        assert tool_dict["data"]["outputs_to_state"]["output"]["handler"] == "test.tools.test_component_tool.output_handler"
 
         # Test deserialization
         new_tool = ComponentTool.from_dict(tool_dict)
