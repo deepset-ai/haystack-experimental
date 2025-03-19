@@ -233,7 +233,9 @@ class Agent:
 
             # 4. Check the LLM and Tool response for the exit condition, if exit_condition is a tool name
             if self.exit_condition != "text":
-                should_exit = llm_messages[0].tool_call is None or (
+                # TODO Possible for LLM to return multiple messages (e.g. multiple tool calls)
+                #      So exit condition could be missed if it's not the first message
+                should_exit = (
                     llm_messages[0].tool_call.tool_name == self.exit_condition
                     and not tool_messages[0].tool_call_result.error
                 )
