@@ -2,19 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import importlib
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from haystack import Pipeline, component, default_from_dict, default_to_dict, logging
+from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack.components.joiners import BranchJoiner
-from haystack.components.routers.conditional_router import ConditionalRouter
 from haystack.core.component import Component
 from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import SyncStreamingCallbackT
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
+from haystack.utils import type_serialization
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
@@ -58,8 +56,9 @@ class Agent:
     ```
     """
 
-    def __init__(  # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
+        *,
         chat_generator: Union[OpenAIChatGenerator, "AnthropicChatGenerator"],
         tools: Optional[List[Tool]] = None,
         system_prompt: Optional[str] = None,
@@ -106,7 +105,7 @@ class Agent:
             output_types[param] = config["type"]
         component.set_output_types(self, **output_types)
 
-        self._initialize_pipeline()
+        self.tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
 
         self._is_warmed_up = False
 
@@ -115,69 +114,9 @@ class Agent:
         Warm up the Agent.
         """
         if not self._is_warmed_up:
-            self.pipeline.warm_up()
+            if hasattr(self.chat_generator, "warm_up"):
+                self.chat_generator.warm_up()
             self._is_warmed_up = True
-
-    def _initialize_pipeline(self) -> None:
-        """Initialize the component pipeline with all necessary components and connections."""
-        joiner = BranchJoiner(type_=List[ChatMessage])
-        tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
-        context_joiner = BranchJoiner(type_=State)
-
-        # Configure router conditions
-        if self.exit_condition == "text":
-            exit_condition_template = "{{ llm_messages[0].tool_call is none }}"
-        else:
-            exit_condition_template = (
-                "{{ llm_messages[0].tool_call is none or (llm_messages[0].tool_call.tool_name == '"
-                + self.exit_condition
-                + "' and not tool_messages[0].tool_call_result.error) }}"
-            )
-
-        router_output = (
-            "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"
-            "|assistant_message(none, none, llm_messages[0].tool_calls) %}"
-            "{{ original_messages + [assistant_msg] + tool_messages }}"
-        )
-
-        routes = [
-            {
-                "condition": exit_condition_template,
-                "output": router_output,
-                "output_type": List[ChatMessage],
-                "output_name": "exit",
-            },
-            {
-                "condition": "{{ True }}",  # Default route
-                "output": router_output,
-                "output_type": List[ChatMessage],
-                "output_name": "continue",
-            },
-        ]
-
-        router = ConditionalRouter(
-            routes=routes,
-            custom_filters={"assistant_message": ChatMessage.from_assistant},
-            unsafe=True,
-        )
-
-        # Set up pipeline
-        self.pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
-        self.pipeline.add_component(instance=self.chat_generator, name="generator")
-        self.pipeline.add_component(instance=tool_invoker, name="tool_invoker")
-        self.pipeline.add_component(instance=router, name="router")
-        self.pipeline.add_component(instance=joiner, name="joiner")
-        self.pipeline.add_component(instance=context_joiner, name="context_joiner")
-
-        # Connect components
-        self.pipeline.connect("joiner.value", "generator.messages")
-        self.pipeline.connect("generator.replies", "router.llm_messages")
-        self.pipeline.connect("joiner.value", "router.original_messages")
-        self.pipeline.connect("generator.replies", "tool_invoker.messages")
-        self.pipeline.connect("tool_invoker.tool_messages", "router.tool_messages")
-        self.pipeline.connect("router.continue", "joiner.value")
-        self.pipeline.connect("tool_invoker.state", "context_joiner.value")
-        self.pipeline.connect("context_joiner.value", "tool_invoker.state")
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -220,7 +159,6 @@ class Agent:
         if init_params.get("streaming_callback") is not None:
             init_params["streaming_callback"] = deserialize_callable(init_params["streaming_callback"])
 
-
         deserialize_tools_inplace(init_params, key="tools")
 
         return default_from_dict(cls, data)
@@ -232,7 +170,7 @@ class Agent:
                 # Import the module first...
                 module, _ = component_data["type"].rsplit(".", 1)
                 logger.debug("Trying to import module {module_name}", module_name=module)
-                importlib.import_module(module)
+                type_serialization.thread_safe_import(module)
                 # ...then try again
                 if component_data["type"] not in component.registry:
                     raise PipelineError(
@@ -245,7 +183,6 @@ class Agent:
         # Create a new one
         component_class = component.registry[component_data["type"]]
         instance = component_from_dict(component_class, component_data, "")
-
         return instance
 
     def run(
@@ -259,9 +196,13 @@ class Agent:
 
         :param messages: List of chat messages to process
         :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
-        :param kwargs: Additional keyword arguments matching the defined input types
+        :param kwargs: Additional data to pass to the State schema used by the Agent.
+            The keys must match the schema defined in the Agent's `state_schema`.
         :return: Dictionary containing messages and outputs matching the defined output types
         """
+        if not self._is_warmed_up:
+            raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
+
         state = State(schema=self.state_schema, data=kwargs)
 
         if self.system_prompt is not None:
@@ -273,16 +214,33 @@ class Agent:
         if selected_callback is not None:
             generator_inputs["streaming_callback"] = selected_callback
 
-        result = self.pipeline.run(
-            data={
-                "joiner": {"value": messages},
-                "context_joiner": {"value": state},
-                "generator": generator_inputs,
-            },
-            include_outputs_from={"context_joiner"},
-        )
+        # Repeat until the exit condition is met
+        for _ in range(self.max_runs_per_component):
+            # 1. Call the ChatGenerator
+            llm_messages = self.chat_generator.run(messages=messages, **generator_inputs)["replies"]
 
-        return {
-            "messages": result["router"]["exit"],
-            **result["context_joiner"]["value"].data,
-        }
+            # TODO Possible for LLM to return multiple messages (e.g. multiple tool calls)
+            #      Would a better check be to see if any of the messages contain a tool call?
+            # 2. Check the LLM response for the exit condition
+            should_exit = llm_messages[0].tool_call is None
+            if self.exit_condition != "text":
+                should_exit = should_exit or (
+                    llm_messages[0].tool_call.tool_name == self.exit_condition
+                    and not llm_messages[0].tool_call_result.error
+                )
+
+            # 3.1 If the exit condition is met, return all the messages
+            if should_exit:
+                return {"messages": messages + llm_messages, **state.data}
+
+            # 3.2 If the exit condition is not met, call the ToolInvoker
+            # We only send the messages from the LLM to the tool invoker
+            tool_invoker_result = self.tool_invoker.run(messages=llm_messages, state=state)
+            tool_messages = tool_invoker_result["messages"]
+            state = tool_invoker_result["state"]
+
+            # 4. Combine messages, llm_messages and tool_messages and send to the ChatGenerator
+            messages = messages + llm_messages + tool_messages
+
+        logger.warning(f"Agent exceeded maximum runs per component ({self.max_runs_per_component}), stopping.")
+        return {"messages": messages, **state.data}

@@ -135,16 +135,12 @@ class TestAgent:
         assert deserialized_agent.streaming_callback is streaming_callback_for_serde
 
     def test_run_with_params_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
-        chat_generator = OpenAIChatGenerator(
-            api_key=Secret.from_token("test-api-key")
-        )
-
+        chat_generator = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"))
         streaming_callback_called = False
 
         def streaming_callback(chunk: StreamingChunk) -> None:
             nonlocal streaming_callback_called
             streaming_callback_called = True
-
 
         agent = Agent(chat_generator=chat_generator, streaming_callback=streaming_callback, tools=[weather_tool])
         agent.warm_up()
