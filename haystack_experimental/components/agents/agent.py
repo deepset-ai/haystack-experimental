@@ -200,7 +200,7 @@ class Agent:
             The keys must match the schema defined in the Agent's `state_schema`.
         :return: Dictionary containing messages and outputs matching the defined output types
         """
-        if not self._is_warmed_up:
+        if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
 
         state = State(schema=self.state_schema, data=kwargs)
