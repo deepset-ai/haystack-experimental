@@ -247,5 +247,7 @@ class Agent:
             messages = messages + llm_messages + tool_messages
             counter += 1
 
-        logger.warning(f"Agent exceeded maximum runs per component ({self.max_runs_per_component}), stopping.")
+        logger.warning(
+            "Agent exceeded maximum runs per component ({max_loops}), stopping.", max_loops=self.max_runs_per_component,
+        )
         return {"messages": messages, **state.data}
