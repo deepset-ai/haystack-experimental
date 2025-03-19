@@ -105,7 +105,7 @@ class Agent:
             output_types[param] = config["type"]
         component.set_output_types(self, **output_types)
 
-        self.tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
+        self._tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
 
         self._is_warmed_up = False
 
@@ -215,7 +215,8 @@ class Agent:
             generator_inputs["streaming_callback"] = selected_callback
 
         # Repeat until the exit condition is met
-        for _ in range(self.max_runs_per_component):
+        counter = 0
+        while counter < self.max_runs_per_component:
             # 1. Call the ChatGenerator
             llm_messages = self.chat_generator.run(messages=messages, **generator_inputs)["replies"]
 
@@ -227,7 +228,7 @@ class Agent:
 
             # 3. Call the ToolInvoker
             # We only send the messages from the LLM to the tool invoker
-            tool_invoker_result = self.tool_invoker.run(messages=llm_messages, state=state)
+            tool_invoker_result = self._tool_invoker.run(messages=llm_messages, state=state)
             tool_messages = tool_invoker_result["messages"]
             state = tool_invoker_result["state"]
 
@@ -244,6 +245,7 @@ class Agent:
 
             # 5. Combine messages, llm_messages and tool_messages and send to the ChatGenerator
             messages = messages + llm_messages + tool_messages
+            counter += 1
 
         logger.warning(f"Agent exceeded maximum runs per component ({self.max_runs_per_component}), stopping.")
         return {"messages": messages, **state.data}
