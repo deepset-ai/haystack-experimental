@@ -202,9 +202,10 @@ class SuperComponent:
                     )
 
                 # If any socket requires mandatory inputs then the aggregated input is also considered mandatory.
-                # So we use the type of the mandatory input.
+                # So we use the type of the mandatory input and remove the default value if it exists.
                 if socket_info["is_mandatory"]:
                     aggregated_inputs[wrapper_input_name]["type"] = socket_info["type"]
+                    aggregated_inputs[wrapper_input_name].pop("default", None)
 
         return aggregated_inputs
 

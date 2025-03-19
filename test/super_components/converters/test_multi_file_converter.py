@@ -142,6 +142,7 @@ class TestMultiFileConverter:
         assert len(docs) == len(paths)
         assert all(isinstance(doc, Document) for doc in docs)
 
+    @pytest.mark.integration
     def test_run_in_pipeline(self, test_files_path, converter):
         pipeline = Pipeline(max_runs_per_component=1)
         pipeline.add_component("converter", converter)
