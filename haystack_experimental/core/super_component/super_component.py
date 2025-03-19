@@ -124,8 +124,6 @@ class SuperComponent:
         :raises RuntimeError:
             If the SuperComponent wasn't warmed up before calling 'run()'
         """
-        if self._warmed_up is False:
-            raise RuntimeError("SuperComponent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
         filtered_inputs = {param: value for param, value in kwargs.items() if value != _delegate_default}
         pipeline_inputs = self._map_explicit_inputs(input_mapping=self.input_mapping, inputs=filtered_inputs)
         pipeline_outputs = self.pipeline.run(data=pipeline_inputs)
