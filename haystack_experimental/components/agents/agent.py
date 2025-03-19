@@ -258,7 +258,8 @@ class Agent:
 
         :param messages: List of chat messages to process
         :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
-        :param kwargs: Additional keyword arguments matching the defined input types
+        :param kwargs: Additional data to pass to the State schema used by the Agent.
+            The keys must match the schema defined in the Agent's `state_schema`.
         :return: Dictionary containing messages and outputs matching the defined output types
         """
         if not self._is_warmed_up:
@@ -284,7 +285,4 @@ class Agent:
             include_outputs_from={"context_joiner"},
         )
 
-        return {
-            "messages": result["router"]["exit"],
-            **result["context_joiner"]["value"].data,
-        }
+        return {"messages": result["router"]["exit"], **result["context_joiner"]["value"].data}
