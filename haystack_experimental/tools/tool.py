@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from haystack.core.serialization import generate_qualified_class_name, import_class_by_name
 from haystack.tools.errors import ToolInvocationError
@@ -28,6 +28,8 @@ class Tool:
         A JSON schema defining the parameters expected by the Tool.
     :param function:
         The function that will be invoked when the Tool is called.
+    :param output_to_string:
+        Optional function to convert the output of the Tool to a string.
     :param inputs_from_state:
         Optional dictionary mapping state keys to tool parameter names.
         Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
@@ -43,8 +45,9 @@ class Tool:
     description: str
     parameters: Dict[str, Any]
     function: Callable
+    output_to_string: Optional[Callable] = None
     inputs_from_state: Optional[Dict[str, str]] = None
-    outputs_to_state: Optional[Dict[str, Dict[str, Any]]] = None
+    outputs_to_state: Optional[Dict[str, Dict[str, Union[str, Callable]]]] = None
 
     def __post_init__(self):
         # Check that the parameters define a valid JSON schema

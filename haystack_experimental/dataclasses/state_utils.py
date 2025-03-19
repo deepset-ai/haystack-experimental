@@ -5,6 +5,8 @@
 import inspect
 from typing import Any, List, TypeVar, Union, get_origin
 
+from haystack.dataclasses import ChatMessage
+
 T = TypeVar("T")
 
 
@@ -48,7 +50,7 @@ def _is_list_type(type_hint: Any) -> bool:
     return type_hint is list or (hasattr(type_hint, "__origin__") and get_origin(type_hint) is list)
 
 
-def merge_lists(current: Union[List[T], T], new: Union[List[T], T]) -> List[T]:
+def merge_lists(current: Union[List[T], T, None], new: Union[List[T], T]) -> List[T]:
     """
     Merges two values into a single list.
 

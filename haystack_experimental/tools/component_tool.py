@@ -96,8 +96,9 @@ class ComponentTool(Tool):
         description: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
         *,
-        inputs_from_state: Optional[Dict[str, Any]] = None,
-        outputs_to_state: Optional[Dict[str, Any]] = None,
+        output_to_string: Optional[Callable[[Any], str]] = None,
+        inputs_from_state: Optional[Dict[str, str]] = None,
+        outputs_to_state: Optional[Dict[str, Dict[str, Union[str, Callable]]]] = None,
     ):
         """
         Create a Tool instance from a Haystack component.
@@ -231,7 +232,6 @@ class ComponentTool(Tool):
                     deserialized_config["handler"] = deserialize_callable(config["handler"])
                 deserialized_outputs[key] = deserialized_config
             inner_data["outputs"] = deserialized_outputs
-
 
         return cls(
             component=component,

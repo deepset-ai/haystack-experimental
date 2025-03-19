@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+from haystack.dataclasses import ChatMessage
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.type_serialization import deserialize_type, serialize_type
 
@@ -63,19 +64,14 @@ def _validate_schema(schema: Dict[str, Any]) -> None:
         if "type" not in definition:
             raise ValueError(f"StateSchema: Key '{param}' is missing a 'type' entry.")
         if not _is_valid_type(definition["type"]):
-            raise ValueError(
-                f"StateSchema: 'type' for key '{param}' must be a Python type, "
-                f"got {definition['type']}"
-            )
+            raise ValueError(f"StateSchema: 'type' for key '{param}' must be a Python type, got {definition['type']}")
         if definition.get("handler") is not None and not callable(definition["handler"]):
-            raise ValueError(
-                f"StateSchema: 'handler' for key '{param}' must be callable or None"
-            )
+            raise ValueError(f"StateSchema: 'handler' for key '{param}' must be callable or None")
 
 
 class State:
     """
-    A dataclass that wraps a StateSchema and maintains an internal _data dictionary.
+    A dataclass that wraps a schema and maintains an internal _data dictionary.
 
     Each schema entry has:
       "parameter_name": {
@@ -100,6 +96,8 @@ class State:
         """
         _validate_schema(schema)
         self.schema = schema
+        if self.schema.get("messages") is None:
+            self.schema["messages"] = {"type": List[ChatMessage], "handler": merge_lists}
         self._data = data or {}
 
         # Set default handlers if not provided in schema
