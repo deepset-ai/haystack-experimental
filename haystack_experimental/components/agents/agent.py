@@ -221,25 +221,26 @@ class Agent:
 
             # TODO Possible for LLM to return multiple messages (e.g. multiple tool calls)
             #      Would a better check be to see if any of the messages contain a tool call?
-            # 2. Check the LLM response for the exit condition
-            should_exit = llm_messages[0].tool_call is None
-            if self.exit_condition != "text":
-                should_exit = should_exit or (
-                    llm_messages[0].tool_call.tool_name == self.exit_condition
-                    and not llm_messages[0].tool_call_result.error
-                )
-
-            # 3.1 If the exit condition is met, return all the messages
-            if should_exit:
+            # 2. Check if the LLM response contains a tool call
+            if llm_messages[0].tool_call is None:
                 return {"messages": messages + llm_messages, **state.data}
 
-            # 3.2 If the exit condition is not met, call the ToolInvoker
+            # 3. Call the ToolInvoker
             # We only send the messages from the LLM to the tool invoker
             tool_invoker_result = self.tool_invoker.run(messages=llm_messages, state=state)
             tool_messages = tool_invoker_result["messages"]
             state = tool_invoker_result["state"]
 
-            # 4. Combine messages, llm_messages and tool_messages and send to the ChatGenerator
+            # 4. Check the LLM and Tool response for the exit condition, if exit_condition is a tool name
+            if self.exit_condition != "text":
+                should_exit = llm_messages[0].tool_call is None or (
+                    llm_messages[0].tool_call.tool_name == self.exit_condition
+                    and not tool_messages[0].tool_call_result.error
+                )
+                if should_exit:
+                    return {"messages": messages + llm_messages + tool_messages, **state.data}
+
+            # 5. Combine messages, llm_messages and tool_messages and send to the ChatGenerator
             messages = messages + llm_messages + tool_messages
 
         logger.warning(f"Agent exceeded maximum runs per component ({self.max_runs_per_component}), stopping.")
