@@ -135,11 +135,7 @@ class Agent:
                 + "' and not tool_messages[0].tool_call_result.error) }}"
             )
 
-        router_output = (
-            "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"
-            "|assistant_message(none, none, llm_messages[0].tool_calls) %}"
-            "{{ original_messages + [assistant_msg] + tool_messages }}"
-        )
+        router_output = "{{ original_messages + llm_messages + tool_messages }}"
 
         routes = [
             {
@@ -156,11 +152,7 @@ class Agent:
             },
         ]
 
-        router = ConditionalRouter(
-            routes=routes,
-            custom_filters={"assistant_message": ChatMessage.from_assistant},
-            unsafe=True,
-        )
+        router = ConditionalRouter(routes=routes, unsafe=True)
 
         # Set up pipeline
         self._pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
@@ -200,7 +192,7 @@ class Agent:
             state_schema=_schema_to_dict(self.state_schema),
             max_runs_per_component=self.max_runs_per_component,
             raise_on_tool_invocation_failure=self.raise_on_tool_invocation_failure,
-            streaming_callback=streaming_callback
+            streaming_callback=streaming_callback,
         )
 
     @classmethod
@@ -248,10 +240,7 @@ class Agent:
         return instance
 
     def run(
-        self,
-        messages: List[ChatMessage],
-        streaming_callback: Optional[SyncStreamingCallbackT] = None,
-        **kwargs
+        self, messages: List[ChatMessage], streaming_callback: Optional[SyncStreamingCallbackT] = None, **kwargs
     ) -> Dict[str, Any]:
         """
         Process messages and execute tools until the exit condition is met.
@@ -274,11 +263,7 @@ class Agent:
             generator_inputs["streaming_callback"] = selected_callback
 
         result = self._pipeline.run(
-            data={
-                "joiner": {"value": messages},
-                "context_joiner": {"value": state},
-                "generator": generator_inputs,
-            },
+            data={"joiner": {"value": messages}, "context_joiner": {"value": state}, "generator": generator_inputs},
             include_outputs_from={"context_joiner"},
         )
 

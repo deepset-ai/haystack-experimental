@@ -96,7 +96,7 @@ class ComponentTool(Tool):
         description: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
         *,
-        output_to_string: Optional[Callable[[Any], str]] = None,
+        outputs_to_string: Optional[Dict[str, Union[str, Callable[[Any], str]]]] = None,
         inputs_from_state: Optional[Dict[str, str]] = None,
         outputs_to_state: Optional[Dict[str, Dict[str, Union[str, Callable]]]] = None,
     ):
@@ -109,14 +109,23 @@ class ComponentTool(Tool):
         :param parameters:
             A JSON schema defining the parameters expected by the Tool.
             Will fall back to the parameters defined in the component's run method signature if not provided.
+        :param outputs_to_string:
+            Optional dictionary defining how a tool outputs should be converted into a string.
+            Example: {
+                "source": "docs", "handler": format_documents
+            }
         :param inputs_from_state:
             Optional dictionary mapping state keys to tool parameter names.
             Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
         :param outputs_to_state:
             Optional dictionary defining how tool outputs map to keys within state as well as optional handlers.
+            If the source is provided only the specified output key is sent to the handler.
             Example: {
-                "documents": {"source": "docs", "handler": custom_handler},
-                "message": {"source": "summary", "handler": format_summary}
+                "documents": {"source": "docs", "handler": custom_handler}
+            }
+            If the source is omitted the whole tool result is sent to the handler.
+            Example: {
+                "documents": {"handler": custom_handler}
             }
         :raises ValueError: If the component is invalid or schema generation fails.
         """
@@ -177,7 +186,7 @@ class ComponentTool(Tool):
                 ]
             ).lstrip("_")
 
-        description = (description or component.__doc__ or name)
+        description = description or component.__doc__ or name
 
         # Create the Tool instance with the component invoker as the function to be called and the schema
         super().__init__(
@@ -186,9 +195,10 @@ class ComponentTool(Tool):
             parameters=tool_schema,
             function=component_invoker,
             inputs_from_state=inputs_from_state,
-            outputs_to_state=outputs_to_state
+            outputs_to_state=outputs_to_state,
         )
         self._component = component
+        self._outputs_to_string = outputs_to_string
 
     def to_dict(self) -> Dict[str, Any]:
         """

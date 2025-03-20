@@ -4,7 +4,7 @@
 
 import inspect
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage, ToolCall
@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 
 class ToolInvokerError(Exception):
     """Base exception class for ToolInvoker errors."""
+
     def __init__(self, message: str):
         super().__init__(message)
 
 
 class ToolNotFoundException(ToolInvokerError):
     """Exception raised when a tool is not found in the list of available tools."""
+
     def __init__(self, tool_name: str, available_tools: List[str]):
         message = f"Tool '{tool_name}' not found. Available tools: {', '.join(available_tools)}"
         super().__init__(message)
@@ -32,6 +34,7 @@ class ToolNotFoundException(ToolInvokerError):
 
 class StringConversionError(ToolInvokerError):
     """Exception raised when the conversion of a tool result to a string fails."""
+
     def __init__(self, tool_name: str, conversion_function: str, error: Exception):
         message = f"Failed to convert tool result from tool {tool_name} using '{conversion_function}'. Error: {error}"
         super().__init__(message)
@@ -39,6 +42,7 @@ class StringConversionError(ToolInvokerError):
 
 class ToolOutputMergeError(ToolInvokerError):
     """Exception raised when merging tool outputs into state fails."""
+
     pass
 
 
@@ -108,12 +112,7 @@ class ToolInvoker:
     ```
     """
 
-    def __init__(
-        self,
-        tools: List[Tool],
-        raise_on_failure: bool = True,
-        convert_result_to_json_string: bool = False,
-    ):
+    def __init__(self, tools: List[Tool], raise_on_failure: bool = True, convert_result_to_json_string: bool = False):
         """
         Initialize the ToolInvoker component.
 
@@ -219,8 +218,7 @@ class ToolInvoker:
 
         return final_args
 
-    @staticmethod
-    def _merge_tool_outputs(tool: Tool, result: Any, state: State) -> None:
+    def _merge_tool_outputs(self, tool: Tool, result: Any, state: State) -> Any:
         """
         Merges the tool result into the global state and determines the response message.
 
@@ -246,14 +244,28 @@ class ToolInvoker:
         """
         # If result is not a dictionary, return it as the output message.
         if not isinstance(result, dict):
-            return
+            return result
 
         # If there is no specific `outputs_to_state` mapping, we just return the full result
         if not hasattr(tool, "outputs_to_state") or not isinstance(tool.outputs_to_state, dict):
-            return
+            return result
 
         # Handle tool outputs with specific mapping for message and state updates
-        for state_key, config in tool.outputs_to_state.items():
+        return self._handle_tool_outputs(tool.outputs_to_state, result, state)
+
+    @staticmethod
+    def _handle_tool_outputs(outputs_to_state: dict, result: dict, state: State) -> Union[dict, str]:
+        """
+        Handles the `outputs_to_state` mapping from the tool and updates the state accordingly.
+
+        :param outputs_to_state: Mapping of outputs from the tool.
+        :param result: Result of the tool execution.
+        :param state: Global state to merge results into.
+        :returns: Final message for LLM or the entire result.
+        """
+        message_content = None
+
+        for state_key, config in outputs_to_state.items():
             # Get the source key from the output config, otherwise use the entire result
             source_key = config.get("source", None)
             output_value = result if source_key is None else result.get(source_key)
@@ -261,8 +273,18 @@ class ToolInvoker:
             # Get the handler function, if any
             handler = config.get("handler", None)
 
-            # Merge other outputs into the state
-            state.set(state_key, output_value, handler_override=handler)
+            if state_key == "message":
+                # Handle the message output separately
+                if handler is not None:
+                    message_content = handler(output_value)
+                else:
+                    message_content = str(output_value)
+            else:
+                # Merge other outputs into the state
+                state.set(state_key, output_value, handler_override=handler)
+
+        # If no "message" key was found, return the result or message content
+        return message_content if message_content is not None else result
 
     @component.output_types(tool_messages=List[ChatMessage], state=State)
     def run(self, messages: List[ChatMessage], state: Optional[State] = None) -> Dict[str, Any]:
@@ -301,9 +323,7 @@ class ToolInvoker:
                     error_message = self._handle_error(
                         ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
                     )
-                    tool_messages.append(
-                        ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
-                    )
+                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
                     continue
 
                 tool_to_invoke = self._tools_with_names[tool_name]
@@ -337,9 +357,13 @@ class ToolInvoker:
                         raise propagated_e from e
 
                 tool_messages.append(self._prepare_tool_result_message(result=tool_result, tool_call=tool_call))
-                state.set(
-                    "messages", tool_messages, handler_override=tool_to_invoke.outputs_to_state["messages"]["handler"]
-                )
+
+                # # If the tool has a specific messages handler, use it to merge the messages into the state
+                # if hasattr(tool_to_invoke, "outputs_to_state") and tool_to_invoke.outputs_to_state:
+                #     handler = tool_to_invoke.outputs_to_state.get("messages", {}).get("handler", None)
+                # else:
+                #     handler = None
+                # state.set("messages", tool_messages, handler_override=handler)
 
         return {"tool_messages": tool_messages, "state": state}
 

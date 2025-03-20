@@ -28,16 +28,18 @@ class Tool:
         A JSON schema defining the parameters expected by the Tool.
     :param function:
         The function that will be invoked when the Tool is called.
-    :param output_to_string:
-        Optional function to convert the output of the Tool to a string.
     :param inputs_from_state:
         Optional dictionary mapping state keys to tool parameter names.
         Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
     :param outputs_to_state:
         Optional dictionary defining how tool outputs map to keys within state as well as optional handlers.
+        If the source is provided only the specified output key is sent to the handler.
         Example: {
-            "documents": {"source": "docs", "handler": custom_handler},
-            "message": {"source": "summary", "handler": format_summary}
+            "documents": {"source": "docs", "handler": custom_handler}
+        }
+        If the source is omitted the whole tool result is sent to the handler.
+        Example: {
+            "documents": {"handler": custom_handler}
         }
     """
 
@@ -45,7 +47,6 @@ class Tool:
     description: str
     parameters: Dict[str, Any]
     function: Callable
-    output_to_string: Optional[Callable] = None
     inputs_from_state: Optional[Dict[str, str]] = None
     outputs_to_state: Optional[Dict[str, Dict[str, Union[str, Callable]]]] = None
 
