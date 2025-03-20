@@ -11,8 +11,8 @@ from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import SyncStreamingCallbackT
-from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils import type_serialization
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
@@ -233,15 +233,13 @@ class Agent:
             state = tool_invoker_result["state"]
 
             # 4. Check the LLM and Tool response for the exit condition, if exit_condition is a tool name
-            if self.exit_condition != "text":
-                # TODO Possible for LLM to return multiple messages (e.g. multiple tool calls)
-                #      So exit condition could be missed if it's not the first message
-                should_exit = (
-                    llm_messages[0].tool_call.tool_name == self.exit_condition
-                    and not tool_messages[0].tool_call_result.error
-                )
-                if should_exit:
-                    return {"messages": messages + llm_messages + tool_messages, **state.data}
+            # TODO Possible for LLM to return multiple messages (e.g. multiple tool calls)
+            #      So exit condition could be missed if it's not the first message
+            if self.exit_condition != "text" and (
+                llm_messages[0].tool_call.tool_name == self.exit_condition
+                and not tool_messages[0].tool_call_result.error
+            ):
+                return {"messages": messages + llm_messages + tool_messages, **state.data}
 
             # 5. Combine messages, llm_messages and tool_messages and send to the ChatGenerator
             messages = messages + llm_messages + tool_messages
