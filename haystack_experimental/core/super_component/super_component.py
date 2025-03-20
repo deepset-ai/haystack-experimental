@@ -8,7 +8,7 @@ from haystack import Pipeline, component
 from haystack.core.pipeline.utils import parse_connect_string
 from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
 
-from haystack_experimental.core.super_component.utils import _delegate_default, is_compatible
+from haystack_experimental.core.super_component.utils import _delegate_default, _is_compatible
 
 
 class InvalidMappingError(Exception):
@@ -193,7 +193,7 @@ class SuperComponent:
                         aggregated_inputs[wrapper_input_name]["default"] = _delegate_default
                     continue
 
-                if not is_compatible(existing_socket_info["type"], socket_info["type"]):
+                if not _is_compatible(existing_socket_info["type"], socket_info["type"]):
                     raise InvalidMappingError(
                         f"Type conflict for input '{socket_name}' from component '{comp_name}'. "
                         f"Existing type: {existing_socket_info['type']}, new type: {socket_info['type']}."

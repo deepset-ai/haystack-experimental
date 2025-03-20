@@ -14,7 +14,7 @@ class _delegate_default:
 T = TypeVar("T")
 
 
-def is_compatible(type1: T, type2: T, unwrap_nested: bool = True) -> bool:
+def _is_compatible(type1: T, type2: T, unwrap_nested: bool = True) -> bool:
     """
     Check if two types are compatible (bidirectional/symmetric check).
 
