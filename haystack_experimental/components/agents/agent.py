@@ -125,6 +125,11 @@ class Agent:
         joiner = BranchJoiner(type_=List[ChatMessage])
         tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
         context_joiner = BranchJoiner(type_=State)
+        state_to_messages = OutputAdapter(
+            template="{{ state.get('messages') }}",
+            output_type=List[ChatMessage],
+            unsafe=True
+        )
 
         routes = [
             {
@@ -140,7 +145,7 @@ class Agent:
                 "output_name": "continue",
             },
         ]
-        router1 = ConditionalRouter(routes=routes, unsafe=True, optional_variables=["messages"])
+        router1 = ConditionalRouter(routes=routes, unsafe=True)
 
         # Configure router conditions
         exit_condition_template = (
@@ -172,15 +177,17 @@ class Agent:
         self._pipeline.add_component(instance=context_joiner, name="context_joiner")
         self._pipeline.add_component(instance=self.chat_generator, name="generator")
         self._pipeline.add_component(instance=router1, name="router1")
+        self._pipeline.add_component(instance=state_to_messages, name="state_to_messages")
         self._pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self._pipeline.add_component(instance=router2, name="router2")
 
         # Connect components
         self._pipeline.connect("joiner.value", "generator.messages")
         self._pipeline.connect("generator.replies", "router1.llm_messages")
+        self._pipeline.connect("router1.continue", "state_to_messages.state")
+        self._pipeline.connect("state_to_messages.output", "tool_invoker.messages")
         self._pipeline.connect("router1.continue", "tool_invoker.state")
         self._pipeline.connect("context_joiner.value", "router1.state")
-        self._pipeline.connect("generator.replies", "tool_invoker.messages")
         self._pipeline.connect("tool_invoker.state", "router2.state")
         self._pipeline.connect("router2.continue", "joiner.value")
         self._pipeline.connect("tool_invoker.state", "context_joiner.value")
