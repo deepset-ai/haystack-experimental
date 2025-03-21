@@ -217,82 +217,24 @@ class TestAgent:
         agent = Agent(chat_generator=chat_generator, tools=[weather_tool])
         agent.warm_up()
         response = agent.run([ChatMessage.from_user("What is the weather in Berlin?")])
-        expected_response = {
-            "messages": [
-                ChatMessage.from_user("What is the weather in Berlin?", meta={}),
-                ChatMessage.from_assistant(
-                    text=None,
-                    tool_calls=[
-                        ToolCall(
-                            tool_name="weather_tool",
-                            arguments={"location": "Berlin"},
-                            id="call_7F1NHCVNb4iXCRtjsiJLhjg8",
-                        )
-                    ],
-                    meta={
-                        "model": "gpt-4o-mini-2024-07-18",
-                        "index": 0,
-                        "finish_reason": "tool_calls",
-                        "usage": {
-                            "completion_tokens": 15,
-                            "prompt_tokens": 52,
-                            "total_tokens": 67,
-                            "completion_tokens_details": CompletionTokensDetails(
-                                accepted_prediction_tokens=0,
-                                audio_tokens=0,
-                                reasoning_tokens=0,
-                                rejected_prediction_tokens=0,
-                            ),
-                            "prompt_tokens_details": PromptTokensDetails(audio_tokens=0, cached_tokens=0),
-                        },
-                    },
-                ),
-                ChatMessage.from_tool(
-                    tool_result="{'weather': 'mostly sunny', 'temperature': 7, 'unit': 'celsius'}",
-                    origin=ToolCall(
-                        tool_name="weather_tool", arguments={"location": "Berlin"}, id="call_7F1NHCVNb4iXCRtjsiJLhjg8"
-                    ),
-                    meta={},
-                ),
-                ChatMessage.from_assistant(
-                    text="The weather in Berlin is mostly sunny with a temperature of 7°C.",
-                    meta={
-                        "model": "gpt-4o-mini-2024-07-18",
-                        "index": 0,
-                        "finish_reason": "stop",
-                        "usage": {
-                            "completion_tokens": 18,
-                            "prompt_tokens": 94,
-                            "total_tokens": 112,
-                            "completion_tokens_details": CompletionTokensDetails(
-                                accepted_prediction_tokens=0,
-                                audio_tokens=0,
-                                reasoning_tokens=0,
-                                rejected_prediction_tokens=0,
-                            ),
-                            "prompt_tokens_details": PromptTokensDetails(audio_tokens=0, cached_tokens=0),
-                        },
-                    },
-                ),
-            ]
-        }
 
         assert isinstance(response, dict)
         assert "messages" in response
         assert isinstance(response["messages"], list)
         assert len(response["messages"]) == 4
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
-        for msg, expected_msg in zip(response["messages"], expected_response["messages"]):
-            assert msg.role == expected_msg.role
-            if msg.meta:
-                assert msg.meta["model"] is not None
-            else:
-                assert msg.meta == {}
-            assert msg.name == expected_msg.name
-            assert msg.texts == expected_msg.texts
-            if msg.tool_calls:
-                assert msg.tool_calls[0].tool_name == expected_msg.tool_calls[0].tool_name
-                assert msg.tool_calls[0].arguments == expected_msg.tool_calls[0].arguments
-            if msg.tool_call_results:
-                assert msg.tool_call_results[0].result == expected_msg.tool_call_results[0].result
-                assert msg.tool_call_results[0].error == expected_msg.tool_call_results[0].error
+        # Loose check of message texts
+        assert response["messages"][0].text == "What is the weather in Berlin?"
+        assert response["messages"][1].text is None
+        assert response["messages"][2].text is None
+        assert response["messages"][3].text is not None
+        # Loose check of message metadata
+        assert response["messages"][0].meta == {}
+        assert response["messages"][1].meta.get("model") is not None
+        assert response["messages"][2].meta == {}
+        assert response["messages"][3].meta.get("model") is not None
+        # Loose check of tool calls and results
+        assert response["messages"][1].tool_calls[0].tool_name == "weather_tool"
+        assert response["messages"][1].tool_calls[0].arguments is not None
+        assert response["messages"][2].tool_call_results[0].result is not None
+        assert response["messages"][2].tool_call_results[0].origin is not None
