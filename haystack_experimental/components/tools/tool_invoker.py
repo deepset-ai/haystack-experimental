@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 
 class ToolInvokerError(Exception):
     """Base exception class for ToolInvoker errors."""
+
     def __init__(self, message: str):
         super().__init__(message)
 
 
 class ToolNotFoundException(ToolInvokerError):
     """Exception raised when a tool is not found in the list of available tools."""
+
     def __init__(self, tool_name: str, available_tools: List[str]):
         message = f"Tool '{tool_name}' not found. Available tools: {', '.join(available_tools)}"
         super().__init__(message)
@@ -32,6 +34,7 @@ class ToolNotFoundException(ToolInvokerError):
 
 class StringConversionError(ToolInvokerError):
     """Exception raised when the conversion of a tool result to a string fails."""
+
     def __init__(self, tool_name: str, conversion_function: str, error: Exception):
         message = f"Failed to convert tool result from tool {tool_name} using '{conversion_function}'. Error: {error}"
         super().__init__(message)
@@ -39,6 +42,7 @@ class StringConversionError(ToolInvokerError):
 
 class ToolOutputMergeError(ToolInvokerError):
     """Exception raised when merging tool outputs into state fails."""
+
     pass
 
 
@@ -108,12 +112,7 @@ class ToolInvoker:
     ```
     """
 
-    def __init__(
-        self,
-        tools: List[Tool],
-        raise_on_failure: bool = True,
-        convert_result_to_json_string: bool = False,
-    ):
+    def __init__(self, tools: List[Tool], raise_on_failure: bool = True, convert_result_to_json_string: bool = False):
         """
         Initialize the ToolInvoker component.
 
@@ -156,7 +155,7 @@ class ToolInvoker:
             raise error
         return str(error)
 
-    def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
+    def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall, tool_to_invoke: Tool) -> ChatMessage:
         """
         Prepares a ChatMessage with the result of a tool invocation.
 
@@ -168,13 +167,29 @@ class ToolInvoker:
             StringConversionError: If the conversion of the tool result to a string fails
             and `raise_on_failure` is True.
         """
+        source_key = None
+        # output_to_string_handler = None
+        # if hasattr(tool_to_invoke, "outputs_to_string") and tool_to_invoke.outputs_to_string:
+        #     if tool_to_invoke.outputs_to_string.get("source"):
+        #         source_key = tool_to_invoke.outputs_to_string["source"]
+        #     if tool_to_invoke.outputs_to_string.get("handler"):
+        #         output_to_string_handler = tool_to_invoke.outputs_to_string["handler"]
+
+        # If a source key is provided, we extract the result from the source key
+        if source_key:
+            result_to_convert = result.get(source_key)
+        else:
+            result_to_convert = result
+
         error = False
         try:
+            # if output_to_string_handler:
+            #     tool_result_str = output_to_string_handler(result_to_convert)
             if self.convert_result_to_json_string:
                 # We disable ensure_ascii so special chars like emojis are not converted
-                tool_result_str = json.dumps(result, ensure_ascii=False)
+                tool_result_str = json.dumps(result_to_convert, ensure_ascii=False)
             else:
-                tool_result_str = str(result)
+                tool_result_str = str(result_to_convert)
         except Exception as e:
             conversion_method = "json.dumps" if self.convert_result_to_json_string else "str"
             try:
@@ -264,8 +279,6 @@ class ToolInvoker:
         :param state: Global state to merge results into.
         :returns: Final message for LLM or the entire result.
         """
-        message_content = None
-
         for state_key, config in outputs_to_state.items():
             # Get the source key from the output config, otherwise use the entire result
             source_key = config.get("source", None)
@@ -274,18 +287,11 @@ class ToolInvoker:
             # Get the handler function, if any
             handler = config.get("handler", None)
 
-            if state_key == "message":
-                # Handle the message output separately
-                if handler is not None:
-                    message_content = handler(output_value)
-                else:
-                    message_content = str(output_value)
-            else:
-                # Merge other outputs into the state
-                state.set(state_key, output_value, handler_override=handler)
+            # Merge other outputs into the state
+            state.set(state_key, output_value, handler_override=handler)
 
         # If no "message" key was found, return the result or message content
-        return message_content if message_content is not None else result
+        return result
 
     @component.output_types(tool_messages=List[ChatMessage], state=State)
     def run(self, messages: List[ChatMessage], state: Optional[State] = None) -> Dict[str, Any]:
@@ -324,9 +330,7 @@ class ToolInvoker:
                     error_message = self._handle_error(
                         ToolNotFoundException(tool_name, list(self._tools_with_names.keys()))
                     )
-                    tool_messages.append(
-                        ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True)
-                    )
+                    tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
                     continue
 
                 tool_to_invoke = self._tools_with_names[tool_name]
@@ -343,9 +347,9 @@ class ToolInvoker:
                     tool_messages.append(ChatMessage.from_tool(tool_result=error_message, origin=tool_call, error=True))
                     continue
 
-                # 3) Merge outputs into state & create a single ChatMessage for the LLM
+                # 3) Merge outputs into state
                 try:
-                    tool_text = self._merge_tool_outputs(tool_to_invoke, tool_result, state)
+                    self._merge_tool_outputs(tool_to_invoke, tool_result, state)
                 except Exception as e:
                     try:
                         error_message = self._handle_error(
@@ -359,7 +363,18 @@ class ToolInvoker:
                         # Re-raise with proper error chain
                         raise propagated_e from e
 
-                tool_messages.append(self._prepare_tool_result_message(result=tool_text, tool_call=tool_call))
+                # 4) Prepare the tool result ChatMessage message
+                tool_messages.append(self._prepare_tool_result_message(
+                    result=tool_result, tool_call=tool_call, tool_to_invoke=tool_to_invoke
+                ))
+
+                # 5) Merge tool messages into state
+                # Use the handler from the tool if available, otherwise use the default handler
+                if hasattr(tool_to_invoke, "outputs_to_state") and tool_to_invoke.outputs_to_state:
+                    handler = tool_to_invoke.outputs_to_state.get("messages", {}).get("handler", None)
+                else:
+                    handler = None
+                state.set("messages", tool_messages, handler_override=handler)
 
         return {"tool_messages": tool_messages, "state": state}
 

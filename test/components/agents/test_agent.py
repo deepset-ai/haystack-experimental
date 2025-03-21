@@ -26,7 +26,8 @@ import os
 def streaming_callback_for_serde(chunk: StreamingChunk):
     pass
 
-def weather_function(location):
+
+def weather_function(location: str) -> dict:
     weather_info = {
         "Berlin": {"weather": "mostly sunny", "temperature": 7, "unit": "celsius"},
         "Paris": {"weather": "mostly cloudy", "temperature": 8, "unit": "celsius"},
@@ -35,24 +36,20 @@ def weather_function(location):
     return weather_info.get(location, {"weather": "unknown", "temperature": 0, "unit": "celsius"})
 
 
-weather_parameters = {"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]}
-
 @pytest.fixture
 def weather_tool():
     return Tool(
         name="weather_tool",
         description="Provides weather information for a given location.",
-        parameters=weather_parameters,
+        parameters={"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]},
         function=weather_function,
     )
 
+
 @pytest.fixture
 def component_tool():
-    return ComponentTool(
-        name="parrot",
-        description="This is a parrot.",
-        component=PromptBuilder(template="{{parrot}}")
-    )
+    return ComponentTool(name="parrot", description="This is a parrot.", component=PromptBuilder(template="{{parrot}}"))
+
 
 class OpenAIMockStream(Stream[ChatCompletionChunk]):
     def __init__(self, mock_chunk: ChatCompletionChunk, client=None, *args, **kwargs):
@@ -62,6 +59,7 @@ class OpenAIMockStream(Stream[ChatCompletionChunk]):
 
     def __stream__(self) -> Iterator[ChatCompletionChunk]:
         yield self.mock_chunk
+
 
 @pytest.fixture
 def openai_mock_chat_completion_chunk():
@@ -95,20 +93,23 @@ class TestAgent:
     def test_serde(self, weather_tool, component_tool):
         os.environ["FAKE_OPENAI_KEY"] = "fake-key"
         generator = OpenAIChatGenerator(api_key=Secret.from_env_var("FAKE_OPENAI_KEY"))
-        agent = Agent(
-            chat_generator=generator,
-            tools=[weather_tool, component_tool],
-        )
+        agent = Agent(chat_generator=generator, tools=[weather_tool, component_tool])
 
         serialized_agent = agent.to_dict()
 
         init_parameters = serialized_agent["init_parameters"]
 
         assert serialized_agent["type"] == "haystack_experimental.components.agents.agent.Agent"
-        assert init_parameters["chat_generator"]["type"] == "haystack.components.generators.chat.openai.OpenAIChatGenerator"
-        assert init_parameters["streaming_callback"] == None
+        assert (
+            init_parameters["chat_generator"]["type"]
+            == "haystack.components.generators.chat.openai.OpenAIChatGenerator"
+        )
+        assert init_parameters["streaming_callback"] is None
         assert init_parameters["tools"][0]["data"]["function"] == serialize_callable(weather_function)
-        assert init_parameters["tools"][1]["data"]["component"]["type"] == "haystack.components.builders.prompt_builder.PromptBuilder"
+        assert (
+            init_parameters["tools"][1]["data"]["component"]["type"]
+            == "haystack.components.builders.prompt_builder.PromptBuilder"
+        )
 
         deserialized_agent = Agent.from_dict(serialized_agent)
 
@@ -136,6 +137,7 @@ class TestAgent:
 
     def test_run_with_params_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
         chat_generator = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"))
+
         streaming_callback_called = False
 
         def streaming_callback(chunk: StreamingChunk) -> None:
@@ -157,18 +159,14 @@ class TestAgent:
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
         assert "Hello" in response["messages"][1].text  # see openai_mock_chat_completion_chunk
 
-
     def test_run_with_run_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
-        chat_generator = OpenAIChatGenerator(
-            api_key=Secret.from_token("test-api-key")
-        )
+        chat_generator = OpenAIChatGenerator(api_key=Secret.from_token("test-api-key"))
 
         streaming_callback_called = False
 
         def streaming_callback(chunk: StreamingChunk) -> None:
             nonlocal streaming_callback_called
             streaming_callback_called = True
-
 
         agent = Agent(chat_generator=chat_generator, tools=[weather_tool])
         agent.warm_up()
@@ -185,7 +183,6 @@ class TestAgent:
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
         assert "Hello" in response["messages"][1].text  # see openai_mock_chat_completion_chunk
 
-
     def test_keep_generator_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
         streaming_callback_called = False
 
@@ -194,8 +191,7 @@ class TestAgent:
             streaming_callback_called = True
 
         chat_generator = OpenAIChatGenerator(
-            api_key=Secret.from_token("test-api-key"),
-            streaming_callback=streaming_callback,
+            api_key=Secret.from_token("test-api-key"), streaming_callback=streaming_callback
         )
 
         agent = Agent(chat_generator=chat_generator, tools=[weather_tool])
@@ -213,4 +209,32 @@ class TestAgent:
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
         assert "Hello" in response["messages"][1].text  # see openai_mock_chat_completion_chunk
 
+    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
+    @pytest.mark.integration
+    def test_run(self, weather_tool):
+        chat_generator = OpenAIChatGenerator(model="gpt-4o-mini")
+        agent = Agent(chat_generator=chat_generator, tools=[weather_tool], max_runs_per_component=3)
+        import pdb; pdb.set_trace()
+        agent.warm_up()
+        response = agent.run([ChatMessage.from_user("What is the weather in Berlin?")])
 
+        assert isinstance(response, dict)
+        assert "messages" in response
+        assert isinstance(response["messages"], list)
+        assert len(response["messages"]) == 4
+        assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
+        # Loose check of message texts
+        assert response["messages"][0].text == "What is the weather in Berlin?"
+        assert response["messages"][1].text is None
+        assert response["messages"][2].text is None
+        assert response["messages"][3].text is not None
+        # Loose check of message metadata
+        assert response["messages"][0].meta == {}
+        assert response["messages"][1].meta.get("model") is not None
+        assert response["messages"][2].meta == {}
+        assert response["messages"][3].meta.get("model") is not None
+        # Loose check of tool calls and results
+        assert response["messages"][1].tool_calls[0].tool_name == "weather_tool"
+        assert response["messages"][1].tool_calls[0].arguments is not None
+        assert response["messages"][2].tool_call_results[0].result is not None
+        assert response["messages"][2].tool_call_results[0].origin is not None
