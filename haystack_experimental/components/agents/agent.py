@@ -125,61 +125,67 @@ class Agent:
         joiner = BranchJoiner(type_=List[ChatMessage])
         tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
         context_joiner = BranchJoiner(type_=State)
-        state_saver = OutputAdapter(
-            template="{%- set _ = state.set('messages', messages) -%}{{ state }}",
-            output_type=State,
-            unsafe=True
-        )
-
-        # Configure router conditions
-        if self.exit_condition == "text":
-            exit_condition_template = "{{ llm_messages[-1].tool_call is none }}"
-        else:
-            exit_condition_template = (
-                "{{ llm_messages[-1].tool_call is none or (llm_messages[-1].tool_call.tool_name == '"
-                + self.exit_condition
-                + "' and not state.get('messages')[-1].tool_call_result.error) }}"
-            )
-
-        router_output = "{{ state.get('messages') }}"
 
         routes = [
             {
-                "condition": exit_condition_template,
-                "output": router_output,
-                "output_type": List[ChatMessage],
+                "condition": "{{ llm_messages[-1].tool_call is none }}",
+                "output": "{%- set _ = state.set(messages) if messages is not undefined else None -%}{{ state }}",
+                "output_type": State,
                 "output_name": "exit",
             },
             {
                 "condition": "{{ True }}",  # Default route
-                "output": router_output,
+                "output": "{%- set _ = state.set(messages) if messages is not undefined else None -%}{{ state }}",
+                "output_type": State,
+                "output_name": "continue",
+            },
+        ]
+        router1 = ConditionalRouter(routes=routes, unsafe=True)
+
+        # Configure router conditions
+        exit_condition_template = (
+            "{{ (state.get('messages')[-1].tool_call.tool_name == '"
+            + self.exit_condition
+            + "' and not state.get('messages')[-1].tool_call_result.error) }}"
+        )
+
+        routes = [
+            {
+                "condition": exit_condition_template,
+                "output": "{{ state }}",
+                "output_type": State,
+                "output_name": "exit",
+            },
+            {
+                "condition": "{{ True }}",  # Default route
+                "output": "{{ state.get('messages') }}",
                 "output_type": List[ChatMessage],
                 "output_name": "continue",
             },
         ]
 
-        router = ConditionalRouter(routes=routes, unsafe=True)
+        router2 = ConditionalRouter(routes=routes, unsafe=True)
 
         # Set up pipeline
         self._pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
         self._pipeline.add_component(instance=joiner, name="joiner")
-        self._pipeline.add_component(instance=self.chat_generator, name="generator")
-        self._pipeline.add_component(instance=state_saver, name="state_saver")
-        self._pipeline.add_component(instance=tool_invoker, name="tool_invoker")
-        self._pipeline.add_component(instance=router, name="router")
         self._pipeline.add_component(instance=context_joiner, name="context_joiner")
+        self._pipeline.add_component(instance=self.chat_generator, name="generator")
+        self._pipeline.add_component(instance=router1, name="router1")
+        # self._pipeline.add_component(instance=state_saver, name="state_saver")
+        self._pipeline.add_component(instance=tool_invoker, name="tool_invoker")
+        self._pipeline.add_component(instance=router2, name="router2")
 
         # Connect components
         self._pipeline.connect("joiner.value", "generator.messages")
-        self._pipeline.connect("generator.replies", "router.llm_messages")
-        self._pipeline.connect("context_joiner.value", "state_saver.state")
-        self._pipeline.connect("generator.replies", "state_saver.messages")
-        self._pipeline.connect("state_saver.output", "context_joiner.value")
+        self._pipeline.connect("generator.replies", "router1.llm_messages")
+        # self._pipeline.connect("router1.continue", "state_saver.state")
+        self._pipeline.connect("router1.continue", "tool_invoker.state")
+        self._pipeline.connect("context_joiner.value", "router1.state")
         self._pipeline.connect("generator.replies", "tool_invoker.messages")
-        self._pipeline.connect("tool_invoker.state", "router.state")
-        self._pipeline.connect("router.continue", "joiner.value")
+        self._pipeline.connect("tool_invoker.state", "router2.state")
+        self._pipeline.connect("router2.continue", "joiner.value")
         self._pipeline.connect("tool_invoker.state", "context_joiner.value")
-        self._pipeline.connect("context_joiner.value", "tool_invoker.state")
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -277,7 +283,8 @@ class Agent:
         # The beginning of the pipeline is actually the joiner which is why it receives the initial set of messages
         result = self._pipeline.run(
             data={"joiner": {"value": messages}, "context_joiner": {"value": state}, "generator": generator_inputs},
-            include_outputs_from={"context_joiner"},
         )
+        if result.get("router1") is not None:
+            return {**result["router1"]["exit"].data}
 
-        return {"messages": result["router"]["exit"], **result["context_joiner"]["value"].data}
+        return {**result["router2"]["exit"].data}

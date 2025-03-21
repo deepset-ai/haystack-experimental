@@ -213,7 +213,8 @@ class TestAgent:
     @pytest.mark.integration
     def test_run(self, weather_tool):
         chat_generator = OpenAIChatGenerator(model="gpt-4o-mini")
-        agent = Agent(chat_generator=chat_generator, tools=[weather_tool])
+        agent = Agent(chat_generator=chat_generator, tools=[weather_tool], max_runs_per_component=3)
+        import pdb; pdb.set_trace()
         agent.warm_up()
         response = agent.run([ChatMessage.from_user("What is the weather in Berlin?")])
 
