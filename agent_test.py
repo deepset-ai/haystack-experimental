@@ -128,8 +128,10 @@ agent_super_component = SuperComponent(
         "exit_condition": ["router2.exit_condition"],
         "streaming_callback": ["generator.streaming_callback"],
     },
-    # TODO This isn't super ideal since the output of the pipeline is a dict with keys "exit"
+    # TODO Last issue to be solved. The output of the pipeline is a dict with key "exit"
     #      This means things like "messages" and other stuff in state are nested under "exit"
+    #      Makes it hard to connect this to an AnswerBuilder without first using OutputAdapters
+    #      Basically would have to manually add as many OutputAdapters as needed to flatten the dict
     output_mapping={"exit_joiner.value": "exit"}
 )
 
