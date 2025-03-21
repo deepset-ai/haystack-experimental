@@ -52,6 +52,12 @@ state_to_messages = OutputAdapter(
     output_type=List[ChatMessage],
     unsafe=True
 )
+initialize_state = OutputAdapter(
+    template="{{ schema | init_state(data={'messages': messages}) }}",
+    output_type=State,
+    custom_filters={"init_state": State},
+    unsafe=True,
+)
 
 routes = [
     {
@@ -70,11 +76,6 @@ routes = [
 router1 = ConditionalRouter(routes=routes, unsafe=True)
 
 # Configure router conditions
-# exit_condition_template = (
-#         "{{ (state.get('messages')[-1].tool_call.tool_name == '"
-#         + self.exit_condition
-#         + "' and not state.get('messages')[-1].tool_call_result.error) }}"
-# )
 exit_condition_template = "{{ (state.get('messages')[-1].tool_call.tool_name == exit_condition and not state.get('messages')[-1].tool_call_result.error) }}"
 routes = [
     {
@@ -94,6 +95,7 @@ router2 = ConditionalRouter(routes=routes, unsafe=True)
 
 pipeline = Pipeline(max_runs_per_component=3)
 pipeline.add_component(instance=joiner, name="joiner")
+pipeline.add_component(instance=initialize_state, name="initialize_state")
 pipeline.add_component(instance=context_joiner, name="context_joiner")
 pipeline.add_component(instance=chat_generator, name="generator")
 pipeline.add_component(instance=router1, name="router1")
@@ -102,6 +104,7 @@ pipeline.add_component(instance=tool_invoker, name="tool_invoker")
 pipeline.add_component(instance=router2, name="router2")
 
 pipeline.connect("joiner.value", "generator.messages")
+pipeline.connect("initialize_state.output", "context_joiner.value")
 pipeline.connect("generator.replies", "router1.llm_messages")
 pipeline.connect("router1.continue", "state_to_messages.state")
 pipeline.connect("state_to_messages.output", "tool_invoker.messages")
@@ -115,8 +118,8 @@ pipeline.connect("tool_invoker.state", "context_joiner.value")
 agent_super_component = SuperComponent(
     pipeline=pipeline,
     input_mapping={
-        "messages": ["joiner.value"],
-        "state": ["context_joiner.value"],
+        "messages": ["joiner.value", "initialize_state.messages"],
+        "state_schema": ["initialize_state.schema"],
         "tools": ["generator.tools"],
         "exit_condition": ["router2.exit_condition"],
         "streaming_callback": ["generator.streaming_callback"],
@@ -126,10 +129,9 @@ agent_super_component = SuperComponent(
     output_mapping={"router1.exit": "exit1", "router2.exit": "exit2"},
 )
 
-state = State(schema={})
 out = agent_super_component.run(
     messages=[ChatMessage.from_user("What is the weather in Berlin?")],
-    state=state,
+    state_schema={},
     tools=tools,
     exit_condition="text",
 )
