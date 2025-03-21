@@ -8,6 +8,7 @@ from haystack import Pipeline, component, default_from_dict, default_to_dict, lo
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
+from haystack.components.converters.output_adapter import OutputAdapter
 from haystack.core.component import Component
 from haystack.core.pipeline.base import PipelineError
 from haystack.core.serialization import component_from_dict
@@ -124,6 +125,11 @@ class Agent:
         joiner = BranchJoiner(type_=List[ChatMessage])
         tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
         context_joiner = BranchJoiner(type_=State)
+        state_saver = OutputAdapter(
+            template="{%- set _ = state.set('messages', messages) -%}{{ state }}",
+            output_type=State,
+            unsafe=True
+        )
 
         # Configure router conditions
         if self.exit_condition == "text":
@@ -156,15 +162,19 @@ class Agent:
 
         # Set up pipeline
         self._pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
+        self._pipeline.add_component(instance=joiner, name="joiner")
         self._pipeline.add_component(instance=self.chat_generator, name="generator")
+        self._pipeline.add_component(instance=state_saver, name="state_saver")
         self._pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self._pipeline.add_component(instance=router, name="router")
-        self._pipeline.add_component(instance=joiner, name="joiner")
         self._pipeline.add_component(instance=context_joiner, name="context_joiner")
 
         # Connect components
         self._pipeline.connect("joiner.value", "generator.messages")
         self._pipeline.connect("generator.replies", "router.llm_messages")
+        self._pipeline.connect("context_joiner.value", "state_saver.state")
+        self._pipeline.connect("generator.replies", "state_saver.messages")
+        self._pipeline.connect("state_saver.output", "context_joiner.value")
         self._pipeline.connect("generator.replies", "tool_invoker.messages")
         self._pipeline.connect("tool_invoker.state", "router.state")
         self._pipeline.connect("router.continue", "joiner.value")

@@ -168,12 +168,12 @@ class ToolInvoker:
             and `raise_on_failure` is True.
         """
         source_key = None
-        output_to_string_handler = None
-        if hasattr(tool_to_invoke, "outputs_to_string") and tool_to_invoke.outputs_to_string:
-            if tool_to_invoke.outputs_to_string.get("source"):
-                source_key = tool_to_invoke.outputs_to_string["source"]
-            if tool_to_invoke.outputs_to_string.get("handler"):
-                output_to_string_handler = tool_to_invoke.outputs_to_string["handler"]
+        # output_to_string_handler = None
+        # if hasattr(tool_to_invoke, "outputs_to_string") and tool_to_invoke.outputs_to_string:
+        #     if tool_to_invoke.outputs_to_string.get("source"):
+        #         source_key = tool_to_invoke.outputs_to_string["source"]
+        #     if tool_to_invoke.outputs_to_string.get("handler"):
+        #         output_to_string_handler = tool_to_invoke.outputs_to_string["handler"]
 
         # If a source key is provided, we extract the result from the source key
         if source_key:
@@ -183,9 +183,9 @@ class ToolInvoker:
 
         error = False
         try:
-            if output_to_string_handler:
-                tool_result_str = output_to_string_handler(result_to_convert)
-            elif self.convert_result_to_json_string:
+            # if output_to_string_handler:
+            #     tool_result_str = output_to_string_handler(result_to_convert)
+            if self.convert_result_to_json_string:
                 # We disable ensure_ascii so special chars like emojis are not converted
                 tool_result_str = json.dumps(result_to_convert, ensure_ascii=False)
             else:
@@ -316,10 +316,6 @@ class ToolInvoker:
         """
         if state is None:
             state = State(schema={})
-
-        # TODO Replace this with an output adapter in Agent
-        # We add the messages (from an LLM) to the state to keep track of the conversation history
-        state.set("messages", messages)
 
         # Only keep messages with tool calls
         messages_with_tool_calls = [message for message in messages if message.tool_calls]
