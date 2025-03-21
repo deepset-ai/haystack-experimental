@@ -155,7 +155,7 @@ class ToolInvoker:
             raise error
         return str(error)
 
-    def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall) -> ChatMessage:
+    def _prepare_tool_result_message(self, result: Any, tool_call: ToolCall, tool_to_invoke: Tool) -> ChatMessage:
         """
         Prepares a ChatMessage with the result of a tool invocation.
 
@@ -167,13 +167,29 @@ class ToolInvoker:
             StringConversionError: If the conversion of the tool result to a string fails
             and `raise_on_failure` is True.
         """
+        source_key = None
+        output_to_string_handler = None
+        if hasattr(tool_to_invoke, "outputs_to_string") and tool_to_invoke.outputs_to_string:
+            if tool_to_invoke.outputs_to_string.get("source"):
+                source_key = tool_to_invoke.outputs_to_string["source"]
+            if tool_to_invoke.outputs_to_string.get("handler"):
+                output_to_string_handler = tool_to_invoke.outputs_to_string["handler"]
+
+        # If a source key is provided, we extract the result from the source key
+        if source_key:
+            result_to_convert = result.get(source_key)
+        else:
+            result_to_convert = result
+
         error = False
         try:
-            if self.convert_result_to_json_string:
+            if output_to_string_handler:
+                tool_result_str = output_to_string_handler(result_to_convert)
+            elif self.convert_result_to_json_string:
                 # We disable ensure_ascii so special chars like emojis are not converted
-                tool_result_str = json.dumps(result, ensure_ascii=False)
+                tool_result_str = json.dumps(result_to_convert, ensure_ascii=False)
             else:
-                tool_result_str = str(result)
+                tool_result_str = str(result_to_convert)
         except Exception as e:
             conversion_method = "json.dumps" if self.convert_result_to_json_string else "str"
             try:
@@ -301,6 +317,7 @@ class ToolInvoker:
         if state is None:
             state = State(schema={})
 
+        # TODO Replace this with an output adapter in Agent
         # We add the messages (from an LLM) to the state to keep track of the conversation history
         state.set("messages", messages)
 
@@ -351,7 +368,9 @@ class ToolInvoker:
                         raise propagated_e from e
 
                 # 4) Prepare the tool result ChatMessage message
-                tool_messages.append(self._prepare_tool_result_message(result=tool_result, tool_call=tool_call))
+                tool_messages.append(self._prepare_tool_result_message(
+                    result=tool_result, tool_call=tool_call, tool_to_invoke=tool_to_invoke
+                ))
 
                 # 5) Merge tool messages into state
                 # Use the handler from the tool if available, otherwise use the default handler

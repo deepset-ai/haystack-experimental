@@ -196,9 +196,9 @@ class ComponentTool(Tool):
             function=component_invoker,
             inputs_from_state=inputs_from_state,
             outputs_to_state=outputs_to_state,
+            outputs_to_string=outputs_to_string,
         )
         self._component = component
-        self._outputs_to_string = outputs_to_string
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -212,6 +212,8 @@ class ComponentTool(Tool):
             "description": self.description,
             "parameters": self._unresolved_parameters,
             "inputs_from_state": self.inputs_from_state,
+            "outputs_to_state": self.outputs_to_state,
+            "outputs_to_string": self.outputs_to_string,
         }
 
         if self.outputs_to_state is not None:
@@ -222,6 +224,9 @@ class ComponentTool(Tool):
                     serialized_config["handler"] = serialize_callable(config["handler"])
                 serialized_outputs[key] = serialized_config
             serialized["outputs_to_state"] = serialized_outputs
+
+        if self.outputs_to_string is not None and self.outputs_to_string.get("handler") is not None:
+            serialized["outputs_to_string"] = serialize_callable(self.outputs_to_string["handler"])
 
         return {"type": generate_qualified_class_name(type(self)), "data": serialized}
 
@@ -243,6 +248,14 @@ class ComponentTool(Tool):
                 deserialized_outputs[key] = deserialized_config
             inner_data["outputs_to_state"] = deserialized_outputs
 
+        if (
+            inner_data.get("outputs_to_string") is not None
+            and inner_data["outputs_to_string"].get("handler") is not None
+        ):
+            inner_data["outputs_to_string"]["handler"] = deserialize_callable(
+                inner_data["outputs_to_string"]["handler"]
+            )
+
         return cls(
             component=component,
             name=inner_data["name"],
@@ -250,6 +263,7 @@ class ComponentTool(Tool):
             parameters=inner_data.get("parameters", None),
             inputs_from_state=inner_data.get("inputs_from_state", None),
             outputs_to_state=inner_data.get("outputs_to_state", None),
+            outputs_to_string=inner_data.get("outputs_to_string", None),
         )
 
     def _create_tool_parameters_schema(self, component: Component, inputs_from_state: Dict[str, Any]) -> Dict[str, Any]:

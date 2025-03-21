@@ -132,10 +132,10 @@ class Agent:
             exit_condition_template = (
                 "{{ llm_messages[-1].tool_call is none or (llm_messages[-1].tool_call.tool_name == '"
                 + self.exit_condition
-                + "' and not state._data['messages'][-1].tool_call_result.error) }}"
+                + "' and not state.get('messages')[-1].tool_call_result.error) }}"
             )
 
-        router_output = "{{ state._data['messages'] }}"
+        router_output = "{{ state.get('messages') }}"
 
         routes = [
             {
