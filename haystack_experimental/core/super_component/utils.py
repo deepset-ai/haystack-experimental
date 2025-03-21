@@ -87,21 +87,6 @@ def _check_non_union_compatibility(type1: T, type2: T, type1_origin: Any, type2_
     return all(_types_are_compatible(t1_arg, t2_arg)
                for t1_arg, t2_arg in zip(type1_args, type2_args))
 
-def _handle_union_type_matches(type1: T, type2: T, type1_origin: T, type2_origin: T) -> bool:
-    """
-    Handles cases where either type is Union.
-    """
-    if type1_origin is Union and type2_origin is not Union:
-        return any(_types_are_compatible(union_arg, type2)
-                   for union_arg in get_args(type1))
-    if type2_origin is Union and type1_origin is not Union:
-        return any(_types_are_compatible(type1, union_arg)
-                   for union_arg in get_args(type2))
-    else:
-        return any(any(_types_are_compatible(arg1, arg2)
-                       for arg2 in get_args(type2))
-                   for arg1 in get_args(type1))
-
 
 def _unwrap_all(t: T, recursive: bool) -> T:
     """

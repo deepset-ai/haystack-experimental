@@ -55,7 +55,7 @@ class SuperComponent:
             pipeline_inputs
         )
         self._validate_input_mapping(pipeline_inputs, resolved_input_mapping)
-        input_types = self._handle_explicit_input_mapping(pipeline_inputs, resolved_input_mapping)
+        input_types = self._resolve_input_types_from_mapping(pipeline_inputs, resolved_input_mapping)
         # Set input types on the component
         for input_name, info in input_types.items():
             component.set_input_type(self, name=input_name, **info)
@@ -69,7 +69,7 @@ class SuperComponent:
             pipeline_outputs
         )
         self._validate_output_mapping(pipeline_outputs, resolved_output_mapping)
-        output_types = self._handle_explicit_output_mapping(pipeline_outputs, resolved_output_mapping)
+        output_types = self._resolve_output_types_from_mapping(pipeline_outputs, resolved_output_mapping)
         # Set output types on the component
         component.set_output_types(self, **output_types)
         self.output_mapping: Dict[str, str] = resolved_output_mapping
@@ -121,8 +121,6 @@ class SuperComponent:
         :param kwargs: Keyword arguments matching the SuperComponent's input names
         :returns:
             Dictionary containing the SuperComponent's output values
-        :raises RuntimeError:
-            If the SuperComponent wasn't warmed up before calling 'run()'
         """
         filtered_inputs = {param: value for param, value in kwargs.items() if value != _delegate_default}
         pipeline_inputs = self._map_explicit_inputs(input_mapping=self.input_mapping, inputs=filtered_inputs)
@@ -156,6 +154,9 @@ class SuperComponent:
         :raises InvalidMappingError:
             If the input mapping is invalid or contains nonexistent components or sockets.
         """
+        if not isinstance(input_mapping, dict):
+            raise InvalidMappingError("input_mapping must be a dictionary")
+
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
             if not isinstance(pipeline_input_paths, list):
                 raise InvalidMappingError(f"Input paths for '{wrapper_input_name}' must be a list of strings.")
@@ -166,18 +167,21 @@ class SuperComponent:
                 if socket_name not in pipeline_inputs[comp_name]:
                     raise InvalidMappingError(f"Input socket '{socket_name}' not found in component '{comp_name}'.")
 
-    def _handle_explicit_input_mapping(
+    def _resolve_input_types_from_mapping(
         self, pipeline_inputs: Dict[str, Dict[str, Any]], input_mapping: Dict[str, List[str]]
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Handle case where explicit input mapping is provided.
+        Resolves and validates input types based on the provided input mapping.
 
-        :param pipeline_inputs: Dictionary of pipeline input specifications
-        :param input_mapping: Mapping from wrapper inputs to pipeline socket paths
+        This function ensures that all mapped pipeline inputs are compatible, consolidating types
+        when multiple mappings exist. It also determines whether an input is mandatory or has a default value.
+
+        :param pipeline_inputs: A dictionary containing pipeline input specifications.
+        :param input_mapping: A dictionary mapping SuperComponent inputs to pipeline socket paths.
         :returns:
-            The resolved input type data resolved according to the input mapping.
+            A dictionary specifying the resolved input types and their properties.
         :raises InvalidMappingError:
-            If the input mapping contains type conflicts.
+            If the input mapping contains incompatible types.
         """
         aggregated_inputs: Dict[str, Dict[str, Any]] = {}
         for wrapper_input_name, pipeline_input_paths in input_mapping.items():
@@ -246,18 +250,21 @@ class SuperComponent:
             if socket_name not in pipeline_outputs[comp_name]:
                 raise InvalidMappingError(f"Output socket '{socket_name}' not found in component '{comp_name}'.")
 
-    def _handle_explicit_output_mapping(
+    def _resolve_output_types_from_mapping(
         self, pipeline_outputs: Dict[str, Dict[str, Any]], output_mapping: Dict[str, str]
     ) -> Dict[str, Any]:
         """
-        Handle case where explicit output mapping is provided.
+        Resolves and validates output types based on the provided output mapping.
 
-        :param pipeline_outputs: Dictionary of pipeline output specifications
-        :param output_mapping: Mapping from pipeline paths to wrapper output names
+        This function ensures that all mapped pipeline outputs are correctly assigned to
+        the corresponding SuperComponent outputs while preventing duplicate output names.
+
+        :param pipeline_outputs: A dictionary containing pipeline output specifications.
+        :param output_mapping: A dictionary mapping pipeline output socket paths to SuperComponent output names.
         :returns:
-            Dictionary of resolved output types
+            A dictionary mapping SuperComponent output names to their resolved types.
         :raises InvalidMappingError:
-            If the output mapping contains duplicate output names
+            If the output mapping contains duplicate output names.
         """
         resolved_outputs = {}
         for pipeline_output_path, wrapper_output_name in output_mapping.items():
