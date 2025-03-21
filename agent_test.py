@@ -58,6 +58,7 @@ initialize_state = OutputAdapter(
     custom_filters={"init_state": State},
     unsafe=True,
 )
+exit_joiner = BranchJoiner(type_=Dict[str, Any])
 
 routes = [
     {
@@ -102,6 +103,7 @@ pipeline.add_component(instance=router1, name="router1")
 pipeline.add_component(instance=state_to_messages, name="state_to_messages")
 pipeline.add_component(instance=tool_invoker, name="tool_invoker")
 pipeline.add_component(instance=router2, name="router2")
+pipeline.add_component(instance=exit_joiner, name="exit_joiner")
 
 pipeline.connect("joiner.value", "generator.messages")
 pipeline.connect("initialize_state.output", "context_joiner.value")
@@ -113,6 +115,8 @@ pipeline.connect("context_joiner.value", "router1.state")
 pipeline.connect("tool_invoker.state", "router2.state")
 pipeline.connect("router2.continue", "joiner.value")
 pipeline.connect("tool_invoker.state", "context_joiner.value")
+pipeline.connect("router1.exit", "exit_joiner.value")
+pipeline.connect("router2.exit", "exit_joiner.value")
 
 
 agent_super_component = SuperComponent(
@@ -124,9 +128,9 @@ agent_super_component = SuperComponent(
         "exit_condition": ["router2.exit_condition"],
         "streaming_callback": ["generator.streaming_callback"],
     },
-    # TODO This isn't super ideal since the output of the pipeline is a dict with keys "exit1" and "exit2"
-    #      This means things like "messages" and other stuff in state are nested under "exit1" and "exit2"
-    output_mapping={"router1.exit": "exit1", "router2.exit": "exit2"},
+    # TODO This isn't super ideal since the output of the pipeline is a dict with keys "exit"
+    #      This means things like "messages" and other stuff in state are nested under "exit"
+    output_mapping={"exit_joiner.value": "exit"}
 )
 
 out = agent_super_component.run(
