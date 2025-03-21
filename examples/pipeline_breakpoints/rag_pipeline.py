@@ -1,8 +1,8 @@
-import json
-import os
 import sys
+import argparse
+from haystack_experimental.core.pipeline.pipeline import Pipeline
 
-from haystack import Document, Pipeline
+from haystack import Document
 from haystack.components.builders.answer_builder import AnswerBuilder
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder
@@ -13,8 +13,6 @@ from haystack.components.retrievers.in_memory import InMemoryBM25Retriever, InMe
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
-
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 
 def indexing():
@@ -87,15 +85,45 @@ def hybrid_retrieval(doc_store):
     return rag_pipeline
 
 
-def main():
-    """blah"""
+def breakpoint():
     doc_store = indexing()
     pipeline = hybrid_retrieval(doc_store)
 
-    resume_state = pipeline.load_state((sys.argv[1]))
+    question = "Where does Mark live?"
+    data = {
+        "query_embedder": {"text": question},
+        "bm25_retriever": {"query": question},
+        "ranker": {"query": question, "top_k": 10},
+        "prompt_builder": {"question": question},
+        "answer_builder": {"query": question},
+    }
 
+    # Running pipeline with breakpoints
+    pipeline.run(data, breakpoints={("prompt_builder", 0)})
+
+
+def resume(resume_state):
+    doc_store = indexing()
+    pipeline = hybrid_retrieval(doc_store)
+    resume_state = pipeline.load_state(resume_state)
     pipeline.run(data={}, resume_state=resume_state)
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--breakpoint", action="store_true", help="Run pipeline with breakpoints")
+    parser.add_argument("--resume", action="store_true", help="Resume pipeline from a saved state")
+    parser.add_argument("--state", type=str, required=False)
+    args = parser.parse_args()
+
+    if args.breakpoint:
+        breakpoint()
+
+    elif args.resume:
+        if args.state is None:
+            raise ValueError("state is required when resuming, pass it with --state <state>")
+        resume(args.state)
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main()

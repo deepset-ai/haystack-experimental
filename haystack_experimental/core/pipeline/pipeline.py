@@ -6,9 +6,10 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
+from haystack_experimental.core.errors import PipelineBreakException, PipelineRuntimeError
+
 from haystack import logging, tracing
 from haystack.core.component import Component
-from haystack.core.errors import PipelineBreakException, PipelineRuntimeError
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.telemetry import pipeline_running
 
