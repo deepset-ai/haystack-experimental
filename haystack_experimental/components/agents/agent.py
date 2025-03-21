@@ -5,18 +5,16 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from haystack import Pipeline, component, default_from_dict, default_to_dict, logging
+from haystack.components.converters import OutputAdapter
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
-from haystack.core.component import Component
-from haystack.core.pipeline.base import PipelineError
-from haystack.core.serialization import component_from_dict
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import SyncStreamingCallbackT
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
-from haystack.utils import type_serialization
 
 from haystack_experimental.components.tools import ToolInvoker
+from haystack_experimental.core.super_component.super_component import SuperComponent
 from haystack_experimental.dataclasses.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 from haystack_experimental.tools import Tool, deserialize_tools_inplace
 
@@ -27,7 +25,7 @@ if TYPE_CHECKING:
 
 
 @component
-class Agent:
+class Agent(SuperComponent):
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
 
@@ -94,37 +92,78 @@ class Agent:
         self.state_schema = state_schema or {}
 
         self.chat_generator = chat_generator
-        self.tools = tools or []
+        self.chat_generator.tools = tools or []
         self.system_prompt = system_prompt
         self.exit_condition = exit_condition
         self.max_runs_per_component = max_runs_per_component
         self.raise_on_tool_invocation_failure = raise_on_tool_invocation_failure
-        self.streaming_callback = streaming_callback
+        self.chat_generator.streaming_callback = streaming_callback
 
-        output_types = {"messages": List[ChatMessage]}
-        for param, config in self.state_schema.items():
-            component.set_input_type(self, name=param, type=config["type"], default=None)
-            output_types[param] = config["type"]
-        component.set_output_types(self, **output_types)
+        input_mapping = {"messages": ["input_message_adapter.messages"]}
+        output_mapping = {"messages": "router.exit"}
+        for param in self.state_schema.keys():
+            input_mapping[param] = [f"input_state_mapper.{param}"]
+            output_mapping[param] = f"output_state_mapper.{param}"
 
-        self._initialize_pipeline()
+        pipeline = self._initialize_pipeline()
+        super(Agent, self).__init__(pipeline=pipeline, input_mapping=input_mapping, output_mapping=output_mapping)
 
-        self._is_warmed_up = False
-
-    def warm_up(self) -> None:
-        """
-        Warm up the Agent.
-        """
-        if not self._is_warmed_up:
-            self._pipeline.warm_up()
-            self._is_warmed_up = True
-
-    def _initialize_pipeline(self) -> None:
+    def _initialize_pipeline(self) -> Pipeline:
         """Initialize the component pipeline with all necessary components and connections."""
         joiner = BranchJoiner(type_=List[ChatMessage])
-        tool_invoker = ToolInvoker(tools=self.tools, raise_on_failure=self.raise_on_tool_invocation_failure)
+        tool_invoker = ToolInvoker(
+            tools=self.chat_generator.tools, raise_on_failure=self.raise_on_tool_invocation_failure
+        )
         context_joiner = BranchJoiner(type_=State)
 
+        # Could be solved with ListJoiner if we could specify the order
+        input_message_adapter_template = "{{ system_prompt + messages }}"
+        input_message_adapter = OutputAdapter(
+            output_type=List[ChatMessage], unsafe=True, template=input_message_adapter_template
+        )
+
+        # Helper components for state
+        # Could be integrated into the pipeline, so we don't need to worry about here
+        @component
+        class StateInputMapper:
+            """
+            Maps the input data to the state schema.
+            """
+
+            def __init__(self, schema: Dict[str, Any]):
+                self.schema = schema
+                for param, config in self.schema.items():
+                    component.set_input_type(self, name=param, type=config["type"], default=None)
+
+            @component.output_types(state=State)
+            def run(self, **kwargs) -> State:
+                # Validate the input data against the schema
+                _validate_schema(kwargs)
+                return {"state": State(schema=self.schema, data=kwargs)}
+
+        @component
+        class StateOutputMapper:
+            """
+            Maps the state data to the output schema.
+            """
+
+            def __init__(self, schema: Dict[str, Any]):
+                self.schema = schema
+                output_types = {}
+                for param, config in self.schema.items():
+                    output_types[param] = config["type"]
+                component.set_output_types(self, **output_types)
+
+            def run(self, state: State) -> Dict[str, Any]:
+                # Validate the state data against the schema
+                _validate_schema(state.data)
+                return state.data
+
+        state_input_mapper = StateInputMapper(schema=self.state_schema)
+        output_state_mapper = StateOutputMapper(schema=self.state_schema)
+
+        # maybe there's a way to get these exit conditions in a cleaner way from generator
+        # That would make most of the jinja2 templates unnecessary
         # Configure router conditions
         if self.exit_condition == "text":
             exit_condition_template = "{{ llm_messages[0].tool_call is none }}"
@@ -135,6 +174,8 @@ class Agent:
                 + "' and not tool_messages[0].tool_call_result.error) }}"
             )
 
+        # formatted assistant message could be (optional) output of the generator
+        # rest would be trivial to understand
         router_output = (
             "{%- set assistant_msg = (llm_messages[0].text|trim or 'Tool:')"
             "|assistant_message(none, none, llm_messages[0].tool_calls) %}"
@@ -164,13 +205,18 @@ class Agent:
 
         # Set up pipeline
         self._pipeline = Pipeline(max_runs_per_component=self.max_runs_per_component)
+        self._pipeline.add_component(instance=input_message_adapter, name="input_message_adapter")
+        self._pipeline.add_component(instance=state_input_mapper, name="input_state_mapper")
         self._pipeline.add_component(instance=self.chat_generator, name="generator")
         self._pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self._pipeline.add_component(instance=router, name="router")
         self._pipeline.add_component(instance=joiner, name="joiner")
         self._pipeline.add_component(instance=context_joiner, name="context_joiner")
+        self._pipeline.add_component(instance=output_state_mapper, name="output_state_mapper")
 
         # Connect components
+        self._pipeline.connect("input_message_adapter.output", "joiner.value")
+        self._pipeline.connect("input_state_mapper.state", "context_joiner.value")
         self._pipeline.connect("joiner.value", "generator.messages")
         self._pipeline.connect("generator.replies", "router.llm_messages")
         self._pipeline.connect("joiner.value", "router.original_messages")
@@ -179,6 +225,9 @@ class Agent:
         self._pipeline.connect("router.continue", "joiner.value")
         self._pipeline.connect("tool_invoker.state", "context_joiner.value")
         self._pipeline.connect("context_joiner.value", "tool_invoker.state")
+        self._pipeline.connect("context_joiner.value", "output_state_mapper.state")
+
+        return self._pipeline
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -200,7 +249,7 @@ class Agent:
             state_schema=_schema_to_dict(self.state_schema),
             max_runs_per_component=self.max_runs_per_component,
             raise_on_tool_invocation_failure=self.raise_on_tool_invocation_failure,
-            streaming_callback=streaming_callback
+            streaming_callback=streaming_callback,
         )
 
     @classmethod
@@ -224,62 +273,3 @@ class Agent:
         deserialize_tools_inplace(init_params, key="tools")
 
         return default_from_dict(cls, data)
-
-    @staticmethod
-    def _load_component(component_data: Dict[str, Any]) -> Component:
-        if component_data["type"] not in component.registry:
-            try:
-                # Import the module first...
-                module, _ = component_data["type"].rsplit(".", 1)
-                logger.debug("Trying to import module {module_name}", module_name=module)
-                type_serialization.thread_safe_import(module)
-                # ...then try again
-                if component_data["type"] not in component.registry:
-                    raise PipelineError(
-                        f"Successfully imported module {module} but can't find it in the component registry."
-                        "This is unexpected and most likely a bug."
-                    )
-            except (ImportError, PipelineError) as e:
-                raise PipelineError(f"Component '{component_data['type']}' not imported.") from e
-
-        # Create a new one
-        component_class = component.registry[component_data["type"]]
-        instance = component_from_dict(component_class, component_data, "")
-        return instance
-
-    def run(
-        self,
-        messages: List[ChatMessage],
-        streaming_callback: Optional[SyncStreamingCallbackT] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """
-        Process messages and execute tools until the exit condition is met.
-
-        :param messages: List of chat messages to process
-        :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
-        :param kwargs: Additional data to pass to the State schema used by the Agent.
-            The keys must match the schema defined in the Agent's `state_schema`.
-        :return: Dictionary containing messages and outputs matching the defined output types
-        """
-        state = State(schema=self.state_schema, data=kwargs)
-
-        if self.system_prompt is not None:
-            messages = [ChatMessage.from_system(self.system_prompt)] + messages
-
-        generator_inputs = {"tools": self.tools}
-
-        selected_callback = streaming_callback or self.streaming_callback
-        if selected_callback is not None:
-            generator_inputs["streaming_callback"] = selected_callback
-
-        result = self._pipeline.run(
-            data={
-                "joiner": {"value": messages},
-                "context_joiner": {"value": state},
-                "generator": generator_inputs,
-            },
-            include_outputs_from={"context_joiner"},
-        )
-
-        return {"messages": result["router"]["exit"], **result["context_joiner"]["value"].data}
