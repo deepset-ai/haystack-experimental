@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List
 
 from haystack import Pipeline
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
@@ -56,8 +56,8 @@ state_to_messages = OutputAdapter(
 routes = [
     {
         "condition": "{{ llm_messages[-1].tool_call is none }}",
-        "output": "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}{{ state }}",
-        "output_type": State,
+        "output": "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}{{ state.data }}",
+        "output_type": Dict[str, Any],
         "output_name": "exit",
     },
     {
@@ -79,8 +79,8 @@ exit_condition_template = "{{ (state.get('messages')[-1].tool_call.tool_name == 
 routes = [
     {
         "condition": exit_condition_template,
-        "output": "{{ state }}",
-        "output_type": State,
+        "output": "{{ state.data }}",
+        "output_type": Dict[str, Any],
         "output_name": "exit",
     },
     {
@@ -121,6 +121,8 @@ agent_super_component = SuperComponent(
         "exit_condition": ["router2.exit_condition"],
         "streaming_callback": ["generator.streaming_callback"],
     },
+    # TODO This isn't super ideal since the output of the pipeline is a dict with keys "exit1" and "exit2"
+    #      This means things like "messages" and other stuff in state are nested under "exit1" and "exit2"
     output_mapping={"router1.exit": "exit1", "router2.exit": "exit2"},
 )
 
