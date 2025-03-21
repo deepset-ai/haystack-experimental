@@ -123,7 +123,9 @@ agent_super_component = SuperComponent(
     pipeline=pipeline,
     input_mapping={
         "messages": ["joiner.value", "initialize_state.messages"],
+        # TODO Didn't do it here, but could probably also expose the data param of schema as a runtime param
         "state_schema": ["initialize_state.schema"],
+        # TODO Could be good to add tools as a runtime param of ToolInvoker. Would remove need to define Tools twice.
         "tools": ["generator.tools"],
         "exit_condition": ["router2.exit_condition"],
         "streaming_callback": ["generator.streaming_callback"],
