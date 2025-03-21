@@ -129,18 +129,18 @@ class Agent:
         routes = [
             {
                 "condition": "{{ llm_messages[-1].tool_call is none }}",
-                "output": "{%- set _ = state.set(messages) if messages is not undefined else None -%}{{ state }}",
+                "output": "{%- set _ = state.set('messages', messages) if messages is not undefined else None -%}{{ state }}",
                 "output_type": State,
                 "output_name": "exit",
             },
             {
                 "condition": "{{ True }}",  # Default route
-                "output": "{%- set _ = state.set(messages) if messages is not undefined else None -%}{{ state }}",
+                "output": "{%- set _ = state.set('messages', messages) if messages is not undefined else None -%}{{ state }}",
                 "output_type": State,
                 "output_name": "continue",
             },
         ]
-        router1 = ConditionalRouter(routes=routes, unsafe=True)
+        router1 = ConditionalRouter(routes=routes, unsafe=True, optional_variables=["messages"])
 
         # Configure router conditions
         exit_condition_template = (
