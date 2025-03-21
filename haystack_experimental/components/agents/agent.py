@@ -129,13 +129,13 @@ class Agent:
         routes = [
             {
                 "condition": "{{ llm_messages[-1].tool_call is none }}",
-                "output": "{%- set _ = state.set('messages', messages) if messages is not undefined else None -%}{{ state }}",
+                "output": "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}{{ state }}",
                 "output_type": State,
                 "output_name": "exit",
             },
             {
                 "condition": "{{ True }}",  # Default route
-                "output": "{%- set _ = state.set('messages', messages) if messages is not undefined else None -%}{{ state }}",
+                "output": "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}{{ state }}",
                 "output_type": State,
                 "output_name": "continue",
             },
@@ -172,14 +172,12 @@ class Agent:
         self._pipeline.add_component(instance=context_joiner, name="context_joiner")
         self._pipeline.add_component(instance=self.chat_generator, name="generator")
         self._pipeline.add_component(instance=router1, name="router1")
-        # self._pipeline.add_component(instance=state_saver, name="state_saver")
         self._pipeline.add_component(instance=tool_invoker, name="tool_invoker")
         self._pipeline.add_component(instance=router2, name="router2")
 
         # Connect components
         self._pipeline.connect("joiner.value", "generator.messages")
         self._pipeline.connect("generator.replies", "router1.llm_messages")
-        # self._pipeline.connect("router1.continue", "state_saver.state")
         self._pipeline.connect("router1.continue", "tool_invoker.state")
         self._pipeline.connect("context_joiner.value", "router1.state")
         self._pipeline.connect("generator.replies", "tool_invoker.messages")
@@ -267,24 +265,14 @@ class Agent:
         :return: Dictionary containing messages and outputs matching the defined output types
         """
         state = State(schema=self.state_schema, data=kwargs)
-
-        if self.system_prompt is not None:
-            messages = [ChatMessage.from_system(self.system_prompt)] + messages
-
-        # Initialize the messages with the user input in State
         state.set("messages", messages)
-
-        generator_inputs = {"tools": self.tools}
-
-        selected_callback = streaming_callback or self.streaming_callback
-        if selected_callback is not None:
-            generator_inputs["streaming_callback"] = selected_callback
+        generator_inputs = {"tools": self.tools, "streaming_callback": self.streaming_callback}
 
         # The beginning of the pipeline is actually the joiner which is why it receives the initial set of messages
         result = self._pipeline.run(
             data={"joiner": {"value": messages}, "context_joiner": {"value": state}, "generator": generator_inputs},
         )
+
         if result.get("router1") is not None:
             return {**result["router1"]["exit"].data}
-
         return {**result["router2"]["exit"].data}
