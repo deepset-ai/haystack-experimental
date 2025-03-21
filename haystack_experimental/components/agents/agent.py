@@ -127,15 +127,15 @@ class Agent:
 
         # Configure router conditions
         if self.exit_condition == "text":
-            exit_condition_template = "{{ llm_messages[0].tool_call is none }}"
+            exit_condition_template = "{{ llm_messages[-1].tool_call is none }}"
         else:
             exit_condition_template = (
-                "{{ llm_messages[0].tool_call is none or (llm_messages[0].tool_call.tool_name == '"
+                "{{ llm_messages[-1].tool_call is none or (llm_messages[-1].tool_call.tool_name == '"
                 + self.exit_condition
-                + "' and not tool_messages[0].tool_call_result.error) }}"
+                + "' and not state._data['messages'][-1].tool_call_result.error) }}"
             )
 
-        router_output = "{{ original_messages + llm_messages + tool_messages }}"
+        router_output = "{{ state._data['messages'] }}"
 
         routes = [
             {
@@ -165,9 +165,8 @@ class Agent:
         # Connect components
         self._pipeline.connect("joiner.value", "generator.messages")
         self._pipeline.connect("generator.replies", "router.llm_messages")
-        self._pipeline.connect("joiner.value", "router.original_messages")
         self._pipeline.connect("generator.replies", "tool_invoker.messages")
-        self._pipeline.connect("tool_invoker.tool_messages", "router.tool_messages")
+        self._pipeline.connect("tool_invoker.state", "router.state")
         self._pipeline.connect("router.continue", "joiner.value")
         self._pipeline.connect("tool_invoker.state", "context_joiner.value")
         self._pipeline.connect("context_joiner.value", "tool_invoker.state")
@@ -256,12 +255,16 @@ class Agent:
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
 
+        # Initialize the messages with the user input in State
+        state.set("messages", messages)
+
         generator_inputs = {"tools": self.tools}
 
         selected_callback = streaming_callback or self.streaming_callback
         if selected_callback is not None:
             generator_inputs["streaming_callback"] = selected_callback
 
+        # The beginning of the pipeline is actually the joiner which is why it receives the initial set of messages
         result = self._pipeline.run(
             data={"joiner": {"value": messages}, "context_joiner": {"value": state}, "generator": generator_inputs},
             include_outputs_from={"context_joiner"},

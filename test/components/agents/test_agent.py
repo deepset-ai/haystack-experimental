@@ -10,11 +10,10 @@ import pytest
 
 from openai import Stream
 from openai.types.chat import ChatCompletionChunk, chat_completion_chunk
-from openai.types.completion_usage import CompletionTokensDetails, PromptTokensDetails
 
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack.dataclasses import ChatMessage, ToolCall
+from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import StreamingChunk
 from haystack.utils import serialize_callable, Secret
 
