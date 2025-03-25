@@ -1,4 +1,3 @@
-import sys
 import argparse
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
@@ -98,7 +97,6 @@ def breakpoint():
         "answer_builder": {"query": question},
     }
 
-    # Running pipeline with breakpoints
     pipeline.run(data, breakpoints={("prompt_builder", 0)})
 
 
@@ -106,7 +104,8 @@ def resume(resume_state):
     doc_store = indexing()
     pipeline = hybrid_retrieval(doc_store)
     resume_state = pipeline.load_state(resume_state)
-    pipeline.run(data={}, resume_state=resume_state)
+    result = pipeline.run(data={}, resume_state=resume_state)
+    print(result)
 
 def main():
     parser = argparse.ArgumentParser()
