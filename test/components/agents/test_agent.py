@@ -157,7 +157,6 @@ class TestAgent:
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
         assert "Hello" in response["messages"][1].text  # see openai_mock_chat_completion_chunk
 
-
     def test_run_with_run_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
         chat_generator = OpenAIChatGenerator(
             api_key=Secret.from_token("test-api-key")
@@ -185,7 +184,6 @@ class TestAgent:
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
         assert "Hello" in response["messages"][1].text  # see openai_mock_chat_completion_chunk
 
-
     def test_keep_generator_streaming(self, openai_mock_chat_completion_chunk, weather_tool):
         streaming_callback_called = False
 
@@ -212,5 +210,3 @@ class TestAgent:
         assert len(response["messages"]) == 2
         assert [isinstance(reply, ChatMessage) for reply in response["messages"]]
         assert "Hello" in response["messages"][1].text  # see openai_mock_chat_completion_chunk
-
-
