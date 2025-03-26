@@ -8,8 +8,8 @@ import pytest
 
 from haystack.components.joiners import BranchJoiner
 from haystack.core.component import component
-from haystack.core.errors import PipelineRuntimeError
-from haystack.core.pipeline import Pipeline
+from haystack_experimental.core.errors import PipelineRuntimeError
+from haystack_experimental.core.pipeline.pipeline import Pipeline
 
 
 class TestPipeline:

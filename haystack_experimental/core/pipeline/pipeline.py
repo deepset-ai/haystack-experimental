@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from copy import deepcopy
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack_experimental.core.errors import PipelineBreakException, PipelineRuntimeError
@@ -374,6 +374,9 @@ class Pipeline(PipelineBase):
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             return value.to_dict()
 
+        if isinstance(value, PosixPath):
+            return str(value)
+
         # this is a hack to serialize inputs that don't have a to_dict
         elif hasattr(value, "__dict__"):
             return {
@@ -409,19 +412,17 @@ class Pipeline(PipelineBase):
         file_name = f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
 
         state = {
-            "input_data": self.original_input_data,
+            "input_data": self._serialize_component_input(self.original_input_data),  # Serialize original input data
             "timestamp": dt.isoformat(),
             "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
             "pipeline_state": {
-                "inputs": inputs,
+                "inputs": self._serialize_component_input(inputs),  # Serialize pipeline state inputs
                 "component_visits": component_visits,
                 "ordered_component_names": self.ordered_component_names,
             },
         }
-        try:
-            serialized_inputs = Pipeline._serialize_component_input(state["pipeline_state"]["inputs"])  # type: ignore
-            state["pipeline_state"]["inputs"] = serialized_inputs  # type: ignore
 
+        try:
             with open(file_name, "w") as f_out:
                 json.dump(state, f_out, indent=2)
 
@@ -431,7 +432,7 @@ class Pipeline(PipelineBase):
             if callback_fun is not None:
                 callback_fun(state)
 
-            return state  # Return the state
+            return state
 
         except Exception as e:
             logger.error(f"Failed to save pipeline state: {str(e)}")
