@@ -194,7 +194,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 120
 target-version = "py38"
-exclude = ["test", ".github"]
+exclude = ["test", ".github", "example"]
 
 [tool.ruff.lint]
 select = [
