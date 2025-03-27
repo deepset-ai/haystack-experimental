@@ -2,18 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
 from copy import deepcopy
 from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
+from haystack_experimental.core.errors import PipelineBreakException, PipelineRuntimeError
+
 from haystack import logging, tracing
 from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
-from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
-
-from haystack_experimental.core.errors import PipelineBreakException, PipelineRuntimeError
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +25,6 @@ class Pipeline(PipelineBase):
 
     ordered_component_names: list[str]
     original_input_data: dict[str, Any]
-    resume_state: Optional[Dict[str, Any]] = None
 
     def _run_component(  # pylint: disable=too-many-positional-arguments
         self,
@@ -36,7 +33,6 @@ class Pipeline(PipelineBase):
         component_visits: Dict[str, int],
         breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
-        resume_state: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -61,21 +57,10 @@ class Pipeline(PipelineBase):
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
-        if self.resume_state:
-            for key, value in component_inputs.items():
-                print("check key", key)
-                print("check value", value)
-                component_inputs[key] = Pipeline._deserialize_component_input(value)
-                print("check component_inputs", component_inputs)
-            self.resume_state = None
-
-        # add component_inputs to inputs
-        breakpoint_inputs = inputs.copy()
-        breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs)
         # check if the component is in the breakpoints
         if breakpoints:
             # check if the component is in the breakpoints and if it should break
-            self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
+            self._check_breakpoints(breakpoints, component_name, component_visits, inputs)
 
         with tracing.tracer.trace(
             "haystack.component.run",
@@ -224,7 +209,6 @@ class Pipeline(PipelineBase):
             When a breakpoint is triggered. Contains the component name, state, and partial results.
         """
         pipeline_running(self)
-        self.resume_state = resume_state
 
         # make sure breakpoints are valid and have a default visit count
         validated_breakpoints = self._validate_breakpoints(breakpoints) if breakpoints else None
@@ -236,7 +220,7 @@ class Pipeline(PipelineBase):
         if include_outputs_from is None:
             include_outputs_from = set()
 
-        if not self.resume_state:
+        if not resume_state:
             # normalize `data`
             data = self._prepare_component_input_data(data)
 
@@ -255,14 +239,14 @@ class Pipeline(PipelineBase):
             cached_receivers = {name: self._find_receivers_from(name) for name in self.ordered_component_names}
 
         else:
-            self._validate_components_state(self.resume_state)
-            data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
-            component_visits = self.resume_state["pipeline_state"]["component_visits"]
-            self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
+            self._validate_components_state(resume_state)
+            data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
+            component_visits = resume_state["pipeline_state"]["component_visits"]
+            self.ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]
             cached_receivers = {name: self._find_receivers_from(name) for name in self.ordered_component_names}
             msg = (
-                f"Resuming pipeline from {self.resume_state['breakpoint']['component']} "
-                f"visit count {self.resume_state['breakpoint']['visits']}"
+                f"Resuming pipeline from {resume_state['breakpoint']['component']} "
+                f"visit count {resume_state['breakpoint']['visits']}"
             )
             logger.info(msg)
 
@@ -305,11 +289,7 @@ class Pipeline(PipelineBase):
 
                     self.original_input_data = data
                     component_outputs = self._run_component(
-                        component,
-                        inputs,
-                        component_visits,
-                        validated_breakpoints,
-                        parent_span=span,
+                        component, inputs, component_visits, validated_breakpoints, parent_span=span
                     )
 
                     # Updates global input state with component outputs and returns outputs that should go to
@@ -392,10 +372,7 @@ class Pipeline(PipelineBase):
         Tries to serialise any type of input that can be passed to as input to a pipeline component.
         """
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
-            serialized_value = value.to_dict()
-            serialized_value["_type"] = value.__class__.__name__
-            serialized_value["_module"] = value.__class__.__module__
-            return serialized_value
+            return value.to_dict()
 
         if isinstance(value, PosixPath):
             return str(value)
@@ -413,42 +390,6 @@ class Pipeline(PipelineBase):
 
         elif isinstance(value, (list, tuple)):  # for inputs in lists or tuples
             return [Pipeline._serialize_component_input(item) for item in value]
-
-        return value
-
-    @staticmethod
-    def _deserialize_component_input(value):
-        """
-        Tries to deserialise any type of input that can be passed to as input to a pipeline component.
-        """
-        # Define the mapping of types to their deserialization functions if not already defined
-        _type_deserializers = {
-            "ChatMessage": ChatMessage.from_dict,
-            "Document": Document.from_dict,
-            "SparseEmbedding": SparseEmbedding.from_dict,
-            "Answer": Answer.from_dict,
-            "ExtractedAnswer": ExtractedAnswer.from_dict,
-            "GeneratedAnswer": GeneratedAnswer.from_dict,
-            ## we need to add more deserializers for the other dataclasses
-            ## that dont have from_dict method
-        }
-
-        if isinstance(value, list):
-            return [Pipeline._deserialize_component_input(item) for item in value]
-
-        if isinstance(value, dict):
-            if "_type" in value and "_module" in value:
-                type_name = value.pop("_type")
-                value.pop("_module")  # Remove but don't store as we're not using it currently
-
-                deserializer = _type_deserializers.get(type_name)
-                if deserializer:
-                    return deserializer(value)
-                else:
-                    logger.warning(f"Unknown type '{type_name}' encountered during deserialization")
-                    return value
-
-            return value
 
         return value
 
