@@ -61,12 +61,14 @@ class Pipeline(PipelineBase):
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
+        print("\n\n Running component: ", component_name)
+
         if self.resume_state:
             for key, value in component_inputs.items():
-                print("check key", key)
-                print("check value", value)
+                # print("key: ", key)
+                # print("value: ", value)
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
-                print("check component_inputs", component_inputs)
+                # print("check component_inputs", component_inputs)
             self.resume_state = None
 
         # add component_inputs to inputs
@@ -280,7 +282,6 @@ class Pipeline(PipelineBase):
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
-
             # check if pipeline is blocked before execution
             self.validate_pipeline(priority_queue)
 

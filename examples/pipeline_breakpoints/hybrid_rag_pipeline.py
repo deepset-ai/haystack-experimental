@@ -19,6 +19,8 @@ def indexing():
     Indexing documents in a DocumentStore.
     """
 
+    print("Indexing documents...")
+
     documents = [
         Document(content="My name is Jean and I live in Paris."),
         Document(content="My name is Mark and I live in Berlin."),
@@ -27,7 +29,7 @@ def indexing():
 
     document_store = InMemoryDocumentStore()
     doc_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.SKIP)
-    doc_embedder = SentenceTransformersDocumentEmbedder(model="intfloat/e5-base-v2")
+    doc_embedder = SentenceTransformersDocumentEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
 
     ingestion_pipe = Pipeline()
     ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
@@ -44,7 +46,7 @@ def hybrid_retrieval(doc_store):
     A simple pipeline for hybrid retrieval using BM25 and embeddings.
     """
 
-    query_embedder = SentenceTransformersTextEmbedder(model="intfloat/e5-base-v2")
+    query_embedder = SentenceTransformersTextEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
 
     # Build a RAG pipeline with a Retriever to get relevant documents to the query and a OpenAIGenerator interacting
     # with LLMs using a custom prompt.
@@ -61,13 +63,18 @@ def hybrid_retrieval(doc_store):
     rag_pipeline.add_component(instance=InMemoryBM25Retriever(document_store=doc_store), name="bm25_retriever")
     rag_pipeline.add_component(instance=query_embedder, name="query_embedder")
     rag_pipeline.add_component(
-        instance=InMemoryEmbeddingRetriever(document_store=doc_store), name="embedding_retriever"
+        instance=InMemoryEmbeddingRetriever(document_store=doc_store),
+        name="embedding_retriever"
     )
     rag_pipeline.add_component(instance=DocumentJoiner(sort_by_score=False), name="doc_joiner")
     rag_pipeline.add_component(
-        instance=TransformersSimilarityRanker(model="intfloat/simlm-msmarco-reranker", top_k=5), name="ranker"
+        instance=TransformersSimilarityRanker(model="intfloat/simlm-msmarco-reranker", top_k=5),
+        name="ranker"
     )
-    rag_pipeline.add_component(instance=PromptBuilder(template=prompt_template), name="prompt_builder")
+    rag_pipeline.add_component(instance=PromptBuilder(
+        template=prompt_template, required_variables=['documents', 'question']),
+        name="prompt_builder"
+    )
     rag_pipeline.add_component(instance=OpenAIGenerator(), name="llm")
     rag_pipeline.add_component(instance=AnswerBuilder(), name="answer_builder")
 
@@ -96,16 +103,18 @@ def breakpoint():
         "prompt_builder": {"question": question},
         "answer_builder": {"query": question},
     }
-
-    pipeline.run(data, breakpoints={("prompt_builder", 0)})
+    print("\n\nStarting pipeline...")
+    pipeline.run(data, breakpoints={("query_embedder", 0)})
 
 
 def resume(resume_state):
     doc_store = indexing()
     pipeline = hybrid_retrieval(doc_store)
+    print("\n\nResuming pipeline...")
     resume_state = pipeline.load_state(resume_state)
     result = pipeline.run(data={}, resume_state=resume_state)
-    print(result)
+    print(result['answer_builder']['answers'][0].data)
+    print(result['answer_builder']['answers'][0].meta)
 
 def main():
     parser = argparse.ArgumentParser()
