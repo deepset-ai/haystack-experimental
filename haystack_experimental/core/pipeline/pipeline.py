@@ -434,7 +434,7 @@ class Pipeline(PipelineBase):
 
         Input: {"query": [{"sender": null, "value": "Where does Mark live?"}], "top_k": [{"sender": null, "value": 10}]}
         Expected: {"query": "Where does Mark live?", "top_k": 10}
-        
+
         Input: {"prompt_builder": {"question": [{"sender": null, "value": "Where does Mark live?"}]}}
         Expected: {"prompt_builder": {"question": "Where does Mark live?"}}
         """
@@ -454,7 +454,8 @@ class Pipeline(PipelineBase):
             return value
 
         if isinstance(value, list):
-            # clean up lists of sender/value pairs -> [{"sender": null, "value": "Where does Mark live?"}] -> "Where does Mark live?"
+            # clean up lists of sender/value pairs -> [{"sender": null, "value": "Where does Mark live?"}]
+            # -> "Where does Mark live?"
             if len(value) > 0 and isinstance(value[0], dict) and "sender" in value[0] and "value" in value[0]:
                 return value[0]["value"]
             return [Pipeline._deserialize_component_input(item) for item in value]
