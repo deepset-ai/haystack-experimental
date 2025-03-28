@@ -104,7 +104,7 @@ def breakpoint():
         "answer_builder": {"query": question},
     }
     print("\n\nStarting pipeline...")
-    pipeline.run(data, breakpoints={("query_embedder", 0)})
+    pipeline.run(data, breakpoints={("bm25_retriever", 0)})
 
 
 def resume(resume_state):

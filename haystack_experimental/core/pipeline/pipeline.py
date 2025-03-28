@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, ca
 
 from haystack import logging, tracing
 from haystack.core.component import Component
+from haystack.components.joiners.document_joiner import DocumentJoiner
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
@@ -61,22 +62,17 @@ class Pipeline(PipelineBase):
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
-        print("\n\n Running component: ", component_name)
+        print("Running component: ", component_name)
 
         if self.resume_state:
             for key, value in component_inputs.items():
-                # print("key: ", key)
-                # print("value: ", value)
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
-                # print("check component_inputs", component_inputs)
-            self.resume_state = None
+            # self.resume_state = None
 
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
         breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs)
-        # check if the component is in the breakpoints
         if breakpoints:
-            # check if the component is in the breakpoints and if it should break
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
@@ -106,6 +102,15 @@ class Pipeline(PipelineBase):
             # when we delete them in case they're sent to other Components
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
+
+            print("component_name: ", component_name)
+            print("component_inputs: ", component_inputs)
+
+            # ToDo: this is a hack to handle the case where the DocumentJoiner, the deserialisation adds one extra list
+            #  so we need to remove it. This is a temporary fix
+            if isinstance(component["instance"], DocumentJoiner):
+                component_inputs['documents'] = component_inputs['documents'][0]
+
             component_output = instance.run(**component_inputs)
             component_visits[component_name] += 1
 
@@ -421,8 +426,20 @@ class Pipeline(PipelineBase):
     def _deserialize_component_input(value):
         """
         Tries to deserialise any type of input that can be passed to as input to a pipeline component.
+
+        For primitive values, it returns the value as is, but for complex types, it tries to deserialize them.
+
+        Note for deserialization of primitive types a transformation is needed to convert the input to the expected
+        format. Examples of transformations:
+
+        Input: {"query": [{"sender": null, "value": "Where does Mark live?"}], "top_k": [{"sender": null, "value": 10}]}
+        Expected: {"query": "Where does Mark live?", "top_k": 10}
+        
+        Input: {"prompt_builder": {"question": [{"sender": null, "value": "Where does Mark live?"}]}}
+        Expected: {"prompt_builder": {"question": "Where does Mark live?"}}
         """
-        # Define the mapping of types to their deserialization functions if not already defined
+
+        # Define the mapping of types to their deserialization functions
         _type_deserializers = {
             "ChatMessage": ChatMessage.from_dict,
             "Document": Document.from_dict,
@@ -430,26 +447,29 @@ class Pipeline(PipelineBase):
             "Answer": Answer.from_dict,
             "ExtractedAnswer": ExtractedAnswer.from_dict,
             "GeneratedAnswer": GeneratedAnswer.from_dict,
-            ## we need to add more deserializers for the other dataclasses
-            ## that dont have from_dict method
         }
 
+        # check if value is a list of floats, i.e: an embedding, return as is
+        if isinstance(value, list) and all(isinstance(item, float) for item in value):
+            return value
+
         if isinstance(value, list):
+            # clean up lists of sender/value pairs -> [{"sender": null, "value": "Where does Mark live?"}] -> "Where does Mark live?"
+            if len(value) > 0 and isinstance(value[0], dict) and "sender" in value[0] and "value" in value[0]:
+                return value[0]["value"]
             return [Pipeline._deserialize_component_input(item) for item in value]
 
         if isinstance(value, dict):
+            # special types with _type/_module markers
             if "_type" in value and "_module" in value:
                 type_name = value.pop("_type")
-                value.pop("_module")  # Remove but don't store as we're not using it currently
-
-                deserializer = _type_deserializers.get(type_name)
-                if deserializer:
+                value.pop("_module")
+                if deserializer := _type_deserializers.get(type_name):
                     return deserializer(value)
-                else:
-                    logger.warning(f"Unknown type '{type_name}' encountered during deserialization")
-                    return value
+                logger.warning(f"Unknown type '{type_name}' encountered during deserialization")
+                return value
 
-            return value
+            return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
 
         return value
 
