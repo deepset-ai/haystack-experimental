@@ -120,11 +120,9 @@ class TestPipelineBreakpoints:
         ]
 
         for component in components:
-            # Run pipeline with breakpoint at current component
             try:
                 _ = hybrid_rag_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
             except PipelineBreakException as e:
-                # The pipeline state should be saved when the breakpoint is hit
                 pass
 
         print("\n\nShowing all files in the output directory:")
