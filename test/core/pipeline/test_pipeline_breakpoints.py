@@ -107,9 +107,9 @@ class TestPipelineBreakpoints:
 
         # Test breakpoints at each component
         components = [
-            # "bm25_retriever",
-            # "query_embedder",
-            # "embedding_retriever",
+            "bm25_retriever",
+            "query_embedder",
+            "embedding_retriever",
             "doc_joiner",
             "ranker",
             "prompt_builder",
@@ -123,64 +123,22 @@ class TestPipelineBreakpoints:
             except PipelineBreakException as e:
                 pass
 
-        print("\n\nShowing all files in the output directory:")
         all_files = list(output_directory.glob("*"))
         for f_name in all_files:
             if any(str(f_name).startswith(component) for component in components):
-                print(f"File {f_name} starts with one of the components.")
+                resume_state = hybrid_rag_pipeline.load_state(f_name)
+                _ = hybrid_rag_pipeline.run(data, resume_state=resume_state)
 
-            print(f"Resuming from state: {f_name}")
-            resume_state = hybrid_rag_pipeline.load_state(f_name)
-            result = hybrid_rag_pipeline.run(data, resume_state=resume_state)
-            print(result)
+    def test_pipeline_breakpoints_invalid_component(self, hybrid_rag_pipeline, output_directory):
+        """Test that pipeline raises error with invalid breakpoint component."""
+        question = "Where does Mark live?"
+        data = {
+            "query_embedder": {"text": question},
+            "bm25_retriever": {"query": question},
+            "ranker": {"query": question, "top_k": 10},
+            "prompt_builder": {"question": question},
+            "answer_builder": {"query": question},
+        }
 
-            # # Create a new pipeline instance
-            # new_pipeline = hybrid_rag_pipeline.__class__()
-            # for name, component in hybrid_rag_pipeline.components.items():
-            #     new_pipeline.add_component(name, component)
-            # for connection in hybrid_rag_pipeline.connections:
-            #     new_pipeline.connect(connection.sender, connection.receiver)
-            #
-            # # Resume from saved state
-            # resume_state = new_pipeline.load_state(state)
-            # resumed_result = new_pipeline.run(data={}, resume_state=resume_state)
-            #
-            # # Verify final output contains an answer
-            # if component == "answer_builder":
-            #     assert "answers" in resumed_result["answer_builder"]
-            #     assert len(resumed_result["answer_builder"]["answers"]) > 0
-            #     answer = resumed_result["answer_builder"]["answers"][0]
-            #     assert "Berlin" in answer.data
-
-    # def test_pipeline_breakpoints_invalid_component(self, hybrid_rag_pipeline):
-    #     """Test that pipeline raises error with invalid breakpoint component."""
-    #     question = "Where does Mark live?"
-    #     data = {
-    #         "query_embedder": {"text": question},
-    #         "bm25_retriever": {"query": question},
-    #         "ranker": {"query": question, "top_k": 10},
-    #         "prompt_builder": {"question": question},
-    #         "answer_builder": {"query": question},
-    #     }
-    #
-    #     with pytest.raises(ValueError, match="Breakpoint .* is not a registered component"):
-    #         hybrid_rag_pipeline.run(data, breakpoints={("non_existent_component", 0)})
-    #
-    # def test_pipeline_breakpoints_invalid_visit(self, hybrid_rag_pipeline):
-    #     """Test that pipeline handles invalid visit numbers appropriately."""
-    #     question = "Where does Mark live?"
-    #     data = {
-    #         "query_embedder": {"text": question},
-    #         "bm25_retriever": {"query": question},
-    #         "ranker": {"query": question, "top_k": 10},
-    #         "prompt_builder": {"question": question},
-    #         "answer_builder": {"query": question},
-    #     }
-    #
-    #     # Test with negative visit number
-    #     result = hybrid_rag_pipeline.run(data, breakpoints={("query_embedder", -1)})
-    #     assert result is not None
-    #
-    #     # Test with very large visit number
-    #     result = hybrid_rag_pipeline.run(data, breakpoints={("query_embedder", 1000)})
-    #     assert result is not None
+        with pytest.raises(ValueError, match="Breakpoint .* is not a registered component"):
+            hybrid_rag_pipeline.run(data, breakpoints={("non_existent_component", 0)})
