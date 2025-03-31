@@ -36,7 +36,7 @@ class Pipeline(PipelineBase):
         component_visits: Dict[str, int],
         breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
-        resume_state: Optional[Dict[str, Any]] = None,
+        resume_state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -104,8 +104,8 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
 
-            print("component_name: ", component_name)
-            print("component_inputs: ", component_inputs)
+            # print("component_name: ", component_name)
+            # print("component_inputs: ", component_inputs)
 
             component_output = instance.run(**component_inputs)
             component_visits[component_name] += 1
@@ -127,6 +127,7 @@ class Pipeline(PipelineBase):
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
+        debug_path: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
@@ -209,6 +210,9 @@ class Pipeline(PipelineBase):
         :param resume_state:
             A dictionary containing the state of a previously saved pipeline execution.
 
+        :param debug_path:
+            Path to the directory where the pipeline state should be saved.
+
         :returns:
             A dictionary where each entry corresponds to a component name
             and its output. If `include_outputs_from` is `None`, this dictionary
@@ -228,6 +232,7 @@ class Pipeline(PipelineBase):
         """
         pipeline_running(self)
         self.resume_state = resume_state
+        self.debug_path = debug_path
 
         # make sure breakpoints are valid and have a default visit count
         validated_breakpoints = self._validate_breakpoints(breakpoints) if breakpoints else None
@@ -514,7 +519,7 @@ class Pipeline(PipelineBase):
         }
 
         try:
-            with open(file_name, "w") as f_out:
+            with open(self.debug_path + "/" + file_name, "w") as f_out:
                 json.dump(state, f_out, indent=2)
 
             logger.info(f"Pipeline state saved at: {file_name}")
