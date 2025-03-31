@@ -1,17 +1,20 @@
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
-from haystack import Pipeline, component
+from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.converters.output_adapter import OutputAdapter
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.joiners import BranchJoiner
 from haystack.components.routers.conditional_router import ConditionalRouter
 from haystack.dataclasses import ChatMessage
+from haystack.dataclasses.streaming_chunk import SyncStreamingCallbackT
+from haystack.utils import deserialize_callable, serialize_callable
 from haystack_integrations.components.generators.anthropic.chat.chat_generator import AnthropicChatGenerator
 
 from haystack_experimental.components.tools import ToolInvoker
 from haystack_experimental.core.super_component.super_component import SuperComponent
 from haystack_experimental.dataclasses.state import State, _validate_schema
 from haystack_experimental.tools import Tool
+from haystack_experimental.tools.tool import deserialize_tools_inplace
 
 
 @component
@@ -64,84 +67,127 @@ class StateOutputMapper:
         return state.data
 
 
+def state_to_messages_factory() -> OutputAdapter:
+    """
+    Factory function to create an OutputAdapter that converts state to messages.
+
+    Returns:
+        OutputAdapter: The configured OutputAdapter instance.
+    """
+    return OutputAdapter(template="{{ state.get('messages') }}", output_type=List[ChatMessage], unsafe=True)
+
+
+def text_exit_router_factory() -> ConditionalRouter:
+    """
+    Factory function to create a ConditionalRouter for text exit conditions.
+
+    Returns:
+        ConditionalRouter: The configured ConditionalRouter instance.
+    """
+    routes = [
+        {
+            "condition": "{{ llm_messages[-1].tool_call is none }}",
+            "output": (
+                "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}"
+                "{{ state }}"
+            ),
+            "output_type": State,
+            "output_name": "exit",
+        },
+        {
+            "condition": "{{ True }}",  # Default route
+            "output": (
+                "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}"
+                "{{ state }}"
+            ),
+            "output_type": State,
+            "output_name": "continue",
+        },
+    ]
+    text_exit_router = ConditionalRouter(routes=routes, unsafe=True)
+    return text_exit_router
+
+
+def tool_exit_router_factory(exit_condition: str) -> ConditionalRouter:
+    """
+    Factory function to create a ConditionalRouter for tool exit conditions.
+
+    Returns:
+        ConditionalRouter: The configured ConditionalRouter instance.
+    """
+    exit_condition_template = (
+        f"{{%- set _ = tool_messages -%}}"
+        f"{{{{ (state.get('messages')[-1].tool_call.tool_name == '{exit_condition}' "
+        f"and not state.get('messages')[-1].tool_call_result.error) }}}}"
+    )
+    routes = [
+        {
+            "condition": exit_condition_template,
+            "output": "{{ state }}",
+            "output_type": State,
+            "output_name": "exit",
+        },
+        {
+            "condition": "{{ True }}",  # Default route
+            "output": "{{ state }}",
+            "output_type": State,
+            "output_name": "continue",
+        },
+    ]
+    tool_exit_router = ConditionalRouter(routes=routes, unsafe=True)
+    return tool_exit_router
+
+
 @component
 class Agent(SuperComponent):
     """
-    Agent that uses a SuperComponent internally.
+    Agent as SuperComponent.
     """
 
     def __init__(
         self,
-        state_schema: Dict[str, Any],
         model_provider: Literal["openai", "anthropic"],
         model: str,
         tools: List[Tool],
-        exit_condition: str,
+        exit_condition: str = "text",
+        state_schema: Optional[Dict[str, Any]] = None,
         raise_on_tool_invocation_failure: bool = False,
-        **kwargs: Any,
+        streaming_callback: Optional[SyncStreamingCallbackT] = None,
+        max_runs_per_component: int = 100,
+        **generator_kwargs: Any,
     ) -> None:
-        self.state_schema = state_schema
-        input_mapper = StateInputMapper(schema=self.state_schema)
-        output_mapper = StateOutputMapper(schema=self.state_schema)
-        if model_provider == "openai":
-            chat_generator = OpenAIChatGenerator(model=model, tools=tools)
-        elif model_provider == "anthropic":
-            chat_generator = AnthropicChatGenerator(model=model, tools=tools)
-        tool_invoker = ToolInvoker(tools=tools, raise_on_failure=raise_on_tool_invocation_failure)
+        self._model_provider = model_provider
+        self._model = model
+        self._tools = tools
+        self._exit_condition = exit_condition
+        self._state_schema = state_schema
+        self._raise_on_tool_invocation_failure = raise_on_tool_invocation_failure
+        self._streaming_callback = streaming_callback
+        self._max_runs_per_component = max_runs_per_component
+        self._generator_kwargs = generator_kwargs
+
+        schema = state_schema or {
+            "messages": {"type": List[ChatMessage]},
+        }
+        input_mapper = StateInputMapper(schema=schema)
+        output_mapper = StateOutputMapper(schema=schema)
         loop_start = BranchJoiner(type_=State)
-        state_to_msgs_tool_invoker = OutputAdapter(
-            template="{{ state.get('messages') }}", output_type=List[ChatMessage], unsafe=True
-        )
-        state_to_msgs_generator = OutputAdapter(
-            template="{{ state.get('messages') }}", output_type=List[ChatMessage], unsafe=True
-        )
         loop_exit = BranchJoiner(type_=State)
+        if model_provider == "openai":
+            chat_generator = OpenAIChatGenerator(
+                model=model, tools=tools, streaming_callback=streaming_callback, **generator_kwargs
+            )
+        elif model_provider == "anthropic":
+            chat_generator = AnthropicChatGenerator(
+                model=model, tools=tools, streaming_callback=streaming_callback, **generator_kwargs
+            )
+        tool_invoker = ToolInvoker(tools=tools, raise_on_failure=raise_on_tool_invocation_failure)
+        state_to_msgs_tool_invoker = state_to_messages_factory()
+        state_to_msgs_generator = state_to_messages_factory()
+        text_exit_router = text_exit_router_factory()
+        tool_exit_router = tool_exit_router_factory(exit_condition=exit_condition)
 
-        routes = [
-            {
-                "condition": "{{ llm_messages[-1].tool_call is none }}",
-                "output": (
-                    "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}"
-                    "{{ state }}"
-                ),
-                "output_type": State,
-                "output_name": "exit",
-            },
-            {
-                "condition": "{{ True }}",  # Default route
-                "output": (
-                    "{%- set _ = state.set('messages', llm_messages) if llm_messages is not undefined else None -%}"
-                    "{{ state }}"
-                ),
-                "output_type": State,
-                "output_name": "continue",
-            },
-        ]
-        text_exit_router = ConditionalRouter(routes=routes, unsafe=True)
-
-        # Configure router conditions
-        exit_condition_template = (
-            f"{{%- set _ = tool_messages -%}}"
-            f"{{{{ (state.get('messages')[-1].tool_call.tool_name == '{exit_condition}' "
-            f"and not state.get('messages')[-1].tool_call_result.error) }}}}"
-        )
-        routes = [
-            {
-                "condition": exit_condition_template,
-                "output": "{{ state }}",
-                "output_type": State,
-                "output_name": "exit",
-            },
-            {
-                "condition": "{{ True }}",  # Default route
-                "output": "{{ state }}",
-                "output_type": State,
-                "output_name": "continue",
-            },
-        ]
-        tool_exit_router = ConditionalRouter(routes=routes, unsafe=True)
-
-        pipeline = Pipeline(max_runs_per_component=3)
+        pipeline = Pipeline(max_runs_per_component=max_runs_per_component)
         pipeline.add_component(instance=input_mapper, name="input_mapper")
         pipeline.add_component(instance=loop_start, name="loop_start")
         pipeline.add_component(instance=state_to_msgs_generator, name="state_to_msgs_generator")
@@ -174,5 +220,35 @@ class Agent(SuperComponent):
                 "messages": ["input_mapper.messages"],
                 "streaming_callback": ["generator.streaming_callback"],
             },
-            output_mapping={f"output_mapper.{key}": key for key in self.state_schema.keys()},
+            output_mapping={f"output_mapper.{key}": key for key in state_schema.keys()},
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize this instance to a dictionary.
+        """
+        callback_name = serialize_callable(self._streaming_callback) if self._streaming_callback else None
+        return default_to_dict(
+            self,
+            model_provider=self._model_provider,
+            model=self._model,
+            tools=[tool.to_dict() for tool in self._tools],
+            exit_condition=self._exit_condition,
+            state_schema=self._state_schema,
+            raise_on_tool_invocation_failure=self._raise_on_tool_invocation_failure,
+            streaming_callback=callback_name,
+            max_runs_per_component=self._max_runs_per_component,
+            generator_kwargs=self._generator_kwargs,
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Agent":
+        """
+        Load this instance from a dictionary.
+        """
+        deserialize_tools_inplace(data["init_parameters"], key="tools")
+        init_params = data.get("init_parameters", {})
+        serialized_callback_handler = init_params.get("streaming_callback")
+        if serialized_callback_handler:
+            data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
+        return default_from_dict(cls, data)
