@@ -104,7 +104,8 @@ def breakpoint():
         "answer_builder": {"query": question},
     }
     print("\n\nStarting pipeline...")
-    pipeline.run(data, breakpoints={("bm25_retriever", 0)})
+
+    pipeline.run(data, breakpoints={("llm", 0)}, debug_path="saved_states")
 
 
 def resume(resume_state):

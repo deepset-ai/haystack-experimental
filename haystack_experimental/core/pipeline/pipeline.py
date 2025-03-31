@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, ca
 
 from haystack import logging, tracing
 from haystack.core.component import Component
-from haystack.components.joiners.document_joiner import DocumentJoiner
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
@@ -37,7 +36,7 @@ class Pipeline(PipelineBase):
         component_visits: Dict[str, int],
         breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
-        resume_state: Optional[Dict[str, Any]] = None,
+        resume_state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -62,12 +61,14 @@ class Pipeline(PipelineBase):
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
-        print("Running component: ", component_name)
+        # print("Running component: ", component_name)
 
-        if self.resume_state:
+        # Deserialize the inputs if they are passed in resume state
+        # this check will prevent other inputs generated at runtime from being deserialized
+
+        if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
-            # self.resume_state = None
 
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
@@ -103,13 +104,8 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
 
-            print("component_name: ", component_name)
-            print("component_inputs: ", component_inputs)
-
-            # ToDo: this is a hack to handle the case where the DocumentJoiner, the deserialisation adds one extra list
-            #  so we need to remove it. This is a temporary fix
-            if isinstance(component["instance"], DocumentJoiner):
-                component_inputs['documents'] = component_inputs['documents'][0]
+            # print("running component_name: ", component_name)
+            # print("with component_inputs: ", component_inputs)
 
             component_output = instance.run(**component_inputs)
             component_visits[component_name] += 1
@@ -131,6 +127,7 @@ class Pipeline(PipelineBase):
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
+        debug_path: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
@@ -213,6 +210,9 @@ class Pipeline(PipelineBase):
         :param resume_state:
             A dictionary containing the state of a previously saved pipeline execution.
 
+        :param debug_path:
+            Path to the directory where the pipeline state should be saved.
+
         :returns:
             A dictionary where each entry corresponds to a component name
             and its output. If `include_outputs_from` is `None`, this dictionary
@@ -232,6 +232,7 @@ class Pipeline(PipelineBase):
         """
         pipeline_running(self)
         self.resume_state = resume_state
+        self.debug_path = debug_path
 
         # make sure breakpoints are valid and have a default visit count
         validated_breakpoints = self._validate_breakpoints(breakpoints) if breakpoints else None
@@ -410,7 +411,7 @@ class Pipeline(PipelineBase):
         elif hasattr(value, "__dict__"):
             return {
                 "_type": value.__class__.__name__,
-                "_module": value.__class__.__module__,
+                # "_module": value.__class__.__module__,
                 "attributes": value.__dict__,
             }
 
@@ -423,7 +424,7 @@ class Pipeline(PipelineBase):
         return value
 
     @staticmethod
-    def _deserialize_component_input(value):
+    def _deserialize_component_input(value):  # noqa: PLR0911
         """
         Tries to deserialise any type of input that can be passed to as input to a pipeline component.
 
@@ -441,36 +442,77 @@ class Pipeline(PipelineBase):
 
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
+            "Answer": Answer.from_dict,
             "ChatMessage": ChatMessage.from_dict,
             "Document": Document.from_dict,
-            "SparseEmbedding": SparseEmbedding.from_dict,
-            "Answer": Answer.from_dict,
             "ExtractedAnswer": ExtractedAnswer.from_dict,
             "GeneratedAnswer": GeneratedAnswer.from_dict,
+            "SparseEmbedding": SparseEmbedding.from_dict,
         }
 
-        # check if value is a list of floats, i.e: an embedding, return as is
+        # check if the value is a list of lists
+        # ToDo is just a very hacky way to handle with joiners, i.e.: DocumentJoiner we should find a general way
+        if (isinstance(value, list) and len(value) > 0 and isinstance(value[0], list) and isinstance(value[0], list)
+                and "sender" in value[0][0]):
+            result1 = value[0][0]["value"]
+            result = [result1] + [value[1]]
+            final_list = []
+
+            for a_list in result:
+                deserialised = []
+                for el in a_list:
+                    if isinstance(el, dict) and "_type" in el:
+                        type_name = el.pop("_type")
+                        if type_name in _type_deserializers:
+                            deserialized_object = _type_deserializers[type_name](el)
+                            deserialized_object._type = type_name
+                            deserialised.append(deserialized_object)
+                    else:
+                        deserialized_object = el
+                        deserialized_object._type = "Document"
+                        deserialised.append(deserialized_object)
+
+                final_list.append(deserialised)
+
+            return final_list
+
         if isinstance(value, list) and all(isinstance(item, float) for item in value):
             return value
 
         if isinstance(value, list):
-            # clean up lists of sender/value pairs -> [{"sender": null, "value": "Where does Mark live?"}]
-            # -> "Where does Mark live?"
+            # Clean up lists of sender/value pairs -> [{"sender": None, "value": "Where does Mark live?"}]
             if len(value) > 0 and isinstance(value[0], dict) and "sender" in value[0] and "value" in value[0]:
                 return value[0]["value"]
+
+            # Handle lists of documents or other serializable objects
+            if len(value) > 0:
+
+                def find_serialized_objects(lst):
+                    if isinstance(lst, list) and len(lst) > 0:
+                        if isinstance(lst[0], dict) and "_type" in lst[0]:
+                            type_name = lst[0].pop("_type")
+                            if type_name in _type_deserializers:
+                                return [_type_deserializers[type_name](item) for item in lst]
+                        return [find_serialized_objects(item) for item in lst]
+                    return lst
+
+                result = find_serialized_objects(value)
+
+                while isinstance(result, list) and len(result) == 1 and isinstance(result[0], list):
+                    result = result[0]
+                return result
+
             return [Pipeline._deserialize_component_input(item) for item in value]
 
         if isinstance(value, dict):
-            # special types with _type/_module markers
-            if "_type" in value and "_module" in value:
+            had_type = "_type" in value
+            if had_type:
                 type_name = value.pop("_type")
-                value.pop("_module")
                 if deserializer := _type_deserializers.get(type_name):
                     return deserializer(value)
                 logger.warning(f"Unknown type '{type_name}' encountered during deserialization")
-                return value
-
-            return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
+            # Single return statement for both _type and non-_type dictionaries
+            return value if had_type else {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
 
         return value
 
@@ -504,7 +546,10 @@ class Pipeline(PipelineBase):
         }
 
         try:
-            with open(file_name, "w") as f_out:
+
+            assert self.debug_path is not None, "Debug path must be set to save the state."
+
+            with open(self.debug_path + "/" + file_name, "w") as f_out:
                 json.dump(state, f_out, indent=2)
 
             logger.info(f"Pipeline state saved at: {file_name}")
