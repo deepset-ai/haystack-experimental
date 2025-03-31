@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from haystack.core.serialization import generate_qualified_class_name, import_class_by_name
 from haystack.tools.errors import ToolInvocationError
@@ -33,9 +33,13 @@ class Tool:
         Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
     :param outputs_to_state:
         Optional dictionary defining how tool outputs map to keys within state as well as optional handlers.
+        If the source is provided only the specified output key is sent to the handler.
         Example: {
-            "documents": {"source": "docs", "handler": custom_handler},
-            "message": {"source": "summary", "handler": format_summary}
+            "documents": {"source": "docs", "handler": custom_handler}
+        }
+        If the source is omitted the whole tool result is sent to the handler.
+        Example: {
+            "documents": {"handler": custom_handler}
         }
     """
 
@@ -43,8 +47,9 @@ class Tool:
     description: str
     parameters: Dict[str, Any]
     function: Callable
+    outputs_to_string: Optional[Dict[str, Union[str, Callable[[Any], str]]]] = None,
     inputs_from_state: Optional[Dict[str, str]] = None
-    outputs_to_state: Optional[Dict[str, Dict[str, Any]]] = None
+    outputs_to_state: Optional[Dict[str, Dict[str, Union[str, Callable]]]] = None
 
     def __post_init__(self):
         # Check that the parameters define a valid JSON schema
@@ -57,11 +62,17 @@ class Tool:
         if self.outputs_to_state is not None:
             for key, config in self.outputs_to_state.items():
                 if not isinstance(config, dict):
-                    raise ValueError(f"Output configuration for key '{key}' must be a dictionary")
+                    raise ValueError(f"outputs_to_state configuration for key '{key}' must be a dictionary")
                 if "source" in config and not isinstance(config["source"], str):
-                    raise ValueError(f"Output source for key '{key}' must be a string.")
+                    raise ValueError(f"outputs_to_state source for key '{key}' must be a string.")
                 if "handler" in config and not callable(config["handler"]):
-                    raise ValueError(f"Output handler for key '{key}' must be callable")
+                    raise ValueError(f"outputs_to_state handler for key '{key}' must be callable")
+
+        if self.outputs_to_string is not None:
+            if "source" in self.outputs_to_string and not isinstance(self.outputs_to_string["source"], str):
+                raise ValueError("outputs_to_string source must be a string.")
+            if "handler" in self.outputs_to_string and not callable(self.outputs_to_string["handler"]):
+                raise ValueError("outputs_to_string handler must be callable")
 
     @property
     def tool_spec(self) -> Dict[str, Any]:
