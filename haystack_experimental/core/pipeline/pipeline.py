@@ -424,7 +424,7 @@ class Pipeline(PipelineBase):
         return value
 
     @staticmethod
-    def _deserialize_component_input(value):
+    def _deserialize_component_input(value):  # noq: PLR0911
         """
         Tries to deserialise any type of input that can be passed to as input to a pipeline component.
 
@@ -453,7 +453,7 @@ class Pipeline(PipelineBase):
         # check if the value is a list of lists
         # ToDo is just a very hacky way to handle with joiners, i.e.: DocumentJoiner we should find a general way
         if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
-            if isinstance(value[0], list) and 'sender' in value[0][0]:
+            if isinstance(value[0], list) and "sender" in value[0][0]:
                 result1 = value[0][0]["value"]
                 result = [result1] + [value[1]]
                 final_list = []
@@ -546,6 +546,9 @@ class Pipeline(PipelineBase):
         }
 
         try:
+
+            assert self.debug_path is not None, "Debug path must be set to save the state."
+
             with open(self.debug_path + "/" + file_name, "w") as f_out:
                 json.dump(state, f_out, indent=2)
 
