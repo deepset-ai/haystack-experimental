@@ -104,8 +104,8 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
 
-            print("running component_name: ", component_name)
-            print("with component_inputs: ", component_inputs)
+            # print("running component_name: ", component_name)
+            # print("with component_inputs: ", component_inputs)
 
             component_output = instance.run(**component_inputs)
             component_visits[component_name] += 1
@@ -442,13 +442,39 @@ class Pipeline(PipelineBase):
 
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
+            "Answer": Answer.from_dict,
             "ChatMessage": ChatMessage.from_dict,
             "Document": Document.from_dict,
-            "SparseEmbedding": SparseEmbedding.from_dict,
-            "Answer": Answer.from_dict,
             "ExtractedAnswer": ExtractedAnswer.from_dict,
             "GeneratedAnswer": GeneratedAnswer.from_dict,
+            "SparseEmbedding": SparseEmbedding.from_dict,
         }
+
+        # check if the value is a list of lists
+        # ToDo is just a very hacky way to handle with joiners, i.e.: DocumentJoiner we should find a general way
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
+            if isinstance(value[0], list) and 'sender' in value[0][0]:
+                result1 = value[0][0]["value"]
+                result = [result1] + [value[1]]
+                final_list = []
+
+                for a_list in result:
+                    deserialised = []
+                    for el in a_list:
+                        if isinstance(el, dict) and "_type" in el:
+                            type_name = el.pop("_type")
+                            if type_name in _type_deserializers:
+                                deserialized_object = _type_deserializers[type_name](el)
+                                deserialized_object._type = type_name
+                                deserialised.append(deserialized_object)
+                        else:
+                            deserialized_object = el
+                            deserialized_object._type = "Document"
+                            deserialised.append(deserialized_object)
+
+                    final_list.append(deserialised)
+
+                return final_list
 
         if isinstance(value, list) and all(isinstance(item, float) for item in value):
             return value
@@ -471,6 +497,7 @@ class Pipeline(PipelineBase):
                     return lst
 
                 result = find_serialized_objects(value)
+
                 while isinstance(result, list) and len(result) == 1 and isinstance(result[0], list):
                     result = result[0]
                 return result
