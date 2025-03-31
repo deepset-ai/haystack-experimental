@@ -66,7 +66,7 @@ extra-dependencies = [
   "python-pptx", # MultiFileConverter
   "trafilatura", # MultiFileConverter
   "sentence-transformers>=3.0.0", # needed for the pipeline checkpoints test
-  "transformers>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
+  "transformers[torch,sentencepiece]>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
 ]
 
 [tool.hatch.envs.test.scripts]

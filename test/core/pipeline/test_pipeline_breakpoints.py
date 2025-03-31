@@ -1,4 +1,6 @@
 import pytest
+from unittest.mock import Mock
+import numpy as np
 
 from haystack.components.builders.answer_builder import AnswerBuilder
 from haystack.components.builders.prompt_builder import PromptBuilder
@@ -32,7 +34,10 @@ class TestPipelineBreakpoints:
 
         document_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.SKIP)
-        doc_embedder = SentenceTransformersDocumentEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
+        doc_embedder = SentenceTransformersDocumentEmbedder(
+            model="sentence-transformers/paraphrase-MiniLM-L3-v2",
+            progress_bar=False
+        )
         ingestion_pipe = Pipeline()
         ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
@@ -41,10 +46,37 @@ class TestPipelineBreakpoints:
 
         return document_store
 
+
     @pytest.fixture
-    def hybrid_rag_pipeline(self, document_store):
+    def mock_text_embedder(self):
+        embedder = Mock(spec=SentenceTransformersTextEmbedder)
+        
+        # Create a fake embedding output
+        fake_embedding = np.random.rand(384)
+        embedder.run.return_value = {"embedding": fake_embedding}
+        
+        # Mock Haystack's component input/output attributes
+        input_mock = Mock()
+        input_mock._sockets_dict = {"text": "Text to embed"}
+        embedder.__haystack_input__ = input_mock
+        
+        output_mock = Mock()
+        output_mock._sockets_dict = {"embedding": "Embedding output"}
+        embedder.__haystack_output__ = output_mock
+        
+        return embedder
+
+
+    @pytest.fixture
+    def hybrid_rag_pipeline(self, document_store, mock_text_embedder):
         """Create a hybrid RAG pipeline for testing."""
-        query_embedder = SentenceTransformersTextEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
+        # Replace the real embedder with the mock
+        # query_embedder = SentenceTransformersTextEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
+        # query_embedder = mock_text_embedder
+        query_embedder = SentenceTransformersTextEmbedder(
+            model="sentence-transformers/paraphrase-MiniLM-L3-v2",
+            progress_bar=False
+        )
 
         prompt_template = """
         Given these documents, answer the question based on the document content only.\nDocuments:
