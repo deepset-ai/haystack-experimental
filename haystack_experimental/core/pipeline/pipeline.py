@@ -104,8 +104,8 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
 
-            # print("component_name: ", component_name)
-            # print("component_inputs: ", component_inputs)
+            print("running component_name: ", component_name)
+            print("with component_inputs: ", component_inputs)
 
             component_output = instance.run(**component_inputs)
             component_visits[component_name] += 1

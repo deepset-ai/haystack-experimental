@@ -33,11 +33,9 @@ class TestPipelineBreakpoints:
         document_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.SKIP)
         doc_embedder = SentenceTransformersDocumentEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
-
         ingestion_pipe = Pipeline()
         ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
-
         ingestion_pipe.connect("doc_embedder.documents", "doc_writer.documents")
         ingestion_pipe.run({"doc_embedder": {"documents": documents}})
 
@@ -109,14 +107,14 @@ class TestPipelineBreakpoints:
 
         # Test breakpoints at each component
         components = [
-            "bm25_retriever",
-            "query_embedder",
+            # "bm25_retriever",
+            # "query_embedder",
             # "embedding_retriever",
-            # "doc_joiner",
-            # "ranker",
-            # "prompt_builder",
-            # "llm",
-            # "answer_builder"
+            "doc_joiner",
+            "ranker",
+            "prompt_builder",
+            "llm",
+            "answer_builder"
         ]
 
         for component in components:
