@@ -31,12 +31,12 @@ class Pipeline(PipelineBase):
     debug_path: Optional[Union[str, Path]] = None
 
     def _run_component(  # pylint: disable=too-many-positional-arguments
-        self,
-        component: Dict[str, Any],
-        inputs: Dict[str, Any],
-        component_visits: Dict[str, int],
-        breakpoints: Optional[Set[Tuple[str, int]]] = None,
-        parent_span: Optional[tracing.Span] = None,
+            self,
+            component: Dict[str, Any],
+            inputs: Dict[str, Any],
+            component_visits: Dict[str, int],
+            breakpoints: Optional[Set[Tuple[str, int]]] = None,
+            parent_span: Optional[tracing.Span] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -76,27 +76,27 @@ class Pipeline(PipelineBase):
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
-            "haystack.component.run",
-            tags={
-                "haystack.component.name": component_name,
-                "haystack.component.type": instance.__class__.__name__,
-                "haystack.component.input_types": {k: type(v).__name__ for k, v in component_inputs.items()},
-                "haystack.component.input_spec": {
-                    key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                        "senders": value.senders,
-                    }
-                    for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
+                "haystack.component.run",
+                tags={
+                    "haystack.component.name": component_name,
+                    "haystack.component.type": instance.__class__.__name__,
+                    "haystack.component.input_types": {k: type(v).__name__ for k, v in component_inputs.items()},
+                    "haystack.component.input_spec": {
+                        key: {
+                            "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                            "senders": value.senders,
+                        }
+                        for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
+                    },
+                    "haystack.component.output_spec": {
+                        key: {
+                            "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                            "receivers": value.receivers,
+                        }
+                        for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
+                    },
                 },
-                "haystack.component.output_spec": {
-                    key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                        "receivers": value.receivers,
-                    }
-                    for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
-                },
-            },
-            parent_span=parent_span,
+                parent_span=parent_span,
         ) as span:
             # We deepcopy the inputs otherwise we might lose that information
             # when we delete them in case they're sent to other Components
@@ -121,12 +121,12 @@ class Pipeline(PipelineBase):
             return cast(Dict[Any, Any], component_output)
 
     def run(  # noqa: PLR0915, PLR0912
-        self,
-        data: Dict[str, Any],
-        include_outputs_from: Optional[Set[str]] = None,
-        breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
-        resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[str] = None
+            self,
+            data: Dict[str, Any],
+            include_outputs_from: Optional[Set[str]] = None,
+            breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
+            resume_state: Optional[Dict[str, Any]] = None,
+            debug_path: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
@@ -276,13 +276,13 @@ class Pipeline(PipelineBase):
 
         pipeline_outputs: Dict[str, Any] = {}
         with tracing.tracer.trace(
-            "haystack.pipeline.run",
-            tags={
-                "haystack.pipeline.input_data": data,
-                "haystack.pipeline.output_data": pipeline_outputs,
-                "haystack.pipeline.metadata": self.metadata,
-                "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
-            },
+                "haystack.pipeline.run",
+                tags={
+                    "haystack.pipeline.input_data": data,
+                    "haystack.pipeline.output_data": pipeline_outputs,
+                    "haystack.pipeline.metadata": self.metadata,
+                    "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
+                },
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
@@ -410,6 +410,48 @@ class Pipeline(PipelineBase):
 
         return value
 
+
+    @staticmethod
+    def remove_sender(data):
+        """
+        Removes the 'sender' key from the data.
+
+        Data can be a dictionary or a list of dictionaries, or a list of lists of dictionaries, or any combination of these.
+        """
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, dict) and "sender" in v:
+                    data[k] = v["value"]
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "sender" in item:
+                    item["value"] = item.pop("sender")
+        return data
+
+    @staticmethod
+    def has_sender(data) -> bool:
+        """
+        Checks if there's a 'sender' key in the data.
+
+        Data can be a dictionary or a list of dictionaries, or a list of lists of dictionaries, or any combination of these.
+
+        :param data: The data to check for 'sender' key
+        :returns: True if a 'sender' key is found, False otherwise
+        """
+        if isinstance(data, dict):
+            for v in data.values():
+                if isinstance(v, dict) and "sender" in v:
+                    return True
+                if isinstance(v, (dict, list)) and Pipeline.has_sender(v):
+                    return True
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "sender" in item:
+                    return True
+                if isinstance(item, (dict, list)) and Pipeline.has_sender(item):
+                    return True
+        return False
+
     @staticmethod
     def _serialize_component_input(value):
         """
@@ -417,15 +459,19 @@ class Pipeline(PipelineBase):
         """
 
         value = Pipeline._remove_unserialisable_data(value)
+        value = Pipeline.remove_sender(value)
+
+        if Pipeline.has_sender(value):
+            raise ValueError("The input data contains a 'sender' key, which is not allowed.")
+        
+        if isinstance(value, PosixPath):
+            return str(value)
 
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             serialized_value = value.to_dict()
             serialized_value["_type"] = value.__class__.__name__
             serialized_value["_module"] = value.__class__.__module__
             return serialized_value
-
-        if isinstance(value, PosixPath):
-            return str(value)
 
         # this is a hack to serialize inputs that don't have a to_dict
         elif hasattr(value, "__dict__"):
@@ -473,13 +519,7 @@ class Pipeline(PipelineBase):
             print("Case 1")
             return value
 
-        # lists of floats, e.g: embeddings
-        if isinstance(value, list) and all(isinstance(item, float) for item in value):
-            print("Case 2")
-            return value
-
         print("Running deserialization")
-        print(value)
 
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
@@ -528,6 +568,11 @@ class Pipeline(PipelineBase):
 
             return final_list
 
+        # lists of floats, e.g: embeddings
+        if isinstance(value, list) and all(isinstance(item, float) for item in value):
+            print("Case 2")
+            return value
+
         if isinstance(value, list) and len(value) == 1:
             print("Case 3")
             print(value)
@@ -544,26 +589,15 @@ class Pipeline(PipelineBase):
                         deserialized_object._type = type_name
                         print(deserialized_object)
                         return deserialized_object
-
-                elif len(value) > 1:
-                    print(3.2)
-                    deserialised_list = []
-                    for el in value:
-                        if isinstance(el, dict) and "_type" in el:
-                            type_name = el.pop("_type")
-                            if type_name in _type_deserializers:
-                                deserialized_object = _type_deserializers[type_name](el)
-                                deserialized_object._type = type_name
-                                deserialised_list.append(deserialized_object)
-                    print(deserialised_list)
-                    return deserialised_list
-
                 else:
                     print("3.3")
-                    print(value[0]["value"])
-                    return value[0]["value"]
+                    no_sender = value[0]["value"]
+                    if isinstance(no_sender, list):
+                        print("3.3.1 - going into recursion")
+                        return Pipeline._deserialize_component_input(no_sender)
+                    return no_sender
 
-        if isinstance(value, list) and len(value) > 0:
+        if isinstance(value, list) and len(value) > 1:
             print("Case 4")
             deserialised_list = []
             for el in value:
@@ -618,11 +652,11 @@ class Pipeline(PipelineBase):
         return value
 
     def save_state(
-        self,
-        inputs: Dict[str, Any],
-        component_name: str,
-        component_visits: Dict[str, int],
-        callback_fun: Optional[Callable[..., Any]] = None,
+            self,
+            inputs: Dict[str, Any],
+            component_name: str,
+            component_visits: Dict[str, int],
+            callback_fun: Optional[Callable[..., Any]] = None,
     ) -> Dict[str, Any]:
         """
         Saves the state of the pipeline at a given component visit count.

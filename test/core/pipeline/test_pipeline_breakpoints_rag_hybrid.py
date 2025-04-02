@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from haystack.components.builders.answer_builder import AnswerBuilder
@@ -134,6 +136,8 @@ class TestPipelineBreakpoints:
             "prompt_builder": {"question": question},
             "answer_builder": {"query": question},
         }
+
+        output_directory = Path("tmp")
 
         try:
             _ = hybrid_rag_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))

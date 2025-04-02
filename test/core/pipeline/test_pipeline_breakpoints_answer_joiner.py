@@ -33,11 +33,11 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        # "gpt-4o",
+        "gpt-4o",
         "gpt-3",
-        # "answer_builder_a",
-        # "answer_builder_b",
-        # "answer_joiner",
+        "answer_builder_a",
+        "answer_builder_b",
+        "answer_joiner",
     ]
     @pytest.mark.parametrize("component", components)
     def test_pipeline_breakpoints_answer_joiner(self, answer_join_pipeline, output_directory, component):
@@ -53,6 +53,8 @@ class TestPipelineBreakpoints:
             "answer_builder_a": {"query": query},
             "answer_builder_b": {"query": query}
         }
+
+        output_directory = Path("tmp")
 
         try:
             _ = answer_join_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
