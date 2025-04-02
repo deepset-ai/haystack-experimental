@@ -61,11 +61,11 @@ class Pipeline(PipelineBase):
         # NOTE: This is a workaround for the DocumentJoiner component since _consume_component_inputs()
         # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
         # ToDo: investigate why this is needed and if we can remove it
-        if self.resume_state and isinstance(instance, DocumentJoiner):
-            if isinstance(component_inputs['documents'], list):
-                if isinstance(component_inputs['documents'][0], list):
-                    if isinstance(component_inputs['documents'][0][0], list):
-                        component_inputs['documents'] = component_inputs['documents'][0]
+        if self.resume_state and isinstance(instance, DocumentJoiner): #noqa: SIM102
+            if isinstance(component_inputs["documents"], list):  #noqa: SIM102
+                if isinstance(component_inputs["documents"][0], list): #noqa: SIM102
+                    if isinstance(component_inputs["documents"][0][0], list): #noqa: SIM102
+                        component_inputs["documents"] = component_inputs["documents"][0]
 
         # We need to add missing defaults using default values from input sockets because the run signature
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
