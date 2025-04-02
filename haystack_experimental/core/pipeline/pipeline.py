@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-import json
 from copy import deepcopy
 from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
@@ -415,7 +414,8 @@ class Pipeline(PipelineBase):
         """
         Removes the 'sender' key from the data.
 
-        data can be a dictionary or a list of dictionaries, or a list of lists of dictionaries, or any combination of these.
+        Data can be a dictionary or a list of dictionaries, or a list of lists of dictionaries, or any
+        combination of these.
 
         """
         if isinstance(data, dict):
@@ -432,32 +432,16 @@ class Pipeline(PipelineBase):
     def transform_json_structure(data):
         """
         Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
+
         Also removes list wrapper when the list contains a single item.
+
+        "key": [{"sender": null, "value": "some value"}] -> "key": "some value"
         
-        Args:
-            data: The input JSON data to transform
-            
-        Returns:
-            Transformed data with 'value' moved to top level, 'sender' removed, and single-item lists unwrapped
-
-        {
-        "key": [
-            {
-                "sender": null,
-                "value": "some value"
-            }
-        ]
-        }
-        becomes
-        {
-        "key": "some value"
-        }
-
         """
         if isinstance(data, dict):
             # If the dict has 'value' and 'sender' keys, return just the value
-            if 'value' in data and 'sender' in data:
-                return data['value']
+            if "value" in data and "sender" in data:
+                return data["value"]
             # Otherwise, recursively transform each value in the dict
             return {k: Pipeline.transform_json_structure(v) for k, v in data.items()}
         elif isinstance(data, list):
