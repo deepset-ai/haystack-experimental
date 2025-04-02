@@ -31,12 +31,12 @@ class Pipeline(PipelineBase):
     debug_path: Optional[Union[str, Path]] = None
 
     def _run_component(  # pylint: disable=too-many-positional-arguments
-            self,
-            component: Dict[str, Any],
-            inputs: Dict[str, Any],
-            component_visits: Dict[str, int],
-            breakpoints: Optional[Set[Tuple[str, int]]] = None,
-            parent_span: Optional[tracing.Span] = None,
+        self,
+        component: Dict[str, Any],
+        inputs: Dict[str, Any],
+        component_visits: Dict[str, int],
+        breakpoints: Optional[Set[Tuple[str, int]]] = None,
+        parent_span: Optional[tracing.Span] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -121,12 +121,12 @@ class Pipeline(PipelineBase):
             return cast(Dict[Any, Any], component_output)
 
     def run(  # noqa: PLR0915, PLR0912
-            self,
-            data: Dict[str, Any],
-            include_outputs_from: Optional[Set[str]] = None,
-            breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
-            resume_state: Optional[Dict[str, Any]] = None,
-            debug_path: Optional[str] = None
+        self,
+        data: Dict[str, Any],
+        include_outputs_from: Optional[Set[str]] = None,
+        breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
+        resume_state: Optional[Dict[str, Any]] = None,
+        debug_path: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
