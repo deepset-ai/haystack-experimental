@@ -7,6 +7,7 @@ from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import logging, tracing
+from haystack.components.builders import AnswerBuilder
 from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
@@ -57,11 +58,18 @@ class Pipeline(PipelineBase):
             component_name=component_name, component=component, inputs=inputs
         )
 
+        # NOTE: This is a workaround for the DocumentJoiner component since _consume_component_inputs()
+        # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
+        # ToDo: investigate why this is needed and if we can remove it
+        if self.resume_state and isinstance(instance, DocumentJoiner):
+            if isinstance(component_inputs['documents'], list):
+                if isinstance(component_inputs['documents'][0], list):
+                    if isinstance(component_inputs['documents'][0][0], list):
+                        component_inputs['documents'] = component_inputs['documents'][0]
+
         # We need to add missing defaults using default values from input sockets because the run signature
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
-
-        print("Running component: ", component_name)
 
         # Deserialize the inputs if they are passed in resume state
         # this check will prevent other inputs generated at runtime from being deserialized
@@ -69,21 +77,11 @@ class Pipeline(PipelineBase):
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
 
-        if isinstance(instance, DocumentJoiner):
-            print("DocumentJoiner component detected")
-            print("Component inputs", component_inputs)
-
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
-        breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs)
+        breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs, instance)
         if breakpoints and not self.resume_state:
-            self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
-
-        if isinstance(instance, DocumentJoiner):
-            print("DocumentJoiner component detected")
-            print("Component inputs", component_inputs)
-            exit(-1)
-
+            self._check_breakpoints(breakpoints, component_name, instance, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
             "haystack.component.run",
@@ -316,6 +314,7 @@ class Pipeline(PipelineBase):
                             component_name, component_visits[component_name]
                         )
 
+                    # keep track of the original input to save it in case of a breakpoint when running the component
                     self.original_input_data = data
                     component_outputs = self._run_component(
                         component,
@@ -327,7 +326,6 @@ class Pipeline(PipelineBase):
 
                     # Updates global input state with component outputs and returns outputs that should go to
                     # pipeline outputs.
-
                     component_pipeline_outputs = self._write_component_outputs(
                         component_name=component_name,
                         component_outputs=component_outputs,
@@ -372,7 +370,7 @@ class Pipeline(PipelineBase):
 
         return processed_breakpoints
 
-    def _check_breakpoints(self, breakpoints: Set[Tuple[str, int]], component_name, component_visits, inputs):
+    def _check_breakpoints(self, breakpoints: Set[Tuple[str, int]], component_name, instance, component_visits, inputs):
         """
         Check if the `component_name` is in the breakpoints and if it should break.
 
@@ -389,14 +387,14 @@ class Pipeline(PipelineBase):
             if visit_count == -1:
                 msg = f"Breaking at component: {component_name}"
                 logger.info(msg)
-                state = self.save_state(inputs, str(component_name), component_visits)
+                state = self.save_state(inputs, str(component_name), instance, component_visits)
                 raise PipelineBreakException(msg, component=component_name, state=state)
 
             # break only if the visit count is the same
             if bp[1] == component_visits[component_name]:
                 msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
                 logger.info(msg)
-                state = self.save_state(inputs, str(component_name), component_visits)
+                state = self.save_state(inputs, str(component_name), instance, component_visits)
                 raise PipelineBreakException(msg, component=component_name, state=state)
 
     @staticmethod
@@ -419,40 +417,42 @@ class Pipeline(PipelineBase):
         return value
 
     @staticmethod
-    def transform_json_structure(data):
+    def transform_json_structure(data, component):
         """
         Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
 
         "key": [{"sender": null, "value": "some value"}] -> "key": "some value"
         """
         if isinstance(data, dict):
-            # If the dict has 'value' and 'sender' keys, return just the value
+            # has 'value' and 'sender' keys, return just the value
+            # otherwise recursively transform each value in the dict
             if "value" in data and "sender" in data:
                 return data["value"]
-            # Otherwise, recursively transform each value in the dict
-            return {k: Pipeline.transform_json_structure(v) for k, v in data.items()}
+            return {k: Pipeline.transform_json_structure(v, component) for k, v in data.items()}
+
         elif isinstance(data, list):
-            # Transform each item in the list
-            transformed = [Pipeline.transform_json_structure(item) for item in data]
-            # If the list has only one item, return just that item
+            # transform each item in the list
+            transformed = [Pipeline.transform_json_structure(item, component) for item in data]
+
+            # NOTE: if the list has only one item, return just that item unless we are dealing with an AnswerBuilder
             if len(transformed) == 1:
+                # NOTE: This is a workaround only for the AnswerBuilder component
+                # we need to wrap the value in a list
+                if isinstance(component, AnswerBuilder):
+                    return transformed
                 return transformed[0]
             return transformed
         else:
-            # Return the value as is if it's not a dict or list
+            # return the value as is if it's not a dict or list
             return data
 
     @staticmethod
-    def _serialize_component_input(value):
+    def _serialize_component_input(value, component):
         """
-        Tries to serialise any type of input that can be passed to as input to a pipeline component.
+        Serialises, so it can be saved to a file, any type of input to a pipeline component.
         """
-
         value = Pipeline._remove_unserialisable_data(value)
-        value = Pipeline.transform_json_structure(value)
-
-        if isinstance(value, PosixPath):
-            return str(value)
+        value = Pipeline.transform_json_structure(value, component)
 
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             serialized_value = value.to_dict()
@@ -470,11 +470,11 @@ class Pipeline(PipelineBase):
 
         # recursively serialise all inputs in a dict
         elif isinstance(value, dict):
-            return {k: Pipeline._serialize_component_input(v) for k, v in value.items()}
+            return {k: Pipeline._serialize_component_input(v, component) for k, v in value.items()}
 
         # recursively serialise all inputs in lists or tuples
         elif isinstance(value, list):
-            return [Pipeline._serialize_component_input(item) for item in value]
+            return [Pipeline._serialize_component_input(item, component) for item in value]
 
         return value
 
@@ -528,6 +528,7 @@ class Pipeline(PipelineBase):
         self,
         inputs: Dict[str, Any],
         component_name: str,
+        component,
         component_visits: Dict[str, int],
         callback_fun: Optional[Callable[..., Any]] = None,
     ) -> Dict[str, Any]:
@@ -548,11 +549,11 @@ class Pipeline(PipelineBase):
         dt = datetime.now()
         file_name = Path(f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
-            "input_data": self._serialize_component_input(self.original_input_data), # original input data
+            "input_data": self._serialize_component_input(self.original_input_data, component), # original input data
             "timestamp": dt.isoformat(),
             "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
             "pipeline_state": {
-                "inputs": self._serialize_component_input(inputs), # current pipeline state inputs
+                "inputs": self._serialize_component_input(inputs, component), # current pipeline state inputs
                 "component_visits": component_visits,
                 "ordered_component_names": self.ordered_component_names,
             },

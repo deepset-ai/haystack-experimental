@@ -42,7 +42,6 @@ class TestPipelineBreakpoints:
         ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
         ingestion_pipe.connect("doc_embedder.documents", "doc_writer.documents")
-        print("\nSetting up doc store")
         ingestion_pipe.run({"doc_embedder": {"documents": documents}})
 
         return document_store
@@ -114,14 +113,14 @@ class TestPipelineBreakpoints:
     """
 
     components = [
-        # "bm25_retriever",
-        # "query_embedder",
-        # "embedding_retriever",
+        "bm25_retriever",
+        "query_embedder",
+        "embedding_retriever",
         "doc_joiner",
-        # "ranker",
-        # "prompt_builder",
-        # "llm",
-        # "answer_builder"
+        "ranker",
+        "prompt_builder",
+        "llm",
+        "answer_builder"
     ]
     @pytest.mark.parametrize("component", components)
     def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory, component):
@@ -138,22 +137,16 @@ class TestPipelineBreakpoints:
             "answer_builder": {"query": question},
         }
 
-        output_directory = Path("tmp")
-
         try:
-            print("\n\nRunning pipeline with breakpoints")
             _ = hybrid_rag_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
         except PipelineBreakException as e:
-            print("\n\nPipeline break exception:", e)
             pass
 
         all_files = list(output_directory.glob("*"))
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                print("\n\nLoading state from:", full_path)
-                print("\n\nRunning pipeline from resume state")
                 resume_state = hybrid_rag_pipeline.load_state(full_path)
                 result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state=resume_state)
-                print("\n\n\nResult:", result)
                 assert 'answer_builder' in result
+                assert result['answer_builder']

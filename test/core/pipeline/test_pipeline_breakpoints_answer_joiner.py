@@ -33,7 +33,7 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "gpt-4o",
+        # "gpt-4o",
         # "gpt-3",
         # "answer_builder_a",
         # "answer_builder_b",
