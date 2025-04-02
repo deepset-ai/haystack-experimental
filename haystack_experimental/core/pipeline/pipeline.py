@@ -433,10 +433,7 @@ class Pipeline(PipelineBase):
         """
         Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
 
-        Also removes list wrapper when the list contains a single item.
-
         "key": [{"sender": null, "value": "some value"}] -> "key": "some value"
-        
         """
         if isinstance(data, dict):
             # If the dict has 'value' and 'sender' keys, return just the value
