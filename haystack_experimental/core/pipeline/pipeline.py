@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
 from copy import deepcopy
 from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
@@ -412,12 +411,37 @@ class Pipeline(PipelineBase):
         return value
 
     @staticmethod
+    def transform_json_structure(data):
+        """
+        Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
+
+        "key": [{"sender": null, "value": "some value"}] -> "key": "some value"
+        """
+        if isinstance(data, dict):
+            # If the dict has 'value' and 'sender' keys, return just the value
+            if "value" in data and "sender" in data:
+                return data["value"]
+            # Otherwise, recursively transform each value in the dict
+            return {k: Pipeline.transform_json_structure(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            # Transform each item in the list
+            transformed = [Pipeline.transform_json_structure(item) for item in data]
+            # If the list has only one item, return just that item
+            if len(transformed) == 1:
+                return transformed[0]
+            return transformed
+        else:
+            # Return the value as is if it's not a dict or list
+            return data
+
+    @staticmethod
     def _serialize_component_input(value):
         """
         Tries to serialise any type of input that can be passed to as input to a pipeline component.
         """
 
         value = Pipeline._remove_unserialisable_data(value)
+        value = Pipeline.transform_json_structure(value)
 
         if isinstance(value, PosixPath):
             return str(value)
