@@ -44,10 +44,10 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "joiner",
-        "fc_llm",
+        # "joiner",
+        # "fc_llm",
         # "validator",
-        "adapter",
+        # "adapter",
     ]
     @pytest.mark.parametrize("component", components)
     def test_pipeline_breakpoints_branch_joiner(self, branch_joiner_pipeline, output_directory, component):

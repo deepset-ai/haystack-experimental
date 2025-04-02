@@ -142,12 +142,11 @@ class TestPipelineBreakpoints:
         except PipelineBreakException as e:
             pass
 
-        """
         all_files = list(output_directory.glob("*"))
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
                 resume_state = hybrid_rag_pipeline.load_state(full_path)
-                result = hybrid_rag_pipeline.run(data, resume_state=resume_state)
-                assert result
-        """
+                result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state=resume_state)
+                assert 'answer_builder' in result
+                assert result['answer_builder']
