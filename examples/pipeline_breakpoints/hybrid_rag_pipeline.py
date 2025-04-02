@@ -105,7 +105,7 @@ def breakpoint():
     }
     print("\n\nStarting pipeline...")
 
-    pipeline.run(data, breakpoints={("llm", 0)}, debug_path="saved_states")
+    pipeline.run(data, breakpoints={("answer_builder", 0)}, debug_path="saved_states")
 
 
 def resume(resume_state):

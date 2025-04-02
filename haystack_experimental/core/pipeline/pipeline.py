@@ -7,6 +7,7 @@ from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import logging, tracing
+from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
@@ -60,7 +61,7 @@ class Pipeline(PipelineBase):
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
-        # print("Running component: ", component_name)
+        print("Running component: ", component_name)
 
         # Deserialize the inputs if they are passed in resume state
         # this check will prevent other inputs generated at runtime from being deserialized
@@ -68,14 +69,24 @@ class Pipeline(PipelineBase):
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
 
+        if isinstance(instance, DocumentJoiner):
+            print("DocumentJoiner component detected")
+            print("Component inputs", component_inputs)
+
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
         breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs)
-        if breakpoints:
+        if breakpoints and not self.resume_state:
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
+        if isinstance(instance, DocumentJoiner):
+            print("DocumentJoiner component detected")
+            print("Component inputs", component_inputs)
+            exit(-1)
+
+
         with tracing.tracer.trace(
-                "haystack.component.run",
+            "haystack.component.run",
             tags={
                 "haystack.component.name": component_name,
                 "haystack.component.type": instance.__class__.__name__,
@@ -101,9 +112,6 @@ class Pipeline(PipelineBase):
             # when we delete them in case they're sent to other Components
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
-
-            # print("running component_name: ", component_name)
-            # print("with component_inputs: ", component_inputs)
 
             component_output = instance.run(**component_inputs)
             component_visits[component_name] += 1
@@ -378,13 +386,13 @@ class Pipeline(PipelineBase):
         for bp in matching_breakpoints:
             visit_count = bp[1]
             # break at every visit if visit_count is -1
-            if visit_count == -1 or visit_count == component_visits[component_name]:
+            if visit_count == -1:
                 msg = f"Breaking at component: {component_name}"
                 logger.info(msg)
                 state = self.save_state(inputs, str(component_name), component_visits)
                 raise PipelineBreakException(msg, component=component_name, state=state)
 
-            # check if the visit count is the same
+            # break only if the visit count is the same
             if bp[1] == component_visits[component_name]:
                 msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
                 logger.info(msg)
@@ -465,7 +473,7 @@ class Pipeline(PipelineBase):
             return {k: Pipeline._serialize_component_input(v) for k, v in value.items()}
 
         # recursively serialise all inputs in lists or tuples
-        elif isinstance(value, (list, tuple)):
+        elif isinstance(value, list):
             return [Pipeline._serialize_component_input(item) for item in value]
 
         return value
@@ -476,17 +484,23 @@ class Pipeline(PipelineBase):
         Tries to deserialize any type of input that can be passed to as input to a pipeline component.
 
         For primitive values, it returns the value as is, but for complex types, it tries to deserialize them.
-        Note for deserialization of primitive types a transformation is needed to convert the input to the expected
-        format.
-
-        Examples of transformations:
-
-        Input: {"query": [{"sender": null, "value": "Where does Mark live?"}], "top_k": [{"sender": null, "value": 10}]}
-        Expected: {"query": "Where does Mark live?", "top_k": 10}
-
-        Input: {"prompt_builder": {"question": [{"sender": null, "value": "Where does Mark live?"}]}}
-        Expected: {"prompt_builder": {"question": "Where does Mark live?"}}
         """
+
+        # None or primitive types are returned as is
+        if not value or isinstance(value, (str, int, float, bool)):
+            return value
+
+        # list of primitive types are returned as is
+        if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
+            return value
+
+        # list of lists are called recursively
+        if isinstance(value, list) and all(isinstance(i, list) for i in value):
+            return [Pipeline._deserialize_component_input(i) for i in value]
+
+        # list of dicts are called recursively
+        if isinstance(value, list) and all(isinstance(i, dict) for i in value):
+            return [Pipeline._deserialize_component_input(i) for i in value]
 
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
@@ -497,6 +511,16 @@ class Pipeline(PipelineBase):
             "GeneratedAnswer": GeneratedAnswer.from_dict,
             "SparseEmbedding": SparseEmbedding.from_dict,
         }
+
+        # check if the dictionary has a "_type" key and if it's a known type
+        if isinstance(value, dict):
+            if "_type" in value and "_module" in value:
+                type_name = value.pop("_type")
+                if type_name in _type_deserializers:
+                    return _type_deserializers[type_name](value)
+
+            # If not a known type, recursively deserialize each item in the dictionary
+            return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
 
         return value
 
