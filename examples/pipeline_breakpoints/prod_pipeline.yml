@@ -1,0 +1,238 @@
+components:
+  BM25Retriever:
+    type: haystack_integrations.components.retrievers.opensearch.bm25_retriever.OpenSearchBM25Retriever
+    init_parameters:
+      document_store:
+        type: haystack_integrations.document_stores.opensearch.document_store.OpenSearchDocumentStore
+        init_parameters:
+          hosts:
+          index: default
+          max_chunk_bytes: 104857600
+          embedding_dim: 1024
+          return_embedding: false
+          method:
+          mappings:
+          settings:
+          create_index: true
+          http_auth:
+          use_ssl:
+          verify_certs:
+          timeout:
+      top_k: 20
+      fuzziness: 0
+
+  Embedder:
+    type: deepset_cloud_custom_nodes.embedders.nvidia.text_embedder.DeepsetNvidiaTextEmbedder
+    init_parameters:
+      normalize_embeddings: true
+      model: BAAI/bge-m3
+
+  EmbeddingRetriever:
+    type: haystack_integrations.components.retrievers.opensearch.embedding_retriever.OpenSearchEmbeddingRetriever
+    init_parameters:
+      document_store:
+        type: haystack_integrations.document_stores.opensearch.document_store.OpenSearchDocumentStore
+        init_parameters:
+          hosts:
+          index: default
+          max_chunk_bytes: 104857600
+          embedding_dim: 1024
+          return_embedding: false
+          method:
+          mappings:
+          settings:
+          create_index: true
+          http_auth:
+          use_ssl:
+          verify_certs:
+          timeout:
+      top_k: 20
+
+  DocumentJoiner:
+    type: haystack.components.joiners.document_joiner.DocumentJoiner
+    init_parameters:
+      join_mode: concatenate
+
+  Ranker:
+    type: deepset_cloud_custom_nodes.rankers.nvidia.ranker.DeepsetNvidiaRanker
+    init_parameters:
+      model: BAAI/bge-reranker-v2-m3
+      top_k: 5
+
+  MetaFieldGroupingRanker:
+    type: haystack.components.rankers.meta_field_grouping_ranker.MetaFieldGroupingRanker
+    init_parameters:
+      group_by: file_id
+      sort_docs_by: split_id
+
+  FileDownloader:
+    type: deepset_cloud_custom_nodes.augmenters.deepset_file_downloader.DeepsetFileDownloader
+    init_parameters:
+      file_extensions:
+      - .pdf
+      - .png
+      - .jpeg
+      - .jpg
+      - .gif
+  FileToBase64Image:
+    type: deepset_cloud_custom_nodes.converters.file_to_image.DeepsetFileToBase64Image
+    init_parameters:
+      detail: auto
+
+  PDFToBase64Image:
+    type: deepset_cloud_custom_nodes.converters.pdf_to_image.DeepsetPDFDocumentToBase64Image
+    init_parameters:
+      detail: high
+
+  PromptBuilder:
+    type: haystack.components.builders.prompt_builder.PromptBuilder
+    init_parameters:
+      required_variables: '*'
+      template: |
+        Answer the questions briefly and precisely using the images and text passages provided.
+        Only use images and text passages that are related to the question to answer it.
+        Give reasons for your answer.
+        In your answer, only refer to images and text passages that are relevant in answering the query.
+        Each image is related to exactly one document. You see the images in exactly the same order as the documents.
+        Only use references in the form [NUMBER OF IMAGE] if you are using information from an image. 
+        Or [NUMBER OF DOCUMENT] if you are using information from a document.
+        For example, for Document [1] use the reference [1]. For Image 1 use reference [1] as well.
+
+        These are the documents:
+        {%- if documents|length > 0 %}
+        {%- for document in documents %}
+        Document [{{ loop.index }}] :
+        Name of Source File: {{ document.meta.file_name }}
+        Relates to image: [{{ loop.index }}]
+        {{ document.content }}
+        {% endfor -%}
+        {%- else %}
+        No relevant documents found.
+        Respond with "Sorry, no matching documents were found, please adjust the filters or try a different question."
+        {% endif %}
+
+        Question: {{ question }}
+        Answer: 
+
+  LLM:
+    type: deepset_cloud_custom_nodes.generators.openai_vision.DeepsetOpenAIVisionGenerator
+    init_parameters:
+      api_key: {"type": "env_var", "env_vars": ["OPENAI_API_KEY"], "strict": false}
+      model: gpt-4o
+      generation_kwargs:
+        max_tokens: 650
+        temperature: 0
+        seed: 0
+
+  AnswerBuilder:
+    type: deepset_cloud_custom_nodes.augmenters.deepset_answer_builder.DeepsetAnswerBuilder
+    init_parameters:
+      reference_pattern: acm
+
+  ImageJoiner:
+    type: haystack.components.converters.output_adapter.OutputAdapter
+    init_parameters:
+      output_type: typing.List[deepset_cloud_custom_nodes.dataclasses.chat_message_with_images.Base64Image]
+      custom_filters:
+        zip: builtins.zip
+      unsafe: true
+      template: |
+        {%- set ordered_images = [] -%}
+        {%- set doc_to_image = {} -%}
+        {%- for doc, image in pdf_documents|zip(pdf_images) -%}
+          {%- set _ = doc_to_image.update({doc.id: image}) -%}
+        {%- endfor -%}
+        {%- for doc, image in image_documents|zip(images) -%}
+          {%- set _ = doc_to_image.update({doc.id: image}) -%}
+        {%- endfor -%}
+        {%- for document in documents -%}
+          {%- set _ = ordered_images.append(doc_to_image.get(document.id)) -%}
+        {%- endfor -%}
+        {{ ordered_images }}
+
+  MetadataRouter:
+    type: haystack.components.routers.metadata_router.MetadataRouter
+    init_parameters:
+      rules:
+        pdf:
+          operator: OR
+          conditions:
+          - field: meta.mime_type
+            operator: ==
+            value: application/pdf
+        image:
+          operator: OR
+          conditions:
+          - field: meta.mime_type
+            operator: ==
+            value: image/png
+          - field: meta.mime_type
+            operator: ==
+            value: image/jpg
+          - field: meta.mime_type
+            operator: ==
+            value: image/jpeg
+          - field: meta.mime_type
+            operator: ==
+            value: image/gif
+
+connections:  # Defines how the components are connected
+- sender: BM25Retriever.documents
+  receiver: DocumentJoiner.documents
+- sender: EmbeddingRetriever.documents
+  receiver: DocumentJoiner.documents
+- sender: PromptBuilder.prompt
+  receiver: LLM.prompt
+- sender: PromptBuilder.prompt
+  receiver: AnswerBuilder.prompt
+- sender: Embedder.embedding
+  receiver: EmbeddingRetriever.query_embedding
+- sender: DocumentJoiner.documents
+  receiver: Ranker.documents
+- sender: Ranker.documents
+  receiver: MetaFieldGroupingRanker.documents
+- sender: MetaFieldGroupingRanker.documents
+  receiver: FileDownloader.documents
+- sender: FileDownloader.documents
+  receiver: MetadataRouter.documents
+- sender: MetadataRouter.image
+  receiver: FileToBase64Image.documents
+- sender: MetadataRouter.pdf
+  receiver: PDFToBase64Image.documents
+- sender: PDFToBase64Image.base64_images
+  receiver: ImageJoiner.pdf_images
+- sender: FileToBase64Image.base64_images
+  receiver: ImageJoiner.images
+- sender: FileDownloader.documents
+  receiver: PromptBuilder.documents
+- sender: FileToBase64Image.documents
+  receiver: ImageJoiner.image_documents
+- sender: PDFToBase64Image.documents
+  receiver: ImageJoiner.pdf_documents
+- sender: ImageJoiner.output
+  receiver: LLM.images
+- sender: LLM.replies
+  receiver: AnswerBuilder.replies
+- sender: FileDownloader.documents
+  receiver: AnswerBuilder.documents
+- sender: FileDownloader.documents
+  receiver: ImageJoiner.documents
+
+inputs:  # Define the inputs for your pipeline
+  query:  # These components will receive the query as input
+  - "BM25Retriever.query"
+  - "PromptBuilder.question"
+  - "AnswerBuilder.query"
+  - Embedder.text
+  - Ranker.query
+  filters:  # These components will receive a potential query filter as input
+  - "BM25Retriever.filters"
+  - "EmbeddingRetriever.filters"
+
+outputs:  # Defines the output of your pipeline
+  documents: "FileDownloader.documents"           # The output of the pipeline is the retrieved documents
+  answers: "AnswerBuilder.answers"   # The output of the pipeline is the generated answers
+
+max_runs_per_component: 100
+
+metadata: {}

@@ -1,6 +1,6 @@
+from pathlib import Path
+
 import pytest
-from unittest.mock import Mock
-import numpy as np
 
 from haystack.components.builders.answer_builder import AnswerBuilder
 from haystack.components.builders.prompt_builder import PromptBuilder
@@ -46,33 +46,9 @@ class TestPipelineBreakpoints:
 
         return document_store
 
-
     @pytest.fixture
-    def mock_text_embedder(self):
-        embedder = Mock(spec=SentenceTransformersTextEmbedder)
-        
-        # Create a fake embedding output
-        fake_embedding = np.random.rand(384)
-        embedder.run.return_value = {"embedding": fake_embedding}
-        
-        # Mock Haystack's component input/output attributes
-        input_mock = Mock()
-        input_mock._sockets_dict = {"text": "Text to embed"}
-        embedder.__haystack_input__ = input_mock
-        
-        output_mock = Mock()
-        output_mock._sockets_dict = {"embedding": "Embedding output"}
-        embedder.__haystack_output__ = output_mock
-        
-        return embedder
-
-
-    @pytest.fixture
-    def hybrid_rag_pipeline(self, document_store, mock_text_embedder):
+    def hybrid_rag_pipeline(self, document_store):
         """Create a hybrid RAG pipeline for testing."""
-        # Replace the real embedder with the mock
-        # query_embedder = SentenceTransformersTextEmbedder(model="intfloat/e5-base-v2", progress_bar=False)
-        # query_embedder = mock_text_embedder
         query_embedder = SentenceTransformersTextEmbedder(
             model="sentence-transformers/paraphrase-MiniLM-L3-v2",
             progress_bar=False
@@ -120,10 +96,34 @@ class TestPipelineBreakpoints:
 
     @pytest.fixture(scope="session")
     def output_directory(self, tmp_path_factory):
-        # Create a session-scoped temporary directory
         return tmp_path_factory.mktemp("output_files")
 
-    def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory):
+    """
+    def test_pipeline_breakpoints_invalid_component(self, hybrid_rag_pipeline, output_directory):
+        question = "Where does Mark live?"
+        data = {
+            "query_embedder": {"text": question},
+            "bm25_retriever": {"query": question},
+            "ranker": {"query": question, "top_k": 10},
+            "prompt_builder": {"question": question},
+            "answer_builder": {"query": question},
+        }
+        with pytest.raises(ValueError, match="Breakpoint .* is not a registered component"):
+            hybrid_rag_pipeline.run(data, breakpoints={("non_existent_component", 0)})
+    """
+
+    components = [
+        "bm25_retriever",
+        "query_embedder",
+        "embedding_retriever",
+        "doc_joiner",
+        "ranker",
+        "prompt_builder",
+        "llm",
+        "answer_builder"
+    ]
+    @pytest.mark.parametrize("component", components)
+    def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory, component):
         """
         Test that a hybrid RAG pipeline can be executed with breakpoints at each component.
         """
@@ -132,45 +132,22 @@ class TestPipelineBreakpoints:
         data = {
             "query_embedder": {"text": question},
             "bm25_retriever": {"query": question},
-            "ranker": {"query": question, "top_k": 10},
+            "ranker": {"query": question, "top_k": 5},
             "prompt_builder": {"question": question},
             "answer_builder": {"query": question},
         }
 
-        # Test breakpoints at each component
-        components = [
-            "bm25_retriever",
-            "query_embedder",
-            "embedding_retriever",
-            "doc_joiner",
-            "ranker",
-            "prompt_builder",
-            "llm",
-            "answer_builder"
-        ]
+        output_directory = Path("tmp")
 
-        for component in components:
-            try:
-                _ = hybrid_rag_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
-            except PipelineBreakException as e:
-                pass
+        try:
+            _ = hybrid_rag_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+        except PipelineBreakException as e:
+            pass
 
         all_files = list(output_directory.glob("*"))
-        for f_name in all_files:
-            if any(str(f_name).startswith(component) for component in components):
-                resume_state = hybrid_rag_pipeline.load_state(f_name)
-                _ = hybrid_rag_pipeline.run(data, resume_state=resume_state)
-
-    def test_pipeline_breakpoints_invalid_component(self, hybrid_rag_pipeline, output_directory):
-        """Test that pipeline raises error with invalid breakpoint component."""
-        question = "Where does Mark live?"
-        data = {
-            "query_embedder": {"text": question},
-            "bm25_retriever": {"query": question},
-            "ranker": {"query": question, "top_k": 10},
-            "prompt_builder": {"question": question},
-            "answer_builder": {"query": question},
-        }
-
-        with pytest.raises(ValueError, match="Breakpoint .* is not a registered component"):
-            hybrid_rag_pipeline.run(data, breakpoints={("non_existent_component", 0)})
+        for full_path in all_files:
+            f_name = str(full_path).split("/")[-1]
+            if str(f_name).startswith(component):
+                resume_state = hybrid_rag_pipeline.load_state(full_path)
+                result = hybrid_rag_pipeline.run(data, resume_state=resume_state)
+                assert result

@@ -28,6 +28,7 @@ class Pipeline(PipelineBase):
     ordered_component_names: list[str]
     original_input_data: dict[str, Any]
     resume_state: Optional[Dict[str, Any]] = None
+    debug_path: Optional[Union[str, Path]] = None
 
     def _run_component(  # pylint: disable=too-many-positional-arguments
         self,
@@ -36,7 +37,6 @@ class Pipeline(PipelineBase):
         component_visits: Dict[str, int],
         breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
-        resume_state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -65,7 +65,6 @@ class Pipeline(PipelineBase):
 
         # Deserialize the inputs if they are passed in resume state
         # this check will prevent other inputs generated at runtime from being deserialized
-
         if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
@@ -77,7 +76,7 @@ class Pipeline(PipelineBase):
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
-            "haystack.component.run",
+                "haystack.component.run",
             tags={
                 "haystack.component.name": component_name,
                 "haystack.component.type": instance.__class__.__name__,
@@ -394,31 +393,55 @@ class Pipeline(PipelineBase):
                 raise PipelineBreakException(msg, component=component_name, state=state)
 
     @staticmethod
+    def _remove_unserialisable_data(value):
+        """
+        Removes certain unserialisable data which is not needed for the pipeline state.
+        """
+
+        if isinstance(value, ChatMessage):  # noqa: SIM102
+            if "usage" in value.meta:   # noqa: SIM102
+                value.meta["usage"].pop("completion_tokens_details", None)
+                value.meta["usage"].pop("prompt_tokens_details", None)
+
+        if isinstance(value, dict) and "type" in value:  # noqa: SIM102
+            if value["type"] == "haystack.dataclasses.answer.GeneratedAnswer":  # noqa: SIM102
+                if "meta" in value and "usage" in value["meta"]:    # noqa: SIM102
+                    value["meta"]["usage"].pop("completion_tokens_details", None)
+                    value["meta"]["usage"].pop("prompt_tokens_details", None)
+
+        return value
+
+    @staticmethod
     def _serialize_component_input(value):
         """
         Tries to serialise any type of input that can be passed to as input to a pipeline component.
         """
+
+        value = Pipeline._remove_unserialisable_data(value)
+
+        if isinstance(value, PosixPath):
+            return str(value)
+
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             serialized_value = value.to_dict()
             serialized_value["_type"] = value.__class__.__name__
             serialized_value["_module"] = value.__class__.__module__
             return serialized_value
 
-        if isinstance(value, PosixPath):
-            return str(value)
-
         # this is a hack to serialize inputs that don't have a to_dict
         elif hasattr(value, "__dict__"):
             return {
                 "_type": value.__class__.__name__,
-                # "_module": value.__class__.__module__,
+                "_module": value.__class__.__module__,
                 "attributes": value.__dict__,
             }
 
-        elif isinstance(value, dict):  # for inputs in dictionary values
+        # recursively serialise all inputs in a dict
+        elif isinstance(value, dict):
             return {k: Pipeline._serialize_component_input(v) for k, v in value.items()}
 
-        elif isinstance(value, (list, tuple)):  # for inputs in lists or tuples
+        # recursively serialise all inputs in lists or tuples
+        elif isinstance(value, (list, tuple)):
             return [Pipeline._serialize_component_input(item) for item in value]
 
         return value
@@ -426,12 +449,13 @@ class Pipeline(PipelineBase):
     @staticmethod
     def _deserialize_component_input(value):  # noqa: PLR0911
         """
-        Tries to deserialise any type of input that can be passed to as input to a pipeline component.
+        Tries to deserialize any type of input that can be passed to as input to a pipeline component.
 
         For primitive values, it returns the value as is, but for complex types, it tries to deserialize them.
-
         Note for deserialization of primitive types a transformation is needed to convert the input to the expected
-        format. Examples of transformations:
+        format.
+
+        Examples of transformations:
 
         Input: {"query": [{"sender": null, "value": "Where does Mark live?"}], "top_k": [{"sender": null, "value": 10}]}
         Expected: {"query": "Where does Mark live?", "top_k": 10}
@@ -450,70 +474,6 @@ class Pipeline(PipelineBase):
             "SparseEmbedding": SparseEmbedding.from_dict,
         }
 
-        # check if the value is a list of lists
-        # ToDo is just a very hacky way to handle with joiners, i.e.: DocumentJoiner we should find a general way
-        if (isinstance(value, list) and len(value) > 0 and isinstance(value[0], list) and isinstance(value[0], list)
-                and "sender" in value[0][0]):
-            result1 = value[0][0]["value"]
-            result = [result1] + [value[1]]
-            final_list = []
-
-            for a_list in result:
-                deserialised = []
-                for el in a_list:
-                    if isinstance(el, dict) and "_type" in el:
-                        type_name = el.pop("_type")
-                        if type_name in _type_deserializers:
-                            deserialized_object = _type_deserializers[type_name](el)
-                            deserialized_object._type = type_name
-                            deserialised.append(deserialized_object)
-                    else:
-                        deserialized_object = el
-                        deserialized_object._type = "Document"
-                        deserialised.append(deserialized_object)
-
-                final_list.append(deserialised)
-
-            return final_list
-
-        if isinstance(value, list) and all(isinstance(item, float) for item in value):
-            return value
-
-        if isinstance(value, list):
-            # Clean up lists of sender/value pairs -> [{"sender": None, "value": "Where does Mark live?"}]
-            if len(value) > 0 and isinstance(value[0], dict) and "sender" in value[0] and "value" in value[0]:
-                return value[0]["value"]
-
-            # Handle lists of documents or other serializable objects
-            if len(value) > 0:
-
-                def find_serialized_objects(lst):
-                    if isinstance(lst, list) and len(lst) > 0:
-                        if isinstance(lst[0], dict) and "_type" in lst[0]:
-                            type_name = lst[0].pop("_type")
-                            if type_name in _type_deserializers:
-                                return [_type_deserializers[type_name](item) for item in lst]
-                        return [find_serialized_objects(item) for item in lst]
-                    return lst
-
-                result = find_serialized_objects(value)
-
-                while isinstance(result, list) and len(result) == 1 and isinstance(result[0], list):
-                    result = result[0]
-                return result
-
-            return [Pipeline._deserialize_component_input(item) for item in value]
-
-        if isinstance(value, dict):
-            had_type = "_type" in value
-            if had_type:
-                type_name = value.pop("_type")
-                if deserializer := _type_deserializers.get(type_name):
-                    return deserializer(value)
-                logger.warning(f"Unknown type '{type_name}' encountered during deserialization")
-            # Single return statement for both _type and non-_type dictionaries
-            return value if had_type else {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
-
         return value
 
     def save_state(
@@ -531,27 +491,28 @@ class Pipeline(PipelineBase):
         import json
         from datetime import datetime
 
-        dt = datetime.now()
-        file_name = f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+        if isinstance(self.debug_path, str):
+            self.debug_path = Path(self.debug_path)
+        if not isinstance(self.debug_path, Path):
+            raise ValueError("Debug path must be a string or a Path object.")
+        self.debug_path.mkdir(exist_ok=True)
 
+        dt = datetime.now()
+        file_name = Path(f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
-            "input_data": self._serialize_component_input(self.original_input_data),  # Serialize original input data
+            "input_data": self._serialize_component_input(self.original_input_data), # original input data
             "timestamp": dt.isoformat(),
             "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
             "pipeline_state": {
-                "inputs": self._serialize_component_input(inputs),  # Serialize pipeline state inputs
+                "inputs": self._serialize_component_input(inputs), # current pipeline state inputs
                 "component_visits": component_visits,
                 "ordered_component_names": self.ordered_component_names,
             },
         }
 
         try:
-
-            assert self.debug_path is not None, "Debug path must be set to save the state."
-
-            with open(self.debug_path + "/" + file_name, "w") as f_out:
+            with open(self.debug_path / file_name, "w") as f_out:
                 json.dump(state, f_out, indent=2)
-
             logger.info(f"Pipeline state saved at: {file_name}")
 
             # pass the state to some user-defined callback function
