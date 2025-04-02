@@ -476,11 +476,11 @@ class Pipeline(PipelineBase):
         return value
 
     def save_state(
-            self,
-            inputs: Dict[str, Any],
-            component_name: str,
-            component_visits: Dict[str, int],
-            callback_fun: Optional[Callable[..., Any]] = None,
+        self,
+        inputs: Dict[str, Any],
+        component_name: str,
+        component_visits: Dict[str, int],
+        callback_fun: Optional[Callable[..., Any]] = None,
     ) -> Dict[str, Any]:
         """
         Saves the state of the pipeline at a given component visit count.
