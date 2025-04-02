@@ -54,8 +54,6 @@ class TestPipelineBreakpoints:
             "answer_builder_b": {"query": query}
         }
 
-        output_directory = Path("tmp")
-
         try:
             _ = answer_join_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
         except PipelineBreakException as e:

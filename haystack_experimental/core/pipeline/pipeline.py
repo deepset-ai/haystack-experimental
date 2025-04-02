@@ -463,6 +463,24 @@ class Pipeline(PipelineBase):
         Expected: {"prompt_builder": {"question": "Where does Mark live?"}}
         """
 
+        # None
+        if not value:
+            print("Case 0")
+            return value
+
+        # primitives types
+        if isinstance(value, str):
+            print("Case 1")
+            return value
+
+        # lists of floats, e.g: embeddings
+        if isinstance(value, list) and all(isinstance(item, float) for item in value):
+            print("Case 2")
+            return value
+
+        print("Running deserialization")
+        print(value)
+
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
             "Answer": Answer.from_dict,
@@ -473,6 +491,7 @@ class Pipeline(PipelineBase):
             "SparseEmbedding": SparseEmbedding.from_dict,
         }
 
+        """
         def find_serialized_objects(lst):
             if isinstance(lst, list):
                 if isinstance(lst[0], dict) and "_type" in lst[0]:
@@ -481,10 +500,12 @@ class Pipeline(PipelineBase):
                         return [_type_deserializers[type_name](item) for item in lst]
                 return [find_serialized_objects(item) for item in lst]
             return lst
+        """
 
         # check if the value is a list of lists
         # ToDo is just a very hacky way to handle with joiners, i.e.: DocumentJoiner we should find a general way
         if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list) and "sender" in value[0][0]:
+            print("Case 1")
             result1 = value[0][0]["value"]
             result = [result1] + [value[1]]
             final_list = []
@@ -507,23 +528,80 @@ class Pipeline(PipelineBase):
 
             return final_list
 
-        # lists of floats, e.g: embeddings
-        if isinstance(value, list) and all(isinstance(item, float) for item in value):
-            return value
+        if isinstance(value, list) and len(value) == 1:
+            print("Case 3")
+            print(value)
+            print("len(value): ", len(value))
+            print("\n\n")
+
+            # [{'sender': None, 'value': 'Where does Mark live?'}]
+            if isinstance(value[0], dict) and "sender" in value[0] and "value" in value[0]:
+                if "_type" in value[0]:
+                    print("3.1")
+                    type_name = value[0].pop("_type")
+                    if type_name in _type_deserializers:
+                        deserialized_object = _type_deserializers[type_name](value[0])
+                        deserialized_object._type = type_name
+                        print(deserialized_object)
+                        return deserialized_object
+
+                elif len(value) > 1:
+                    print(3.2)
+                    deserialised_list = []
+                    for el in value:
+                        if isinstance(el, dict) and "_type" in el:
+                            type_name = el.pop("_type")
+                            if type_name in _type_deserializers:
+                                deserialized_object = _type_deserializers[type_name](el)
+                                deserialized_object._type = type_name
+                                deserialised_list.append(deserialized_object)
+                    print(deserialised_list)
+                    return deserialised_list
+
+                else:
+                    print("3.3")
+                    print(value[0]["value"])
+                    return value[0]["value"]
 
         if isinstance(value, list) and len(value) > 0:
-            # Clean up lists of sender/value pairs, e.g.:
-            # [{"sender": None, "value": "Where does Mark live?"}] -> becomes simply: 'Where does Mark live?'
-            if isinstance(value[0], dict) and "sender" in value[0] and "value" in value[0]:
-                return value[0]["value"]
+            print("Case 4")
+            deserialised_list = []
+            for el in value:
+                if isinstance(el, dict) and "sender" in el and "value" in el:
+                    print("Case 4.1")
+                    tmp_el = el["value"]
+                    print(tmp_el)
+                    if "_type" in tmp_el:
+                        type_name = el.pop("_type")
+                        if type_name in _type_deserializers:
+                            deserialized_object = _type_deserializers[type_name](el)
+                            deserialized_object._type = type_name
+                            deserialised_list.append(deserialized_object)
+                    else:
+                        deserialised_list.append(tmp_el)
+                if isinstance(el, dict) and "_type" in el:
+                    print("Case 4.2")
+                    type_name = el.pop("_type")
+                    if type_name in _type_deserializers:
+                        deserialized_object = _type_deserializers[type_name](el)
+                        deserialized_object._type = type_name
+                        deserialised_list.append(deserialized_object)
 
+            print(deserialised_list)
+            return deserialised_list
+
+            """
+            print("Case 4")
             # Handle lists of documents or other serializable objects
             result = find_serialized_objects(value)
             while isinstance(result, list) and len(result) == 1 and isinstance(result[0], list):
-                    result = result[0]
+                result = result[0]
             return result
+            """
 
+        """
         if isinstance(value, dict):
+            print("Case 5")
             had_type = "_type" in value
             if had_type:
                 type_name = value.pop("_type")
@@ -533,6 +611,9 @@ class Pipeline(PipelineBase):
 
             # Single return statement for both _type and non-_type dictionaries
             return value if had_type else {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
+        """
+
+        print("Unknown type encountered during deserialization:", value)
 
         return value
 
