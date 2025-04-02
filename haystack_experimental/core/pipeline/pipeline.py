@@ -409,25 +409,6 @@ class Pipeline(PipelineBase):
 
         return value
 
-
-    def _remove_sender(data):
-        """
-        Removes the 'sender' key from the data.
-
-        Data can be a dictionary or a list of dictionaries, or a list of lists of dictionaries, or any
-        combination of these.
-
-        """
-        if isinstance(data, dict):
-            for k, v in data.items():
-                if isinstance(v, dict) and "sender" in v:
-                    data[k] = v["value"]
-        elif isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict) and "sender" in item:
-                    item["value"] = item.pop("sender")
-        return data
-
     @staticmethod
     def transform_json_structure(data):
         """
