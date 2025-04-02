@@ -398,16 +398,16 @@ class Pipeline(PipelineBase):
         Removes certain unserialisable data which is not needed for the pipeline state.
         """
 
-        if isinstance(value, ChatMessage):
-            if 'usage' in value.meta:
-                value.meta['usage'].pop('completion_tokens_details', None)
-                value.meta['usage'].pop('prompt_tokens_details', None)
+        if isinstance(value, ChatMessage):  # noqa: SIM102
+            if "usage" in value.meta:   # noqa: SIM102
+                value.meta["usage"].pop("completion_tokens_details", None)
+                value.meta["usage"].pop("prompt_tokens_details", None)
 
-        if isinstance(value, dict) and 'type' in value:
-            if value['type'] == 'haystack.dataclasses.answer.GeneratedAnswer':
-                if 'meta' in value and 'usage' in value['meta']:
-                    value['meta']['usage'].pop('completion_tokens_details', None)
-                    value['meta']['usage'].pop('prompt_tokens_details', None)
+        if isinstance(value, dict) and "type" in value:  # noqa: SIM102
+            if value["type"] == "haystack.dataclasses.answer.GeneratedAnswer":  # noqa: SIM102
+                if "meta" in value and "usage" in value["meta"]:    # noqa: SIM102
+                    value["meta"]["usage"].pop("completion_tokens_details", None)
+                    value["meta"]["usage"].pop("prompt_tokens_details", None)
 
         return value
 
