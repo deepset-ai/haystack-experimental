@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-
-
+import json
 from copy import deepcopy
 from pathlib import Path, PosixPath
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
@@ -411,6 +410,67 @@ class Pipeline(PipelineBase):
 
         return value
 
+
+    def _remove_sender(data):
+        """
+        Removes the 'sender' key from the data.
+
+        data can be a dictionary or a list of dictionaries, or a list of lists of dictionaries, or any combination of these.
+
+        """
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, dict) and "sender" in v:
+                    data[k] = v["value"]
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "sender" in item:
+                    item["value"] = item.pop("sender")
+        return data
+
+    @staticmethod
+    def transform_json_structure(data):
+        """
+        Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
+        Also removes list wrapper when the list contains a single item.
+        
+        Args:
+            data: The input JSON data to transform
+            
+        Returns:
+            Transformed data with 'value' moved to top level, 'sender' removed, and single-item lists unwrapped
+
+        {
+        "key": [
+            {
+                "sender": null,
+                "value": "some value"
+            }
+        ]
+        }
+        becomes
+        {
+        "key": "some value"
+        }
+
+        """
+        if isinstance(data, dict):
+            # If the dict has 'value' and 'sender' keys, return just the value
+            if 'value' in data and 'sender' in data:
+                return data['value']
+            # Otherwise, recursively transform each value in the dict
+            return {k: Pipeline.transform_json_structure(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            # Transform each item in the list
+            transformed = [Pipeline.transform_json_structure(item) for item in data]
+            # If the list has only one item, return just that item
+            if len(transformed) == 1:
+                return transformed[0]
+            return transformed
+        else:
+            # Return the value as is if it's not a dict or list
+            return data
+
     @staticmethod
     def _serialize_component_input(value):
         """
@@ -418,6 +478,7 @@ class Pipeline(PipelineBase):
         """
 
         value = Pipeline._remove_unserialisable_data(value)
+        value = Pipeline.transform_json_structure(value)
 
         if isinstance(value, PosixPath):
             return str(value)
