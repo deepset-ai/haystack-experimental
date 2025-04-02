@@ -244,7 +244,8 @@ class Pipeline(PipelineBase):
             include_outputs_from = set()
 
         if not self.resume_state:
-            data = self._prepare_component_input_data(data) # normalize `data`
+            # normalize `data`
+            data = self._prepare_component_input_data(data)
 
             # Raise ValueError if input is malformed in some way
             self._validate_input(data)
