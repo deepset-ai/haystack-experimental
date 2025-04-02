@@ -77,26 +77,26 @@ class Pipeline(PipelineBase):
 
         with tracing.tracer.trace(
                 "haystack.component.run",
-                tags={
-                    "haystack.component.name": component_name,
-                    "haystack.component.type": instance.__class__.__name__,
-                    "haystack.component.input_types": {k: type(v).__name__ for k, v in component_inputs.items()},
-                    "haystack.component.input_spec": {
-                        key: {
-                            "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                            "senders": value.senders,
-                        }
-                        for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
-                    },
-                    "haystack.component.output_spec": {
-                        key: {
-                            "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                            "receivers": value.receivers,
-                        }
-                        for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
-                    },
+            tags={
+                "haystack.component.name": component_name,
+                "haystack.component.type": instance.__class__.__name__,
+                "haystack.component.input_types": {k: type(v).__name__ for k, v in component_inputs.items()},
+                "haystack.component.input_spec": {
+                    key: {
+                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                        "senders": value.senders,
+                    }
+                    for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
                 },
-                parent_span=parent_span,
+                "haystack.component.output_spec": {
+                    key: {
+                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                        "receivers": value.receivers,
+                    }
+                    for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
+                },
+            },
+            parent_span=parent_span,
         ) as span:
             # We deepcopy the inputs otherwise we might lose that information
             # when we delete them in case they're sent to other Components
