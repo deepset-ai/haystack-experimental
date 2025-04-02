@@ -276,13 +276,13 @@ class Pipeline(PipelineBase):
 
         pipeline_outputs: Dict[str, Any] = {}
         with tracing.tracer.trace(
-                "haystack.pipeline.run",
-                tags={
-                    "haystack.pipeline.input_data": data,
-                    "haystack.pipeline.output_data": pipeline_outputs,
-                    "haystack.pipeline.metadata": self.metadata,
-                    "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
-                },
+            "haystack.pipeline.run",
+            tags={
+                "haystack.pipeline.input_data": data,
+                "haystack.pipeline.output_data": pipeline_outputs,
+                "haystack.pipeline.metadata": self.metadata,
+                "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
+            },
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
