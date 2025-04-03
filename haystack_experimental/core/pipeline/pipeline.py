@@ -61,10 +61,10 @@ class Pipeline(PipelineBase):
         # NOTE: This is a workaround for the DocumentJoiner component since _consume_component_inputs()
         # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
         # ToDo: investigate why this is needed and if we can remove it
-        if self.resume_state and isinstance(instance, DocumentJoiner): #noqa: SIM102
-            if isinstance(component_inputs["documents"], list):  #noqa: SIM102
-                if isinstance(component_inputs["documents"][0], list): #noqa: SIM102
-                    if isinstance(component_inputs["documents"][0][0], list): #noqa: SIM102
+        if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+            if isinstance(component_inputs["documents"], list):  # noqa: SIM102
+                if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
+                    if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
                         component_inputs["documents"] = component_inputs["documents"][0]
 
         # We need to add missing defaults using default values from input sockets because the run signature
@@ -131,7 +131,7 @@ class Pipeline(PipelineBase):
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[str] = None
+        debug_path: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
@@ -404,13 +404,13 @@ class Pipeline(PipelineBase):
         """
 
         if isinstance(value, ChatMessage):  # noqa: SIM102
-            if "usage" in value.meta:   # noqa: SIM102
+            if "usage" in value.meta:  # noqa: SIM102
                 value.meta["usage"].pop("completion_tokens_details", None)
                 value.meta["usage"].pop("prompt_tokens_details", None)
 
         if isinstance(value, dict) and "type" in value:  # noqa: SIM102
             if value["type"] == "haystack.dataclasses.answer.GeneratedAnswer":  # noqa: SIM102
-                if "meta" in value and "usage" in value["meta"]:    # noqa: SIM102
+                if "meta" in value and "usage" in value["meta"]:  # noqa: SIM102
                     value["meta"]["usage"].pop("completion_tokens_details", None)
                     value["meta"]["usage"].pop("prompt_tokens_details", None)
 
@@ -433,7 +433,7 @@ class Pipeline(PipelineBase):
         elif isinstance(data, list):
             # transform each item in the list
             transformed = [Pipeline.transform_json_structure(item, component) for item in data]
-
+            return transformed
             # NOTE: if the list has only one item, return just that item unless we are dealing with an AnswerBuilder
             if len(transformed) == 1:
                 # NOTE: This is a workaround only for the AnswerBuilder component
@@ -494,13 +494,13 @@ class Pipeline(PipelineBase):
         if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
             return value
 
-        # list of lists are called recursively
-        if isinstance(value, list) and all(isinstance(i, list) for i in value):
-            return [Pipeline._deserialize_component_input(i) for i in value]
-
-        # list of dicts are called recursively
-        if isinstance(value, list) and all(isinstance(i, dict) for i in value):
-            return [Pipeline._deserialize_component_input(i) for i in value]
+        if isinstance(value, list):
+            # list of lists are called recursively
+            if all(isinstance(i, list) for i in value):
+                return [Pipeline._deserialize_component_input(i) for i in value]
+            # list of dicts are called recursively
+            if all(isinstance(i, dict) for i in value):
+                return [Pipeline._deserialize_component_input(i) for i in value]
 
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
@@ -516,6 +516,7 @@ class Pipeline(PipelineBase):
         if isinstance(value, dict):
             if "_type" in value and "_module" in value:
                 type_name = value.pop("_type")
+                value.pop("_module")
                 if type_name in _type_deserializers:
                     return _type_deserializers[type_name](value)
 
@@ -549,11 +550,11 @@ class Pipeline(PipelineBase):
         dt = datetime.now()
         file_name = Path(f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
-            "input_data": self._serialize_component_input(self.original_input_data, component), # original input data
+            "input_data": self._serialize_component_input(self.original_input_data, component),  # original input data
             "timestamp": dt.isoformat(),
             "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
             "pipeline_state": {
-                "inputs": self._serialize_component_input(inputs, component), # current pipeline state inputs
+                "inputs": self._serialize_component_input(inputs, component),  # current pipeline state inputs
                 "component_visits": component_visits,
                 "ordered_component_names": self.ordered_component_names,
             },
