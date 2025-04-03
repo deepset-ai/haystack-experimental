@@ -3,7 +3,6 @@ loaders:
     search_path: [../../../]
     modules:
       [
-        "haystack_experimental.components.retrievers.auto_merging_retriever",
         "haystack_experimental.components.retrievers.chat_message_retriever",
         "haystack_experimental.components.retrievers.in_memory.bm25_retriever",
         "haystack_experimental.components.retrievers.in_memory.embedding_retriever",
