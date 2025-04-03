@@ -79,8 +79,7 @@ class Pipeline(PipelineBase):
 
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
-        # breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs, instance)
-        breakpoint_inputs[component_name] = component_inputs
+        breakpoint_inputs[component_name] = Pipeline._remove_unserialisable_data(component_inputs)
         if breakpoints and not self.resume_state:
             self._check_breakpoints(breakpoints, component_name, instance, component_visits, breakpoint_inputs)
 
@@ -409,11 +408,9 @@ class Pipeline(PipelineBase):
                 value.meta["usage"].pop("completion_tokens_details", None)
                 value.meta["usage"].pop("prompt_tokens_details", None)
 
-        if isinstance(value, dict) and "type" in value:  # noqa: SIM102
-            if value["type"] == "haystack.dataclasses.answer.GeneratedAnswer":  # noqa: SIM102
-                if "meta" in value and "usage" in value["meta"]:  # noqa: SIM102
-                    value["meta"]["usage"].pop("completion_tokens_details", None)
-                    value["meta"]["usage"].pop("prompt_tokens_details", None)
+        if isinstance(value, GeneratedAnswer):  # noqa: SIM102
+            if value.meta and "usage" in value.meta:  # noqa: SIM102
+                value.meta.pop("usage", None)
 
         return value
 
@@ -556,6 +553,8 @@ class Pipeline(PipelineBase):
                 "ordered_component_names": self.ordered_component_names,
             },
         }
+
+        print("Testing state: ", state)
 
         try:
             with open(self.debug_path / file_name, "w") as f_out:
