@@ -79,7 +79,8 @@ class Pipeline(PipelineBase):
 
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
-        breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs, instance)
+        # breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs, instance)
+        breakpoint_inputs[component_name] = component_inputs
         if breakpoints and not self.resume_state:
             self._check_breakpoints(breakpoints, component_name, instance, component_visits, breakpoint_inputs)
 
@@ -421,29 +422,28 @@ class Pipeline(PipelineBase):
         """
         Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
 
+        For example:
         "key": [{"sender": null, "value": "some value"}] -> "key": "some value"
         """
         if isinstance(data, dict):
-            # has 'value' and 'sender' keys, return just the value
-            # otherwise recursively transform each value in the dict
+            # If this dict has both 'sender' and 'value', return just the value
             if "value" in data and "sender" in data:
                 return data["value"]
+            # Otherwise, recursively process each key-value pair
             return {k: Pipeline.transform_json_structure(v, component) for k, v in data.items()}
 
         elif isinstance(data, list):
-            # transform each item in the list
+            # First, transform each item in the list.
             transformed = [Pipeline.transform_json_structure(item, component) for item in data]
-            return transformed
-            # NOTE: if the list has only one item, return just that item unless we are dealing with an AnswerBuilder
-            if len(transformed) == 1:
-                # NOTE: This is a workaround only for the AnswerBuilder component
-                # we need to wrap the value in a list
-                if isinstance(component, AnswerBuilder):
-                    return transformed
+            # If the original list has exactly one element and that element was a dict
+            # with 'sender' and 'value', then unwrap the list.
+
+            if len(data) == 1 and isinstance(data[0], dict) and "value" in data[0] and "sender" in data[0]:
                 return transformed[0]
             return transformed
+
         else:
-            # return the value as is if it's not a dict or list
+            # For other data types, just return the value as is.
             return data
 
     @staticmethod
@@ -457,14 +457,12 @@ class Pipeline(PipelineBase):
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             serialized_value = value.to_dict()
             serialized_value["_type"] = value.__class__.__name__
-            serialized_value["_module"] = value.__class__.__module__
             return serialized_value
 
         # this is a hack to serialize inputs that don't have a to_dict
         elif hasattr(value, "__dict__"):
             return {
                 "_type": value.__class__.__name__,
-                "_module": value.__class__.__module__,
                 "attributes": value.__dict__,
             }
 
@@ -514,9 +512,8 @@ class Pipeline(PipelineBase):
 
         # check if the dictionary has a "_type" key and if it's a known type
         if isinstance(value, dict):
-            if "_type" in value and "_module" in value:
+            if "_type" in value:
                 type_name = value.pop("_type")
-                value.pop("_module")
                 if type_name in _type_deserializers:
                     return _type_deserializers[type_name](value)
 
