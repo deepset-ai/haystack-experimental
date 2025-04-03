@@ -61,10 +61,10 @@ class Pipeline(PipelineBase):
         # NOTE: This is a workaround for the DocumentJoiner component since _consume_component_inputs()
         # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
         # ToDo: investigate why this is needed and if we can remove it
-        if self.resume_state and isinstance(instance, DocumentJoiner): #noqa: SIM102
-            if isinstance(component_inputs["documents"], list):  #noqa: SIM102
-                if isinstance(component_inputs["documents"][0], list): #noqa: SIM102
-                    if isinstance(component_inputs["documents"][0][0], list): #noqa: SIM102
+        if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+            if isinstance(component_inputs["documents"], list):  # noqa: SIM102
+                if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
+                    if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
                         component_inputs["documents"] = component_inputs["documents"][0]
 
         # We need to add missing defaults using default values from input sockets because the run signature
@@ -79,7 +79,7 @@ class Pipeline(PipelineBase):
 
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
-        breakpoint_inputs[component_name] = self._serialize_component_input(component_inputs, instance)
+        breakpoint_inputs[component_name] = Pipeline._remove_unserialisable_data(component_inputs)
         if breakpoints and not self.resume_state:
             self._check_breakpoints(breakpoints, component_name, instance, component_visits, breakpoint_inputs)
 
@@ -131,7 +131,7 @@ class Pipeline(PipelineBase):
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[str] = None
+        debug_path: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
@@ -404,15 +404,13 @@ class Pipeline(PipelineBase):
         """
 
         if isinstance(value, ChatMessage):  # noqa: SIM102
-            if "usage" in value.meta:   # noqa: SIM102
+            if "usage" in value.meta:  # noqa: SIM102
                 value.meta["usage"].pop("completion_tokens_details", None)
                 value.meta["usage"].pop("prompt_tokens_details", None)
 
-        if isinstance(value, dict) and "type" in value:  # noqa: SIM102
-            if value["type"] == "haystack.dataclasses.answer.GeneratedAnswer":  # noqa: SIM102
-                if "meta" in value and "usage" in value["meta"]:    # noqa: SIM102
-                    value["meta"]["usage"].pop("completion_tokens_details", None)
-                    value["meta"]["usage"].pop("prompt_tokens_details", None)
+        if isinstance(value, GeneratedAnswer):  # noqa: SIM102
+            if value.meta and "usage" in value.meta:  # noqa: SIM102
+                value.meta.pop("usage", None)
 
         return value
 
@@ -421,29 +419,28 @@ class Pipeline(PipelineBase):
         """
         Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
 
+        For example:
         "key": [{"sender": null, "value": "some value"}] -> "key": "some value"
         """
         if isinstance(data, dict):
-            # has 'value' and 'sender' keys, return just the value
-            # otherwise recursively transform each value in the dict
+            # If this dict has both 'sender' and 'value', return just the value
             if "value" in data and "sender" in data:
                 return data["value"]
+            # Otherwise, recursively process each key-value pair
             return {k: Pipeline.transform_json_structure(v, component) for k, v in data.items()}
 
         elif isinstance(data, list):
-            # transform each item in the list
+            # First, transform each item in the list.
             transformed = [Pipeline.transform_json_structure(item, component) for item in data]
+            # If the original list has exactly one element and that element was a dict
+            # with 'sender' and 'value', then unwrap the list.
 
-            # NOTE: if the list has only one item, return just that item unless we are dealing with an AnswerBuilder
-            if len(transformed) == 1:
-                # NOTE: This is a workaround only for the AnswerBuilder component
-                # we need to wrap the value in a list
-                if isinstance(component, AnswerBuilder):
-                    return transformed
+            if len(data) == 1 and isinstance(data[0], dict) and "value" in data[0] and "sender" in data[0]:
                 return transformed[0]
             return transformed
+
         else:
-            # return the value as is if it's not a dict or list
+            # For other data types, just return the value as is.
             return data
 
     @staticmethod
@@ -457,14 +454,12 @@ class Pipeline(PipelineBase):
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             serialized_value = value.to_dict()
             serialized_value["_type"] = value.__class__.__name__
-            serialized_value["_module"] = value.__class__.__module__
             return serialized_value
 
         # this is a hack to serialize inputs that don't have a to_dict
         elif hasattr(value, "__dict__"):
             return {
                 "_type": value.__class__.__name__,
-                "_module": value.__class__.__module__,
                 "attributes": value.__dict__,
             }
 
@@ -494,13 +489,13 @@ class Pipeline(PipelineBase):
         if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
             return value
 
-        # list of lists are called recursively
-        if isinstance(value, list) and all(isinstance(i, list) for i in value):
-            return [Pipeline._deserialize_component_input(i) for i in value]
-
-        # list of dicts are called recursively
-        if isinstance(value, list) and all(isinstance(i, dict) for i in value):
-            return [Pipeline._deserialize_component_input(i) for i in value]
+        if isinstance(value, list):
+            # list of lists are called recursively
+            if all(isinstance(i, list) for i in value):
+                return [Pipeline._deserialize_component_input(i) for i in value]
+            # list of dicts are called recursively
+            if all(isinstance(i, dict) for i in value):
+                return [Pipeline._deserialize_component_input(i) for i in value]
 
         # Define the mapping of types to their deserialization functions
         _type_deserializers = {
@@ -514,7 +509,7 @@ class Pipeline(PipelineBase):
 
         # check if the dictionary has a "_type" key and if it's a known type
         if isinstance(value, dict):
-            if "_type" in value and "_module" in value:
+            if "_type" in value:
                 type_name = value.pop("_type")
                 if type_name in _type_deserializers:
                     return _type_deserializers[type_name](value)
@@ -549,15 +544,17 @@ class Pipeline(PipelineBase):
         dt = datetime.now()
         file_name = Path(f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
-            "input_data": self._serialize_component_input(self.original_input_data, component), # original input data
+            "input_data": self._serialize_component_input(self.original_input_data, component),  # original input data
             "timestamp": dt.isoformat(),
             "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
             "pipeline_state": {
-                "inputs": self._serialize_component_input(inputs, component), # current pipeline state inputs
+                "inputs": self._serialize_component_input(inputs, component),  # current pipeline state inputs
                 "component_visits": component_visits,
                 "ordered_component_names": self.ordered_component_names,
             },
         }
+
+        print("Testing state: ", state)
 
         try:
             with open(self.debug_path / file_name, "w") as f_out:
