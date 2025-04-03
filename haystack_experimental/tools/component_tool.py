@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import copy, deepcopy
 from dataclasses import fields, is_dataclass
 from inspect import getdoc
 from typing import Any, Callable, Dict, Optional, Union, get_args, get_origin
@@ -88,14 +89,15 @@ class ComponentTool(Tool):
 
     """
 
-    def __init__( # pylint: disable=too-many-positional-arguments
-            self,
-            component: Component,
-            name: Optional[str] = None,
-            description: Optional[str] = None,
-            parameters: Optional[Dict[str, Any]] = None,
-            inputs: Optional[Dict[str, Any]] = None,
-            outputs: Optional[Dict[str, Any]] = None,
+    def __init__(
+        self,
+        component: Component,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        *,
+        inputs_from_state: Optional[Dict[str, Any]] = None,
+        outputs_to_state: Optional[Dict[str, Any]] = None,
     ):
         """
         Create a Tool instance from a Haystack component.
@@ -106,11 +108,11 @@ class ComponentTool(Tool):
         :param parameters:
             A JSON schema defining the parameters expected by the Tool.
             Will fall back to the parameters defined in the component's run method signature if not provided.
-        :param inputs:
+        :param inputs_from_state:
             Optional dictionary mapping state keys to tool parameter names.
             Example: {"repository": "repo"} maps state's "repository" to tool's "repo" parameter.
-        :param outputs:
-            Optional dictionary defining how tool outputs map to state and message handling.
+        :param outputs_to_state:
+            Optional dictionary defining how tool outputs map to keys within state as well as optional handlers.
             Example: {
                 "documents": {"source": "docs", "handler": custom_handler},
                 "message": {"source": "summary", "handler": format_summary}
@@ -133,7 +135,7 @@ class ComponentTool(Tool):
 
         self._unresolved_parameters = parameters
         # Create the tools schema from the component run method parameters
-        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs or {})
+        tool_schema = parameters or self._create_tool_parameters_schema(component, inputs_from_state or {})
 
         def component_invoker(**kwargs):
             """
@@ -174,7 +176,6 @@ class ComponentTool(Tool):
                 ]
             ).lstrip("_")
 
-
         description = (description or component.__doc__ or name)
 
         # Create the Tool instance with the component invoker as the function to be called and the schema
@@ -183,8 +184,8 @@ class ComponentTool(Tool):
             description=description,
             parameters=tool_schema,
             function=component_invoker,
-            inputs=inputs,
-            outputs=outputs
+            inputs_from_state=inputs_from_state,
+            outputs_to_state=outputs_to_state
         )
         self._component = component
 
@@ -199,17 +200,17 @@ class ComponentTool(Tool):
             "name": self.name,
             "description": self.description,
             "parameters": self._unresolved_parameters,
-            "inputs": self.inputs,
+            "inputs_from_state": self.inputs_from_state,
         }
 
-        if self.outputs is not None:
+        if self.outputs_to_state is not None:
             serialized_outputs = {}
-            for key, config in self.outputs.items():
+            for key, config in self.outputs_to_state.items():
                 serialized_config = config.copy()
                 if "handler" in config:
                     serialized_config["handler"] = serialize_callable(config["handler"])
                 serialized_outputs[key] = serialized_config
-            serialized["outputs"] = serialized_outputs
+            serialized["outputs_to_state"] = serialized_outputs
 
         return {"type": generate_qualified_class_name(type(self)), "data": serialized}
 
@@ -222,26 +223,25 @@ class ComponentTool(Tool):
         component_class = import_class_by_name(inner_data["component"]["type"])
         component = component_from_dict(cls=component_class, data=inner_data["component"], name=inner_data["name"])
 
-        if "outputs" in inner_data and inner_data["outputs"]:
+        if "outputs_to_state" in inner_data and inner_data["outputs_to_state"]:
             deserialized_outputs = {}
-            for key, config in inner_data["outputs"].items():
+            for key, config in inner_data["outputs_to_state"].items():
                 deserialized_config = config.copy()
                 if "handler" in config:
                     deserialized_config["handler"] = deserialize_callable(config["handler"])
                 deserialized_outputs[key] = deserialized_config
-            inner_data["outputs"] = deserialized_outputs
-
+            inner_data["outputs_to_state"] = deserialized_outputs
 
         return cls(
             component=component,
             name=inner_data["name"],
             description=inner_data["description"],
             parameters=inner_data.get("parameters", None),
-            inputs=inner_data.get("inputs", None),
-            outputs=inner_data.get("outputs", None),
+            inputs_from_state=inner_data.get("inputs_from_state", None),
+            outputs_to_state=inner_data.get("outputs_to_state", None),
         )
 
-    def _create_tool_parameters_schema(self, component: Component, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_tool_parameters_schema(self, component: Component, inputs_from_state: Dict[str, Any]) -> Dict[str, Any]:
         """
         Creates an OpenAI tools schema from a component's run method parameters.
 
@@ -255,7 +255,7 @@ class ComponentTool(Tool):
         param_descriptions = self._get_param_descriptions(component.run)
 
         for input_name, socket in component.__haystack_input__._sockets_dict.items():  # type: ignore[attr-defined]
-            if inputs is not None and input_name in inputs:
+            if inputs_from_state is not None and input_name in inputs_from_state:
                 continue
             input_type = socket.type
             description = param_descriptions.get(input_name, f"Input '{input_name}' for the component.")
@@ -392,3 +392,29 @@ class ComponentTool(Tool):
             schema["default"] = default
 
         return schema
+
+    def __deepcopy__(self, memo: Dict[Any, Any]) -> "ComponentTool":
+        # Jinja2 templates throw an Exception when we deepcopy them (see https://github.com/pallets/jinja/issues/758)
+        # When we use a ComponentTool in a pipeline at runtime, we deepcopy the tool
+        # We overwrite ComponentTool.__deepcopy__ to fix this in experimental until a more comprehensive fix is merged.
+        # We track the issue here: https://github.com/deepset-ai/haystack/issues/9011
+        result = copy(self)
+
+        # Add the object to the memo dictionary to handle circular references
+        memo[id(self)] = result
+
+        # Deep copy all attributes with exception handling
+        for key, value in self.__dict__.items():
+            try:
+                # Try to deep copy the attribute
+                setattr(result, key, deepcopy(value, memo))
+            except TypeError:
+                # Fall back to using the original attribute for components that use Jinja2-templates
+                logger.debug(
+                    "deepcopy of ComponentTool {tool_name} failed. Using original attribute '{attribute}' instead.",
+                    tool_name=self.name,
+                    attribute=key,
+                )
+                setattr(result, key, getattr(self, key))
+
+        return result

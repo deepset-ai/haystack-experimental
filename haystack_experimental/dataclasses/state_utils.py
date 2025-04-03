@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
-from typing import Any, Dict, List, TypeVar, Union, get_origin
+from typing import Any, List, TypeVar, Union, get_origin
+
+T = TypeVar("T")
 
 
 def _is_valid_type(obj: Any) -> bool:
@@ -33,15 +35,10 @@ def _is_valid_type(obj: Any) -> bool:
         return True
 
     # Handle normal classes and generic types
-    return (inspect.isclass(obj) or
-            type(obj).__name__ in {"_GenericAlias", "GenericAlias"})
+    return inspect.isclass(obj) or type(obj).__name__ in {"_GenericAlias", "GenericAlias"}
 
 
-
-T = TypeVar("T")
-
-
-def is_list_type(type_hint: Any) -> bool:
+def _is_list_type(type_hint: Any) -> bool:
     """
     Check if a type hint represents a list type.
 
@@ -51,67 +48,30 @@ def is_list_type(type_hint: Any) -> bool:
     return type_hint is list or (hasattr(type_hint, "__origin__") and get_origin(type_hint) is list)
 
 
-def is_dict_type(type_hint: Any) -> bool:
+def merge_lists(current: Union[List[T], T], new: Union[List[T], T]) -> List[T]:
     """
-    Check if a type hint represents a dict type.
+    Merges two values into a single list.
 
-    :param type_hint: The type hint to check
-    :return: True if the type hint represents a dict, False otherwise
+    If either `current` or `new` is not already a list, it is converted into one.
+    The function ensures that both inputs are treated as lists and concatenates them.
+
+    If `current` is None, it is treated as an empty list.
+
+    :param current: The existing value(s), either a single item or a list.
+    :param new: The new value(s) to merge, either a single item or a list.
+    :return: A list containing elements from both `current` and `new`.
     """
-    return type_hint is dict or (hasattr(type_hint, "__origin__") and get_origin(type_hint) is dict)
+    current_list = [] if current is None else current if isinstance(current, list) else [current]
+    new_list = new if isinstance(new, list) else [new]
+    return current_list + new_list
 
 
-def merge_lists(current: Union[List[T], Any], new: Union[List[T], T]) -> List[T]:
+def replace_values(current: Any, new: Any) -> Any:
     """
-    Merge two values according to list merging rules.
+    Replace the `current` value with the `new` value.
 
-    :param current: The current value, which may or may not be a list
-    :param new: The new value to merge, which may or may not be a list
-    :return: A new list containing the merged values
+    :param current: The existing value
+    :param new: The new value to replace
+    :return: The new value
     """
-    if isinstance(current, list):
-        if isinstance(new, list):
-            return [*current, *new]  # Extend
-        return [*current, new]  # Append
-    if isinstance(new, list):
-        return new  # Replace
-    return [current, new]  # Create new list
-
-
-def merge_dicts(current: Union[Dict[str, T], T], new: Union[Dict[str, T], T]) -> Union[Dict[str, T], T]:
-    """
-    Merge two values according to dict merging rules.
-
-    :param current: The current value, which may or may not be a dict
-    :param new: The new value to merge, which may or may not be a dict
-    :return: A new dict containing the merged values if both inputs are dicts, otherwise the new value
-    """
-    if isinstance(current, dict) and isinstance(new, dict):
-        return {**current, **new}  # Update
-    return new  # Replace
-
-
-def merge_values(current_value: Any, new_value: Any, declared_type: Any) -> Any:
-    """
-    Merge values based on their types and declared type hint.
-
-    Rules:
-    - Lists: extend if new value is also a list, otherwise append
-    - Dicts: shallow update if both are dicts, otherwise replace
-    - Others: replace entirely
-
-    :param current_value: The existing value
-    :param new_value: The new value to merge
-    :param declared_type: The type hint for the value
-    :return: The merged value according to the merging rules
-    """
-    if current_value is None:
-        return new_value
-
-    if is_list_type(declared_type):
-        return merge_lists(current_value, new_value)
-
-    if is_dict_type(declared_type):
-        return merge_dicts(current_value, new_value)
-
-    return new_value  # Default: replace
+    return new

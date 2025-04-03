@@ -129,8 +129,8 @@ def create_tool_from_function(
         description=tool_description,
         parameters=schema,
         function=function,
-        inputs=inputs,
-        outputs=outputs
+        inputs_from_state=inputs,
+        outputs_to_state=outputs
     )
 
 

@@ -1,15 +1,20 @@
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
 
-from haystack import Document
+import pytest
+
+from haystack import Document, Pipeline
 from haystack.dataclasses import ByteStream
 from haystack_experimental.core.super_component import SuperComponent
 from haystack_experimental.super_components.converters.multi_file_converter import MultiFileConverter
 
+
 @pytest.fixture
 def converter():
-    return MultiFileConverter()
+    converter = MultiFileConverter()
+    converter.warm_up()
+    return converter
 
 
 class TestMultiFileConverter:
@@ -68,14 +73,23 @@ class TestMultiFileConverter:
     )
     @pytest.mark.integration
     def test_run(self, test_files_path, converter, suffix, file_path):
-        paths = [test_files_path / file_path]
+        unclassified_bytestream = ByteStream(b"unclassified content")
+        unclassified_bytestream.meta["content_type"] = "unknown_type"
+
+        paths = [test_files_path / file_path, unclassified_bytestream]
+
         output = converter.run(sources=paths)
         docs = output["documents"]
+        unclassified = output["unclassified"]
 
         assert len(docs) == 1
         assert isinstance(docs[0], Document)
         assert docs[0].content is not None
         assert docs[0].meta["file_path"].endswith(suffix)
+
+        assert len(unclassified) == 1
+        assert isinstance(unclassified[0], ByteStream)
+        assert unclassified[0].meta["content_type"] == "unknown_type"
 
     def test_run_with_meta(self, test_files_path, converter):
         """Test conversion with metadata"""
@@ -127,3 +141,20 @@ class TestMultiFileConverter:
         # Verify we got a document for each file
         assert len(docs) == len(paths)
         assert all(isinstance(doc, Document) for doc in docs)
+
+    @pytest.mark.integration
+    def test_run_in_pipeline(self, test_files_path, converter):
+        pipeline = Pipeline(max_runs_per_component=1)
+        pipeline.add_component("converter", converter)
+
+        paths = [
+            test_files_path / "txt" / "doc_1.txt",
+            test_files_path / "pdf" / "sample_pdf_1.pdf",
+        ]
+
+        output = pipeline.run(data={"sources": paths})
+        docs = output["converter"]["documents"]
+
+        assert len(docs) == 2
+        assert all(isinstance(doc, Document) for doc in docs)
+        assert all(doc.content is not None for doc in docs)

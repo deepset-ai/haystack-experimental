@@ -4,12 +4,14 @@
 
 import json
 import os
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict, List
 
 import pytest
 
 from haystack import Pipeline, component
+from haystack.components.builders import PromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.websearch.serper_dev import SerperDevWebSearch
 from haystack.dataclasses import ChatMessage, ChatRole, Document
@@ -120,11 +122,13 @@ class DocumentProcessor:
         """
         return {"concatenated": "\n".join(doc.content for doc in documents[:top_k])}
 
+
 def output_handler(old, new):
     """
     Output handler to test serialization.
     """
     return old + new
+
 
 ## Unit tests
 class TestToolComponent:
@@ -156,10 +160,9 @@ class TestToolComponent:
     def test_from_component_with_inputs(self):
         component = SimpleComponent()
 
-        tool = ComponentTool(component=component, inputs={"text": "text"})
+        tool = ComponentTool(component=component, inputs_from_state={"text": "text"})
 
-
-        assert tool.inputs == {"text": "text"}
+        assert tool.inputs_from_state == {"text": "text"}
         # Inputs should be excluded from schema generation
         assert tool.parameters == {
             "type": "object",
@@ -169,9 +172,9 @@ class TestToolComponent:
     def test_from_component_with_outputs(self):
         component = SimpleComponent()
 
-        tool = ComponentTool(component=component, outputs={"replies": {"source": "reply"}})
+        tool = ComponentTool(component=component, outputs_to_state={"replies": {"source": "reply"}})
 
-        assert tool.outputs == {"replies": {"source": "reply"}}
+        assert tool.outputs_to_state == {"replies": {"source": "reply"}}
 
     def test_from_component_with_dataclass(self):
         component = UserGreeter()
@@ -277,7 +280,6 @@ class TestToolComponent:
                         "properties": {
                             "id": {"type": "string", "description": "Field 'id' of 'Document'."},
                             "content": {"type": "string", "description": "Field 'content' of 'Document'."},
-                            "dataframe": {"type": "string", "description": "Field 'dataframe' of 'Document'."},
                             "blob": {
                                 "type": "object",
                                 "description": "Field 'blob' of 'Document'.",
@@ -577,8 +579,8 @@ class TestToolComponentInPipelineWithOpenAI:
             component=component,
             name="simple_tool",
             description="A simple tool",
-            inputs={"test": "input"},
-            outputs={"output": {"source": "out", "handler": output_handler}},
+            inputs_from_state={"test": "input"},
+            outputs_to_state={"output": {"source": "out", "handler": output_handler}},
         )
 
         # Test serialization
@@ -587,16 +589,16 @@ class TestToolComponentInPipelineWithOpenAI:
         assert tool_dict["data"]["name"] == "simple_tool"
         assert tool_dict["data"]["description"] == "A simple tool"
         assert "component" in tool_dict["data"]
-        assert tool_dict["data"]["inputs"] == {"test": "input"}
-        assert tool_dict["data"]["outputs"]["output"]["handler"] == "test.tools.test_component_tool.output_handler"
+        assert tool_dict["data"]["inputs_from_state"] == {"test": "input"}
+        assert tool_dict["data"]["outputs_to_state"]["output"]["handler"] == "test.tools.test_component_tool.output_handler"
 
         # Test deserialization
         new_tool = ComponentTool.from_dict(tool_dict)
         assert new_tool.name == tool.name
         assert new_tool.description == tool.description
         assert new_tool.parameters == tool.parameters
-        assert new_tool.inputs == tool.inputs
-        assert new_tool.outputs == tool.outputs
+        assert new_tool.inputs_from_state == tool.inputs_from_state
+        assert new_tool.outputs_to_state == tool.outputs_to_state
         assert isinstance(new_tool._component, SimpleComponent)
 
     def test_pipeline_component_fails(self):
@@ -610,3 +612,21 @@ class TestToolComponentInPipelineWithOpenAI:
         # thus can't be used as tool
         with pytest.raises(ValueError, match="Component has been added to a pipeline"):
             ComponentTool(component=component)
+
+    def test_deepcopy_with_jinja_based_component(self):
+        # Jinja2 templates throw an Exception when we deepcopy them (see https://github.com/pallets/jinja/issues/758)
+        # When we use a ComponentTool in a pipeline at runtime, we deepcopy the tool
+        # We overwrite ComponentTool.__deepcopy__ to fix this in experimental until a more comprehensive fix is merged.
+        # We track the issue here: https://github.com/deepset-ai/haystack/issues/9011
+
+        builder = PromptBuilder("{{query}}")
+
+        tool = ComponentTool(component=builder)
+        result = tool.function(query="Hello")
+
+        tool_copy = deepcopy(tool)
+
+        result_from_copy = tool_copy.function(query="Hello")
+
+        assert "prompt" in result_from_copy
+        assert result_from_copy["prompt"] == result["prompt"]

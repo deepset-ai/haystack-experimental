@@ -2,9 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.writers.chat_message_writer import (
-    ChatMessageWriter,
-)
-from haystack_experimental.components.writers.document_writer import DocumentWriter
+from haystack_experimental.components.writers.chat_message_writer import ChatMessageWriter
 
-_all_ = ["ChatMessageWriter", "DocumentWriter"]
+_all_ = ["ChatMessageWriter"]
