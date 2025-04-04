@@ -31,7 +31,8 @@ class TestPipelineBreakpoints:
         pipe.add_component('joiner', BranchJoiner(List[ChatMessage]))
         pipe.add_component('fc_llm', OpenAIChatGenerator(model="gpt-4o-mini"))
         pipe.add_component('validator', JsonSchemaValidator(json_schema=person_schema))
-        pipe.add_component('adapter', OutputAdapter("{{chat_message}}", List[ChatMessage])),
+        pipe.add_component('adapter', OutputAdapter("{{chat_message}}", List[ChatMessage], unsafe=True))
+
         pipe.connect("adapter", "joiner")
         pipe.connect("joiner", "fc_llm")
         pipe.connect("fc_llm.replies", "validator.messages")
@@ -44,10 +45,10 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        # "joiner",
-        # "fc_llm",
-        # "validator",
-        # "adapter",
+        "joiner",
+        "fc_llm",
+        "validator",
+        "adapter",
     ]
     @pytest.mark.parametrize("component", components)
     def test_pipeline_breakpoints_branch_joiner(self, branch_joiner_pipeline, output_directory, component):
@@ -62,14 +63,10 @@ class TestPipelineBreakpoints:
         except PipelineBreakException as e:
             pass
 
-        """
         all_files = list(output_directory.glob("*"))
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
-            print(full_path)
-            print(type(full_path))
             if str(f_name).startswith(component):
                 resume_state = branch_joiner_pipeline.load_state(full_path)
                 result = branch_joiner_pipeline.run(data, resume_state=resume_state)
                 assert result
-        """

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, ca
 
 from haystack import logging, tracing
 from haystack.components.builders import AnswerBuilder
-from haystack.components.joiners import DocumentJoiner
+from haystack.components.joiners import DocumentJoiner, BranchJoiner
 from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
@@ -66,6 +66,12 @@ class Pipeline(PipelineBase):
                 if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
                     if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
                         component_inputs["documents"] = component_inputs["documents"][0]
+
+        if self.resume_state and isinstance(instance, BranchJoiner):  # noqa: SIM102
+            if isinstance(component_inputs["value"], list):  # noqa: SIM102
+                if isinstance(component_inputs["value"][0], list):  # noqa: SIM102
+                    if isinstance(component_inputs["value"][0][0], list):  # noqa: SIM102
+                        component_inputs["value"] = component_inputs["value"][0]
 
         # We need to add missing defaults using default values from input sockets because the run signature
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
@@ -434,7 +440,6 @@ class Pipeline(PipelineBase):
             transformed = [Pipeline.transform_json_structure(item, component) for item in data]
             # If the original list has exactly one element and that element was a dict
             # with 'sender' and 'value', then unwrap the list.
-
             if len(data) == 1 and isinstance(data[0], dict) and "value" in data[0] and "sender" in data[0]:
                 return transformed[0]
             return transformed
@@ -553,8 +558,6 @@ class Pipeline(PipelineBase):
                 "ordered_component_names": self.ordered_component_names,
             },
         }
-
-        print("Testing state: ", state)
 
         try:
             with open(self.debug_path / file_name, "w") as f_out:
