@@ -33,11 +33,11 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        # "gpt-4o",
-        # "gpt-3",
-        # "answer_builder_a",
-        # "answer_builder_b",
-        # "answer_joiner",
+        "gpt-4o",
+        "gpt-3",
+        "answer_builder_a",
+        "answer_builder_b",
+        "answer_joiner",
     ]
     @pytest.mark.parametrize("component", components)
     def test_pipeline_breakpoints_answer_joiner(self, answer_join_pipeline, output_directory, component):
@@ -54,18 +54,18 @@ class TestPipelineBreakpoints:
             "answer_builder_b": {"query": query}
         }
 
+        output_directory = Path("tmp")
+
         try:
             _ = answer_join_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
         except PipelineBreakException as e:
             pass
 
-        """
         all_files = list(output_directory.glob("*"))
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                print("\nResuming from:", full_path)
                 resume_state = answer_join_pipeline.load_state(full_path)
                 result = answer_join_pipeline.run(data, resume_state=resume_state)
                 assert result
-        """
+                assert result["answer_joiner"] is not None
