@@ -56,6 +56,7 @@ dependencies = [
 extra-dependencies = [
   "anthropic-haystack", # Needed for type checking in Agent
   "docstring-parser", # ComponentTool
+  "colorama", # needed for the pipeline checkpoints test - might be removed later
   "markdown-it-py", # MultiFileConverter
   "mdit_plain", # MultiFileConverter
   "nltk", # HierachicalSplitter w/ split_by="sentence"
