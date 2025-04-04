@@ -31,7 +31,7 @@ class OutputValidator:
         # If the LLM's reply is a valid object, return `"valid_replies"`
         try:
             output_dict = json.loads(replies[0].text)
-            self.pydantic_model.parse_obj(output_dict)
+            self.pydantic_model.model_validate(output_dict)
             print(
                 Fore.GREEN
                 + f"OutputValidator at Iteration {self.iteration_counter}: Valid JSON from LLM - No need for looping: {replies[0]}"
@@ -157,5 +157,5 @@ class TestPipelineBreakpointsLoops:
                     valid_json = json.loads(valid_reply)
                     assert isinstance(valid_json, dict)
                     assert "cities" in valid_json
-                    cities_data = CitiesData.parse_obj(valid_json)
+                    cities_data = CitiesData.model_validate(valid_json)
                     assert len(cities_data.cities) == 3
