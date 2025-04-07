@@ -115,8 +115,15 @@ class Pipeline(PipelineBase):
             # when we delete them in case they're sent to other Components
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
-
-            component_output = instance.run(**component_inputs)
+            try:
+                component_output = instance.run(**component_inputs)
+            except Exception as error:
+                raise PipelineRuntimeError(
+                    f"The following component failed to run:\n"
+                    f"Component name: '{component_name}'\n"
+                    f"Component type: '{instance.__class__.__name__}'\n"
+                    f"Error: {str(error)}"
+                ) from error
             component_visits[component_name] += 1
 
             if not isinstance(component_output, Mapping):
@@ -176,7 +183,7 @@ class Pipeline(PipelineBase):
         rag_pipeline = Pipeline()
         rag_pipeline.add_component("retriever", retriever)
         rag_pipeline.add_component("prompt_builder", prompt_builder)
-        rag_pipeline.add_component("llm", llm)debug_state
+        rag_pipeline.add_component("llm", llm)
         rag_pipeline.connect("retriever", "prompt_builder.documents")
         rag_pipeline.connect("prompt_builder", "llm")
 
