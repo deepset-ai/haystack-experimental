@@ -123,6 +123,7 @@ class TestPipelineBreakpoints:
         "answer_builder"
     ]
     @pytest.mark.parametrize("component", components)
+    @pytest.mark.integration
     def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory, component):
         """
         Test that a hybrid RAG pipeline can be executed with breakpoints at each component.

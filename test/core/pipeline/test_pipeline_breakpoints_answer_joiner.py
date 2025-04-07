@@ -40,6 +40,7 @@ class TestPipelineBreakpoints:
         "answer_joiner",
     ]
     @pytest.mark.parametrize("component", components)
+    @pytest.mark.integration
     def test_pipeline_breakpoints_answer_joiner(self, answer_join_pipeline, output_directory, component):
 
         query = "What's Natural Language Processing?"

@@ -128,6 +128,7 @@ class TestPipelineBreakpointsLoops:
 
     components = ["prompt_builder", "llm", "output_validator"]
     @pytest.mark.parametrize("component", components)
+    @pytest.mark.integration
     def test_pipeline_breakpoints_validation_loop(self, validation_loop_pipeline, output_directory, test_data, component):
         """
         Test that a pipeline with validation loops can be executed with breakpoints at each component.

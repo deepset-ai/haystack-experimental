@@ -41,6 +41,7 @@ class TestPipelineBreakpoints:
         "string_joiner"
     ]
     @pytest.mark.parametrize("component", components)
+    @pytest.mark.integration
     def test_list_joiner_pipeline(self, string_joiner_pipeline, output_directory, component):
 
         string_1 = "What's Natural Language Processing?"

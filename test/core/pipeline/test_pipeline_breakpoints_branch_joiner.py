@@ -51,6 +51,7 @@ class TestPipelineBreakpoints:
         "adapter",
     ]
     @pytest.mark.parametrize("component", components)
+    @pytest.mark.integration
     def test_pipeline_breakpoints_branch_joiner(self, branch_joiner_pipeline, output_directory, component):
 
         data = {

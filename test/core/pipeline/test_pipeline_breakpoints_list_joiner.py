@@ -59,6 +59,7 @@ class TestPipelineBreakpoints:
         "list_joiner"
     ]
     @pytest.mark.parametrize("component", components)
+    @pytest.mark.integration
     def test_list_joiner_pipeline(self, list_joiner_pipeline, output_directory, component):
 
         query = "What is nuclear physics?"
