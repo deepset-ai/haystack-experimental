@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import logging, tracing
-from haystack.components.builders import AnswerBuilder
 from haystack.components.joiners import DocumentJoiner, BranchJoiner
 from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
