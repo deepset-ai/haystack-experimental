@@ -57,7 +57,7 @@ class Pipeline(PipelineBase):
             component_name=component_name, component=component, inputs=inputs
         )
 
-        # NOTE: This is a workaround for the DocumentJoiner component since _consume_component_inputs()
+        # NOTE: a workaround for the DocumentJoiner and BranchJoiner components, since _consume_component_inputs()
         # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
         # ToDo: investigate why this is needed and if we can remove it
         if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
