@@ -84,7 +84,7 @@ class Pipeline(PipelineBase):
 
         # add component_inputs to inputs
         breakpoint_inputs = inputs.copy()
-        breakpoint_inputs[component_name] = Pipeline._remove_unserialisable_data(component_inputs)
+        breakpoint_inputs[component_name] = Pipeline._remove_unserializable_data(component_inputs)
         if breakpoints and not self.resume_state:
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
@@ -222,9 +222,12 @@ class Pipeline(PipelineBase):
 
         :param breakpoints:
             Set of tuples of component names and visit counts at which the pipeline should break execution.
+            If the visit count is not given, it is assumed to be 0, it will break on the first visit.
 
         :param resume_state:
             The file path containing the state of a previously saved pipeline execution.
+            Make sure to provide a valid state i.e. the components in the resume state
+            are all valid components registered in the pipeline.
 
         :param debug_path:
             Path to the directory where the pipeline state should be saved.
@@ -247,6 +250,11 @@ class Pipeline(PipelineBase):
             When a breakpoint is triggered. Contains the component name, state, and partial results.
         """
         pipeline_running(self)
+
+        if breakpoints and resume_state:
+            logger.warning(
+                "Breakpoints cannot be provided when resuming a pipeline. All breakpoints will be ignored.",
+            )
         self.resume_state = resume_state
         self.debug_path = debug_path
 
@@ -277,7 +285,7 @@ class Pipeline(PipelineBase):
         else:
             # load the file containing the resume state
             self.resume_state = Pipeline.load_state(self.resume_state)
-            self._validate_components_state(self.resume_state)
+            self._validate_pipeline_state(self.resume_state)
             data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
             component_visits = self.resume_state["pipeline_state"]["component_visits"]
             self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
@@ -364,7 +372,6 @@ class Pipeline(PipelineBase):
 
         Make sure they are all valid components registered in the pipeline,
         If the visit is not given, it is assumed to be 0, it will break on the first visit.
-        If a negative number is given it means it will break on all visits, e.g.: a component running in a loop.
 
         :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
         :returns:
@@ -417,9 +424,9 @@ class Pipeline(PipelineBase):
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
 
     @staticmethod
-    def _remove_unserialisable_data(value: Any) -> Any:
+    def _remove_unserializable_data(value: Any) -> Any:
         """
-        Removes certain unserialisable data which is not needed for the pipeline state.
+        Removes certain unserializable data which is not needed for the pipeline state.
         """
 
         if isinstance(value, ChatMessage):  # noqa: SIM102
@@ -464,9 +471,9 @@ class Pipeline(PipelineBase):
     @staticmethod
     def _serialize_component_input(value: Any) -> Any:
         """
-        Serialises, so it can be saved to a file, any type of input to a pipeline component.
+        Serializes, so it can be saved to a file, any type of input to a pipeline component.
         """
-        value = Pipeline._remove_unserialisable_data(value)
+        value = Pipeline._remove_unserializable_data(value)
         value = Pipeline.transform_json_structure(value)
 
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
@@ -481,11 +488,11 @@ class Pipeline(PipelineBase):
                 "attributes": value.__dict__,
             }
 
-        # recursively serialise all inputs in a dict
+        # recursively serialize all inputs in a dict
         elif isinstance(value, dict):
             return {k: Pipeline._serialize_component_input(v) for k, v in value.items()}
 
-        # recursively serialise all inputs in lists or tuples
+        # recursively serialize all inputs in lists or tuples
         elif isinstance(value, list):
             return [Pipeline._serialize_component_input(item) for item in value]
 
@@ -612,9 +619,9 @@ class Pipeline(PipelineBase):
         except IOError as e:
             raise IOError(f"Error reading {file_path}: {str(e)}")
 
-    def _validate_components_state(self, resume_state: Dict[str, Any]) -> None:
+    def _validate_pipeline_state(self, resume_state: Dict[str, Any]) -> None:
         """
-        Validates that the resume_state contains a valid component configuration for the current pipeline.
+        Validates that the resume_state contains valid configuration for the current pipeline.
 
         Raises a PipelineRuntimeError if any component is missing or if the state structure is invalid.
 
