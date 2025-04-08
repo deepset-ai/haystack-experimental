@@ -47,7 +47,7 @@ class SerializationError(Exception):
     pass
 
 
-class PipelineBreakException(Exception):
+class PipelineBreakpointException(Exception):
     """
     Exception raised when a pipeline breakpoint is triggered.
     """
