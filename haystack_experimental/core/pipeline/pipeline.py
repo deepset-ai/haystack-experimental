@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import logging, tracing
-from haystack.components.joiners import DocumentJoiner, BranchJoiner
+from haystack.components.joiners import BranchJoiner, DocumentJoiner
 from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
-from haystack_experimental.core.errors import PipelineBreakException, PipelineRuntimeError
+from haystack_experimental.core.errors import PipelineBreakpointException, PipelineRuntimeError
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +243,7 @@ class Pipeline(PipelineBase):
             Or if a Component fails or returns output in an unsupported type.
         :raises PipelineMaxComponentRuns:
             If a Component reaches the maximum number of times it can be run in this Pipeline.
-        :raises PipelineBreakException:
+        :raises PipelineBreakpointException:
             When a breakpoint is triggered. Contains the component name, state, and partial results.
         """
         pipeline_running(self)
@@ -274,16 +274,11 @@ class Pipeline(PipelineBase):
             # We track component visits to decide if a component can run.
             component_visits = dict.fromkeys(self.ordered_component_names, 0)
 
-            # We need to access a component's receivers multiple times during a pipeline run.
-            # We store them here for easy access.
-            cached_receivers = {name: self._find_receivers_from(name) for name in self.ordered_component_names}
-
         else:
             self._validate_components_state(self.resume_state)
             data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
             component_visits = self.resume_state["pipeline_state"]["component_visits"]
             self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
-            cached_receivers = {name: self._find_receivers_from(name) for name in self.ordered_component_names}
             msg = (
                 f"Resuming pipeline from {self.resume_state['breakpoint']['component']} "
                 f"visit count {self.resume_state['breakpoint']['visits']}"
@@ -291,6 +286,9 @@ class Pipeline(PipelineBase):
             logger.info(msg)
 
         cached_topological_sort = None
+        # We need to access a component's receivers multiple times during a pipeline run.
+        # We store them here for easy access.
+        cached_receivers = {name: self._find_receivers_from(name) for name in self.ordered_component_names}
 
         pipeline_outputs: Dict[str, Any] = {}
         with tracing.tracer.trace(
@@ -351,7 +349,7 @@ class Pipeline(PipelineBase):
                     if self._is_queue_stale(priority_queue):
                         priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
 
-            except PipelineBreakException as e:
+            except PipelineBreakpointException as e:
                 # Add the current pipeline results to the exception
                 e.results = pipeline_outputs
                 raise
@@ -390,7 +388,7 @@ class Pipeline(PipelineBase):
         :param component_name: Name of the component to check.
         :param component_visits: The number of times the component has been visited.
         :param inputs: The inputs to the pipeline.
-        :raises PipelineBreakException: When a breakpoint is triggered, with component state information.
+        :raises PipelineBreakpointException: When a breakpoint is triggered, with component state information.
         """
         matching_breakpoints = [bp for bp in breakpoints if bp[0] == component_name]
         for bp in matching_breakpoints:
@@ -400,17 +398,17 @@ class Pipeline(PipelineBase):
                 msg = f"Breaking at component: {component_name}"
                 logger.info(msg)
                 state = self.save_state(inputs, str(component_name), instance, component_visits)
-                raise PipelineBreakException(msg, component=component_name, state=state)
+                raise PipelineBreakpointException(msg, component=component_name, state=state)
 
             # break only if the visit count is the same
             if bp[1] == component_visits[component_name]:
                 msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
                 logger.info(msg)
                 state = self.save_state(inputs, str(component_name), instance, component_visits)
-                raise PipelineBreakException(msg, component=component_name, state=state)
+                raise PipelineBreakpointException(msg, component=component_name, state=state)
 
     @staticmethod
-    def _remove_unserialisable_data(value):
+    def _remove_unserialisable_data(value: Dict[str, Any]):
         """
         Removes certain unserialisable data which is not needed for the pipeline state.
         """
@@ -427,7 +425,7 @@ class Pipeline(PipelineBase):
         return value
 
     @staticmethod
-    def transform_json_structure(data, component):
+    def transform_json_structure(data: Any, component: Any) -> Any:
         """
         Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
 
@@ -553,7 +551,7 @@ class Pipeline(PipelineBase):
         self.debug_path.mkdir(exist_ok=True)
 
         dt = datetime.now()
-        file_name = Path(f"{component_name}_state_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+        file_name = Path(f"breakpoint_at_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
             "input_data": self._serialize_component_input(self.original_input_data, component),  # original input data
             "timestamp": dt.isoformat(),
