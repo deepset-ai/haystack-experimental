@@ -7,7 +7,7 @@ from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import ListJoiner
 from haystack.dataclasses import ChatMessage
-from haystack_experimental.core.errors import PipelineBreakException
+from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
 
@@ -70,13 +70,12 @@ class TestPipelineBreakpoints:
 
         try:
             _ = list_joiner_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
-        except PipelineBreakException as e:
+        except PipelineBreakpointException as e:
             pass
 
         all_files = list(output_directory.glob("*"))
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                resume_state = list_joiner_pipeline.load_state(full_path)
-                result = list_joiner_pipeline.run(data, resume_state=resume_state)
+                result = list_joiner_pipeline.run(data, resume_state=full_path)
                 assert result

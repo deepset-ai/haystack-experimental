@@ -3,7 +3,7 @@ from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 from haystack_experimental.core.pipeline.pipeline import Pipeline
-from haystack_experimental.core.errors import PipelineBreakException
+from haystack_experimental.core.errors import PipelineBreakpointException
 from pydantic import BaseModel
 from typing import List, Optional
 import json
@@ -142,15 +142,14 @@ class TestPipelineBreakpointsLoops:
 
         try:
             _ = validation_loop_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
-        except PipelineBreakException:
+        except PipelineBreakpointException:
             pass
 
         all_files = list(output_directory.glob("*"))
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                resume_state = validation_loop_pipeline.load_state(full_path)
-                result = validation_loop_pipeline.run(data={}, resume_state=resume_state)
+                result = validation_loop_pipeline.run(data={}, resume_state=full_path)
 
                 # Verify the result contains valid output
                 if "output_validator" in result and "valid_replies" in result["output_validator"]:

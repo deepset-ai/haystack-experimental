@@ -86,7 +86,7 @@ class Pipeline(PipelineBase):
         breakpoint_inputs = inputs.copy()
         breakpoint_inputs[component_name] = Pipeline._remove_unserialisable_data(component_inputs)
         if breakpoints and not self.resume_state:
-            self._check_breakpoints(breakpoints, component_name, instance, component_visits, breakpoint_inputs)
+            self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
             "haystack.component.run",
@@ -224,7 +224,7 @@ class Pipeline(PipelineBase):
             Set of tuples of component names and visit counts at which the pipeline should break execution.
 
         :param resume_state:
-            A dictionary containing the state of a previously saved pipeline execution.
+            The file path containing the state of a previously saved pipeline execution.
 
         :param debug_path:
             Path to the directory where the pipeline state should be saved.
@@ -275,6 +275,8 @@ class Pipeline(PipelineBase):
             component_visits = dict.fromkeys(self.ordered_component_names, 0)
 
         else:
+            # load the file containing the resume state
+            self.resume_state = Pipeline.load_state(self.resume_state)
             self._validate_components_state(self.resume_state)
             data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
             component_visits = self.resume_state["pipeline_state"]["component_visits"]
@@ -384,7 +386,6 @@ class Pipeline(PipelineBase):
         self,
         breakpoints: Set[Tuple[str, int]],
         component_name: str,
-        instance: Component,
         component_visits: Dict[str, int],
         inputs: Dict[str, Any],
     ):
@@ -405,14 +406,14 @@ class Pipeline(PipelineBase):
             if visit_count == -1:
                 msg = f"Breaking at component: {component_name}"
                 logger.info(msg)
-                state = self.save_state(inputs, str(component_name), instance, component_visits)
+                state = self.save_state(inputs, str(component_name), component_visits)
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
 
             # break only if the visit count is the same
             if bp[1] == component_visits[component_name]:
                 msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
                 logger.info(msg)
-                state = self.save_state(inputs, str(component_name), instance, component_visits)
+                state = self.save_state(inputs, str(component_name), component_visits)
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
 
     @staticmethod
