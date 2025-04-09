@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any, Dict, Optional
+
 
 class PipelineError(Exception):
     pass
@@ -52,7 +54,13 @@ class PipelineBreakpointException(Exception):
     Exception raised when a pipeline breakpoint is triggered.
     """
 
-    def __init__(self, message, component=None, state=None, results=None):
+    def __init__(
+        self,
+        message: str,
+        component: Optional[str] = None,
+        state: Optional[Dict[str, Any]] = None,
+        results: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(message)
         self.component = component
         self.state = state

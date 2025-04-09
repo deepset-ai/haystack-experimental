@@ -14,6 +14,7 @@ from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
+
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineRuntimeError
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class Pipeline(PipelineBase):
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
 
         # add component_inputs to inputs
-        breakpoint_inputs = inputs.copy()
+        breakpoint_inputs = deepcopy(inputs)
         breakpoint_inputs[component_name] = Pipeline._remove_unserializable_data(component_inputs)
         if breakpoints and not self.resume_state:
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
@@ -384,10 +385,8 @@ class Pipeline(PipelineBase):
         for break_point in breakpoints:
             if break_point[0] not in self.graph.nodes:
                 raise ValueError(f"Breakpoint {break_point} is not a registered component in the pipeline")
-            if break_point[1] is None:
-                break_point = (break_point[0], 0)
-            processed_breakpoints.add(break_point)  # type: ignore  # at this point break_point is Tuple[str, int]
-
+            valid_breakpoint: Tuple[str, int] = (break_point[0], 0 if break_point[1] is None else break_point[1])
+            processed_breakpoints.add(valid_breakpoint)
         return processed_breakpoints
 
     def _check_breakpoints(
@@ -412,7 +411,7 @@ class Pipeline(PipelineBase):
         for bp in matching_breakpoints:
             visit_count = bp[1]
             # break only if the visit count is the same
-            if bp[1] == component_visits[component_name]:
+            if visit_count == component_visits[component_name]:
                 msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
                 logger.info(msg)
                 state = self.save_state(inputs, str(component_name), component_visits)
@@ -602,15 +601,20 @@ class Pipeline(PipelineBase):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 state = json.load(f)
-            Pipeline._validate_resume_state(state=state)
-            logger.info(f"Successfully loaded pipeline state from: {file_path}")
-            return state
         except FileNotFoundError:
             raise FileNotFoundError(f"File not found: {file_path}")
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON file {file_path}: {str(e)}", e.doc, e.pos)
         except IOError as e:
             raise IOError(f"Error reading {file_path}: {str(e)}")
+
+        try:
+            Pipeline._validate_resume_state(state=state)
+        except ValueError as e:
+            raise ValueError(f"Invalid pipeline state from {file_path}: {str(e)}")
+
+        logger.info(f"Successfully loaded pipeline state from: {file_path}")
+        return state
 
     def _validate_pipeline_state(self, resume_state: Dict[str, Any]) -> None:
         """
