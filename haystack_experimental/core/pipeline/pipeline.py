@@ -401,21 +401,15 @@ class Pipeline(PipelineBase):
 
         :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
         :param component_name: Name of the component to check.
-        :param instance: The component instance being checked.
         :param component_visits: The number of times the component has been visited.
         :param inputs: The inputs to the pipeline.
         :raises PipelineBreakpointException: When a breakpoint is triggered, with component state information.
         """
+
         matching_breakpoints = [bp for bp in breakpoints if bp[0] == component_name]
+
         for bp in matching_breakpoints:
             visit_count = bp[1]
-            # break at every visit if visit_count is -1
-            if visit_count == -1:
-                msg = f"Breaking at component: {component_name}"
-                logger.info(msg)
-                state = self.save_state(inputs, str(component_name), component_visits)
-                raise PipelineBreakpointException(msg, component=component_name, state=state)
-
             # break only if the visit count is the same
             if bp[1] == component_visits[component_name]:
                 msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
