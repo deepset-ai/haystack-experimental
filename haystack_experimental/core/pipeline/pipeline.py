@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
@@ -12,7 +14,6 @@ from haystack.core.component import Component
 from haystack.core.pipeline.base import ComponentPriority, PipelineBase
 from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
-
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineRuntimeError
 
 logger = logging.getLogger(__name__)
@@ -550,8 +551,6 @@ class Pipeline(PipelineBase):
 
         :returns: The saved state dictionary
         """
-        import json
-        from datetime import datetime
 
         if isinstance(self.debug_path, str):
             self.debug_path = Path(self.debug_path)
