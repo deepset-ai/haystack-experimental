@@ -143,7 +143,7 @@ class Pipeline(PipelineBase):
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[str] = None,
+        debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.
