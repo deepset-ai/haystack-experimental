@@ -361,6 +361,10 @@ class Pipeline(PipelineBase):
                 e.results = pipeline_outputs
                 raise
 
+            if breakpoints:
+                logger.warning(f"Given breakpoint {breakpoints} was never triggered. This is because:")
+                logger.warning("1. The provided component is not a part of the pipeline execution path.")
+                logger.warning("2. The component did not reach the visit count specified in the breakpoint")
             return pipeline_outputs
 
     def _validate_breakpoints(self, breakpoints: Set[Tuple[str, Optional[int]]]) -> Set[Tuple[str, int]]:
