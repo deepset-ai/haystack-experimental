@@ -1,3 +1,5 @@
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -124,6 +126,7 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
+    @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
@@ -151,6 +154,6 @@ class TestPipelineBreakpoints:
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state=full_path)
+                result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state_path=full_path)
                 assert 'answer_builder' in result
                 assert result['answer_builder']

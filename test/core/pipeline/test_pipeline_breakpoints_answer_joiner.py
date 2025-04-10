@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -71,6 +72,6 @@ class TestPipelineBreakpoints:
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                result = answer_join_pipeline.run(data, resume_state=full_path)
+                result = answer_join_pipeline.run(data, resume_state_path=full_path)
                 assert result
                 assert result["answer_joiner"] is not None

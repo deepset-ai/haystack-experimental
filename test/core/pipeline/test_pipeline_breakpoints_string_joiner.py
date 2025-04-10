@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from haystack import Pipeline
@@ -42,6 +44,10 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
     def test_list_joiner_pipeline(self, string_joiner_pipeline, output_directory, component):
 
         string_1 = "What's Natural Language Processing?"
@@ -57,5 +63,5 @@ class TestPipelineBreakpoints:
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                result = string_joiner_pipeline.run(data, resume_state=full_path)
+                result = string_joiner_pipeline.run(data, resume_state_path=full_path)
                 assert result

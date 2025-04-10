@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import List
 
@@ -72,5 +73,5 @@ class TestPipelineBreakpoints:
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                result = branch_joiner_pipeline.run(data, resume_state=full_path)
+                result = branch_joiner_pipeline.run(data, resume_state_path=full_path)
                 assert result

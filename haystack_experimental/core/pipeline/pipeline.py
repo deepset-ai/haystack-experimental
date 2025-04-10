@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import logging, tracing
-from haystack.components.joiners import BranchJoiner, DocumentJoiner
+from haystack.components.joiners import BranchJoiner, DocumentJoiner, AnswerJoiner, ListJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer
 from haystack.telemetry import pipeline_running

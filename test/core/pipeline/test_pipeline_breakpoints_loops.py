@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
@@ -154,7 +156,7 @@ class TestPipelineBreakpointsLoops:
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
-                result = validation_loop_pipeline.run(data={}, resume_state=full_path)
+                result = validation_loop_pipeline.run(data={}, resume_state_path=full_path)
 
                 # Verify the result contains valid output
                 if "output_validator" in result and "valid_replies" in result["output_validator"]:
