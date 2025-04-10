@@ -92,11 +92,12 @@ class PipelineBase:
         self.graph = networkx.MultiDiGraph()
         self._max_runs_per_component = max_runs_per_component
         self._connection_type_validation = connection_type_validation
-
+        
         self.ordered_component_names: List[str] = []
         self.original_input_data: Dict[str, Any] = {}
         self.resume_state: Optional[Dict[str, Any]] = None
         self.debug_path: Optional[Union[str, Path]] = None
+
 
     def __eq__(self, other) -> bool:
         """
@@ -340,6 +341,11 @@ class PipelineBase:
         # Components can't be named `_debug`
         if name == "_debug":
             raise ValueError("'_debug' is a reserved name for debug output. Choose another name.")
+
+
+        # Component names can't have "."
+        if "." in name:
+            raise ValueError(f"{name} is an invalid component name, cannot contain '.' (dot) characters.")
 
         # Component instances must be components
         if not isinstance(instance, Component):
