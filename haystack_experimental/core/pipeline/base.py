@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
-
 from haystack import logging
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
