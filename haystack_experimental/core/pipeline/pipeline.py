@@ -11,11 +11,11 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Uni
 from haystack import logging, tracing
 from haystack.components.joiners import BranchJoiner, DocumentJoiner
 from haystack.core.component import Component
-from haystack.core.pipeline.base import ComponentPriority, PipelineBase
-from haystack.dataclasses import Answer, ChatMessage, Document, ExtractedAnswer, GeneratedAnswer, SparseEmbedding
+from haystack.dataclasses import ChatMessage, GeneratedAnswer
 from haystack.telemetry import pipeline_running
 
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineRuntimeError
+from haystack_experimental.core.pipeline.base import ComponentPriority, PipelineBase
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,6 @@ class Pipeline(PipelineBase):
 
     Orchestrates component execution according to the execution graph, one after the other.
     """
-
-    ordered_component_names: list[str]
-    original_input_data: dict[str, Any]
-    resume_state: Optional[Dict[str, Any]] = None
-    debug_path: Optional[Union[str, Path]] = None
 
     def _run_component(  # pylint: disable=too-many-positional-arguments
         self,
@@ -504,11 +499,13 @@ class Pipeline(PipelineBase):
         if not value or isinstance(value, (str, int, float, bool)):
             return value
 
-        # list of primitive types are returned as is
-        if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
-            return value
+        if hasattr(value, "from_dict") and callable(getattr(value, "from_dict")):
+            return value.from_dict(value)
 
         if isinstance(value, list):
+            # list of primitive types are returned as is
+            if all(isinstance(i, (str, int, float, bool)) for i in value):
+                return value
             # list of lists are called recursively
             if all(isinstance(i, list) for i in value):
                 return [Pipeline._deserialize_component_input(i) for i in value]
@@ -516,23 +513,8 @@ class Pipeline(PipelineBase):
             if all(isinstance(i, dict) for i in value):
                 return [Pipeline._deserialize_component_input(i) for i in value]
 
-        # Define the mapping of types to their deserialization functions
-        _type_deserializers = {
-            "Answer": Answer.from_dict,
-            "ChatMessage": ChatMessage.from_dict,
-            "Document": Document.from_dict,
-            "ExtractedAnswer": ExtractedAnswer.from_dict,
-            "GeneratedAnswer": GeneratedAnswer.from_dict,
-            "SparseEmbedding": SparseEmbedding.from_dict,
-        }
-
         # check if the dictionary has a "_type" key and if it's a known type
         if isinstance(value, dict):
-            if "_type" in value:
-                type_name = value.pop("_type")
-                if type_name in _type_deserializers:
-                    return _type_deserializers[type_name](value)
-
             # If not a known type, recursively deserialize each item in the dictionary
             return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
 
