@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from colorama import Fore
 from haystack import component
 
+import os
 
 # Define the component input parameters
 @component
@@ -129,6 +130,10 @@ class TestPipelineBreakpointsLoops:
     components = ["prompt_builder", "llm", "output_validator"]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
     def test_pipeline_breakpoints_validation_loop(self, validation_loop_pipeline, output_directory, test_data, component):
         """
         Test that a pipeline with validation loops can be executed with breakpoints at each component.

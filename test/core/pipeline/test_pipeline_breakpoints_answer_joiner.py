@@ -10,6 +10,7 @@ from haystack.dataclasses import ChatMessage
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
+import os
 
 class TestPipelineBreakpoints:
 
@@ -41,6 +42,10 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
     def test_pipeline_breakpoints_answer_joiner(self, answer_join_pipeline, output_directory, component):
 
         query = "What's Natural Language Processing?"

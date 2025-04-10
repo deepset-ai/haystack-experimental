@@ -17,7 +17,7 @@ from haystack import Document
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
-
+import os
 class TestPipelineBreakpoints:
     """
     This class contains tests for pipelines with breakpoints.
@@ -124,6 +124,10 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
     def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory, component):
         """
         Test that a hybrid RAG pipeline can be executed with breakpoints at each component.
