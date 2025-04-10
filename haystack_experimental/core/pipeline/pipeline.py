@@ -139,7 +139,7 @@ class Pipeline(PipelineBase):
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
-        resume_state: Optional[Dict[str, Any]] = None,
+        resume_state: Union[str, Path] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
         """
