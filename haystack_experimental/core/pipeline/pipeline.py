@@ -139,7 +139,7 @@ class Pipeline(PipelineBase):
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
-        resume_state: Union[str, Path] = None,
+        resume_state_path: Optional[Union[str, Path]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
         """
@@ -221,7 +221,7 @@ class Pipeline(PipelineBase):
             Set of tuples of component names and visit counts at which the pipeline should break execution.
             If the visit count is not given, it is assumed to be 0, it will break on the first visit.
 
-        :param resume_state:
+        :param resume_state_path:
             The file path containing the state of a previously saved pipeline execution.
             Make sure to provide a valid state i.e. the components in the resume state
             are all valid components registered in the pipeline.
@@ -248,11 +248,10 @@ class Pipeline(PipelineBase):
         """
         pipeline_running(self)
 
-        if breakpoints and resume_state:
+        if breakpoints and resume_state_path:
             logger.warning(
                 "Breakpoints cannot be provided when resuming a pipeline. All breakpoints will be ignored.",
             )
-        self.resume_state = resume_state
         self.debug_path = debug_path
 
         # make sure breakpoints are valid and have a default visit count
@@ -265,7 +264,7 @@ class Pipeline(PipelineBase):
         if include_outputs_from is None:
             include_outputs_from = set()
 
-        if not self.resume_state:
+        if not resume_state_path:
             # normalize `data`
             data = self._prepare_component_input_data(data)
 
@@ -281,7 +280,7 @@ class Pipeline(PipelineBase):
 
         else:
             # load the file containing the resume state
-            self.resume_state = Pipeline.load_state(self.resume_state)
+            self.resume_state = Pipeline.load_state(resume_state_path)
             self._validate_pipeline_state(self.resume_state)
             data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
             component_visits = self.resume_state["pipeline_state"]["component_visits"]
