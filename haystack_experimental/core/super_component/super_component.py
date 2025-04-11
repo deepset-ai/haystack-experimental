@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
-import inspect
 from types import new_class
 from typing import Any, Dict, List, Optional, Tuple, Union
 
