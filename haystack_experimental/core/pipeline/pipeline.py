@@ -515,9 +515,6 @@ class Pipeline(PipelineBase):
         if not value or isinstance(value, (str, int, float, bool)):
             return value
 
-        if hasattr(value, "from_dict") and callable(getattr(value, "from_dict")):
-            return value.from_dict(value)
-
         if isinstance(value, list):
 
             # list of primitive types are returned as is
@@ -536,8 +533,6 @@ class Pipeline(PipelineBase):
         if isinstance(value, dict):
             # If not a known type, recursively deserialize each item in the dictionary
             return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
-
-        return value
 
     def save_state(
         self,
