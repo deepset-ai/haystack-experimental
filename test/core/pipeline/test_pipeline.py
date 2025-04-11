@@ -247,6 +247,44 @@ class TestPipeline:
         }        
         result = Pipeline._deserialize_component_input(data)        
         assert result == data
+            
+    def test_deserialize_component_input_handles_nested_lists(self):
+        """Test that _deserialize_component_input handles nested lists"""
+        data = {
+            "nested_list": [[1, 2], [3, 4]],
+            "mixed_nested": [[1, "string"], [True, 3.14]]
+        }
+        
+        result = Pipeline._deserialize_component_input(data)
+        
+        assert result == data
+        
+    def test_deserialize_component_input_handles_nested_dicts(self):
+        """Test that _deserialize_component_input handles nested dictionaries"""
+        data = {
+            "key1": {
+                "nested1": "value1",
+                "nested2": {
+                    "deep": "value2"
+                }
+            }
+        }
+        
+        result = Pipeline._deserialize_component_input(data)
+        
+        assert result == data
+            
+    def test_deserialize_component_input_handles_empty_structures(self):
+        """Test that _deserialize_component_input handles empty structures"""
+        data = {
+            "empty_list": [],
+            "empty_dict": {},
+            "nested_empty": {"empty": []}
+        }
+        
+        result = Pipeline._deserialize_component_input(data)
+        
+        assert result == data
         
     def test_validate_resume_state_validates_required_keys(self):        
         state = {
@@ -297,7 +335,7 @@ class TestPipeline:
         }
         
         Pipeline._validate_resume_state(state) # should not raise any exception
-        
+
     def test_load_state_loads_valid_state(self, tmp_path):        
         state = {
             "input_data": {},
