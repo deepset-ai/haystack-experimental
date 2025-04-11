@@ -2,14 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from types import new_class
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from haystack.core.component import component
-from haystack.core.pipeline import Pipeline
+from haystack import component, logging, Pipeline
 from haystack.core.pipeline.async_pipeline import AsyncPipeline
 from haystack.core.pipeline.utils import parse_connect_string
 from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
 from haystack_experimental.core.super_component.utils import _delegate_default, _is_compatible
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidMappingTypeError(Exception):
@@ -24,20 +26,8 @@ class InvalidMappingValueError(Exception):
     pass
 
 
-class NoInheritMeta(type):
-    """
-    Metaclass for SuperComponent to prevent inheritance of certain attributes.
-    """
-    def __new__(cls, name, bases, dct):
-        cls_obj = super().__new__(cls, name, bases, dct)
-        for attr in getattr(cls_obj, "_no_inherit", []):
-            if hasattr(cls_obj, attr):
-                delattr(cls_obj, attr)
-        return cls_obj
-
-
 @component
-class SuperComponent(metaclass=NoInheritMeta):
+class _SuperComponent:
     """
     A class for creating super components that wrap around a Pipeline.
 
@@ -102,9 +92,6 @@ class SuperComponent(metaclass=NoInheritMeta):
     ```
 
     """
-    # This attribute is used to prevent inheritance of certain attributes
-    _no_inherit = ["to_dict", "from_dict"]
-
     def __init__(
         self,
         pipeline: Union[Pipeline, AsyncPipeline],
@@ -161,28 +148,6 @@ class SuperComponent(metaclass=NoInheritMeta):
         if not self._warmed_up:
             self.pipeline.warm_up()
             self._warmed_up = True
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the SuperComponent into a dictionary.
-
-        :returns:
-            Dictionary with serialized data.
-        """
-        return self._to_super_component_dict()
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SuperComponent":
-        """
-        Deserializes the SuperComponent from a dictionary.
-
-        :param data: The dictionary to deserialize from.
-        :returns:
-            The deserialized SuperComponent.
-        """
-        pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
-        data["init_parameters"]["pipeline"] = pipeline
-        return default_from_dict(cls, data)
 
     def run(self, **kwargs: Any) -> Dict[str, Any]:
         """
@@ -459,57 +424,91 @@ class SuperComponent(metaclass=NoInheritMeta):
         return serialized
 
 
-def super_component(cls):
+@component
+class SuperComponent(_SuperComponent):
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the SuperComponent into a dictionary.
+
+        :returns:
+            Dictionary with serialized data.
+        """
+        return self._to_super_component_dict()
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SuperComponent":
+        """
+        Deserializes the SuperComponent from a dictionary.
+
+        :param data: The dictionary to deserialize from.
+        :returns:
+            The deserialized SuperComponent.
+        """
+        pipeline = Pipeline.from_dict(data["init_parameters"]["pipeline"])
+        data["init_parameters"]["pipeline"] = pipeline
+        return default_from_dict(cls, data)
+
+
+def super_component(cls: Any):
     """
     Decorator that converts a class into a SuperComponent.
 
     This decorator:
-    1. Makes the class a component (using the @component decorator)
-    2. Verifies the class has required attributes for a SuperComponent
-    3. Automatically handles SuperComponent initialization
+    1. Creates a new class that inherits from SuperComponent
+    2. Copies all methods and attributes from the original class
+    3. Adds initialization logic to properly set up the SuperComponent
 
     The decorated class should define:
     - pipeline: A Pipeline or AsyncPipeline instance in the __init__ method
     - input_mapping: Dictionary mapping component inputs to pipeline inputs (optional)
     - output_mapping: Dictionary mapping pipeline outputs to component outputs (optional)
     """
-    # Create a new class that inherits from SuperComponent and the original class
-    new_cls_name = cls.__name__
+    logger.debug("Registering {cls} as a super_component", cls=cls)
 
-    # Keep a reference to the original __init__
+    # Store the original __init__ method
     original_init = cls.__init__
 
-    # Create a new class that inherits from SuperComponent
-    @component
-    class SuperComponentWrapper(SuperComponent):
-        def __init__(self, *args, **kwargs):
-            # First initialize the original class logic
-            original_self = cls.__new__(cls)
-            original_init(original_self, *args, **kwargs)
+    # Create a new __init__ method that will initialize both the original class and SuperComponent
+    def init_wrapper(self, *args, **kwargs):
+        # Call the original __init__ to set up pipeline and mappings
+        original_init(self, *args, **kwargs)
 
-            # Verify required attributes
-            if not hasattr(original_self, "pipeline"):
-                raise ValueError(f"Classes decorated with @super_component must define a 'pipeline' attribute")
+        # Verify required attributes
+        if not hasattr(self, "pipeline"):
+            raise ValueError(f"Class {cls.__name__} decorated with @super_component must define a 'pipeline' attribute")
 
-            # Initialize SuperComponent with the attributes from the original class
-            SuperComponent.__init__(
-                self,
-                pipeline=original_self.pipeline,
-                input_mapping=getattr(original_self, "input_mapping", None),
-                output_mapping=getattr(original_self, "output_mapping", None)
-            )
+        # Initialize SuperComponent
+        _SuperComponent.__init__(
+            self,
+            pipeline=self.pipeline,
+            input_mapping=getattr(self, "input_mapping", None),
+            output_mapping=getattr(self, "output_mapping", None)
+        )
 
-            # Copy over any other attributes from the original class
-            for attr_name, attr_value in original_self.__dict__.items():
-                if attr_name not in ["pipeline", "input_mapping", "output_mapping"]:
-                    setattr(self, attr_name, attr_value)
+    # Function to copy namespace from the original class
+    def copy_class_namespace(namespace):
+        """Copy all attributes from the original class except special ones."""
+        for key, val in dict(cls.__dict__).items():
+            # Skip special attributes that should be recreated
+            if key in ("__dict__", "__weakref__"):
+                continue
 
-    # Rename the wrapper class to match the original class
-    SuperComponentWrapper.__name__ = new_cls_name
-    SuperComponentWrapper.__qualname__ = new_cls_name
-    SuperComponentWrapper.__module__ = cls.__module__
+            # Override __init__ with our wrapper
+            if key == "__init__":
+                namespace["__init__"] = init_wrapper
+                continue
 
-    # Copy docstring and other attributes
-    SuperComponentWrapper.__doc__ = cls.__doc__
+            namespace[key] = val
 
-    return SuperComponentWrapper
+    # Create a new class inheriting from SuperComponent with the original methods
+    # We use (SuperComponent,) + cls.__bases__ to make the new class inherit from
+    # SuperComponent and all the original class's bases
+    new_cls = new_class(cls.__name__, (_SuperComponent,) + cls.__bases__, {}, copy_class_namespace)
+
+    # Copy other class attributes
+    new_cls.__module__ = cls.__module__
+    new_cls.__qualname__ = cls.__qualname__
+    new_cls.__doc__ = cls.__doc__
+
+    # Apply the component decorator to the new class
+    return component(new_cls)
