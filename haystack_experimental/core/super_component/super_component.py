@@ -473,31 +473,43 @@ def super_component(cls):
     - input_mapping: Dictionary mapping component inputs to pipeline inputs (optional)
     - output_mapping: Dictionary mapping pipeline outputs to component outputs (optional)
     """
+    # Create a new class that inherits from SuperComponent and the original class
+    new_cls_name = cls.__name__
+
     # Keep a reference to the original __init__
     original_init = cls.__init__
 
-    # Define a new __init__ that wraps the original
-    def __init_wrapper__(self, *args, **kwargs):
-        # Call the original __init__ to set up pipeline and mappings
-        original_init(self, *args, **kwargs)
+    # Create a new class that inherits from SuperComponent
+    @component
+    class SuperComponentWrapper(SuperComponent):
+        def __init__(self, *args, **kwargs):
+            # First initialize the original class logic
+            original_self = cls.__new__(cls)
+            original_init(original_self, *args, **kwargs)
 
-        # Verify required attributes
-        if not hasattr(self, "pipeline"):
-            raise ValueError("Classes decorated with @super_component must define a 'pipeline' attribute")
+            # Verify required attributes
+            if not hasattr(original_self, "pipeline"):
+                raise ValueError(f"Classes decorated with @super_component must define a 'pipeline' attribute")
 
-        # Initialize the SuperComponent with the provided attributes
-        SuperComponent.__init__(
-            self,
-            pipeline=self.pipeline,
-            input_mapping=getattr(self, "input_mapping", None),
-            output_mapping=getattr(self, "output_mapping", None)
-        )
+            # Initialize SuperComponent with the attributes from the original class
+            SuperComponent.__init__(
+                self,
+                pipeline=original_self.pipeline,
+                input_mapping=getattr(original_self, "input_mapping", None),
+                output_mapping=getattr(original_self, "output_mapping", None)
+            )
 
-    # Replace the __init__ method
-    cls.__init__ = __init_wrapper__
+            # Copy over any other attributes from the original class
+            for attr_name, attr_value in original_self.__dict__.items():
+                if attr_name not in ["pipeline", "input_mapping", "output_mapping"]:
+                    setattr(self, attr_name, attr_value)
 
-    # Make the class inherit from SuperComponent
-    cls.__bases__ = (SuperComponent,) + cls.__bases__
+    # Rename the wrapper class to match the original class
+    SuperComponentWrapper.__name__ = new_cls_name
+    SuperComponentWrapper.__qualname__ = new_cls_name
+    SuperComponentWrapper.__module__ = cls.__module__
 
-    # Apply the component decorator
-    return component(cls)
+    # Copy docstring and other attributes
+    SuperComponentWrapper.__doc__ = cls.__doc__
+
+    return SuperComponentWrapper
