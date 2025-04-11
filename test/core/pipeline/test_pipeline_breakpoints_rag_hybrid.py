@@ -126,7 +126,7 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    # @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
+    @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
