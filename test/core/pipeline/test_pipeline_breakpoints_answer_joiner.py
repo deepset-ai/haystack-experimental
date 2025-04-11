@@ -75,3 +75,5 @@ class TestPipelineBreakpoints:
                 result = answer_join_pipeline.run(data, resume_state_path=full_path)
                 assert result
                 assert result["answer_joiner"] is not None
+            else:
+                raise Exception("No file found for the component.")

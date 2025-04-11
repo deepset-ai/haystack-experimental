@@ -75,3 +75,5 @@ class TestPipelineBreakpoints:
             if str(f_name).startswith(component):
                 result = branch_joiner_pipeline.run(data, resume_state_path=full_path)
                 assert result
+            else:
+                raise Exception("No file found for the component.")
