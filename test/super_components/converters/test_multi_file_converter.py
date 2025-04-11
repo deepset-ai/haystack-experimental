@@ -5,8 +5,8 @@
 import pytest
 
 from haystack import Document, Pipeline
+from haystack.core.pipeline.base import component_to_dict, component_from_dict
 from haystack.dataclasses import ByteStream
-from haystack_experimental.core.super_component import SuperComponent
 from haystack_experimental.super_components.converters.multi_file_converter import MultiFileConverter
 
 
@@ -22,7 +22,6 @@ class TestMultiFileConverter:
         """Test initialization with default parameters"""
         assert converter.encoding == "utf-8"
         assert converter.json_content_key == "content"
-        assert isinstance(converter, SuperComponent)
 
     def test_init_custom_params(self, converter):
         """Test initialization with custom parameters"""
@@ -35,7 +34,7 @@ class TestMultiFileConverter:
 
     def test_to_dict(self, converter):
         """Test serialization to dictionary"""
-        data = converter.to_dict()
+        data = component_to_dict(converter, "converter")
         assert data == {
             "type": "haystack_experimental.super_components.converters.multi_file_converter.MultiFileConverter",
             "init_parameters": {
@@ -53,7 +52,7 @@ class TestMultiFileConverter:
                 "json_content_key": "text"
             }
         }
-        conv = MultiFileConverter.from_dict(data)
+        conv = component_from_dict(MultiFileConverter, data, "converter")
         assert conv.encoding == "latin-1"
         assert conv.json_content_key == "text"
 

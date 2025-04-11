@@ -3,9 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import Enum
-from typing import Any, Dict
 
-from haystack import Pipeline, component, default_from_dict, default_to_dict
+from haystack import Pipeline
 from haystack.components.converters import (
     CSVToDocument,
     DOCXToDocument,
@@ -20,7 +19,7 @@ from haystack.components.converters import (
 from haystack.components.joiners import DocumentJoiner
 from haystack.components.routers import FileTypeRouter
 
-from haystack_experimental.core.super_component import SuperComponent
+from haystack_experimental.core.super_component import super_component
 
 
 class ConverterMimeType(str, Enum):
@@ -35,8 +34,8 @@ class ConverterMimeType(str, Enum):
     XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
-@component
-class MultiFileConverter(SuperComponent):
+@super_component
+class MultiFileConverter:
     """
     A file converter that handles conversion of multiple file types.
 
@@ -60,11 +59,7 @@ class MultiFileConverter(SuperComponent):
     ```
     """
 
-    def __init__(  # noqa: PLR0915
-        self,
-        encoding: str = "utf-8",
-        json_content_key: str = "content",
-    ) -> None:
+    def __init__(self, encoding: str = "utf-8", json_content_key: str = "content") -> None:
         """
         Initialize the MultiFileConverter.
 
@@ -144,26 +139,6 @@ class MultiFileConverter(SuperComponent):
         pp.connect("csv.documents", "joiner.documents")
         pp.connect("xlsx.documents", "joiner.documents")
 
-        output_mapping = {"joiner.documents": "documents", "router.unclassified": "unclassified"}
-        input_mapping = {"sources": ["router.sources"], "meta": ["router.meta"]}
-
-        super(MultiFileConverter, self).__init__(
-            pipeline=pp, output_mapping=output_mapping, input_mapping=input_mapping
-        )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serialize this instance to a dictionary.
-        """
-        return default_to_dict(
-            self,
-            encoding=self.encoding,
-            json_content_key=self.json_content_key,
-        )
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MultiFileConverter":
-        """
-        Load this instance from a dictionary.
-        """
-        return default_from_dict(cls, data)
+        self.pipeline = pp
+        self.input_mapping = {"sources": ["router.sources"], "meta": ["router.meta"]}
+        self.output_mapping = {"joiner.documents": "documents", "router.unclassified": "unclassified"}
