@@ -56,6 +56,7 @@ dependencies = [
 extra-dependencies = [
   "anthropic-haystack", # Needed for type checking in Agent
   "docstring-parser", # ComponentTool
+  "colorama", # needed for the pipeline checkpoints test - might be removed later
   "markdown-it-py", # MultiFileConverter
   "mdit_plain", # MultiFileConverter
   "nltk", # HierachicalSplitter w/ split_by="sentence"
@@ -65,7 +66,8 @@ extra-dependencies = [
   "python-docx", # MultiFileConverter
   "python-pptx", # MultiFileConverter
   "trafilatura", # MultiFileConverter
-  "transformers>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
+  "sentence-transformers>=3.0.0", # needed for the pipeline checkpoints test
+  "transformers[torch,sentencepiece]>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -194,7 +196,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 120
 target-version = "py38"
-exclude = ["test", ".github"]
+exclude = ["test", ".github", "examples"]
 
 [tool.ruff.lint]
 select = [
