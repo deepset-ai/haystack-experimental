@@ -296,7 +296,7 @@ class TestPipeline:
             }
         }
         
-        assert Pipeline._validate_resume_state(state)
+        Pipeline._validate_resume_state(state) # should not raise any exception
         
     def test_load_state_loads_valid_state(self, tmp_path):        
         state = {

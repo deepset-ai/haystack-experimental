@@ -157,3 +157,5 @@ class TestPipelineBreakpoints:
                 result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state_path=full_path)
                 assert 'answer_builder' in result
                 assert result['answer_builder']
+            else:
+                raise Exception("Breakpoint not found in output files.")

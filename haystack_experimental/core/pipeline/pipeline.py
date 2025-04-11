@@ -543,7 +543,7 @@ class Pipeline(PipelineBase):
         self.debug_path.mkdir(exist_ok=True)
 
         dt = datetime.now()
-        file_name = Path(f"breakpoint_at_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+        file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
             "input_data": self._serialize_component_input(self.original_input_data),  # original input data
             "timestamp": dt.isoformat(),
