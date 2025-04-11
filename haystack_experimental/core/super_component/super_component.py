@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import functools
+import inspect
 from types import new_class
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -484,6 +486,10 @@ def super_component(cls: Any):
             input_mapping=getattr(self, "input_mapping", None),
             output_mapping=getattr(self, "output_mapping", None)
         )
+
+    # Preserve original init's signature for IDEs/docs/tools
+    init_wrapper = functools.wraps(original_init)(init_wrapper)
+    init_wrapper.__signature__ = inspect.signature(original_init)
 
     # Function to copy namespace from the original class
     def copy_class_namespace(namespace):
