@@ -4,7 +4,7 @@
 
 from typing import Any, Dict, List, Literal, Optional
 
-from haystack import Pipeline, component, default_from_dict, default_to_dict
+from haystack import Pipeline, default_from_dict, default_to_dict
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.types import DocumentStore, DuplicatePolicy
@@ -16,11 +16,11 @@ from haystack.utils import (
 )
 from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kwargs
 
-from haystack_experimental.core.super_component import SuperComponent
+from haystack_experimental.core.super_component import super_component
 
 
-@component
-class SentenceTransformersDocumentIndexer(SuperComponent):
+@super_component
+class SentenceTransformersDocumentIndexer:
     """
     A document indexer that takes a list of documents, embeds them using SentenceTransformers, and stores them.
 
@@ -41,26 +41,27 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
     ```
     """
 
-    def __init__( # pylint: disable=R0917
-            self,
-            document_store: DocumentStore,
-            model: str = "sentence-transformers/all-mpnet-base-v2",
-            device: Optional[ComponentDevice] = None,
-            token: Optional[Secret] = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
-            prefix: str = "",
-            suffix: str = "",
-            batch_size: int = 32,
-            progress_bar: bool = True,
-            normalize_embeddings: bool = False,
-            meta_fields_to_embed: Optional[List[str]] = None,
-            embedding_separator: str = "\n",
-            trust_remote_code: bool = False,
-            truncate_dim: Optional[int] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tokenizer_kwargs: Optional[Dict[str, Any]] = None,
-            config_kwargs: Optional[Dict[str, Any]] = None,
-            precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
-            duplicate_policy: DuplicatePolicy = DuplicatePolicy.OVERWRITE,
+    def __init__(
+        self,
+        *,
+        document_store: DocumentStore,
+        model: str = "sentence-transformers/all-mpnet-base-v2",
+        device: Optional[ComponentDevice] = None,
+        token: Optional[Secret] = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
+        prefix: str = "",
+        suffix: str = "",
+        batch_size: int = 32,
+        progress_bar: bool = True,
+        normalize_embeddings: bool = False,
+        meta_fields_to_embed: Optional[List[str]] = None,
+        embedding_separator: str = "\n",
+        trust_remote_code: bool = False,
+        truncate_dim: Optional[int] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tokenizer_kwargs: Optional[Dict[str, Any]] = None,
+        config_kwargs: Optional[Dict[str, Any]] = None,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
+        duplicate_policy: DuplicatePolicy = DuplicatePolicy.OVERWRITE,
     ) -> None:
         """
         Initialize the SentenceTransformersDocumentIndexer component.
@@ -136,11 +137,10 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
 
         pipeline.connect("embedder.documents", "writer.documents")
 
-        super(SentenceTransformersDocumentIndexer, self).__init__(
-            pipeline=pipeline,
-            input_mapping={"documents": ["embedder.documents"]},
-            output_mapping={"writer.documents_written": "documents_written"},
-        )
+        # Required attributes for SuperComponent
+        self.pipeline = pipeline
+        self.input_mapping = {"documents": ["embedder.documents"]}
+        self.output_mapping = {"writer.documents_written": "documents_written"}
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -187,8 +187,6 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
 
         # Handle secrets deserialization
         deserialize_secrets_inplace(init_params, keys=["token"])
-
-
 
         # Handle model kwargs deserialization
         if init_params.get("model_kwargs") is not None:

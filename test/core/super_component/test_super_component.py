@@ -16,7 +16,7 @@ from haystack.utils.auth import Secret
 from haystack.core.serialization import default_from_dict, default_to_dict
 
 from haystack_experimental import SuperComponent
-from haystack_experimental.core.super_component.super_component import InvalidMappingError
+from haystack_experimental.core.super_component.super_component import InvalidMappingTypeError
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ class TestSuperComponent:
 
     def test_split_component_path_error(self):
         path = "router"
-        with pytest.raises(InvalidMappingError):
+        with pytest.raises(InvalidMappingTypeError):
             SuperComponent._split_component_path(path)
 
     def test_explicit_input_mapping(self, rag_pipeline):

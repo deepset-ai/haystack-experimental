@@ -4,16 +4,16 @@
 
 from typing import Any, Callable, Dict, List, Literal, Optional
 
-from haystack import Pipeline, component, default_from_dict, default_to_dict
+from haystack import Pipeline, default_from_dict, default_to_dict
 from haystack.components.preprocessors.document_cleaner import DocumentCleaner
 from haystack.components.preprocessors.document_splitter import DocumentSplitter, Language
 from haystack.utils import deserialize_callable, serialize_callable
 
-from haystack_experimental.core.super_component import SuperComponent
+from haystack_experimental.core.super_component import super_component
 
 
-@component
-class DocumentPreProcessor(SuperComponent):
+@super_component
+class DocumentPreProcessor:
     """
     A SuperComponent that cleans documents and then splits them.
 
@@ -30,8 +30,9 @@ class DocumentPreProcessor(SuperComponent):
     ```
     """
 
-    def __init__( # pylint: disable=R0917
+    def __init__(
         self,
+        *,
         # --- DocumentCleaner arguments ---
         remove_empty_lines: bool = True,
         remove_extra_whitespaces: bool = True,
@@ -124,12 +125,12 @@ class DocumentPreProcessor(SuperComponent):
         )
 
         # Build the Pipeline
-        pp = Pipeline()
-        pp.add_component("cleaner", cleaner)
-        pp.add_component("splitter", splitter)
+        pipeline = Pipeline()
+        pipeline.add_component("cleaner", cleaner)
+        pipeline.add_component("splitter", splitter)
 
         # Connect the cleaner output to splitter
-        pp.connect("cleaner.documents", "splitter.documents")
+        pipeline.connect("cleaner.documents", "splitter.documents")
 
         # Define how pipeline inputs/outputs map to sub-component inputs/outputs
         input_mapping = {
@@ -139,12 +140,10 @@ class DocumentPreProcessor(SuperComponent):
         # The pipeline output "documents" comes from "splitter.documents"
         output_mapping = {"splitter.documents": "documents"}
 
-        # Initialize the SuperComponent
-        super(DocumentPreProcessor, self).__init__(
-            pipeline=pp,
-            input_mapping=input_mapping,
-            output_mapping=output_mapping
-        )
+        # Required attributes for SuperComponent
+        self.pipeline = pipeline
+        self.input_mapping = input_mapping
+        self.output_mapping = output_mapping
 
     def to_dict(self) -> Dict[str, Any]:
         """

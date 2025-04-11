@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .super_component import SuperComponent
+from .super_component import SuperComponent, super_component
 
-_all_ = ["SuperComponent"]
+__all__ = ["SuperComponent", "super_component"]
