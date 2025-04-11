@@ -7,10 +7,11 @@ import inspect
 from types import new_class
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from haystack import component, logging, Pipeline
+from haystack import Pipeline, component, logging
 from haystack.core.pipeline.async_pipeline import AsyncPipeline
 from haystack.core.pipeline.utils import parse_connect_string
 from haystack.core.serialization import default_from_dict, default_to_dict, generate_qualified_class_name
+
 from haystack_experimental.core.super_component.utils import _delegate_default, _is_compatible
 
 logger = logging.getLogger(__name__)
