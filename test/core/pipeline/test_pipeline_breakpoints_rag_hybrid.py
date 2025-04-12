@@ -1,7 +1,4 @@
 import os
-import sys
-from pathlib import Path
-
 import pytest
 
 from haystack.components.builders.answer_builder import AnswerBuilder
@@ -19,7 +16,7 @@ from haystack import Document
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
-import os
+
 class TestPipelineBreakpoints:
     """
     This class contains tests for pipelines with breakpoints.
@@ -44,6 +41,9 @@ class TestPipelineBreakpoints:
         ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
         ingestion_pipe.connect("doc_embedder.documents", "doc_writer.documents")
+
+        print("\n\nRunning doc store pipeline...")
+
         ingestion_pipe.run({"doc_embedder": {"documents": documents}})
 
         return document_store
@@ -100,20 +100,6 @@ class TestPipelineBreakpoints:
     def output_directory(self, tmp_path_factory):
         return tmp_path_factory.mktemp("output_files")
 
-    """
-    def test_pipeline_breakpoints_invalid_component(self, hybrid_rag_pipeline, output_directory):
-        question = "Where does Mark live?"
-        data = {
-            "query_embedder": {"text": question},
-            "bm25_retriever": {"query": question},
-            "ranker": {"query": question, "top_k": 10},
-            "prompt_builder": {"question": question},
-            "answer_builder": {"query": question},
-        }
-        with pytest.raises(ValueError, match="Breakpoint .* is not a registered component"):
-            hybrid_rag_pipeline.run(data, breakpoints={("non_existent_component", 0)})
-    """
-
     components = [
         "bm25_retriever",
         "query_embedder",
@@ -126,7 +112,7 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
+    # @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
@@ -151,9 +137,14 @@ class TestPipelineBreakpoints:
             pass
 
         all_files = list(output_directory.glob("*"))
+        file_found = False
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
+                file_found = True
                 result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state_path=full_path)
                 assert 'answer_builder' in result
                 assert result['answer_builder']
+                break
+        if not file_found:
+            raise ValueError("No files found for {component} in {output_directory}.")
