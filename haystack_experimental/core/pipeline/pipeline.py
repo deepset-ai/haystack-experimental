@@ -282,17 +282,8 @@ class Pipeline(PipelineBase):
             component_visits = dict.fromkeys(self.ordered_component_names, 0)
 
         else:
-            # load the file containing the resume state
-            self.resume_state = Pipeline.load_state(resume_state_path)
-            self._validate_pipeline_state(self.resume_state)
-            data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
-            component_visits = self.resume_state["pipeline_state"]["component_visits"]
-            self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
-            msg = (
-                f"Resuming pipeline from {self.resume_state['breakpoint']['component']} "
-                f"visit count {self.resume_state['breakpoint']['visits']}"
-            )
-            logger.info(msg)
+            # load the file containing the resume state and inject it into the graph
+            component_visits, data = self.inject_resume_state_into_graph(resume_state_path)
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -368,6 +359,28 @@ class Pipeline(PipelineBase):
                 logger.warning("1. The provided component is not a part of the pipeline execution path.")
                 logger.warning("2. The component did not reach the visit count specified in the breakpoint")
             return pipeline_outputs
+
+    def inject_resume_state_into_graph(
+        self,
+        resume_state_path: Union[str, Path]
+    ) -> Tuple[Dict[str, int], Dict[str, Any]]:
+        """
+        Loads the resume state from a file and injects it into the pipeline graph.
+
+        :param resume_state_path: Path to the resume state file.
+        """
+
+        self.resume_state = Pipeline.load_state(resume_state_path)
+        self._validate_pipeline_state(self.resume_state)
+        data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
+        component_visits = self.resume_state["pipeline_state"]["component_visits"]
+        self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
+        msg = (
+            f"Resuming pipeline from {self.resume_state['breakpoint']['component']} "
+            f"visit count {self.resume_state['breakpoint']['visits']}"
+        )
+        logger.info(msg)
+        return component_visits, data
 
     def _validate_breakpoints(self, breakpoints: Set[Tuple[str, Optional[int]]]) -> Set[Tuple[str, int]]:
         """
@@ -538,44 +551,6 @@ class Pipeline(PipelineBase):
             return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
 
         return value
-
-    """
-    @staticmethod
-    def _deserialize_component_input(value: Any) -> Any:  # noqa: PLR0911
-        _type_deserializers = {
-            "Answer": Answer.from_dict,
-            "ChatMessage": ChatMessage.from_dict,
-            "Document": Document.from_dict,
-            "ExtractedAnswer": ExtractedAnswer.from_dict,
-            "GeneratedAnswer": GeneratedAnswer.from_dict,
-            "SparseEmbedding": SparseEmbedding.from_dict,
-        }
-
-        # None or primitive types are returned as is
-        if not value or isinstance(value, (str, int, float, bool)):
-            return value
-
-        if hasattr(value, "from_dict") and callable(getattr(value, "from_dict")):
-            return value.from_dict(value)
-
-        if isinstance(value, list):
-            # list of primitive types are returned as is
-            if all(isinstance(i, (str, int, float, bool)) for i in value):
-                return value
-            # list of lists are called recursively
-            if all(isinstance(i, list) for i in value):
-                return [Pipeline._deserialize_component_input(i) for i in value]
-            # list of dicts are called recursively
-            if all(isinstance(i, dict) for i in value):
-                return [Pipeline._deserialize_component_input(i) for i in value]
-
-        # check if the dictionary has a "_type" key and if it's a known type
-        if isinstance(value, dict):
-            # If not a known type, recursively deserialize each item in the dictionary
-            return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
-
-        return value
-    """
 
     def save_state(
         self,
