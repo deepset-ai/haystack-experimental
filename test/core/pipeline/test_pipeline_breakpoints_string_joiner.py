@@ -60,8 +60,12 @@ class TestPipelineBreakpoints:
             pass
 
         all_files = list(output_directory.glob("*"))
+        file_found = False
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
+                file_found = True
                 result = string_joiner_pipeline.run(data, resume_state_path=full_path)
                 assert result
+        if not file_found:
+            raise ValueError("No files found for {component} in {output_directory}.")

@@ -8,10 +8,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
-from haystack import logging, tracing
+from haystack import logging, tracing, Answer, Document, ExtractedAnswer
 from haystack.components.joiners import BranchJoiner, DocumentJoiner, AnswerJoiner, ListJoiner
 from haystack.core.component import Component
-from haystack.dataclasses import ChatMessage, GeneratedAnswer
+from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineRuntimeError
@@ -78,6 +78,9 @@ class Pipeline(PipelineBase):
         if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
+
+        if self.resume_state:
+            print("Running component: ", component_name)
 
         # add component_inputs to inputs
         breakpoint_inputs = deepcopy(inputs)
@@ -504,7 +507,7 @@ class Pipeline(PipelineBase):
         return value
 
     @staticmethod
-    def _deserialize_component_input(value: Any) -> Any:  # noqa: PLR0911
+    def _deserialize_component_input(value):  # noqa: PLR0911
         """
         Tries to deserialize any type of input that can be passed to as input to a pipeline component.
 
@@ -515,24 +518,39 @@ class Pipeline(PipelineBase):
         if not value or isinstance(value, (str, int, float, bool)):
             return value
 
+        # list of primitive types are returned as is
+        if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
+            return value
+
         if isinstance(value, list):
-
-            # list of primitive types are returned as is
-            if all(isinstance(i, (str, int, float, bool)) for i in value):
-                return value
-
             # list of lists are called recursively
             if all(isinstance(i, list) for i in value):
                 return [Pipeline._deserialize_component_input(i) for i in value]
-
             # list of dicts are called recursively
             if all(isinstance(i, dict) for i in value):
                 return [Pipeline._deserialize_component_input(i) for i in value]
 
+        # Define the mapping of types to their deserialization functions
+        _type_deserializers = {
+            "Answer": Answer.from_dict,
+            "ChatMessage": ChatMessage.from_dict,
+            "Document": Document.from_dict,
+            "ExtractedAnswer": ExtractedAnswer.from_dict,
+            "GeneratedAnswer": GeneratedAnswer.from_dict,
+            "SparseEmbedding": SparseEmbedding.from_dict,
+        }
+
         # check if the dictionary has a "_type" key and if it's a known type
         if isinstance(value, dict):
+            if "_type" in value:
+                type_name = value.pop("_type")
+                if type_name in _type_deserializers:
+                    return _type_deserializers[type_name](value)
+
             # If not a known type, recursively deserialize each item in the dictionary
             return {k: Pipeline._deserialize_component_input(v) for k, v in value.items()}
+
+        return value
 
     def save_state(
         self,
@@ -554,7 +572,7 @@ class Pipeline(PipelineBase):
         self.debug_path.mkdir(exist_ok=True)
 
         dt = datetime.now()
-        file_name = Path(f"breakpoint_at_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+        file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
         state = {
             "input_data": self._serialize_component_input(self.original_input_data),  # original input data
             "timestamp": dt.isoformat(),

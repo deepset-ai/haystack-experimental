@@ -129,7 +129,11 @@ class TestPipelineBreakpointsLoops:
 
         return {"schema": json_schema, "passage": passage}
 
-    components = ["prompt_builder", "llm", "output_validator"]
+    components = [
+        "prompt_builder",
+        "llm",
+        "output_validator"
+    ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
     @pytest.mark.skipif(
@@ -153,11 +157,12 @@ class TestPipelineBreakpointsLoops:
             pass
 
         all_files = list(output_directory.glob("*"))
+        file_found = False
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
+                file_found = True
                 result = validation_loop_pipeline.run(data={}, resume_state_path=full_path)
-
                 # Verify the result contains valid output
                 if "output_validator" in result and "valid_replies" in result["output_validator"]:
                     valid_reply = result["output_validator"]["valid_replies"][0].text
@@ -166,3 +171,5 @@ class TestPipelineBreakpointsLoops:
                     assert "cities" in valid_json
                     cities_data = CitiesData.model_validate(valid_json)
                     assert len(cities_data.cities) == 3
+        if not file_found:
+            raise ValueError("No files found for {component} in {output_directory}.")
