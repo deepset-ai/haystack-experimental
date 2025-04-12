@@ -1,4 +1,6 @@
 import os
+import sys
+
 import pytest
 
 from haystack.components.builders.answer_builder import AnswerBuilder
