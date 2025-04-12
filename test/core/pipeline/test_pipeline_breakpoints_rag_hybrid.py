@@ -41,9 +41,6 @@ class TestPipelineBreakpoints:
         ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
         ingestion_pipe.connect("doc_embedder.documents", "doc_writer.documents")
-
-        print("\n\nRunning doc store pipeline...")
-
         ingestion_pipe.run({"doc_embedder": {"documents": documents}})
 
         return document_store
