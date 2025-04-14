@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -8,6 +9,7 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import AnswerJoiner
 from haystack.core.pipeline import Pipeline
 from haystack.dataclasses import ChatMessage
+from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
@@ -16,10 +18,56 @@ import os
 class TestPipelineBreakpoints:
 
     @pytest.fixture
-    def answer_join_pipeline(self):
+    def mock_openai_chat_generator(self):
+        with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+            mock_completion = MagicMock()
+            mock_completion.choices = [
+                MagicMock(
+                    finish_reason="stop",
+                    index=0,
+                    message=MagicMock(content="Natural Language Processing (NLP) is a field of AI focused on enabling computers to understand, interpret, and generate human language.")
+                )
+            ]
+            mock_completion.usage = {
+                "prompt_tokens": 57,
+                "completion_tokens": 40,
+                "total_tokens": 97
+            }
+            
+            mock_chat_completion_create.return_value = mock_completion
+            
+            # Create a mock for the OpenAIChatGenerator
+            def create_mock_generator(model_name):
+                generator = OpenAIChatGenerator(model=model_name, api_key=Secret.from_token("test-api-key"))
+                
+                # Mock the run method
+                def mock_run(messages, streaming_callback=None, generation_kwargs=None, tools=None, tools_strict=None):
+                    if "gpt-4" in model_name:
+                        content = "Natural Language Processing (NLP) is a field of AI focused on enabling computers to understand, interpret, and generate human language."
+                    else:
+                        content = "NLP is a branch of AI that helps machines understand and process human language."
+                    
+                    return {
+                        "replies": [ChatMessage.from_assistant(content)],
+                        "meta": {"model": model_name, "usage": {"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97}}
+                    }
+                
+                # Replace the run method with our mock
+                generator.run = mock_run
+                
+                return generator
+            
+            yield create_mock_generator
+
+    @pytest.fixture
+    def answer_join_pipeline(self, mock_openai_chat_generator):
+        """
+        Creates a pipeline with mocked OpenAI components.
+        """
+        # Create the pipeline with mocked components
         pipeline = Pipeline()
-        pipeline.add_component("gpt-4o", OpenAIChatGenerator(model="gpt-4o"))
-        pipeline.add_component("gpt-3", OpenAIChatGenerator(model="gpt-3.5-turbo"))
+        pipeline.add_component("gpt-4o", mock_openai_chat_generator("gpt-4o"))
+        pipeline.add_component("gpt-3", mock_openai_chat_generator("gpt-3.5-turbo"))
         pipeline.add_component("answer_builder_a", AnswerBuilder())
         pipeline.add_component("answer_builder_b", AnswerBuilder())
         pipeline.add_component("answer_joiner", AnswerJoiner())
@@ -43,12 +91,10 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
     def test_pipeline_breakpoints_answer_joiner(self, answer_join_pipeline, output_directory, component):
-
+        """
+        Test that an answer joiner pipeline can be executed with breakpoints at each component.
+        """
         query = "What's Natural Language Processing?"
         messages = [
             ChatMessage.from_system("You are a helpful, respectful and honest assistant. Be super concise."),

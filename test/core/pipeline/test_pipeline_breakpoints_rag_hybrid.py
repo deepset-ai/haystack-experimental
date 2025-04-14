@@ -1,5 +1,6 @@
 import os
 import sys
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -14,6 +15,7 @@ from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 from haystack import Document
+from haystack.utils.auth import Secret
 
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
@@ -48,12 +50,120 @@ class TestPipelineBreakpoints:
         return document_store
 
     @pytest.fixture
-    def hybrid_rag_pipeline(self, document_store):
+    def mock_openai_completion(self):
+        with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+            mock_completion = MagicMock()
+            mock_completion.model = "gpt-4o-mini"
+            mock_completion.choices = [
+                MagicMock(
+                    finish_reason="stop",
+                    index=0,
+                    message=MagicMock(content="Mark lives in Berlin.")
+                )
+            ]
+            mock_completion.usage = {
+                "prompt_tokens": 57,
+                "completion_tokens": 40,
+                "total_tokens": 97
+            }
+
+            mock_chat_completion_create.return_value = mock_completion
+            yield mock_chat_completion_create
+            
+    @pytest.fixture
+    def mock_transformers_similarity_ranker(self):
+        """
+        This mock simulates the behavior of the ranker without loading the actual model.
+        """
+        with patch("haystack.components.rankers.transformers_similarity.AutoModelForSequenceClassification") as mock_model_class, \
+             patch("haystack.components.rankers.transformers_similarity.AutoTokenizer") as mock_tokenizer_class:
+
+            mock_model = MagicMock()
+            mock_tokenizer = MagicMock()
+
+            mock_model_class.from_pretrained.return_value = mock_model
+            mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
+
+            ranker = TransformersSimilarityRanker(
+                model="mock-model",
+                top_k=5,
+                scale_score=True,
+                calibration_factor=1.0
+            )
+
+            def mock_run(query, documents, top_k=None, scale_score=None, calibration_factor=None, score_threshold=None):
+                # assign random scores
+                import random
+                ranked_docs = documents.copy()
+                for doc in ranked_docs:
+                    doc.score = random.random()  # random score between 0 and 1
+
+                # sort reverse order and select top_k if provided
+                ranked_docs.sort(key=lambda x: x.score, reverse=True)
+                if top_k is not None:
+                    ranked_docs = ranked_docs[:top_k]
+                else:
+                    ranked_docs = ranked_docs[:ranker.top_k]
+                    
+                # apply score threshold if provided
+                if score_threshold is not None:
+                    ranked_docs = [doc for doc in ranked_docs if doc.score >= score_threshold]
+                    
+                return {"documents": ranked_docs}
+            
+            # replace the run method with our mock
+            ranker.run = mock_run
+            
+            # warm_up to initialize the component
+            ranker.warm_up()
+            
+            return ranker
+            
+    @pytest.fixture
+    def mock_sentence_transformers_text_embedder(self):
+        """
+        Simulates the behavior of the embedder without loading the actual model
+        """
+        with patch("haystack.components.embedders.backends.sentence_transformers_backend.SentenceTransformer") as mock_sentence_transformer:
+            mock_model = MagicMock()
+            mock_sentence_transformer.return_value = mock_model
+            
+            # the mock returns a fixed embedding
+            def mock_encode(texts, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None, **kwargs):
+                import numpy as np
+                return [np.ones(384).tolist() for _ in texts]
+            
+            mock_model.encode = mock_encode
+
+            embedder = SentenceTransformersTextEmbedder(
+                model="mock-model",
+                progress_bar=False
+            )
+            
+            # mocked run method to return a fixed embedding
+            def mock_run(text):
+                if not isinstance(text, str):
+                    raise TypeError(
+                        "SentenceTransformersTextEmbedder expects a string as input."
+                        "In case you want to embed a list of Documents, please use the SentenceTransformersDocumentEmbedder."
+                    )
+
+                import numpy as np
+                embedding = np.ones(384).tolist()
+                return {"embedding": embedding}
+            
+            # mocked run
+            embedder.run = mock_run
+            
+            # initialize the component
+            embedder.warm_up()
+            
+            return embedder
+
+    @pytest.fixture
+    def hybrid_rag_pipeline(self, document_store, mock_transformers_similarity_ranker, mock_sentence_transformers_text_embedder):
         """Create a hybrid RAG pipeline for testing."""
-        query_embedder = SentenceTransformersTextEmbedder(
-            model="sentence-transformers/paraphrase-MiniLM-L3-v2",
-            progress_bar=False
-        )
+        
 
         prompt_template = """
         Given these documents, answer the question based on the document content only.\nDocuments:
@@ -66,21 +176,23 @@ class TestPipelineBreakpoints:
         """
         pipeline = Pipeline()
         pipeline.add_component(instance=InMemoryBM25Retriever(document_store=document_store), name="bm25_retriever")
-        pipeline.add_component(instance=query_embedder, name="query_embedder")
-        pipeline.add_component(
-            instance=InMemoryEmbeddingRetriever(document_store=document_store),
-            name="embedding_retriever"
-        )
+        
+        # Use the mocked embedder instead of creating a new one        
+        pipeline.add_component(instance=mock_sentence_transformers_text_embedder, name="query_embedder")
+        
+        pipeline.add_component(instance=InMemoryEmbeddingRetriever(document_store=document_store),name="embedding_retriever")
         pipeline.add_component(instance=DocumentJoiner(sort_by_score=False), name="doc_joiner")
-        pipeline.add_component(
-            instance=TransformersSimilarityRanker(model="intfloat/simlm-msmarco-reranker", top_k=5),
-            name="ranker"
-        )
+        
+        # Use the mocked ranker instead of the real one
+        pipeline.add_component(instance=mock_transformers_similarity_ranker, name="ranker")
+
         pipeline.add_component(instance=PromptBuilder(
             template=prompt_template, required_variables=['documents', 'question']),
             name="prompt_builder"
         )
-        pipeline.add_component(instance=OpenAIGenerator(), name="llm")
+
+        # Use a mocked API key for the OpenAIGenerator
+        pipeline.add_component(instance=OpenAIGenerator(api_key=Secret.from_token("test-api-key")), name="llm")
         pipeline.add_component(instance=AnswerBuilder(), name="answer_builder")
 
         pipeline.connect("query_embedder", "embedding_retriever.query_embedding")
@@ -112,11 +224,9 @@ class TestPipelineBreakpoints:
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
     @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
-    def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory, component):
+    def test_pipeline_breakpoints_hybrid_rag(
+            self, hybrid_rag_pipeline, document_store, output_directory, component, mock_openai_completion
+    ):
         """
         Test that a hybrid RAG pipeline can be executed with breakpoints at each component.
         """

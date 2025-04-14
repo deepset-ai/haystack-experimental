@@ -1,5 +1,6 @@
 import os
 from typing import List
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -8,6 +9,7 @@ from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import ListJoiner
 from haystack.dataclasses import ChatMessage
+from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
@@ -15,7 +17,54 @@ import os
 class TestPipelineBreakpoints:
 
     @pytest.fixture
-    def list_joiner_pipeline(self):
+    def mock_openai_chat_generator(self):
+        """
+        Creates a mock for the OpenAIChatGenerator.
+        """
+        with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+            # Create mock completion objects
+            mock_completion = MagicMock()
+            mock_completion.choices = [
+                MagicMock(
+                    finish_reason="stop",
+                    index=0,
+                    message=MagicMock(content="Nuclear physics is the study of atomic nuclei, their constituents, and their interactions.")
+                )
+            ]
+            mock_completion.usage = {
+                "prompt_tokens": 57,
+                "completion_tokens": 40,
+                "total_tokens": 97
+            }
+            
+            mock_chat_completion_create.return_value = mock_completion
+            
+            # Create a mock for the OpenAIChatGenerator
+            def create_mock_generator(model_name):
+                generator = OpenAIChatGenerator(model=model_name, api_key=Secret.from_token("test-api-key"))
+                
+                # Mock the run method
+                def mock_run(messages, streaming_callback=None, generation_kwargs=None, tools=None, tools_strict=None):
+                    # Check if this is a feedback request or a regular query
+                    if any("feedback" in msg.text.lower() for msg in messages):
+                        content = "Score: 8/10. The answer is concise and accurate, providing a good overview of nuclear physics."
+                    else:
+                        content = "Nuclear physics is the study of atomic nuclei, their constituents, and their interactions."
+                    
+                    return {
+                        "replies": [ChatMessage.from_assistant(content)],
+                        "meta": {"model": model_name, "usage": {"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97}}
+                    }
+                
+                # Replace the run method with our mock
+                generator.run = mock_run
+                
+                return generator
+            
+            yield create_mock_generator
+
+    @pytest.fixture
+    def list_joiner_pipeline(self, mock_openai_chat_generator):
         user_message = [ChatMessage.from_user("Give a brief answer the following question: {{query}}")]
 
         feedback_prompt = """
@@ -29,8 +78,8 @@ class TestPipelineBreakpoints:
 
         prompt_builder = ChatPromptBuilder(template=user_message)
         feedback_prompt_builder = ChatPromptBuilder(template=feedback_message)
-        llm = OpenAIChatGenerator(model="gpt-4o-mini")
-        feedback_llm = OpenAIChatGenerator(model="gpt-4o-mini")
+        llm = mock_openai_chat_generator("gpt-4o-mini")
+        feedback_llm = mock_openai_chat_generator("gpt-4o-mini")
 
         pipe = Pipeline()
         pipe.add_component("prompt_builder", prompt_builder)
@@ -61,10 +110,6 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
     def test_list_joiner_pipeline(self, list_joiner_pipeline, output_directory, component):
 
         query = "What is nuclear physics?"
