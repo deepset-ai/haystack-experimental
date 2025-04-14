@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Type, Dict
+from typing import Any, Dict, Optional, Type
 
 
 class PipelineError(Exception):
@@ -108,3 +108,11 @@ class PipelineBreakpointException(Exception):
         self.state = state
         self.results = results
 
+
+class PipelineInvalidResumeStateError(Exception):
+    """
+    Exception raised when a pipeline is resumed from an invalid state.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(message)
