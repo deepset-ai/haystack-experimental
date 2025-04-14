@@ -68,4 +68,5 @@ class TestPipelineBreakpoints:
                 result = string_joiner_pipeline.run(data, resume_state_path=full_path)
                 assert result
         if not file_found:
-            raise ValueError("No files found for {component} in {output_directory}.")
+            msg = f"No files found for {component} in {output_directory}."
+            raise ValueError(msg)

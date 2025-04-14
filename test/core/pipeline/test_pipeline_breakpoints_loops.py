@@ -172,4 +172,5 @@ class TestPipelineBreakpointsLoops:
                     cities_data = CitiesData.model_validate(valid_json)
                     assert len(cities_data.cities) == 3
         if not file_found:
-            raise ValueError("No files found for {component} in {output_directory}.")
+            msg = f"No files found for {component} in {output_directory}."
+            raise ValueError(msg)
