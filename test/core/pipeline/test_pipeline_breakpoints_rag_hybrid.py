@@ -1,5 +1,7 @@
 import os
 import sys
+from unittest.mock import patch, MagicMock
+from datetime import datetime
 
 import pytest
 
@@ -14,6 +16,8 @@ from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 from haystack import Document
+from haystack.utils.auth import Secret
+from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
@@ -48,6 +52,31 @@ class TestPipelineBreakpoints:
         return document_store
 
     @pytest.fixture
+    def mock_openai_completion(self):
+        """
+        Create a custom mock for OpenAI API completion response.
+        """
+        with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+            # Create a mock completion object
+            mock_completion = MagicMock()
+            mock_completion.model = "gpt-4o-mini"
+            mock_completion.choices = [
+                MagicMock(
+                    finish_reason="stop",
+                    index=0,
+                    message=MagicMock(content="Mark lives in Berlin.")
+                )
+            ]
+            mock_completion.usage = {
+                "prompt_tokens": 57,
+                "completion_tokens": 40,
+                "total_tokens": 97
+            }
+            
+            mock_chat_completion_create.return_value = mock_completion
+            yield mock_chat_completion_create
+
+    @pytest.fixture
     def hybrid_rag_pipeline(self, document_store):
         """Create a hybrid RAG pipeline for testing."""
         query_embedder = SentenceTransformersTextEmbedder(
@@ -80,7 +109,8 @@ class TestPipelineBreakpoints:
             template=prompt_template, required_variables=['documents', 'question']),
             name="prompt_builder"
         )
-        pipeline.add_component(instance=OpenAIGenerator(), name="llm")
+        # Use a mocked API key for the OpenAIGenerator
+        pipeline.add_component(instance=OpenAIGenerator(api_key=Secret.from_token("test-api-key")), name="llm")
         pipeline.add_component(instance=AnswerBuilder(), name="answer_builder")
 
         pipeline.connect("query_embedder", "embedding_retriever.query_embedding")
@@ -111,12 +141,10 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
-    def test_pipeline_breakpoints_hybrid_rag(self, hybrid_rag_pipeline, document_store, output_directory, component):
+    # @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
+    def test_pipeline_breakpoints_hybrid_rag(
+            self, hybrid_rag_pipeline, document_store, output_directory, component, mock_openai_completion
+    ):
         """
         Test that a hybrid RAG pipeline can be executed with breakpoints at each component.
         """
