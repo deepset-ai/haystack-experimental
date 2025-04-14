@@ -9,12 +9,16 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
-from haystack.components.joiners import AnswerJoiner, BranchJoiner, DocumentJoiner, ListJoiner
+from haystack.components.joiners import BranchJoiner, DocumentJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
-from haystack_experimental.core.errors import PipelineBreakpointException, PipelineRuntimeError
+from haystack_experimental.core.errors import (
+    PipelineBreakpointException,
+    PipelineInvalidResumeStateError,
+    PipelineRuntimeError,
+)
 from haystack_experimental.core.pipeline.base import ComponentPriority, PipelineBase
 
 logger = logging.getLogger(__name__)
@@ -115,19 +119,11 @@ class Pipeline(PipelineBase):
             try:
                 component_output = instance.run(**component_inputs)
             except Exception as error:
-                raise PipelineRuntimeError(
-                    f"The following component failed to run:\n"
-                    f"Component name: '{component_name}'\n"
-                    f"Component type: '{instance.__class__.__name__}'\n"
-                    f"Error: {str(error)}"
-                ) from error
+                raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
             component_visits[component_name] += 1
 
             if not isinstance(component_output, Mapping):
-                raise PipelineRuntimeError(
-                    f"Component '{component_name}' didn't return a dictionary. "
-                    "Components must always return dictionaries: check the documentation."
-                )
+                raise PipelineRuntimeError.from_invalid_output(component_name, instance.__class__, component_output)
 
             span.set_tag("haystack.component.visits", component_visits[component_name])
             span.set_content_tag("haystack.component.output", component_output)
@@ -366,7 +362,7 @@ class Pipeline(PipelineBase):
         # We previously check if the resume_state is None but
         # this is needed to prevent a typing error
         if not self.resume_state:
-            raise PipelineRuntimeError("Cannot inject resume state: resume_state is None")
+            raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
 
         self._validate_pipeline_state(self.resume_state)
         data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
@@ -642,7 +638,7 @@ class Pipeline(PipelineBase):
         # Check if the ordered_component_names are valid components in the pipeline
         missing_ordered = set(pipeline_state["ordered_component_names"]) - valid_components
         if missing_ordered:
-            raise PipelineRuntimeError(
+            raise PipelineInvalidResumeStateError(
                 f"Invalid resume state: components {missing_ordered} in 'ordered_component_names' "
                 f"are not part of the current pipeline."
             )
@@ -650,7 +646,7 @@ class Pipeline(PipelineBase):
         # Check if the input_data is valid components in the pipeline
         missing_input = set(resume_state["input_data"].keys()) - valid_components
         if missing_input:
-            raise PipelineRuntimeError(
+            raise PipelineInvalidResumeStateError(
                 f"Invalid resume state: components {missing_input} in 'input_data' "
                 f"are not part of the current pipeline."
             )
@@ -658,7 +654,7 @@ class Pipeline(PipelineBase):
         # Validate 'component_visits'
         missing_visits = set(pipeline_state["component_visits"].keys()) - valid_components
         if missing_visits:
-            raise PipelineRuntimeError(
+            raise PipelineInvalidResumeStateError(
                 f"Invalid resume state: components {missing_visits} in 'component_visits' "
                 f"are not part of the current pipeline."
             )
