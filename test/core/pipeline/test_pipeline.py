@@ -82,7 +82,7 @@ class TestPipeline:
                 component_visits={"wrong": 0},
             )
 
-        assert "didn't return a dictionary" in str(exc_info.value)
+        assert "Expected a dict" in str(exc_info.value)
 
     def test_run(self):
         joiner_1 = BranchJoiner(type_=str)
