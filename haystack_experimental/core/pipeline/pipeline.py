@@ -79,9 +79,6 @@ class Pipeline(PipelineBase):
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
 
-        if self.resume_state:
-            print("Running component: ", component_name)
-
         # add component_inputs to inputs
         breakpoint_inputs = deepcopy(inputs)
         breakpoint_inputs[component_name] = Pipeline._remove_unserializable_data(component_inputs)
