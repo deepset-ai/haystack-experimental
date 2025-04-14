@@ -130,14 +130,60 @@ class TestPipelineBreakpoints:
             ranker.warm_up()
             
             return ranker
+            
+    @pytest.fixture
+    def mock_sentence_transformers_text_embedder(self):
+        """
+        Creates a mock for the SentenceTransformersTextEmbedder component.
+        
+        This mock simulates the behavior of the embedder without loading the actual model,
+        which is useful for testing pipelines that use this component.
+        """
+        with patch("haystack.components.embedders.backends.sentence_transformers_backend.SentenceTransformer") as mock_sentence_transformer:
+            # Create a mock sentence transformer
+            mock_model = MagicMock()
+            mock_sentence_transformer.return_value = mock_model
+            
+            # Configure the mock to return a fixed embedding
+            def mock_encode(texts, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None, **kwargs):
+                # Return a fixed embedding for testing
+                # This is a 384-dimensional embedding (common for many sentence transformer models)
+                import numpy as np
+                return [np.ones(384).tolist() for _ in texts]
+            
+            mock_model.encode = mock_encode
+            
+            # Create the embedder instance
+            embedder = SentenceTransformersTextEmbedder(
+                model="mock-model",
+                progress_bar=False
+            )
+            
+            # Mock the run method to return a fixed embedding
+            def mock_run(text):
+                if not isinstance(text, str):
+                    raise TypeError(
+                        "SentenceTransformersTextEmbedder expects a string as input."
+                        "In case you want to embed a list of Documents, please use the SentenceTransformersDocumentEmbedder."
+                    )
+                
+                # Return a fixed embedding for testing
+                import numpy as np
+                embedding = np.ones(384).tolist()  # 384-dimensional embedding
+                return {"embedding": embedding}
+            
+            # Replace the run method with our mock
+            embedder.run = mock_run
+            
+            # Call warm_up to initialize the component
+            embedder.warm_up()
+            
+            return embedder
 
     @pytest.fixture
-    def hybrid_rag_pipeline(self, document_store, mock_transformers_similarity_ranker):
+    def hybrid_rag_pipeline(self, document_store, mock_transformers_similarity_ranker, mock_sentence_transformers_text_embedder):
         """Create a hybrid RAG pipeline for testing."""
-        query_embedder = SentenceTransformersTextEmbedder(
-            model="sentence-transformers/paraphrase-MiniLM-L3-v2",
-            progress_bar=False
-        )
+        
 
         prompt_template = """
         Given these documents, answer the question based on the document content only.\nDocuments:
@@ -150,11 +196,11 @@ class TestPipelineBreakpoints:
         """
         pipeline = Pipeline()
         pipeline.add_component(instance=InMemoryBM25Retriever(document_store=document_store), name="bm25_retriever")
-        pipeline.add_component(instance=query_embedder, name="query_embedder")
-        pipeline.add_component(
-            instance=InMemoryEmbeddingRetriever(document_store=document_store),
-            name="embedding_retriever"
-        )
+        
+        # Use the mocked embedder instead of creating a new one        
+        pipeline.add_component(instance=mock_sentence_transformers_text_embedder, name="query_embedder")
+        
+        pipeline.add_component(instance=InMemoryEmbeddingRetriever(document_store=document_store),name="embedding_retriever")
         pipeline.add_component(instance=DocumentJoiner(sort_by_score=False), name="doc_joiner")
         
         # Use the mocked ranker instead of the real one
