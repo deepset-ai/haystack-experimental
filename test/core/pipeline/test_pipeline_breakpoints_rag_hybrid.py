@@ -223,7 +223,7 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    # @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
+    @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
     def test_pipeline_breakpoints_hybrid_rag(
             self, hybrid_rag_pipeline, document_store, output_directory, component, mock_openai_completion
     ):
