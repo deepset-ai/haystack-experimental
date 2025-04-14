@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
-from haystack import logging, tracing, Answer, Document, ExtractedAnswer
-from haystack.components.joiners import BranchJoiner, DocumentJoiner, AnswerJoiner, ListJoiner
+from haystack import Answer, Document, ExtractedAnswer, logging, tracing
+from haystack.components.joiners import AnswerJoiner, BranchJoiner, DocumentJoiner, ListJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
@@ -142,7 +142,7 @@ class Pipeline(PipelineBase):
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
-        resume_state_path: Optional[Union[str, Path]] = None,
+        resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
         """
@@ -224,10 +224,8 @@ class Pipeline(PipelineBase):
             Set of tuples of component names and visit counts at which the pipeline should break execution.
             If the visit count is not given, it is assumed to be 0, it will break on the first visit.
 
-        :param resume_state_path:
-            The file path containing the state of a previously saved pipeline execution.
-            Make sure to provide a valid state i.e. the components in the resume state
-            are all valid components registered in the pipeline.
+        :param resume_state:
+            A dictionary containing the state of a previously saved pipeline execution.
 
         :param debug_path:
             Path to the directory where the pipeline state should be saved.
@@ -251,11 +249,12 @@ class Pipeline(PipelineBase):
         """
         pipeline_running(self)
 
-        if breakpoints and resume_state_path:
+        if breakpoints and resume_state:
             logger.warning(
                 "Breakpoints cannot be provided when resuming a pipeline. All breakpoints will be ignored.",
             )
         self.debug_path = debug_path
+        self.resume_state = resume_state
 
         # make sure breakpoints are valid and have a default visit count
         validated_breakpoints = self._validate_breakpoints(breakpoints) if breakpoints else None
@@ -267,7 +266,7 @@ class Pipeline(PipelineBase):
         if include_outputs_from is None:
             include_outputs_from = set()
 
-        if not resume_state_path:
+        if not self.resume_state:
             # normalize `data`
             data = self._prepare_component_input_data(data)
 
@@ -282,8 +281,8 @@ class Pipeline(PipelineBase):
             component_visits = dict.fromkeys(self.ordered_component_names, 0)
 
         else:
-            # load the file containing the resume state and inject it into the graph
-            component_visits, data = self.inject_resume_state_into_graph(resume_state_path)
+            # inject the resume state into the graph
+            component_visits, data = self.inject_resume_state_into_graph()
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -362,15 +361,16 @@ class Pipeline(PipelineBase):
 
     def inject_resume_state_into_graph(
         self,
-        resume_state_path: Union[str, Path]
     ) -> Tuple[Dict[str, int], Dict[str, Any]]:
         """
         Loads the resume state from a file and injects it into the pipeline graph.
 
-        :param resume_state_path: Path to the resume state file.
         """
+        # We previously check if the resume_state is None but
+        # this is needed to prevent a typing error
+        if not self.resume_state:
+            raise PipelineRuntimeError("Cannot inject resume state: resume_state is None")
 
-        self.resume_state = Pipeline.load_state(resume_state_path)
         self._validate_pipeline_state(self.resume_state)
         data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
         component_visits = self.resume_state["pipeline_state"]["component_visits"]

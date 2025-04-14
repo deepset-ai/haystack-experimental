@@ -163,7 +163,8 @@ class TestPipelineBreakpointsLoops:
             f_name = str(full_path).split("\\")[-1] if os.name == "nt" else str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
                 file_found = True
-                result = validation_loop_pipeline.run(data={}, resume_state_path=full_path)
+                resume_state = Pipeline.load_state(full_path)
+                result = validation_loop_pipeline.run(data={}, resume_state=resume_state)
                 # Verify the result contains valid output
                 if "output_validator" in result and "valid_replies" in result["output_validator"]:
                     valid_reply = result["output_validator"]["valid_replies"][0].text

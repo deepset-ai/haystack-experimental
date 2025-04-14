@@ -142,7 +142,8 @@ class TestPipelineBreakpoints:
             f_name = str(full_path).split("\\")[-1] if os.name == "nt" else str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
                 file_found = True
-                result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state_path=full_path)
+                resume_state = Pipeline.load_state(full_path)
+                result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state=resume_state)
                 assert 'answer_builder' in result
                 assert result['answer_builder']
                 break

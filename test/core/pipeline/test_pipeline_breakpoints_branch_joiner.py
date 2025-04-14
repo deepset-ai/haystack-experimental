@@ -76,9 +76,11 @@ class TestPipelineBreakpoints:
             f_name = str(full_path).split("\\")[-1] if os.name == "nt" else str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
                 file_found = True
-                result = branch_joiner_pipeline.run(data, resume_state_path=full_path)
+                resume_state = Pipeline.load_state(full_path)
+                result = branch_joiner_pipeline.run(data, resume_state=resume_state)
                 assert result['validator']
                 break
         if not file_found:
             msg = f"No files found for {component} in {output_directory}."
             raise ValueError(msg)
+
