@@ -50,11 +50,7 @@ class TestPipelineBreakpoints:
 
     @pytest.fixture
     def mock_openai_completion(self):
-        """
-        Create a custom mock for OpenAI API completion response.
-        """
         with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
-            # Create a mock completion object
             mock_completion = MagicMock()
             mock_completion.model = "gpt-4o-mini"
             mock_completion.choices = [
@@ -76,57 +72,48 @@ class TestPipelineBreakpoints:
     @pytest.fixture
     def mock_transformers_similarity_ranker(self):
         """
-        Creates a mock for the TransformersSimilarityRanker component.
-        
-        This mock simulates the behavior of the ranker without loading the actual model,
-        which is useful for testing pipelines that use this component.
+        This mock simulates the behavior of the ranker without loading the actual model.
         """
         with patch("haystack.components.rankers.transformers_similarity.AutoModelForSequenceClassification") as mock_model_class, \
              patch("haystack.components.rankers.transformers_similarity.AutoTokenizer") as mock_tokenizer_class:
-            
-            # Create mock model and tokenizer
+
             mock_model = MagicMock()
             mock_tokenizer = MagicMock()
-            
-            # Configure the mocks
+
             mock_model_class.from_pretrained.return_value = mock_model
             mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
-            
-            # Create the ranker instance
+
             ranker = TransformersSimilarityRanker(
                 model="mock-model",
                 top_k=5,
                 scale_score=True,
                 calibration_factor=1.0
             )
-            
-            # Mock the run method to return predefined ranked documents
+
             def mock_run(query, documents, top_k=None, scale_score=None, calibration_factor=None, score_threshold=None):
-                # Simulate ranking by assigning random scores
+                # assign random scores
                 import random
                 ranked_docs = documents.copy()
                 for doc in ranked_docs:
-                    doc.score = random.random()  # Assign random score between 0 and 1
-                
-                # Sort by score in descending order
+                    doc.score = random.random()  # random score between 0 and 1
+
+                # sort reverse order and select top_k if provided
                 ranked_docs.sort(key=lambda x: x.score, reverse=True)
-                
-                # Apply top_k if provided
                 if top_k is not None:
                     ranked_docs = ranked_docs[:top_k]
                 else:
                     ranked_docs = ranked_docs[:ranker.top_k]
                     
-                # Apply score threshold if provided
+                # apply score threshold if provided
                 if score_threshold is not None:
                     ranked_docs = [doc for doc in ranked_docs if doc.score >= score_threshold]
                     
                 return {"documents": ranked_docs}
             
-            # Replace the run method with our mock
+            # replace the run method with our mock
             ranker.run = mock_run
             
-            # Call warm_up to initialize the component
+            # warm_up to initialize the component
             ranker.warm_up()
             
             return ranker
@@ -134,48 +121,40 @@ class TestPipelineBreakpoints:
     @pytest.fixture
     def mock_sentence_transformers_text_embedder(self):
         """
-        Creates a mock for the SentenceTransformersTextEmbedder component.
-        
-        This mock simulates the behavior of the embedder without loading the actual model,
-        which is useful for testing pipelines that use this component.
+        Simulates the behavior of the embedder without loading the actual model
         """
         with patch("haystack.components.embedders.backends.sentence_transformers_backend.SentenceTransformer") as mock_sentence_transformer:
-            # Create a mock sentence transformer
             mock_model = MagicMock()
             mock_sentence_transformer.return_value = mock_model
             
-            # Configure the mock to return a fixed embedding
+            # the mock returns a fixed embedding
             def mock_encode(texts, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None, **kwargs):
-                # Return a fixed embedding for testing
-                # This is a 384-dimensional embedding (common for many sentence transformer models)
                 import numpy as np
                 return [np.ones(384).tolist() for _ in texts]
             
             mock_model.encode = mock_encode
-            
-            # Create the embedder instance
+
             embedder = SentenceTransformersTextEmbedder(
                 model="mock-model",
                 progress_bar=False
             )
             
-            # Mock the run method to return a fixed embedding
+            # mocked run method to return a fixed embedding
             def mock_run(text):
                 if not isinstance(text, str):
                     raise TypeError(
                         "SentenceTransformersTextEmbedder expects a string as input."
                         "In case you want to embed a list of Documents, please use the SentenceTransformersDocumentEmbedder."
                     )
-                
-                # Return a fixed embedding for testing
+
                 import numpy as np
-                embedding = np.ones(384).tolist()  # 384-dimensional embedding
+                embedding = np.ones(384).tolist()
                 return {"embedding": embedding}
             
-            # Replace the run method with our mock
+            # mocked run
             embedder.run = mock_run
             
-            # Call warm_up to initialize the component
+            # initialize the component
             embedder.warm_up()
             
             return embedder
@@ -243,7 +222,6 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    # @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
     def test_pipeline_breakpoints_hybrid_rag(
             self, hybrid_rag_pipeline, document_store, output_directory, component, mock_openai_completion
     ):
