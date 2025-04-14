@@ -72,9 +72,67 @@ class TestPipelineBreakpoints:
 
             mock_chat_completion_create.return_value = mock_completion
             yield mock_chat_completion_create
+            
+    @pytest.fixture
+    def mock_transformers_similarity_ranker(self):
+        """
+        Creates a mock for the TransformersSimilarityRanker component.
+        
+        This mock simulates the behavior of the ranker without loading the actual model,
+        which is useful for testing pipelines that use this component.
+        """
+        with patch("haystack.components.rankers.transformers_similarity.AutoModelForSequenceClassification") as mock_model_class, \
+             patch("haystack.components.rankers.transformers_similarity.AutoTokenizer") as mock_tokenizer_class:
+            
+            # Create mock model and tokenizer
+            mock_model = MagicMock()
+            mock_tokenizer = MagicMock()
+            
+            # Configure the mocks
+            mock_model_class.from_pretrained.return_value = mock_model
+            mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
+            
+            # Create the ranker instance
+            ranker = TransformersSimilarityRanker(
+                model="mock-model",
+                top_k=5,
+                scale_score=True,
+                calibration_factor=1.0
+            )
+            
+            # Mock the run method to return predefined ranked documents
+            def mock_run(query, documents, top_k=None, scale_score=None, calibration_factor=None, score_threshold=None):
+                # Simulate ranking by assigning random scores
+                import random
+                ranked_docs = documents.copy()
+                for doc in ranked_docs:
+                    doc.score = random.random()  # Assign random score between 0 and 1
+                
+                # Sort by score in descending order
+                ranked_docs.sort(key=lambda x: x.score, reverse=True)
+                
+                # Apply top_k if provided
+                if top_k is not None:
+                    ranked_docs = ranked_docs[:top_k]
+                else:
+                    ranked_docs = ranked_docs[:ranker.top_k]
+                    
+                # Apply score threshold if provided
+                if score_threshold is not None:
+                    ranked_docs = [doc for doc in ranked_docs if doc.score >= score_threshold]
+                    
+                return {"documents": ranked_docs}
+            
+            # Replace the run method with our mock
+            ranker.run = mock_run
+            
+            # Call warm_up to initialize the component
+            ranker.warm_up()
+            
+            return ranker
 
     @pytest.fixture
-    def hybrid_rag_pipeline(self, document_store):
+    def hybrid_rag_pipeline(self, document_store, mock_transformers_similarity_ranker):
         """Create a hybrid RAG pipeline for testing."""
         query_embedder = SentenceTransformersTextEmbedder(
             model="sentence-transformers/paraphrase-MiniLM-L3-v2",
@@ -98,14 +156,15 @@ class TestPipelineBreakpoints:
             name="embedding_retriever"
         )
         pipeline.add_component(instance=DocumentJoiner(sort_by_score=False), name="doc_joiner")
-        pipeline.add_component(
-            instance=TransformersSimilarityRanker(model="intfloat/simlm-msmarco-reranker", top_k=5),
-            name="ranker"
-        )
+        
+        # Use the mocked ranker instead of the real one
+        pipeline.add_component(instance=mock_transformers_similarity_ranker, name="ranker")
+
         pipeline.add_component(instance=PromptBuilder(
             template=prompt_template, required_variables=['documents', 'question']),
             name="prompt_builder"
         )
+
         # Use a mocked API key for the OpenAIGenerator
         pipeline.add_component(instance=OpenAIGenerator(api_key=Secret.from_token("test-api-key")), name="llm")
         pipeline.add_component(instance=AnswerBuilder(), name="answer_builder")
