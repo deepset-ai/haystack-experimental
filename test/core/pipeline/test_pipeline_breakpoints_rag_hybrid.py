@@ -1,7 +1,5 @@
 import os
-import sys
 from unittest.mock import patch, MagicMock
-from datetime import datetime
 
 import pytest
 
@@ -17,7 +15,6 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 from haystack import Document
 from haystack.utils.auth import Secret
-from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
@@ -72,7 +69,7 @@ class TestPipelineBreakpoints:
                 "completion_tokens": 40,
                 "total_tokens": 97
             }
-            
+
             mock_chat_completion_create.return_value = mock_completion
             yield mock_chat_completion_create
 
