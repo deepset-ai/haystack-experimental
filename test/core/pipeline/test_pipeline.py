@@ -3,14 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from pathlib import Path
 import json
 import pytest
 
 from haystack.components.joiners import BranchJoiner
 from haystack.core.component import component
-from haystack.dataclasses import ChatMessage, GeneratedAnswer
 from haystack_experimental.core.errors import PipelineRuntimeError
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
