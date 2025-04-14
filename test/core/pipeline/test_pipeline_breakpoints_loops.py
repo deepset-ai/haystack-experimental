@@ -3,7 +3,8 @@ import os
 import pytest
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ChatRole
+from haystack.utils.auth import Secret
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.core.errors import PipelineBreakpointException
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ import pydantic
 from pydantic import ValidationError
 from colorama import Fore
 from haystack import component
+from unittest.mock import patch, MagicMock
 
 import os
 
@@ -68,7 +70,57 @@ class TestPipelineBreakpointsLoops:
     """
 
     @pytest.fixture
-    def validation_loop_pipeline(self):
+    def mock_openai_chat_generator(self):
+        """
+        Creates a mock for the OpenAIChatGenerator that returns valid JSON responses.
+        """
+        with patch("openai.resources.chat.completions.Completions.create") as mock_chat_completion_create:
+            # Create mock completion objects
+            mock_completion = MagicMock()
+            mock_completion.choices = [
+                MagicMock(
+                    finish_reason="stop",
+                    index=0,
+                    message=MagicMock(content='{"cities": [{"name": "Berlin", "country": "Germany", "population": 3850809}, {"name": "Paris", "country": "France", "population": 2161000}, {"name": "Lisbon", "country": "Portugal", "population": 504718}]}')
+                )
+            ]
+            mock_completion.usage = {
+                "prompt_tokens": 57,
+                "completion_tokens": 40,
+                "total_tokens": 97
+            }
+            
+            mock_chat_completion_create.return_value = mock_completion
+            
+            # Create a mock for the OpenAIChatGenerator
+            def create_mock_generator():
+                generator = OpenAIChatGenerator(api_key=Secret.from_token("dummy-api-key"))
+                
+                # Mock the run method
+                def mock_run(messages, streaming_callback=None, generation_kwargs=None, tools=None, tools_strict=None):
+                    # Check if this is a retry attempt
+                    if any("You already created the following output" in msg.text for msg in messages):
+                        # Return a valid JSON response for retry attempts
+                        return {
+                            "replies": [ChatMessage.from_assistant('{"cities": [{"name": "Berlin", "country": "Germany", "population": 3850809}, {"name": "Paris", "country": "France", "population": 2161000}, {"name": "Lisbon", "country": "Portugal", "population": 504718}]}')],
+                            "meta": {"model": "gpt-4", "usage": {"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97}}
+                        }
+                    else:
+                        # Return a valid JSON response for initial attempts
+                        return {
+                            "replies": [ChatMessage.from_assistant('{"cities": [{"name": "Berlin", "country": "Germany", "population": 3850809}, {"name": "Paris", "country": "France", "population": 2161000}, {"name": "Lisbon", "country": "Portugal", "population": 504718}]}')],
+                            "meta": {"model": "gpt-4", "usage": {"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97}}
+                        }
+                
+                # Replace the run method with our mock
+                generator.run = mock_run
+                
+                return generator
+            
+            yield create_mock_generator
+
+    @pytest.fixture
+    def validation_loop_pipeline(self, mock_openai_chat_generator):
         """Create a pipeline with validation loops for testing."""
         prompt_template = [
             ChatMessage.from_user(
@@ -88,7 +140,7 @@ class TestPipelineBreakpointsLoops:
 
         pipeline = Pipeline(max_runs_per_component=5)
         pipeline.add_component(instance=ChatPromptBuilder(template=prompt_template), name="prompt_builder")
-        pipeline.add_component(instance=OpenAIChatGenerator(), name="llm")
+        pipeline.add_component(instance=mock_openai_chat_generator(), name="llm")
         pipeline.add_component(instance=OutputValidator(pydantic_model=CitiesData), name="output_validator")
 
         # Connect components
@@ -136,10 +188,6 @@ class TestPipelineBreakpointsLoops:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
     def test_pipeline_breakpoints_validation_loop(self, validation_loop_pipeline, output_directory, test_data, component):
         """
         Test that a pipeline with validation loops can be executed with breakpoints at each component.
