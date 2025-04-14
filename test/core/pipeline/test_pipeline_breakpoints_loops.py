@@ -159,7 +159,11 @@ class TestPipelineBreakpointsLoops:
         all_files = list(output_directory.glob("*"))
         file_found = False
         for full_path in all_files:
-            f_name = str(full_path).split("/")[-1]
+            if os.name == "nt":  # windows paths are not POSIX
+                f_name = str(full_path).split("\\")[-1]
+            else:
+                f_name = str(full_path).split("/")[-1]
+
             if str(f_name).startswith(component):
                 file_found = True
                 result = validation_loop_pipeline.run(data={}, resume_state_path=full_path)
