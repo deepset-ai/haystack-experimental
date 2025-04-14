@@ -124,10 +124,7 @@ class Pipeline(PipelineBase):
             component_visits[component_name] += 1
 
             if not isinstance(component_output, Mapping):
-                raise PipelineRuntimeError(
-                    f"Component '{component_name}' didn't return a dictionary. "
-                    "Components must always return dictionaries: check the documentation."
-                )
+                raise PipelineRuntimeError.from_invalid_output(component_name, instance.__class__, component_output)
 
             span.set_tag("haystack.component.visits", component_visits[component_name])
             span.set_content_tag("haystack.component.output", component_output)
