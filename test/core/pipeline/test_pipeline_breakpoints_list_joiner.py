@@ -81,10 +81,12 @@ class TestPipelineBreakpoints:
         all_files = list(output_directory.glob("*"))
         file_found = False
         for full_path in all_files:
-            f_name = str(full_path).split("/")[-1]
+            # windows paths are not POSIX
+            f_name = str(full_path).split("\\")[-1] if os.name == "nt" else str(full_path).split("/")[-1]
             if str(f_name).startswith(component):
                 file_found = True
                 result = list_joiner_pipeline.run(data, resume_state_path=full_path)
                 assert result['list_joiner']
         if not file_found:
-            raise ValueError("No files found for {component} in {output_directory}.")
+            msg = f"No files found for {component} in {output_directory}."
+            raise ValueError(msg)
