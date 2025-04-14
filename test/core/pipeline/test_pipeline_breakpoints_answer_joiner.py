@@ -67,6 +67,11 @@ class TestPipelineBreakpoints:
             pass
 
         all_files = list(output_directory.glob("*"))
+
+        print("\nAll files in output directory:")
+        for f_name in all_files:
+            print(f_name)
+
         file_found = False
         for full_path in all_files:
             f_name = str(full_path).split("/")[-1]
