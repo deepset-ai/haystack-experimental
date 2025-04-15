@@ -10,6 +10,7 @@ from haystack.components.joiners import StringJoiner
 from haystack.dataclasses import ChatMessage
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from test.conftest import load_and_resume_pipeline_state
 
 
 class TestPipelineBreakpoints:
@@ -50,7 +51,6 @@ class TestPipelineBreakpoints:
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
     )
     def test_list_joiner_pipeline(self, string_joiner_pipeline, output_directory, component):
-
         string_1 = "What's Natural Language Processing?"
         string_2 = "What is life?"
         data = {"prompt_builder_1": {"query": string_1}, "prompt_builder_2": {"query": string_2}}
@@ -60,16 +60,6 @@ class TestPipelineBreakpoints:
         except PipelineBreakpointException as e:
             pass
 
-        all_files = list(output_directory.glob("*"))
-        file_found = False
-        for full_path in all_files:
-            f_name = Path(full_path).name
-            if str(f_name).startswith(component):
-                file_found = True
-                resume_state = Pipeline.load_state(full_path)
-                result = string_joiner_pipeline.run(data, resume_state=resume_state)
-                assert result['string_joiner']
-        if not file_found:
-            msg = f"No files found for {component} in {output_directory}."
-            raise ValueError(msg)
+        result = load_and_resume_pipeline_state(string_joiner_pipeline, output_directory, component, data)
+        assert result['string_joiner']
 

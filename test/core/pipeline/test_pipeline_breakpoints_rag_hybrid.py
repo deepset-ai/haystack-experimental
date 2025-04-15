@@ -20,6 +20,7 @@ from haystack.utils.auth import Secret
 
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from test.conftest import load_and_resume_pipeline_state
 
 
 class TestPipelineBreakpoints:
@@ -28,7 +29,52 @@ class TestPipelineBreakpoints:
     """
 
     @pytest.fixture
-    def document_store(self):
+    def mock_sentence_transformers_doc_embedder(self):
+        """
+        Simulates the behavior of the embedder without loading the actual model
+        """
+        with patch(
+                "haystack.components.embedders.backends.sentence_transformers_backend.SentenceTransformer") as mock_sentence_transformer:
+            mock_model = MagicMock()
+            mock_sentence_transformer.return_value = mock_model
+
+            # the mock returns a fixed embedding
+            def mock_encode(documents, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None,
+                            **kwargs):
+                import numpy as np
+                return [np.ones(384).tolist() for _ in documents]
+
+            mock_model.encode = mock_encode
+            embedder = SentenceTransformersDocumentEmbedder(model="mock-model", progress_bar=False)
+
+            # mocked run method to return a fixed embedding
+            def mock_run(documents: list[Document]):
+                if not isinstance(documents, list) or documents and not isinstance(documents[0], Document):
+                    raise TypeError(
+                        "SentenceTransformersDocumentEmbedder expects a list of Documents as input."
+                        "In case you want to embed a list of strings, please use the SentenceTransformersTextEmbedder."
+                    )
+
+                import numpy as np
+                embedding = np.ones(384).tolist()
+                
+                # Add the embedding to each document
+                for doc in documents:
+                    doc.embedding = embedding
+                
+                # Return the documents with embeddings, matching the actual implementation
+                return {"documents": documents}
+
+            # mocked run
+            embedder.run = mock_run
+
+            # initialize the component
+            embedder.warm_up()
+
+            return embedder
+
+    @pytest.fixture
+    def document_store(self, mock_sentence_transformers_doc_embedder):
         """Create and populate a document store for testing."""
         documents = [
             Document(content="My name is Jean and I live in Paris."),
@@ -38,12 +84,14 @@ class TestPipelineBreakpoints:
 
         document_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.SKIP)
+
         doc_embedder = SentenceTransformersDocumentEmbedder(
             model="sentence-transformers/paraphrase-MiniLM-L3-v2",
             progress_bar=False
         )
+
         ingestion_pipe = Pipeline()
-        ingestion_pipe.add_component(instance=doc_embedder, name="doc_embedder")
+        ingestion_pipe.add_component(instance=mock_sentence_transformers_doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
         ingestion_pipe.connect("doc_embedder.documents", "doc_writer.documents")
         ingestion_pipe.run({"doc_embedder": {"documents": documents}})
@@ -133,13 +181,9 @@ class TestPipelineBreakpoints:
             def mock_encode(texts, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None, **kwargs):
                 import numpy as np
                 return [np.ones(384).tolist() for _ in texts]
-            
-            mock_model.encode = mock_encode
 
-            embedder = SentenceTransformersTextEmbedder(
-                model="mock-model",
-                progress_bar=False
-            )
+            mock_model.encode = mock_encode
+            embedder = SentenceTransformersTextEmbedder(model="mock-model", progress_bar=False)
             
             # mocked run method to return a fixed embedding
             def mock_run(text):
@@ -164,7 +208,6 @@ class TestPipelineBreakpoints:
     @pytest.fixture
     def hybrid_rag_pipeline(self, document_store, mock_transformers_similarity_ranker, mock_sentence_transformers_text_embedder):
         """Create a hybrid RAG pipeline for testing."""
-        
 
         prompt_template = """
         Given these documents, answer the question based on the document content only.\nDocuments:
@@ -224,7 +267,7 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
+    # @pytest.mark.skipif(sys.platform == "darwin", reason="Test crashes on macOS.")
     def test_pipeline_breakpoints_hybrid_rag(
             self, hybrid_rag_pipeline, document_store, output_directory, component, mock_openai_completion
     ):
@@ -246,18 +289,6 @@ class TestPipelineBreakpoints:
         except PipelineBreakpointException as e:
             pass
 
-        all_files = list(output_directory.glob("*"))
-        file_found = False
-        for full_path in all_files:
-            f_name = Path(full_path).name
-            if str(f_name).startswith(component):
-                file_found = True
-                resume_state = Pipeline.load_state(full_path)
-                result = hybrid_rag_pipeline.run(data, breakpoints=None, resume_state=resume_state)
-                assert 'answer_builder' in result
-                assert result['answer_builder']
-                break
-        if not file_found:
-            msg = f"No files found for {component} in {output_directory}."
-            raise ValueError(msg)
+        result = load_and_resume_pipeline_state(hybrid_rag_pipeline, output_directory, component, data)
+        assert result['answer_builder']
 

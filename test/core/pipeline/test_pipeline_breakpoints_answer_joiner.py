@@ -12,6 +12,7 @@ from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from test.conftest import load_and_resume_pipeline_state
 
 import os
 
@@ -112,16 +113,5 @@ class TestPipelineBreakpoints:
         except PipelineBreakpointException as e:
             pass
 
-        all_files = list(output_directory.glob("*"))
-        file_found = False
-        for full_path in all_files:
-            f_name = Path(full_path).name
-            if str(f_name).startswith(component):
-                file_found = True
-                resume_state = Pipeline.load_state(full_path)
-                result = answer_join_pipeline.run(data, breakpoints=None, resume_state=resume_state)
-                assert result['answer_joiner']
-                break
-        if not file_found:
-            msg = f"No files found for {component} in {output_directory}."
-            raise ValueError(msg)
+        result = load_and_resume_pipeline_state(answer_join_pipeline, output_directory, component, data)
+        assert result['answer_joiner']
