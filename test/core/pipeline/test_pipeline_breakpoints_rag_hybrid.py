@@ -108,7 +108,7 @@ class TestPipelineBreakpoints:
 
             mock_chat_completion_create.return_value = mock_completion
             yield mock_chat_completion_create
-            
+
     @pytest.fixture
     def mock_transformers_similarity_ranker(self):
         """
