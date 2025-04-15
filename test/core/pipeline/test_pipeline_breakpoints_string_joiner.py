@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 import pytest
 
 from haystack import Pipeline
@@ -46,11 +43,7 @@ class TestPipelineBreakpoints:
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
-    def test_list_joiner_pipeline(self, string_joiner_pipeline, output_directory, component):
+    def test_string_joiner_pipeline(self, string_joiner_pipeline, output_directory, component):
         string_1 = "What's Natural Language Processing?"
         string_2 = "What is life?"
         data = {"prompt_builder_1": {"query": string_1}, "prompt_builder_2": {"query": string_2}}

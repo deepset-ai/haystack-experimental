@@ -1,24 +1,22 @@
-import os
-from pathlib import Path
-
-import pytest
-from haystack.components.builders import ChatPromptBuilder
-from haystack.components.generators.chat import OpenAIChatGenerator
-from haystack.dataclasses import ChatMessage, ChatRole
-from haystack.utils.auth import Secret
-from haystack_experimental.core.pipeline.pipeline import Pipeline
-from haystack_experimental.core.errors import PipelineBreakpointException
-from pydantic import BaseModel
-from typing import List, Optional
 import json
-
-import pydantic
-from pydantic import ValidationError
-from colorama import Fore
-from haystack import component
+from pathlib import Path
+from typing import List, Optional
 from unittest.mock import patch, MagicMock
 
-import os
+import pydantic
+import pytest
+from colorama import Fore
+from pydantic import BaseModel
+from pydantic import ValidationError
+
+from haystack import component
+from haystack.components.builders import ChatPromptBuilder
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage
+from haystack.utils.auth import Secret
+from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.pipeline.pipeline import Pipeline
+
 
 # Define the component input parameters
 @component

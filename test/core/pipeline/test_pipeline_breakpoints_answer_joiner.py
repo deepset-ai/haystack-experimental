@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -14,7 +12,6 @@ from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from test.conftest import load_and_resume_pipeline_state
 
-import os
 
 class TestPipelineBreakpoints:
 
