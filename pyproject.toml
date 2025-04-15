@@ -66,7 +66,8 @@ extra-dependencies = [
   "python-docx", # MultiFileConverter
   "python-pptx", # MultiFileConverter
   "trafilatura", # MultiFileConverter
-  "transformers[torch,sentencepiece]>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
+  "transformers[torch,sentencepiece]>=4.51.1,<4.52", # same as in haystack-ai
+
 ]
 
 [tool.hatch.envs.test.scripts]
