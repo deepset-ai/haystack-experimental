@@ -1,6 +1,3 @@
-import os
-import sys
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -30,13 +27,11 @@ class TestPipelineBreakpoints:
 
     @pytest.fixture
     def mock_sentence_transformers_doc_embedder(self):
-        """
-        Simulates the behavior of the embedder without loading the actual model
-        """
         with patch(
-                "haystack.components.embedders.backends.sentence_transformers_backend.SentenceTransformer") as mock_sentence_transformer:
+            "haystack.components.embedders.sentence_transformers_document_embedder._SentenceTransformersEmbeddingBackendFactory") as mock_doc_embedder:
+        
             mock_model = MagicMock()
-            mock_sentence_transformer.return_value = mock_model
+            mock_doc_embedder.return_value = mock_model
 
             # the mock returns a fixed embedding
             def mock_encode(documents, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None,
@@ -84,12 +79,6 @@ class TestPipelineBreakpoints:
 
         document_store = InMemoryDocumentStore()
         doc_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.SKIP)
-
-        doc_embedder = SentenceTransformersDocumentEmbedder(
-            model="sentence-transformers/paraphrase-MiniLM-L3-v2",
-            progress_bar=False
-        )
-
         ingestion_pipe = Pipeline()
         ingestion_pipe.add_component(instance=mock_sentence_transformers_doc_embedder, name="doc_embedder")
         ingestion_pipe.add_component(instance=doc_writer, name="doc_writer")
@@ -173,9 +162,9 @@ class TestPipelineBreakpoints:
         """
         Simulates the behavior of the embedder without loading the actual model
         """
-        with patch("haystack.components.embedders.backends.sentence_transformers_backend.SentenceTransformer") as mock_sentence_transformer:
+        with patch("haystack.components.embedders.sentence_transformers_text_embedder._SentenceTransformersEmbeddingBackendFactory") as mock_text_embedder:
             mock_model = MagicMock()
-            mock_sentence_transformer.return_value = mock_model
+            mock_text_embedder.return_value = mock_model
             
             # the mock returns a fixed embedding
             def mock_encode(texts, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None, **kwargs):

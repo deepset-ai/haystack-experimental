@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import List
 from unittest.mock import patch, MagicMock
@@ -15,7 +14,6 @@ from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 
-import os
 class TestPipelineBreakpoints:
 
     @pytest.fixture
