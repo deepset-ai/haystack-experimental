@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -62,13 +63,12 @@ class TestPipelineBreakpoints:
         all_files = list(output_directory.glob("*"))
         file_found = False
         for full_path in all_files:
-            # windows paths are not POSIX
-            f_name = str(full_path).split("\\")[-1] if os.name == "nt" else str(full_path).split("/")[-1]
+            f_name = Path(full_path).name
             if str(f_name).startswith(component):
                 file_found = True
                 resume_state = Pipeline.load_state(full_path)
                 result = string_joiner_pipeline.run(data, resume_state=resume_state)
-                assert result
+                assert result['string_joiner']
         if not file_found:
             msg = f"No files found for {component} in {output_directory}."
             raise ValueError(msg)
