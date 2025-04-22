@@ -18,7 +18,6 @@ on:
       - opened
       - reopened
       - synchronize
-      - ready_for_review
     paths:
       - "haystack_experimental/**/*.py"
       - "test/**/*.py"
