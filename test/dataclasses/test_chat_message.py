@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 import json
-
-from haystack_experimental.dataclasses.chatmessage import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent, ImageContent
+import base64
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent, ImageContent
 
 
 def test_tool_call_init():
@@ -65,9 +65,6 @@ def test_function_role_removed():
 def test_from_function_class_method_removed():
     with pytest.raises(AttributeError):
         ChatMessage.from_function("Result of function invocation", "my_function")
-
-
-
 
 
 def test_to_dict_with_invalid_content_type():
@@ -452,3 +449,27 @@ def test_serde():
 
     deserialized_message = ChatMessage.from_dict(serialized_message)
     assert deserialized_message == message    
+
+def test_image_content_init():
+    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto", meta={"key": "value"})
+    assert image_content.base64_image == "base64_string"
+    assert image_content.mime_type == "image/png"
+    assert image_content.detail == "auto"
+    assert image_content.meta == {"key": "value"}
+
+def test_image_content_mime_type_guessing(test_files_path):
+    image_path = test_files_path / "images" / "apple.jpg"
+    with open(image_path, "rb") as image_file:
+        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+    image_content = ImageContent(base64_image=base64_image)
+    assert image_content.mime_type == "image/jpeg"
+
+    # do not guess mime type if base64 decoding fails
+    image_content = ImageContent(base64_image="base64_string")
+    assert image_content.mime_type is None
+
+    # do not guess mime type if mime type is provided
+    image_content = ImageContent(base64_image=base64_image, mime_type="image/png")
+    assert image_content.mime_type == "image/png"
+
+

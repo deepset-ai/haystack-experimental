@@ -11,6 +11,7 @@ import filetype
 from haystack import logging
 from haystack.dataclasses import ChatMessage as HaystackChatMessage
 from haystack.dataclasses import TextContent, ToolCall, ToolCallResult, ChatRole
+import haystack.dataclasses.chat_message
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,8 @@ def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatM
 
     return content
 
+# Note: this is a monkey patch to the original _deserialize_content function
+haystack.dataclasses.chat_message._deserialize_content = _deserialize_content
 
 @dataclass
 class ChatMessage(HaystackChatMessage):
@@ -185,41 +188,3 @@ class ChatMessage(HaystackChatMessage):
         return serialized
     
     
-    # NOTE: this is unaltered, but we need to re-define it to use the new `_deserialize_content` function
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessage":
-        """
-        Creates a new ChatMessage object from a dictionary.
-
-        :param data:
-            The dictionary to build the ChatMessage object.
-        :returns:
-            The created object.
-        """
-        if "content" in data:
-            init_params: Dict[str, Any] = {
-                "_role": ChatRole(data["role"]),
-                "_name": data.get("name"),
-                "_meta": data.get("meta") or {},
-            }
-
-            if isinstance(data["content"], list):
-                # current format - the serialized `content` field is a list of dictionaries
-                init_params["_content"] = _deserialize_content(data["content"])
-            elif isinstance(data["content"], str):
-                # pre 2.9.0 format - the `content` field is a string
-                init_params["_content"] = [TextContent(text=data["content"])]
-            else:
-                raise TypeError(f"Unsupported content type in serialized ChatMessage: `{(data['content'])}`")
-            return cls(**init_params)
-
-        if "_content" in data:
-            # format for versions >=2.9.0 and <2.12.0 - the serialized `_content` field is a list of dictionaries
-            return cls(
-                _role=ChatRole(data["_role"]),
-                _content=_deserialize_content(data["_content"]),
-                _name=data.get("_name"),
-                _meta=data.get("_meta") or {},
-            )
-
-        raise ValueError(f"Missing 'content' or '_content' in serialized ChatMessage: `{data}`")

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.dataclasses.chatmessage import ChatMessage
+from haystack_experimental.dataclasses.chat_message import ChatMessage
 
 __all__ = [
     "ChatMessage",
