@@ -7,11 +7,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
 import filetype
-
+import haystack.dataclasses.chat_message
 from haystack import logging
 from haystack.dataclasses import ChatMessage as HaystackChatMessage
-from haystack.dataclasses import TextContent, ToolCall, ToolCallResult, ChatRole
-import haystack.dataclasses.chat_message
+from haystack.dataclasses import ChatRole, TextContent, ToolCall, ToolCallResult
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class ImageContent:
 
     :param base64_image: A base64 string representing the image.
     :param mime_type: The mime type of the image.
-    :param detail: The detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+    :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
     :param meta: Optional metadata for the image.
     """
 
@@ -93,8 +92,10 @@ def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatM
 
     return content
 
+
 # Note: this is a monkey patch to the original _deserialize_content function
 haystack.dataclasses.chat_message._deserialize_content = _deserialize_content
+
 
 @dataclass
 class ChatMessage(HaystackChatMessage):
@@ -124,7 +125,6 @@ class ChatMessage(HaystackChatMessage):
         if images := self.images:
             return images[0]
         return None
-
 
     @classmethod
     def from_user(
@@ -158,7 +158,6 @@ class ChatMessage(HaystackChatMessage):
 
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
 
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Converts ChatMessage into a dictionary.
@@ -186,5 +185,3 @@ class ChatMessage(HaystackChatMessage):
 
         serialized["content"] = content
         return serialized
-    
-    

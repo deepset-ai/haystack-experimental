@@ -1,10 +1,19 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-import pytest
-import json
 import base64
-from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent, ImageContent
+import json
+
+import pytest
+
+from haystack_experimental.dataclasses.chat_message import (
+    ChatMessage,
+    ChatRole,
+    ImageContent,
+    TextContent,
+    ToolCall,
+    ToolCallResult,
+)
 
 
 def test_tool_call_init():
@@ -369,6 +378,28 @@ def test_from_user_with_valid_content():
     assert not message.images
     assert not message.image
 
+def test_from_user_fails_if_no_text_or_content_parts():
+    with pytest.raises(ValueError):
+        ChatMessage.from_user()
+
+def test_from_user_fails_if_text_and_content_parts():
+    with pytest.raises(ValueError):
+        ChatMessage.from_user(text="text", content_parts=[TextContent(text="text")])
+
+def test_from_user_with_content_parts():
+    content_parts = [TextContent(text="text"), ImageContent(base64_image="base64_string")]
+    message = ChatMessage.from_user(content_parts=content_parts)
+
+    assert message.role == ChatRole.USER
+    assert message._content == content_parts
+
+    content_parts = ["text", ImageContent(base64_image="base64_string")]
+    message = ChatMessage.from_user(content_parts=content_parts)
+
+    assert message.role == ChatRole.USER
+    assert message._content == [TextContent(text="text"), ImageContent(base64_image="base64_string")]
+
+
 def test_from_system_with_valid_content():
     text = "I have a question."
     message = ChatMessage.from_system(text=text)
@@ -416,7 +447,8 @@ def test_serde():
     text_content = TextContent(text="Hello")
     tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
     tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
-    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto", meta={"key": "value"})
+    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto",
+                                 meta={"key": "value"})
     meta = {"some": "info"}
 
     message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result, image_content], _meta=meta)
@@ -448,10 +480,11 @@ def test_serde():
     }
 
     deserialized_message = ChatMessage.from_dict(serialized_message)
-    assert deserialized_message == message    
+    assert deserialized_message == message
 
 def test_image_content_init():
-    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto", meta={"key": "value"})
+    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto",
+                                 meta={"key": "value"})
     assert image_content.base64_image == "base64_string"
     assert image_content.mime_type == "image/png"
     assert image_content.detail == "auto"
