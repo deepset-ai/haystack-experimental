@@ -22,9 +22,10 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",  
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["haystack-ai", "pydantic"]
+dependencies = ["haystack-ai"]
 [project.urls]
 "CI: GitHub" = "https://github.com/deepset-ai/haystack-experimental/actions"
 "GitHub: issues" = "https://github.com/deepset-ai/haystack-experimental/issues"
@@ -43,7 +44,6 @@ dependencies = [
   "pytest",
   "pytest-rerunfailures",
   "pytest-cov",
-  "pytest-bdd",
   "pytest-asyncio",
   # Linting
   "pylint",
@@ -54,12 +54,9 @@ dependencies = [
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  "anthropic-haystack", # Needed for type checking in Agent
-  "docstring-parser", # ComponentTool
   "colorama", # needed for the pipeline checkpoints test - might be removed later
   "markdown-it-py", # MultiFileConverter
   "mdit_plain", # MultiFileConverter
-  "nltk", # HierachicalSplitter w/ split_by="sentence"
   "openpyxl", # MultiFileConverter
   "pandas", # MultiFileConverter
   "pypdf", # MultiFileConverter
@@ -183,7 +180,6 @@ minversion = "6.0"
 addopts = "--strict-markers"
 markers = [
   "integration: integration tests",
-  "unstable(reason): Mark tests that are unstable or depend on unreliable services.",
 ]
 log_cli = true
 asyncio_mode = "auto"
