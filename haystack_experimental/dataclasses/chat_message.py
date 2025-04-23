@@ -3,14 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
-import json
-import mimetypes
 from dataclasses import asdict, dataclass, field
-from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
 import filetype
-import requests
 
 from haystack import logging
 from haystack.dataclasses import ChatMessage as HaystackChatMessage
@@ -23,6 +19,11 @@ logger = logging.getLogger(__name__)
 class ImageContent:
     """
     The image content of a chat message.
+
+    :param base64_image: A base64 string representing the image.
+    :param mime_type: The mime type of the image.
+    :param detail: The detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+    :param meta: Optional metadata for the image.
     """
 
     base64_image: str
@@ -56,43 +57,6 @@ class ImageContent:
         fields.append(f"meta={self.meta!r}")
         fields_str = ", ".join(fields)
         return f"{self.__class__.__name__}({fields_str})"
-
-    @classmethod
-    def from_file_path(
-        cls,
-        file_path: str,
-        mime_type: Optional[str] = None,
-        meta: Optional[Dict[str, Any]] = None,
-        detail: Optional[Literal["auto", "high", "low"]] = None,
-    ) -> "ImageContent":
-        """
-        Helper class method to create an ImageContent from a file path.
-        """
-        with open(file_path, "rb") as f:
-            return cls(
-                base64_image=base64.b64encode(f.read()).decode("utf-8"),
-                mime_type=mime_type or mimetypes.guess_type(file_path)[0],
-                meta=meta or {},
-                detail=detail,
-            )
-
-    @classmethod
-    def from_url(
-        cls,
-        url: str,
-        mime_type: Optional[str] = None,
-        meta: Optional[Dict[str, Any]] = None,
-        detail: Optional[Literal["auto", "high", "low"]] = None,
-    ) -> "ImageContent":
-        """
-        Helper class method to create an ImageContent from a URL.
-        """
-        return cls(
-            base64_image=base64.b64encode(requests.get(url, timeout=30).content).decode("utf-8"),
-            mime_type=mime_type or mimetypes.guess_type(url)[0],
-            meta=meta or {},
-            detail=detail,
-        )
 
 
 ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult, ImageContent]
@@ -141,6 +105,23 @@ class ChatMessage(HaystackChatMessage):
     _content: Sequence[ChatMessageContentT]
     _name: Optional[str] = None
     _meta: Dict[str, Any] = field(default_factory=dict, hash=False)
+
+    @property
+    def images(self) -> List[ImageContent]:
+        """
+        Returns the list of all images contained in the message.
+        """
+        return [content for content in self._content if isinstance(content, ImageContent)]
+
+    @property
+    def image(self) -> Optional[ImageContent]:
+        """
+        Returns the first image contained in the message.
+        """
+        if images := self.images:
+            return images[0]
+        return None
+
 
     @classmethod
     def from_user(
@@ -202,3 +183,43 @@ class ChatMessage(HaystackChatMessage):
 
         serialized["content"] = content
         return serialized
+    
+    
+    # NOTE: this is unaltered, but we need to re-define it to use the new `_deserialize_content` function
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessage":
+        """
+        Creates a new ChatMessage object from a dictionary.
+
+        :param data:
+            The dictionary to build the ChatMessage object.
+        :returns:
+            The created object.
+        """
+        if "content" in data:
+            init_params: Dict[str, Any] = {
+                "_role": ChatRole(data["role"]),
+                "_name": data.get("name"),
+                "_meta": data.get("meta") or {},
+            }
+
+            if isinstance(data["content"], list):
+                # current format - the serialized `content` field is a list of dictionaries
+                init_params["_content"] = _deserialize_content(data["content"])
+            elif isinstance(data["content"], str):
+                # pre 2.9.0 format - the `content` field is a string
+                init_params["_content"] = [TextContent(text=data["content"])]
+            else:
+                raise TypeError(f"Unsupported content type in serialized ChatMessage: `{(data['content'])}`")
+            return cls(**init_params)
+
+        if "_content" in data:
+            # format for versions >=2.9.0 and <2.12.0 - the serialized `_content` field is a list of dictionaries
+            return cls(
+                _role=ChatRole(data["_role"]),
+                _content=_deserialize_content(data["_content"]),
+                _name=data.get("_name"),
+                _meta=data.get("_meta") or {},
+            )
+
+        raise ValueError(f"Missing 'content' or '_content' in serialized ChatMessage: `{data}`")

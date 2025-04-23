@@ -2,10 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 import pytest
-from transformers import AutoTokenizer
 import json
 
-from haystack_experimental.dataclasses.chatmessage import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent
+from haystack_experimental.dataclasses.chatmessage import ChatMessage, ChatRole, ToolCall, ToolCallResult, TextContent, ImageContent
 
 
 def test_tool_call_init():
@@ -27,60 +26,6 @@ def test_text_content_init():
     assert tc.text == "Hello"
 
 
-def test_from_assistant_with_valid_content():
-    text = "Hello, how can I assist you?"
-    message = ChatMessage.from_assistant(text)
-
-    assert message.role == ChatRole.ASSISTANT
-    assert message._content == [TextContent(text)]
-    assert message.name is None
-
-    assert message.text == text
-    assert message.texts == [text]
-
-    assert not message.tool_calls
-    assert not message.tool_call
-    assert not message.tool_call_results
-    assert not message.tool_call_result
-
-
-def test_from_assistant_with_tool_calls():
-    tool_calls = [
-        ToolCall(id="123", tool_name="mytool", arguments={"a": 1}),
-        ToolCall(id="456", tool_name="mytool2", arguments={"b": 2}),
-    ]
-
-    message = ChatMessage.from_assistant(tool_calls=tool_calls)
-
-    assert message.role == ChatRole.ASSISTANT
-    assert message._content == tool_calls
-
-    assert message.tool_calls == tool_calls
-    assert message.tool_call == tool_calls[0]
-
-    assert not message.texts
-    assert not message.text
-    assert not message.tool_call_results
-    assert not message.tool_call_result
-
-
-def test_from_user_with_valid_content():
-    text = "I have a question."
-    message = ChatMessage.from_user(text=text)
-
-    assert message.role == ChatRole.USER
-    assert message._content == [TextContent(text)]
-    assert message.name is None
-
-    assert message.text == text
-    assert message.texts == [text]
-
-    assert not message.tool_calls
-    assert not message.tool_call
-    assert not message.tool_call_results
-    assert not message.tool_call_result
-
-
 def test_from_user_with_name():
     text = "I have a question."
     message = ChatMessage.from_user(text=text, name="John")
@@ -89,40 +34,6 @@ def test_from_user_with_name():
     assert message.role == ChatRole.USER
     assert message._content == [TextContent(text)]
 
-
-def test_from_system_with_valid_content():
-    text = "I have a question."
-    message = ChatMessage.from_system(text=text)
-
-    assert message.role == ChatRole.SYSTEM
-    assert message._content == [TextContent(text)]
-
-    assert message.text == text
-    assert message.texts == [text]
-
-    assert not message.tool_calls
-    assert not message.tool_call
-    assert not message.tool_call_results
-    assert not message.tool_call_result
-
-
-def test_from_tool_with_valid_content():
-    tool_result = "Tool result"
-    origin = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
-    message = ChatMessage.from_tool(tool_result, origin, error=False)
-
-    tcr = ToolCallResult(result=tool_result, origin=origin, error=False)
-
-    assert message._content == [tcr]
-    assert message.role == ChatRole.TOOL
-
-    assert message.tool_call_result == tcr
-    assert message.tool_call_results == [tcr]
-
-    assert not message.tool_calls
-    assert not message.tool_call
-    assert not message.texts
-    assert not message.text
 
 
 def test_multiple_text_segments():
@@ -156,38 +67,7 @@ def test_from_function_class_method_removed():
         ChatMessage.from_function("Result of function invocation", "my_function")
 
 
-def test_serde():
-    # the following message is created just for testing purposes and does not make sense in a real use case
 
-    role = ChatRole.ASSISTANT
-
-    text_content = TextContent(text="Hello")
-    tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
-    tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
-    meta = {"some": "info"}
-
-    message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result], _meta=meta)
-
-    serialized_message = message.to_dict()
-    assert serialized_message == {
-        "content": [
-            {"text": "Hello"},
-            {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}},
-            {
-                "tool_call_result": {
-                    "result": "result",
-                    "error": False,
-                    "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}},
-                }
-            },
-        ],
-        "role": "assistant",
-        "name": None,
-        "meta": {"some": "info"},
-    }
-
-    deserialized_message = ChatMessage.from_dict(serialized_message)
-    assert deserialized_message == message
 
 
 def test_to_dict_with_invalid_content_type():
@@ -431,34 +311,144 @@ def test_from_openai_dict_format_assistant_missing_content_and_tool_calls():
     with pytest.raises(ValueError):
         ChatMessage.from_openai_dict_format({"role": "assistant", "irrelevant": "irrelevant"})
 
+### UPDATED/NEW TESTS
 
-@pytest.mark.integration
-def test_apply_chat_templating_on_chat_message():
-    messages = [ChatMessage.from_system("You are good assistant"), ChatMessage.from_user("I have a question")]
-    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
-    formatted_messages = [m.to_openai_dict_format() for m in messages]
-    tokenized_messages = tokenizer.apply_chat_template(formatted_messages, tokenize=False)
-    assert tokenized_messages == "<|system|>\nYou are good assistant</s>\n<|user|>\nI have a question</s>\n"
+def test_from_assistant_with_valid_content():
+    text = "Hello, how can I assist you?"
+    message = ChatMessage.from_assistant(text)
+
+    assert message.role == ChatRole.ASSISTANT
+    assert message._content == [TextContent(text)]
+    assert message.name is None
+
+    assert message.text == text
+    assert message.texts == [text]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
+    assert not message.images
+    assert not message.image
 
 
-@pytest.mark.integration
-def test_apply_custom_chat_templating_on_chat_message():
-    anthropic_template = (
-        "{%- for message in messages %}"
-        "{%- if message.role == 'user' %}\n\nHuman: {{ message.content.strip() }}"
-        "{%- elif message.role == 'assistant' %}\n\nAssistant: {{ message.content.strip() }}"
-        "{%- elif message.role == 'function' %}{{ raise('anthropic does not support function calls.') }}"
-        "{%- elif message.role == 'system' and loop.index == 1 %}{{ message.content }}"
-        "{%- else %}{{ raise('Invalid message role: ' + message.role) }}"
-        "{%- endif %}"
-        "{%- endfor %}"
-        "\n\nAssistant:"
-    )
-    messages = [ChatMessage.from_system("You are good assistant"), ChatMessage.from_user("I have a question")]
-    # could be any tokenizer, let's use the one we already likely have in cache
-    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
-    formatted_messages = [m.to_openai_dict_format() for m in messages]
-    tokenized_messages = tokenizer.apply_chat_template(
-        formatted_messages, chat_template=anthropic_template, tokenize=False
-    )
-    assert tokenized_messages == "You are good assistant\nHuman: I have a question\nAssistant:"
+def test_from_assistant_with_tool_calls():
+    tool_calls = [
+        ToolCall(id="123", tool_name="mytool", arguments={"a": 1}),
+        ToolCall(id="456", tool_name="mytool2", arguments={"b": 2}),
+    ]
+
+    message = ChatMessage.from_assistant(tool_calls=tool_calls)
+
+    assert message.role == ChatRole.ASSISTANT
+    assert message._content == tool_calls
+
+    assert message.tool_calls == tool_calls
+    assert message.tool_call == tool_calls[0]
+
+    assert not message.texts
+    assert not message.text
+    assert not message.tool_call_results
+    assert not message.tool_call_result
+    assert not message.images
+    assert not message.image
+
+
+def test_from_user_with_valid_content():
+    text = "I have a question."
+    message = ChatMessage.from_user(text=text)
+
+    assert message.role == ChatRole.USER
+    assert message._content == [TextContent(text)]
+    assert message.name is None
+
+    assert message.text == text
+    assert message.texts == [text]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
+    assert not message.images
+    assert not message.image
+
+def test_from_system_with_valid_content():
+    text = "I have a question."
+    message = ChatMessage.from_system(text=text)
+
+    assert message.role == ChatRole.SYSTEM
+    assert message._content == [TextContent(text)]
+
+    assert message.text == text
+    assert message.texts == [text]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.tool_call_results
+    assert not message.tool_call_result
+    assert not message.images
+    assert not message.image
+
+
+def test_from_tool_with_valid_content():
+    tool_result = "Tool result"
+    origin = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+    message = ChatMessage.from_tool(tool_result, origin, error=False)
+
+    tcr = ToolCallResult(result=tool_result, origin=origin, error=False)
+
+    assert message._content == [tcr]
+    assert message.role == ChatRole.TOOL
+
+    assert message.tool_call_result == tcr
+    assert message.tool_call_results == [tcr]
+
+    assert not message.tool_calls
+    assert not message.tool_call
+    assert not message.texts
+    assert not message.text
+
+    assert not message.images
+    assert not message.image
+
+def test_serde():
+    # the following message is created just for testing purposes and does not make sense in a real use case
+
+    role = ChatRole.ASSISTANT
+
+    text_content = TextContent(text="Hello")
+    tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
+    tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
+    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto", meta={"key": "value"})
+    meta = {"some": "info"}
+
+    message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result, image_content], _meta=meta)
+
+    serialized_message = message.to_dict()
+    assert serialized_message == {
+        "content": [
+            {"text": "Hello"},
+            {"tool_call": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}}},
+            {
+                "tool_call_result": {
+                    "result": "result",
+                    "error": False,
+                    "origin": {"id": "123", "tool_name": "mytool", "arguments": {"a": 1}},
+                }
+            },
+            {
+                "image": {
+                    "base64_image": "base64_string",
+                    "mime_type": "image/png",
+                    "detail": "auto",
+                    "meta": {"key": "value"},
+                }
+            },
+        ],
+        "role": "assistant",
+        "name": None,
+        "meta": {"some": "info"},
+    }
+
+    deserialized_message = ChatMessage.from_dict(serialized_message)
+    assert deserialized_message == message    
