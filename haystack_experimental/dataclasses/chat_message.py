@@ -21,7 +21,9 @@ class ImageContent:
     The image content of a chat message.
 
     :param base64_image: A base64 string representing the image.
-    :param mime_type: The mime type of the image.
+    :param mime_type: The MIME type of the image (e.g. "image/png", "image/jpeg").
+        Providing this value is recommended, as most LLM providers require it.
+        If not provided, the MIME type is guessed from the base64 string, which can be slow and not always reliable.
     :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
     :param meta: Optional metadata for the image.
     """
@@ -41,8 +43,13 @@ class ImageContent:
                 guess = filetype.guess(decoded_image)
                 if guess:
                     self.mime_type = guess.mime
+                else:
+                    msg = ("Failed to guess the MIME type of the image. Omitting the MIME type may result in "
+                           "processing errors or incorrect handling of the image by LLM providers.")
+                    logger.warning(msg)
             except:
                 pass
+
 
     def __repr__(self) -> str:
         """
