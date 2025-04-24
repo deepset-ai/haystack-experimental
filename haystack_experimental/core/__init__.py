@@ -4,4 +4,4 @@
 
 from .pipeline.base import ComponentPriority, PipelineBase
 
-_all_ = ["PipelineBase"]
+__all__ = ["PipelineBase"]
