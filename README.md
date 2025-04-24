@@ -43,19 +43,15 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 | Name                            | Type                                      | Expected End Date | Dependencies | Cookbook                                                                                                                                                                                                                                                  | Discussion                                                                     |
 |---------------------------------|-------------------------------------------|-------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| [`SuperComponent`][2]           | Component                                 | February 2025     | None         |                                                                                                                                                                                                                                                           | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/189) |
-| [`InMemoryChatMessageStore`][6] | Memory Store                              | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`ChatMessageRetriever`][7]     | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`ChatMessageWriter`][8]        | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`Pipeline`][9]                 | Pipeline breakpoints for debugging        | June 2025         | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hybrid_rag_pipeline_with_breakpoints.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/281) 
+| [`InMemoryChatMessageStore`][1] | Memory Store                              | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
+| [`ChatMessageRetriever`][2]     | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
+| [`ChatMessageWriter`][3]        | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
+| [`Pipeline`][4]                 | Pipeline breakpoints for debugging        | June 2025         | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hybrid_rag_pipeline_with_breakpoints.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/281) 
 
-[2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/super_component/super_component.py
-[4]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/auto_merging_retriever.py
-[5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/splitters/hierarchical_doc_splitter.py
-[6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
-[7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
-[8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
-[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/pipeline/pipeline.py
+[1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
+[2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
+[3]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
+[4]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/pipeline/pipeline.py
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
@@ -65,6 +61,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | `LLMMetadataExtractor`                                                                 | Metadata extraction with LLM             | 0.7.0         |
 | `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                              | Document Splitting & Retrieval Technique | 0.8.0         | 
 | `Agent`                                                                                | Simplify Agent development               | 0.8.0         |
+| `SuperComponent`                                                                       | Simplify Pipeline development            | 0.8.0         |
 
 ### Discontinued experiments
 
@@ -136,7 +133,7 @@ class Pipeline(HaystackPipeline):
         ...
 
     # Existing methods with breaking changes to their signature, like adding a new mandatory param
-    def to_dict(new_param: str) -> Dict[str, Any]:
+    def to_dict(self, new_param: str) -> Dict[str, Any]:
         # do something with the new parameter
         print(new_param)
         # call the original method

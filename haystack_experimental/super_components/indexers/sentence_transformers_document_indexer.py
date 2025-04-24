@@ -16,7 +16,7 @@ from haystack.utils import (
 )
 from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kwargs
 
-from haystack_experimental.core.super_component import SuperComponent
+from haystack.core.super_component import SuperComponent
 
 
 @component
