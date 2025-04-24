@@ -44,12 +44,13 @@ class ImageContent:
                 if guess:
                     self.mime_type = guess.mime
                 else:
-                    msg = ("Failed to guess the MIME type of the image. Omitting the MIME type may result in "
-                           "processing errors or incorrect handling of the image by LLM providers.")
+                    msg = (
+                        "Failed to guess the MIME type of the image. Omitting the MIME type may result in "
+                        "processing errors or incorrect handling of the image by LLM providers."
+                    )
                     logger.warning(msg)
             except:
                 pass
-
 
     def __repr__(self) -> str:
         """
