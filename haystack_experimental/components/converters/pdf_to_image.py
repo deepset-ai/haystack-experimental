@@ -11,8 +11,8 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, read_image_from_pdf
 from haystack_experimental.dataclasses.chat_message import ImageContent
-from haystack_experimental.components.converters.image_utils import read_image_from_pdf, DETAIL_TO_IMAGE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ class PDFToImageContent:
         self,
         sources: List[Union[str, Path, ByteStream]],
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+        *,
         detail: Optional[Literal["auto", "high", "low"]] = None,
         downsize: Optional[bool] = None,
         page_range: Optional[List[Union[str, int]]] = None,

@@ -5,19 +5,20 @@
 import base64
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, List, Optional, Tuple, Union
 
 from haystack import logging
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
 with LazyImport("Run 'pip install pypdf pdf2image'") as pypdf_and_pdf2image_import:
-    from pypdf import PdfReader
     import pdf2image
+    from pypdf import PdfReader
 
 with LazyImport("Run 'pip install pillow'") as pillow_import:
     from PIL import Image as PILImage
     from PIL.Image import Image
+    from PIL.ImageFile import ImageFile
 
 
 logger = logging.getLogger(__name__)
@@ -27,12 +28,14 @@ DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2
 
 
 def open_image_to_base64(
-    fp: Union[Path, bytes], size: Union[Tuple[int, int], Dict[float, Tuple[int, int]]], mime_type: Optional[str] = None,
+    file_path: Union[Path, IO[bytes]],
+    size: Tuple[int, int],
+    mime_type: Optional[str] = None,
 ) -> str:
     """
     Open an image from a file path.
 
-    :param fp: A filename (string), os.PathLike object or a file object.
+    :param file_path: A filename (string), os.PathLike object or a file object.
        The file object must implement ``file.read``, ``file.seek``, and ``file.tell`` methods, and be opened in
        binary mode.
     :param size: Tuple of (num_pixels, num_pixels) or a dictionary with aspect ratios as keys and tuples of
@@ -41,14 +44,28 @@ def open_image_to_base64(
         file name.
     :return: Base64 string of the image
     """
+    # Check the import
     pillow_import.check()
+
+    # Load the image
     formats = [mime_type] if mime_type else None
-    image = PILImage.open(fp, formats=formats)
-    image = downsize_image(image, size)
-    return to_base64_str(image, mime_type=mime_type)
+    image: "ImageFile" = PILImage.open(file_path, formats=formats)
+    resolved_mime_type = mime_type or image.get_format_mimetype()
+
+    # Downsize the image
+    downsized_image: "Image" = downsize_image(image, size)
+
+    # Convert the image to base64 string
+    if not resolved_mime_type:
+        logger.warning(
+            "Could not determine mime type for image. Defaulting to 'image/jpeg'. "
+            "Consider providing a mime_type parameter."
+        )
+        resolved_mime_type = "image/jpeg"
+    return to_base64_str(downsized_image, mime_type=resolved_mime_type)
 
 
-def to_base64_str(image: "Image", mime_type: str = "image/jpeg") -> str:
+def to_base64_str(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
     """
     Convert PIL Image to base64 string based on the specified mime type.
 
@@ -69,7 +86,10 @@ def to_base64_str(image: "Image", mime_type: str = "image/jpeg") -> str:
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def downsize_image(image: "Image", size: Union[Tuple[int, int], Dict[float, Tuple[int, int]]]) -> "Image":
+def downsize_image(
+    image: Union["Image", "ImageFile"],
+    size: Tuple[int, int],
+) -> "Image":
     """
     Resize the image to be smaller while maintaining the aspect ratio.
 
@@ -120,12 +140,10 @@ def downsize_image(image: "Image", size: Union[Tuple[int, int], Dict[float, Tupl
     return resized_image
 
 
-# TODO Probably worth putting into PDFToImageContent as a private method
-#      Hmm might need to reuse in the DocumentToImageContent converter
 def read_image_from_pdf(
     bytestream: ByteStream,
-    page_range: List[int],
-    size: Union[Tuple[int, int], Dict[float, Tuple[int, int]]],
+    page_range: Optional[List[int]],
+    size: Optional[Union[Tuple[int, int]]],
     downsize: bool = False,
 ) -> List[str]:
     """
@@ -150,7 +168,8 @@ def read_image_from_pdf(
 
     all_pdf_images = []
     dpi = 300
-    for page_number in page_range:
+    resolved_page_range = page_range or range(1, len(pdf.pages) + 1)
+    for page_number in resolved_page_range:
         # Get dimensions of the page
         page = pdf.pages[max(page_number - 1, 0)]  # Adjust for 0-based indexing
         width = float(page.mediabox.width)
@@ -191,7 +210,7 @@ def read_image_from_pdf(
 
         # TODO Why do we downsize again, might as well do it in the conversion step
         image = pdf_images[0]
-        if downsize:
+        if downsize and size is not None:
             image = downsize_image(image, size)
         base64_image = to_base64_str(image)
 

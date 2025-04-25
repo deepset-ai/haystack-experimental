@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import io
 import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -11,8 +12,8 @@ from haystack import component, logging
 from haystack.components.converters.utils import get_bytestream_from_source, normalize_metadata
 from haystack.dataclasses import ByteStream
 
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, open_image_to_base64
 from haystack_experimental.dataclasses.chat_message import ImageContent
-from haystack_experimental.components.converters.image_utils import open_image_to_base64, DETAIL_TO_IMAGE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class ImageFileToImageContent:
             try:
                 # we need base64 here
                 if self.downsize and size is not None:
-                    base64_image = open_image_to_base64(fp=bytestream.data, size=size)
+                    base64_image = open_image_to_base64(file_path=io.BytesIO(bytestream.data), size=size)
                 else:
                     base64_image = base64.b64encode(bytestream.data).decode("utf-8")
 
