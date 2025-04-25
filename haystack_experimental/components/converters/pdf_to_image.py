@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import base64
 import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -10,25 +9,40 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from haystack import component, logging
 from haystack.components.converters.utils import get_bytestream_from_source, normalize_metadata
 from haystack.dataclasses import ByteStream
+from haystack.utils import expand_page_range
 
 from haystack_experimental.dataclasses.chat_message import ImageContent
-from haystack_experimental.components.converters.image_utils import open_image_to_base64, DETAIL_TO_IMAGE_SIZE
+from haystack_experimental.components.converters.image_utils import read_image_from_pdf, DETAIL_TO_IMAGE_SIZE
 
 logger = logging.getLogger(__name__)
 
 
 @component
-class ImageFileToImageContent:
+class PDFToImageContent:
     """
-    Converts image files to ImageContent objects.
-
-    :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
-    :param downsize: If True, the image will be downscaled to the specified detail level.
+    Converts PDF files to ImageContent objects.
     """
 
-    def __init__(self, *, detail: Optional[Literal["auto", "high", "low"]] = None, downsize: bool = False):
+    def __init__(
+        self,
+        *,
+        detail: Optional[Literal["auto", "high", "low"]] = None,
+        downsize: bool = False,
+        page_range: Optional[List[Union[str, int]]] = None,
+    ):
+        """
+        Create the PDFToImageContent component.
+
+        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param downsize: If True, the image will be downscaled to the specified detail level.
+        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
+            metadata from the first and third pages of each document. It also accepts printable range strings, e.g.:
+            ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,11, 12.
+            If None, metadata will be extracted from the entire document for each document in the documents list.
+        """
         self.detail = detail
         self.downsize = downsize
+        self.page_range = page_range
 
     @component.output_types(image_contents=List[ImageContent])
     def run(
@@ -36,6 +50,8 @@ class ImageFileToImageContent:
         sources: List[Union[str, Path, ByteStream]],
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         detail: Optional[Literal["auto", "high", "low"]] = None,
+        downsize: Optional[bool] = None,
+        page_range: Optional[List[Union[str, int]]] = None,
     ):
         """
         Converts files to ImageContent objects.
@@ -51,6 +67,15 @@ class ImageFileToImageContent:
         :param detail:
             The detail level of the image content.
             If not provided, the detail level will be the one set in the constructor.
+        :param downsize:
+            If True, the image will be downscaled to the specified detail level.
+            If not provided, the downsize value will be the one set in the constructor.
+        :param page_range:
+            A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
+            metadata from the first and third pages of each document. It also accepts printable range strings, e.g.:
+            ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,11, 12.
+            If None, metadata will be extracted from the entire document for each document in the documents list.
+            If not provided, the page_range value will be the one set in the constructor.
 
         :returns:
             A dictionary with the following keys:
@@ -60,7 +85,11 @@ class ImageFileToImageContent:
             return {"image_contents": []}
 
         detail = detail or self.detail
+        downsize = downsize or self.downsize
+        page_range = page_range or self.page_range
+
         size = DETAIL_TO_IMAGE_SIZE[detail] if detail else None
+        expanded_page_range = expand_page_range(page_range) if page_range else None
 
         image_contents = []
 
@@ -83,22 +112,25 @@ class ImageFileToImageContent:
                 continue
             try:
                 # we need base64 here
-                if self.downsize and size is not None:
-                    base64_image = open_image_to_base64(fp=bytestream.data, size=size)
-                else:
-                    base64_image = base64.b64encode(bytestream.data).decode("utf-8")
-
+                # TODO Should add the page number to the metadata
+                #      Update function to return additional metadata
+                base64_images = read_image_from_pdf(
+                    bytestream=bytestream, page_range=expanded_page_range, size=size, downsize=downsize
+                )
             except Exception as e:
                 logger.warning(
-                    "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e
+                    "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e,
                 )
                 continue
 
+            # TODO Add additional metadata here
             merged_metadata = {**bytestream.meta, **metadata}
 
-            image_content = ImageContent(
-                base64_image=base64_image, mime_type=mime_type, meta=merged_metadata, detail=detail
+            image_contents.extend(
+                [
+                    ImageContent(base64_image=image, mime_type=mime_type, meta=merged_metadata, detail=detail)
+                    for image in base64_images
+                ]
             )
-            image_contents.append(image_content)
 
         return {"image_contents": image_contents}

@@ -5,9 +5,10 @@
 import base64
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from haystack import logging
+from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
 with LazyImport("Run 'pip install pypdf pdf2image'") as pypdf_and_pdf2image_import:
@@ -20,6 +21,9 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
 
 
 logger = logging.getLogger(__name__)
+
+
+DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2_048)}
 
 
 def open_image_to_base64(
@@ -96,7 +100,7 @@ def downsize_image(image: "Image", size: Union[Tuple[int, int], Dict[float, Tupl
         new_longer_dim = max_longer_dim
         new_shorter_dim = int(new_longer_dim * aspect_ratio)
     else:
-        # If the apect ratio is larger than max, we have to resize based on the shorter dim
+        # If the aspect ratio is larger than max, we have to resize based on the shorter dim
         new_shorter_dim = max_shorter_dim
         new_longer_dim = int(new_shorter_dim / aspect_ratio)
 
@@ -116,27 +120,37 @@ def downsize_image(image: "Image", size: Union[Tuple[int, int], Dict[float, Tupl
     return resized_image
 
 
+# TODO Probably worth putting into PDFToImageContent as a private method
+#      Hmm might need to reuse in the DocumentToImageContent converter
 def read_image_from_pdf(
-    file_path: Path,
-    page_number: int,
-    size: Union[Tuple[int, int], Dict[float, Tuple[int, int]]]
-) -> Optional[str]:
+    bytestream: ByteStream,
+    page_range: List[int],
+    size: Union[Tuple[int, int], Dict[float, Tuple[int, int]]],
+    downsize: bool = False,
+) -> List[str]:
     """
-    Read an image from a PDF file. Checks PDF dimensions and adjusts size constraints based on aspect ratio.
+    Convert PDF file into a list of base64 encoded images.
 
-    :param file_path: Path to the PDF file
-    :param page_number: Page number of the PDF file to read
+    Checks PDF dimensions and adjusts size constraints based on aspect ratio.
+
+    :param bytestream: ByteStream object containing the PDF data
+    :param page_range: List of page numbers to convert to images
     :param size: Target size of the image. Tuple of (num_pixels, num_pixels)
         or a dictionary with aspect ratios as keys and tuples of (num_pixels, num_pixels) as values
-    :return: Base64 string of the image
+    :param downsize: Whether to downsize the image
+    :return:
+        - List of Base64 strings
     """
     pypdf_and_pdf2image_import.check()
-    try:
-        pdf = PdfReader(str(file_path))
-        if not pdf.pages:
-            logger.error("PDF file is empty: {file_path}", file_path=file_path)
-            return None
 
+    pdf = PdfReader(BytesIO(bytestream.data))
+    if not pdf.pages:
+        logger.error("PDF file is empty: {file_path}", file_path=bytestream.meta.get("file_path"))
+        return []
+
+    all_pdf_images = []
+    dpi = 300
+    for page_number in page_range:
         # Get dimensions of the page
         page = pdf.pages[max(page_number - 1, 0)]  # Adjust for 0-based indexing
         width = float(page.mediabox.width)
@@ -144,55 +158,43 @@ def read_image_from_pdf(
         aspect_ratio = width / height
 
         # Calculate potential pixels for 300 dpi
-        potential_pixels = (width * 300 / 72) * (height * 300 / 72)
+        potential_pixels = (width * dpi / 72) * (height * 300 / 72)
 
+        # TODO Can we dynamically load PIL's default limit?
         # 90% of PIL's default limit to prevent borderline cases
         pixel_limit = 89478485 * 0.9  # PIL's default limit * 0.9 margin factor
 
-        conversion_args: Dict[str, Union[int, Tuple[Optional[int], Optional[int]]]] = {
-            "dpi": 300,
+        conversion_args: Dict[str, Any] = {
+            "dpi": dpi,
             "first_page": page_number,
             "last_page": page_number,
         }
 
         if potential_pixels > pixel_limit:
-            logger.warning(
-                """Large PDF detected ({pixels:.2f} pixels, aspect ratio: {ratio:.2f}).
-                 Resizing the image to fit the pixel limit.""",
+            logger.info(
+                "Large PDF detected ({pixels:.2f} pixels, aspect ratio: {ratio:.2f}). "
+                "Resizing the image to fit the pixel limit.",
                 pixels=potential_pixels,
                 ratio=aspect_ratio,
             )
 
-            # For wide images (aspect ratio > 1), use height as the primary constraint
+            # For wide images (aspect ratio > 1), resize based on height while maintaining aspect ratio
             if aspect_ratio > 1:
                 max_height = int((pixel_limit / aspect_ratio) ** 0.5)
                 conversion_args["size"] = (None, max_height)
-                logger.warning("Using height as primary constraint")
-            # For tall images (aspect ratio < 1), use width as the primary constraint
+            # For tall images (aspect ratio < 1), resize based on width while maintaining aspect ratio
             else:
                 max_width = int((pixel_limit * aspect_ratio) ** 0.5)
                 conversion_args["size"] = (max_width, None)
-                logger.warning("Using width as primary constraint")
-        pdf_images: List[Image] = pdf2image.convert_from_path(file_path, **conversion_args)
 
-    except Exception as e:
-        logger.error(
-            "Could not convert page {page_number} of {file_path} into an image. Error: {error}",
-            page_number=page_number,
-            file_path=file_path,
-            error=e,
-        )
-        return None
+        pdf_images: List[Image] = pdf2image.convert_from_bytes(bytestream.data, **conversion_args)
 
-    if not pdf_images:
-        logger.error(
-            "Could not convert page {page_number} of {file_path} into an image.",
-            page_number=page_number,
-            file_path=file_path,
-        )
-        return None
+        # TODO Why do we downsize again, might as well do it in the conversion step
+        image = pdf_images[0]
+        if downsize:
+            image = downsize_image(image, size)
+        base64_image = to_base64_str(image)
 
-    image = pdf_images[0]
-    image = downsize_image(image, size)
-    base64_image = to_base64_str(image)
-    return base64_image
+        all_pdf_images.append(base64_image)
+
+    return all_pdf_images
