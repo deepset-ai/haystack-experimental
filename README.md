@@ -5,7 +5,7 @@
 [![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 
-# Haystack experimental package
+# TEST Haystack experimental package
 
 The `haystack-experimental` package provides Haystack users with access to experimental features without immediately
 committing to their official release. The main goal is to gather user feedback and iterate on new features quickly.
