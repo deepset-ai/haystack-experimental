@@ -69,7 +69,8 @@ extra-dependencies = [
   "python-pptx", # MultiFileConverter
   "trafilatura", # MultiFileConverter
   "transformers[torch,sentencepiece]>=4.51.1,<4.52", # same as in haystack-ai
-
+  "pdf2image", # for pdf to image conversion in FileToImageContent
+  "pillow", # for image processing in FileToImageContent
 ]
 
 [tool.hatch.envs.test.scripts]
