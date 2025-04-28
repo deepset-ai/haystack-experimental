@@ -86,6 +86,8 @@ def open_image_to_base64(
         formats = None
     image: "ImageFile" = PILImage.open(BytesIO(bytestream.data), formats=formats)
 
+    # TODO Probably should defer to image.get_format_mimetype() and print warning if bytestream.mime_type is not None
+    #      and doesn't match?
     resolved_mime_type = bytestream.mime_type or image.get_format_mimetype()
 
     # Downsize the image
