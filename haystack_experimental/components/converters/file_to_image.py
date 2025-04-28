@@ -84,10 +84,7 @@ class ImageFileToImageContent:
                 continue
             try:
                 # we need base64 here
-                if self.downsize and size is not None:
-                    base64_image = open_image_to_base64(file_path=io.BytesIO(bytestream.data), size=size)
-                else:
-                    base64_image = base64.b64encode(bytestream.data).decode("utf-8")
+                base64_image = open_image_to_base64(bytestream=bytestream, size=size, downsize=self.downsize)
 
             except Exception as e:
                 logger.warning(

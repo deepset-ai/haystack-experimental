@@ -120,7 +120,9 @@ class PDFToImageContent:
                 )
             except Exception as e:
                 logger.warning(
-                    "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e,
+                    "Could not convert file {source}. Skipping it. Error message: {error}",
+                    source=source,
+                    error=e,
                 )
                 continue
 

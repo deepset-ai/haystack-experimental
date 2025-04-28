@@ -4,8 +4,7 @@
 
 import base64
 from io import BytesIO
-from pathlib import Path
-from typing import IO, Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from haystack import logging
 from haystack.dataclasses import ByteStream
@@ -26,31 +25,68 @@ logger = logging.getLogger(__name__)
 
 DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2_048)}
 
+# TODO We have to rely on this since our util functions are using the bytestream object.
+#      We could change this to use the file path instead, where the file extension is used to determine the format.
+# This is a mapping of image formats to their MIME types.
+# from PIL import Image
+# Image.init()  # <- Must force all plugins to initialize to get this mapping
+# print(Image.MIME)
+FORMAT_TO_MIME = {
+    "BMP": "image/bmp",
+    "DIB": "image/bmp",
+    "PCX": "image/x-pcx",
+    "EPS": "application/postscript",
+    "GIF": "image/gif",
+    "PNG": "image/png",
+    "JPEG2000": "image/jp2",
+    "ICNS": "image/icns",
+    "ICO": "image/x-icon",
+    "JPEG": "image/jpeg",
+    "MPEG": "video/mpeg",
+    "TIFF": "image/tiff",
+    "MPO": "image/mpo",
+    "PALM": "image/palm",
+    "PDF": "application/pdf",
+    "PPM": "image/x-portable-anymap",
+    "PSD": "image/vnd.adobe.photoshop",
+    "SGI": "image/sgi",
+    "TGA": "image/x-tga",
+    "WEBP": "image/webp",
+    "XBM": "image/xbm",
+    "XPM": "image/xpm",
+}
+MIME_TO_FORMAT = {v: k for k, v in FORMAT_TO_MIME.items()}
+# Adding some common MIME types that are not in the PIL mapping
+MIME_TO_FORMAT["image/jpg"] = "JPEG"
+
 
 def open_image_to_base64(
-    file_path: Union[Path, IO[bytes]],
-    size: Tuple[int, int],
-    mime_type: Optional[str] = None,
+    bytestream: ByteStream,
+    size: Optional[Tuple[int, int]] = None,
+    downsize: bool = False,
 ) -> str:
     """
     Open an image from a file path.
 
-    :param file_path: A filename (string), os.PathLike object or a file object.
-       The file object must implement ``file.read``, ``file.seek``, and ``file.tell`` methods, and be opened in
-       binary mode.
-    :param size: Tuple of (num_pixels, num_pixels) or a dictionary with aspect ratios as keys and tuples of
-        (num_pixels, num_pixels) as values
-    :param mime_type: The mime type to load and save the image in. If not provided, it will be guessed from the
-        file name.
+    :param bytestream: ByteStream object containing the image data
+    :param size: Tuple of (num_pixels, num_pixels)
+    :param downsize: If True, the image will be downscaled to the specified size.
     :return: Base64 string of the image
     """
+    if not downsize:
+        return base64.b64encode(bytestream.data).decode("utf-8")
+
     # Check the import
     pillow_import.check()
 
     # Load the image
-    formats = [mime_type] if mime_type else None
-    image: "ImageFile" = PILImage.open(file_path, formats=formats)
-    resolved_mime_type = mime_type or image.get_format_mimetype()
+    if bytestream.mime_type and bytestream.mime_type in MIME_TO_FORMAT:
+        formats = [MIME_TO_FORMAT[bytestream.mime_type]]
+    else:
+        formats = None
+    image: "ImageFile" = PILImage.open(BytesIO(bytestream.data), formats=formats)
+
+    resolved_mime_type = bytestream.mime_type or image.get_format_mimetype()
 
     # Downsize the image
     downsized_image: "Image" = downsize_image(image, size)
@@ -62,10 +98,10 @@ def open_image_to_base64(
             "Consider providing a mime_type parameter."
         )
         resolved_mime_type = "image/jpeg"
-    return to_base64_str(downsized_image, mime_type=resolved_mime_type)
+    return pil_image_to_base64_str(downsized_image, mime_type=resolved_mime_type)
 
 
-def to_base64_str(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
+def pil_image_to_base64_str(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
     """
     Convert PIL Image to base64 string based on the specified mime type.
 
@@ -74,15 +110,20 @@ def to_base64_str(image: Union["Image", "ImageFile"], mime_type: str = "image/jp
     :return: Base64 string of the image
     """
     # Convert image to RGB if it has an alpha channel and we are saving as JPEG
-    if (
-        mime_type == "image/jpeg" or mime_type == "image/jpg"
-    ) and (
+    if (mime_type == "image/jpeg" or mime_type == "image/jpg") and (
         image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info)
     ):
         image = image.convert("RGB")
 
     buffered = BytesIO()
-    image.save(buffered, format=mime_type)
+    form = MIME_TO_FORMAT.get(mime_type)
+    if form is None:
+        logger.warning(
+            "Could not determine format for mime type {mime_type}. Defaulting to JPEG.",
+            mime_type=mime_type,
+        )
+        form = "JPEG"
+    image.save(buffered, format=form)
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
@@ -99,8 +140,7 @@ def downsize_image(
     key being closest to the image aspect ratio is used.
 
     :param image: PIL Image object
-    :param size: Tuple of (num_pixels, num_pixels) or a dictionary with aspect ratios as keys and tuples of
-        (num_pixels, num_pixels) as values
+    :param size: Tuple of (num_pixels, num_pixels)
     :return: Resized PIL Image object
     """
     longer_dim = max(image.size)
@@ -143,7 +183,7 @@ def downsize_image(
 def read_image_from_pdf(
     bytestream: ByteStream,
     page_range: Optional[List[int]],
-    size: Optional[Union[Tuple[int, int]]],
+    size: Optional[Union[Tuple[int, int]]] = None,
     downsize: bool = False,
 ) -> List[str]:
     """
@@ -153,23 +193,39 @@ def read_image_from_pdf(
 
     :param bytestream: ByteStream object containing the PDF data
     :param page_range: List of page numbers to convert to images
-    :param size: Target size of the image. Tuple of (num_pixels, num_pixels)
-        or a dictionary with aspect ratios as keys and tuples of (num_pixels, num_pixels) as values
+    :param size: Target size of the image. Tuple of (num_pixels, num_pixels).
     :param downsize: Whether to downsize the image
     :return:
         - List of Base64 strings
     """
     pypdf_and_pdf2image_import.check()
 
-    pdf = PdfReader(BytesIO(bytestream.data))
+    try:
+        pdf = PdfReader(BytesIO(bytestream.data))
+    except Exception as e:
+        logger.warning(
+            "Could not read PDF file {file_path}. Skipping it. Error: {error}",
+            file_path=bytestream.meta.get("file_path"),
+            error=e,
+        )
+        return []
+
     if not pdf.pages:
-        logger.error("PDF file is empty: {file_path}", file_path=bytestream.meta.get("file_path"))
+        logger.warning("PDF file is empty: {file_path}", file_path=bytestream.meta.get("file_path"))
         return []
 
     all_pdf_images = []
     dpi = 300
     resolved_page_range = page_range or range(1, len(pdf.pages) + 1)
+    num_pages = len(pdf.pages)
     for page_number in resolved_page_range:
+        if page_number < 1 or page_number > num_pages:
+            logger.warning(
+                "Page {page_number} is out of range for the PDF file. Skipping it.",
+                page_number=page_number,
+            )
+            continue
+
         # Get dimensions of the page
         page = pdf.pages[max(page_number - 1, 0)]  # Adjust for 0-based indexing
         width = float(page.mediabox.width)
@@ -208,11 +264,12 @@ def read_image_from_pdf(
 
         pdf_images: List[Image] = pdf2image.convert_from_bytes(bytestream.data, **conversion_args)
 
-        # TODO Why do we downsize again, might as well do it in the conversion step
         image = pdf_images[0]
         if downsize and size is not None:
             image = downsize_image(image, size)
-        base64_image = to_base64_str(image)
+
+        # We always convert PDF to JPG
+        base64_image = pil_image_to_base64_str(image, mime_type="image/jpeg")
 
         all_pdf_images.append(base64_image)
 
