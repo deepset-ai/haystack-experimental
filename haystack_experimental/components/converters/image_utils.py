@@ -205,7 +205,11 @@ def convert_pdf_to_images(
     Checks PDF dimensions and adjusts size constraints based on aspect ratio.
 
     :param bytestream: ByteStream object containing the PDF data
-    :param page_range: List of page numbers to convert to images
+    :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
+        If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
+        will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
+        pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
+        will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
     :param size: Maximum dimensions (width, height) to resize the image to.
     :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
         This reduces file size, memory usage, and processing time, which is beneficial when working with models that
