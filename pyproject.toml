@@ -25,7 +25,12 @@ classifiers = [
   "Programming Language :: Python :: 3.13",  
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["haystack-ai"]
+
+dependencies = [
+  "haystack-ai",
+  "filetype",  # for mime type detection in ImageContent
+]
+
 [project.urls]
 "CI: GitHub" = "https://github.com/deepset-ai/haystack-experimental/actions"
 "GitHub: issues" = "https://github.com/deepset-ai/haystack-experimental/issues"
