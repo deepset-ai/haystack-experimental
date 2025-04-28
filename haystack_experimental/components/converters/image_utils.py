@@ -73,7 +73,7 @@ def open_image_to_base64(
     :param downsize: If True, the image will be downscaled to the specified size.
     :return: Base64 string of the image
     """
-    if not downsize:
+    if not downsize or size is None:
         return base64.b64encode(bytestream.data).decode("utf-8")
 
     # Check the import

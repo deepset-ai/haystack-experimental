@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import base64
-import io
 import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
