@@ -105,11 +105,11 @@ class TestReadImageFromPdf:
 
 class TestOpenImageToBase64:
     def test_open_image_to_base64(self) -> None:
-        bytestream = get_bytestream_from_source(Path("test/test_files/png/haystack_banner.png"))
+        bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = open_image_to_base64(bytestream=bytestream, size=(512, 512))
         assert base64_str is not None
 
     def test_open_image_to_base64_downsize(self) -> None:
-        bytestream = get_bytestream_from_source(Path("test/test_files/png/haystack_banner.png"))
+        bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = open_image_to_base64(bytestream=bytestream, size=(512, 512), downsize=True)
         assert base64_str is not None
