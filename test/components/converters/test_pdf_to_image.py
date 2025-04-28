@@ -12,7 +12,7 @@ from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
 from haystack_experimental.components.converters.pdf_to_image import PDFToImageContent
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, extract_images_from_pdf
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, convert_pdf_to_images
 
 
 class TestPDFToImageContent:
@@ -49,7 +49,7 @@ class TestPDFToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert (
                 results["image_contents"][0].base64_image
-                == extract_images_from_pdf(bytestream=byte_stream, size=None, page_range=[1])[0]
+                == convert_pdf_to_images(bytestream=byte_stream, size=None, page_range=[1])[0]
         )
         assert results["image_contents"][0].mime_type == mime_type
         assert results["image_contents"][0].detail is None
@@ -86,7 +86,7 @@ class TestPDFToImageContent:
         # Assertions
         assert len(results["image_contents"]) == 4
         assert results["image_contents"][0].base64_image is not None
-        assert results["image_contents"][0].base64_image == extract_images_from_pdf(
+        assert results["image_contents"][0].base64_image == convert_pdf_to_images(
             bytestream=byte_stream, size=None, page_range=[1]
         )[0]
         assert results["image_contents"][0].mime_type == mime_type

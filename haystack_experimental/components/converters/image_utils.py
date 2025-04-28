@@ -193,7 +193,7 @@ def resize_image_preserving_aspect_ratio(
     return resized_image
 
 
-def extract_images_from_pdf(
+def convert_pdf_to_images(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
     size: Optional[Union[Tuple[int, int]]] = None,

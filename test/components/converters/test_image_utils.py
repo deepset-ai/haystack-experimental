@@ -13,7 +13,7 @@ from haystack.dataclasses import ByteStream
 
 from haystack_experimental.components.converters.image_utils import (
     resize_image_preserving_aspect_ratio,
-    extract_images_from_pdf,
+    convert_pdf_to_images,
     encode_pil_image_to_base64,
     encode_image_to_base64,
 )
@@ -89,12 +89,12 @@ class TestDownsizeImage:
 class TestReadImageFromPdf:
     def test_read_image_from_pdf(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = extract_images_from_pdf(bytestream=bytestream, page_range=[1])
+        image = convert_pdf_to_images(bytestream=bytestream, page_range=[1])
         assert image is not None
 
     def test_read_image_from_pdf_invalid_page(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        out = extract_images_from_pdf(bytestream=bytestream, page_range=[5])
+        out = convert_pdf_to_images(bytestream=bytestream, page_range=[5])
         assert out == []
         assert "Page 5 is out of range for the PDF file. Skipping it." in caplog.text
 
@@ -102,7 +102,7 @@ class TestReadImageFromPdf:
         bytestream = ByteStream(
             data=b"", mime_type="application/pdf", meta={"file_path": "test/test_files/pdf/empty_pdf.pdf"}
         )
-        out = extract_images_from_pdf(bytestream, [1])
+        out = convert_pdf_to_images(bytestream, [1])
         assert out == []
         assert "Could not read PDF file" in caplog.text
 

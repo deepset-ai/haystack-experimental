@@ -11,7 +11,7 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, extract_images_from_pdf
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, convert_pdf_to_images
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ class PDFToImageContent:
                 # we need base64 here
                 # TODO Should add the page number to the metadata
                 #      Update function to return additional metadata
-                base64_images = extract_images_from_pdf(
+                base64_images = convert_pdf_to_images(
                     bytestream=bytestream, page_range=expanded_page_range, size=size, downsize=downsize
                 )
             except Exception as e:
