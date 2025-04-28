@@ -60,18 +60,24 @@ MIME_TO_FORMAT = {v: k for k, v in FORMAT_TO_MIME.items()}
 MIME_TO_FORMAT["image/jpg"] = "JPEG"
 
 
-def open_image_to_base64(
+def encode_image_to_base64(
     bytestream: ByteStream,
     size: Optional[Tuple[int, int]] = None,
     downsize: bool = False,
 ) -> str:
     """
-    Open an image from a file path.
+    Encode an image from a ByteStream into a base64-encoded string.
 
-    :param bytestream: ByteStream object containing the image data
-    :param size: Tuple of (num_pixels, num_pixels)
-    :param downsize: If True, the image will be downscaled to the specified size.
-    :return: Base64 string of the image
+    Optionally resize the image before encoding to improve performance for downstream processing.
+
+    :param bytestream: ByteStream containing the image data.
+    :param size: Maximum dimensions (width, height) to resize the image to.
+    :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
+        This reduces file size, memory usage, and processing time, which is beneficial when working with models that
+        have resolution constraints or when transmitting images to remote services.
+
+    :returns:
+        Base64-encoded string of the image.
     """
     if not downsize or size is None:
         return base64.b64encode(bytestream.data).decode("utf-8")
@@ -91,7 +97,7 @@ def open_image_to_base64(
     resolved_mime_type = bytestream.mime_type or image.get_format_mimetype()
 
     # Downsize the image
-    downsized_image: "Image" = downsize_image(image, size)
+    downsized_image: "Image" = resize_image_preserving_aspect_ratio(image, size)
 
     # Convert the image to base64 string
     if not resolved_mime_type:
@@ -100,16 +106,19 @@ def open_image_to_base64(
             "Consider providing a mime_type parameter."
         )
         resolved_mime_type = "image/jpeg"
-    return pil_image_to_base64_str(downsized_image, mime_type=resolved_mime_type)
+    return encode_pil_image_to_base64(downsized_image, mime_type=resolved_mime_type)
 
 
-def pil_image_to_base64_str(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
+def encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
     """
-    Convert PIL Image to base64 string based on the specified mime type.
+    Convert a PIL Image object to a base64-encoded string.
 
-    :param image: PIL Image object
-    :param mime_type: The mime type to save the image in. Default is "image/jpeg".
-    :return: Base64 string of the image
+    Automatically converts images with transparency to RGB if saving as JPEG.
+
+    :param image: A PIL Image or ImageFile object to encode.
+    :param mime_type: The MIME type to use when encoding the image. Defaults to "image/jpeg".
+    :returns:
+        Base64-encoded string representing the image.
     """
     # Convert image to RGB if it has an alpha channel and we are saving as JPEG
     if (mime_type == "image/jpeg" or mime_type == "image/jpg") and (
@@ -129,21 +138,23 @@ def pil_image_to_base64_str(image: Union["Image", "ImageFile"], mime_type: str =
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def downsize_image(
+def resize_image_preserving_aspect_ratio(
     image: Union["Image", "ImageFile"],
     size: Tuple[int, int],
 ) -> "Image":
     """
-    Resize the image to be smaller while maintaining the aspect ratio.
+    Resizes the image to fit within the specified dimensions while maintaining the original aspect ratio.
 
-    The latency of vision models can be improved by downsizing images ahead of time to be less than the
-    maximum size they are expected to be. You can specify the size as a tuple of (num_pixels, num_pixels) or
-    as a dictionary with tuples of (num_pixels, num_pixels) as values and aspect ratios as keys. The value of the
-    key being closest to the image aspect ratio is used.
+    The image is only resized if its dimensions exceed the given maximum size.
 
-    :param image: PIL Image object
-    :param size: Tuple of (num_pixels, num_pixels)
-    :return: Resized PIL Image object
+    Downsizing images can be beneficial for both reducing latency and conserving memory. Some models have resolution
+    limitations, so it's advisable to resize images to the maximum supported resolution before passing them to the
+    model. This can improve latency when sending images to remote services and optimize memory usage.
+
+    :param image: A PIL Image or ImageFile object to resize.
+    :param size: Maximum allowed dimensions (width, height).
+    :returns:
+        A resized PIL Image object.
     """
     longer_dim = max(image.size)
     shorter_dim = min(image.size)
@@ -182,7 +193,7 @@ def downsize_image(
     return resized_image
 
 
-def read_image_from_pdf(
+def extract_images_from_pdf(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
     size: Optional[Union[Tuple[int, int]]] = None,
@@ -195,9 +206,11 @@ def read_image_from_pdf(
 
     :param bytestream: ByteStream object containing the PDF data
     :param page_range: List of page numbers to convert to images
-    :param size: Target size of the image. Tuple of (num_pixels, num_pixels).
-    :param downsize: Whether to downsize the image
-    :return:
+    :param size: Maximum dimensions (width, height) to resize the image to.
+    :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
+        This reduces file size, memory usage, and processing time, which is beneficial when working with models that
+        have resolution constraints or when transmitting images to remote services.
+    :returns:
         - List of Base64 strings
     """
     pypdf_and_pdf2image_import.check()
@@ -268,10 +281,10 @@ def read_image_from_pdf(
 
         image = pdf_images[0]
         if downsize and size is not None:
-            image = downsize_image(image, size)
+            image = resize_image_preserving_aspect_ratio(image, size)
 
         # We always convert PDF to JPG
-        base64_image = pil_image_to_base64_str(image, mime_type="image/jpeg")
+        base64_image = encode_pil_image_to_base64(image, mime_type="image/jpeg")
 
         all_pdf_images.append(base64_image)
 

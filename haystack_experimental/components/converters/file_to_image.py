@@ -10,7 +10,7 @@ from haystack import component, logging
 from haystack.components.converters.utils import get_bytestream_from_source, normalize_metadata
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, open_image_to_base64
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, encode_image_to_base64
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 logger = logging.getLogger(__name__)
@@ -23,12 +23,18 @@ _EMPTY_BYTE_STRING = b""
 class ImageFileToImageContent:
     """
     Converts image files to ImageContent objects.
-
-    :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
-    :param downsize: If True, the image will be downscaled to the specified detail level.
     """
 
     def __init__(self, *, detail: Optional[Literal["auto", "high", "low"]] = None, downsize: bool = False):
+        """
+        Create the ImageFileToImageContent component.
+
+        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
+            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
+            models that have resolution constraints or when transmitting images to remote services.
+            If not provided, the downsize value will be the one set in the constructor.
+        """
         self.detail = detail
         self.downsize = downsize
 
@@ -90,7 +96,7 @@ class ImageFileToImageContent:
 
             try:
                 # we need base64 here
-                base64_image = open_image_to_base64(bytestream=bytestream, size=size, downsize=self.downsize)
+                base64_image = encode_image_to_base64(bytestream=bytestream, size=size, downsize=self.downsize)
             except Exception as e:
                 logger.warning(
                     "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e

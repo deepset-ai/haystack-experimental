@@ -11,7 +11,7 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, read_image_from_pdf
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, extract_images_from_pdf
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,10 @@ class PDFToImageContent:
         Create the PDFToImageContent component.
 
         :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
-        :param downsize: If True, the image will be downscaled to the specified detail level.
+        :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
+            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
+            models that have resolution constraints or when transmitting images to remote services.
+            If not provided, the downsize value will be the one set in the constructor.
         :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
             metadata from the first and third pages of each document. It also accepts printable range strings, e.g.:
             ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,11, 12.
@@ -68,8 +71,9 @@ class PDFToImageContent:
         :param detail:
             The detail level of the image content.
             If not provided, the detail level will be the one set in the constructor.
-        :param downsize:
-            If True, the image will be downscaled to the specified detail level.
+        :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
+            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
+            models that have resolution constraints or when transmitting images to remote services.
             If not provided, the downsize value will be the one set in the constructor.
         :param page_range:
             A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
@@ -115,7 +119,7 @@ class PDFToImageContent:
                 # we need base64 here
                 # TODO Should add the page number to the metadata
                 #      Update function to return additional metadata
-                base64_images = read_image_from_pdf(
+                base64_images = extract_images_from_pdf(
                     bytestream=bytestream, page_range=expanded_page_range, size=size, downsize=downsize
                 )
             except Exception as e:

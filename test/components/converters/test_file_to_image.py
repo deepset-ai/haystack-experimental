@@ -9,7 +9,7 @@ from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
 from haystack_experimental.components.converters.file_to_image import ImageFileToImageContent
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, open_image_to_base64
+from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, encode_image_to_base64
 
 
 class TestImageFileToImageContent:
@@ -51,7 +51,7 @@ class TestImageFileToImageContent:
         )
         assert len(results["image_contents"]) == 1
         assert results["image_contents"][0].base64_image is not None
-        assert results["image_contents"][0].base64_image == open_image_to_base64(
+        assert results["image_contents"][0].base64_image == encode_image_to_base64(
             bytestream=byte_stream, size=DETAIL_TO_IMAGE_SIZE["auto"]
         )
         assert results["image_contents"][0].mime_type == mime_type
@@ -94,7 +94,7 @@ class TestImageFileToImageContent:
         # Assertions
         assert len(results["image_contents"]) == 1
         assert results["image_contents"][0].base64_image is not None
-        assert results["image_contents"][0].base64_image == open_image_to_base64(
+        assert results["image_contents"][0].base64_image == encode_image_to_base64(
             bytestream=byte_stream, size=DETAIL_TO_IMAGE_SIZE["auto"]
         )
         assert results["image_contents"][0].mime_type == mime_type
