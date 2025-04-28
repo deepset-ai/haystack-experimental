@@ -16,6 +16,9 @@ from haystack_experimental.dataclasses.chat_message import ImageContent
 logger = logging.getLogger(__name__)
 
 
+_EMPTY_BYTE_STRING = b""
+
+
 @component
 class ImageFileToImageContent:
     """
@@ -81,7 +84,7 @@ class ImageFileToImageContent:
                 logger.warning("Could not read {source}. Skipping it. Error: {error}", source=source, error=e)
                 continue
 
-            if bytestream.data == b"":
+            if bytestream.data == _EMPTY_BYTE_STRING:
                 logger.warning("File {source} is empty. Skipping it.", source=source)
                 continue
 
