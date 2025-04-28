@@ -80,10 +80,14 @@ class ImageFileToImageContent:
             except Exception as e:
                 logger.warning("Could not read {source}. Skipping it. Error: {error}", source=source, error=e)
                 continue
+
+            if bytestream.data == b"":
+                logger.warning("File {source} is empty. Skipping it.", source=source)
+                continue
+
             try:
                 # we need base64 here
                 base64_image = open_image_to_base64(bytestream=bytestream, size=size, downsize=self.downsize)
-
             except Exception as e:
                 logger.warning(
                     "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e
@@ -91,7 +95,6 @@ class ImageFileToImageContent:
                 continue
 
             merged_metadata = {**bytestream.meta, **metadata}
-
             image_content = ImageContent(
                 base64_image=base64_image, mime_type=mime_type, meta=merged_metadata, detail=detail
             )

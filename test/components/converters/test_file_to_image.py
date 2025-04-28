@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from pathlib import Path
 
 import pytest
@@ -79,15 +83,13 @@ class TestImageFileToImageContent:
         ],
     )
     def test_run_with_bytestream_sources(self, image_path: str, mime_type: str) -> None:
-        byte_stream = ByteStream.from_file_path(
-            Path(image_path), mime_type=mime_type, meta={"file_path": image_path}
-        )
+        byte_stream = ByteStream.from_file_path(Path(image_path), mime_type=mime_type, meta={"file_path": image_path})
 
         # Initialize the converter
         converter = ImageFileToImageContent()
 
         # Run the converter with the ByteStream
-        results = converter.run(sources=[image_path])
+        results = converter.run(sources=[byte_stream])
 
         # Assertions
         assert len(results["image_contents"]) == 1
@@ -97,7 +99,7 @@ class TestImageFileToImageContent:
         )
         assert results["image_contents"][0].mime_type == mime_type
         assert results["image_contents"][0].detail is None
-        assert results["image_contents"][0].meta["file_path"] == str(Path(image_path))
+        assert results["image_contents"][0].meta["file_path"] == image_path
 
     def test_run_with_empty_bytestream(self) -> None:
         # Create an empty ByteStream object
@@ -109,7 +111,4 @@ class TestImageFileToImageContent:
         # Run the converter with the empty ByteStream
         results = converter.run(sources=[byte_stream])
 
-        assert results["image_contents"][0].base64_image == ''
-        assert results["image_contents"][0].mime_type is None
-        assert results["image_contents"][0].detail is None
-        assert results["image_contents"][0].meta["file_path"] == "empty_file.png"
+        assert results["image_contents"] == []

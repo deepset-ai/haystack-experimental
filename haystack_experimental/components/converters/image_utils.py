@@ -184,7 +184,7 @@ def downsize_image(
 
 def read_image_from_pdf(
     bytestream: ByteStream,
-    page_range: Optional[List[int]],
+    page_range: Optional[List[int]] = None,
     size: Optional[Union[Tuple[int, int]]] = None,
     downsize: bool = False,
 ) -> List[str]:
