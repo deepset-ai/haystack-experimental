@@ -37,7 +37,6 @@ class PDFToImageContent:
         :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
             ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
             models that have resolution constraints or when transmitting images to remote services.
-            If not provided, the downsize value will be the one set in the constructor.
         :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
             If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
             will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
