@@ -96,6 +96,10 @@ class ImageFileToImageContent:
         downsize = downsize or self.downsize
         size = DETAIL_TO_IMAGE_SIZE[detail] if detail else None
 
+        # Check import
+        if detail and downsize:
+            pillow_import.check()
+
         image_contents = []
 
         meta_list = normalize_metadata(meta, sources_count=len(sources))

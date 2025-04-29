@@ -13,6 +13,7 @@ from haystack.utils import expand_page_range
 from haystack_experimental.components.converters.image_utils import (
     DETAIL_TO_IMAGE_SIZE,
     convert_pdf_to_images,
+    pillow_import,
     pypdf_and_pdf2image_import,
 )
 from haystack_experimental.dataclasses.chat_message import ImageContent
