@@ -33,7 +33,6 @@ class ImageFileToImageContent:
         :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
             ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
             models that have resolution constraints or when transmitting images to remote services.
-            If not provided, the downsize value will be the one set in the constructor.
         """
         self.detail = detail
         self.downsize = downsize
