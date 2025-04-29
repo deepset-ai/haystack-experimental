@@ -164,6 +164,8 @@ class ChatMessage(HaystackChatMessage):
             content = [TextContent(text=text)]
         elif content_parts is not None:
             content = [TextContent(el) if isinstance(el, str) else el for el in content_parts]
+            if not any(isinstance(el, TextContent) for el in content):
+                raise ValueError("The user message must contain at least one textual part.")
 
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
 
@@ -199,7 +201,6 @@ class ChatMessage(HaystackChatMessage):
         """
         Convert a ChatMessage to the dictionary format expected by OpenAI's Chat API.
         """
-        print("Reimplented!!!!")
         text_contents = self.texts
         tool_calls = self.tool_calls
         tool_call_results = self.tool_call_results
@@ -217,6 +218,31 @@ class ChatMessage(HaystackChatMessage):
         if self._name is not None:
             openai_msg["name"] = self._name
 
+        # user message
+        if openai_msg["role"] == "user":
+            if len(self._content) == 1:
+                openai_msg["content"] = self.text
+                return openai_msg
+
+            # if the user message contains a list of text and images, OpenAI expects a list of dictionaries
+            content = []
+            for part in self._content:
+                if isinstance(part, TextContent):
+                    content.append({"type": "text", "text": part.text})
+                elif isinstance(part, ImageContent):
+                    image_item: Dict[str, Any] = {
+                        "type": "image_url",
+                        # if the mime type is not provided, we assume it's a jpeg.
+                        # OpenAI API sometimes works even with the incorrect mime type.
+                        "image_url": {"url": f"data:{part.mime_type or 'image/jpeg'};base64,{part.base64_image}"},
+                    }
+                    if part.detail:
+                        image_item["image_url"]["detail"] = part.detail
+                    content.append(image_item)
+            openai_msg["content"] = content
+            return openai_msg            
+
+        # tool message
         if tool_call_results:
             result = tool_call_results[0]
             if result.origin.id is None:
@@ -226,6 +252,7 @@ class ChatMessage(HaystackChatMessage):
             # OpenAI does not provide a way to communicate errors in tool invocations, so we ignore the error field
             return openai_msg
 
+        # system and assistant messages
         if text_contents:
             openai_msg["content"] = text_contents[0]
         if tool_calls:
