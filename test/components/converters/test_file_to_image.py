@@ -53,7 +53,7 @@ class TestImageFileToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert results["image_contents"][0].base64_image == encode_image_to_base64(
             bytestream=byte_stream, size=DETAIL_TO_IMAGE_SIZE["auto"]
-        )
+        )[1]
         assert results["image_contents"][0].mime_type == mime_type
         assert results["image_contents"][0].detail is None
         assert results["image_contents"][0].meta["file_path"] == str(Path(image_path))
@@ -96,7 +96,7 @@ class TestImageFileToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert results["image_contents"][0].base64_image == encode_image_to_base64(
             bytestream=byte_stream, size=DETAIL_TO_IMAGE_SIZE["auto"]
-        )
+        )[1]
         assert results["image_contents"][0].mime_type == mime_type
         assert results["image_contents"][0].detail is None
         assert results["image_contents"][0].meta["file_path"] == image_path
