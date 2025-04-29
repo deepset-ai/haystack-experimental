@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2_048)}
 
-# TODO We have to rely on this since our util functions are using the bytestream object.
+# NOTE: We have to rely on this since our util functions are using the bytestream object.
 #      We could change this to use the file path instead, where the file extension is used to determine the format.
 # This is a mapping of image formats to their MIME types.
 # from PIL import Image

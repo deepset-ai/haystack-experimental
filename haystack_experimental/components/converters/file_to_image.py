@@ -9,9 +9,20 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from haystack import component, logging
 from haystack.components.converters.utils import get_bytestream_from_source, normalize_metadata
 from haystack.dataclasses import ByteStream
+from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, encode_image_to_base64
+from haystack_experimental.components.converters.image_utils import (
+    DETAIL_TO_IMAGE_SIZE,
+    encode_image_to_base64,
+)
 from haystack_experimental.dataclasses.chat_message import ImageContent
+
+with LazyImport(
+    "Both 'detail' and 'downsize' parameters are set. "
+    "Image resizing will be applied, which requires the Pillow library. "
+    "Run 'pip install pillow'"
+) as pillow_import:
+    import PIL
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +53,9 @@ class ImageFileToImageContent:
         """
         self.detail = detail
         self.downsize = downsize
+
+        if self.detail and self.downsize:
+            pillow_import.check()
 
     @component.output_types(image_contents=List[ImageContent])
     def run(
