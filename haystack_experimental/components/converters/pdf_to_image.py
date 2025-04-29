@@ -35,10 +35,11 @@ class PDFToImageContent:
         """
         Create the PDFToImageContent component.
 
-        :param detail:
-        :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect
-            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
-            models that have resolution constraints or when transmitting images to remote services.
+        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+            This will be passed to the created ImageContent objects.
+        :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
         :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
             If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
             will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
@@ -72,13 +73,16 @@ class PDFToImageContent:
             If it's a list, its length must match the number of sources as they're zipped together.
             For ByteStream objects, their `meta` is added to the output documents.
         :param detail:
-            The detail level of the image content.
+            Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+            This will be passed to the created ImageContent objects.
             If not provided, the detail level will be the one set in the constructor.
-        :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect
-            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
-            models that have resolution constraints or when transmitting images to remote services.
+        :param size:
+            If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
             If not provided, the size value will be the one set in the constructor.
-        :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
+        :param page_range:
+            List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
             If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
             will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
             pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']

@@ -70,7 +70,6 @@ def encode_image_to_base64(
     Optionally resize the image before encoding to improve performance for downstream processing.
 
     :param bytestream: ByteStream containing the image data.
-    :param size: Maximum dimensions (width, height) to resize the image to.
     :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
         maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
         when working with models that have resolution constraints or when transmitting images to remote services.
@@ -216,9 +215,9 @@ def convert_pdf_to_images(
         will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
         pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
         will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
-    :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
-        This reduces file size, memory usage, and processing time, which is beneficial when working with models that
-        have resolution constraints or when transmitting images to remote services.
+    :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+        maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+        when working with models that have resolution constraints or when transmitting images to remote services.
     :returns:
         A list of tuples, each tuple containing the page number and the base64-encoded image string.
     """

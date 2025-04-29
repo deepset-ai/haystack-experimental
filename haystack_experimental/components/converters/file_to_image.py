@@ -42,10 +42,11 @@ class ImageFileToImageContent:
         """
         Create the ImageFileToImageContent component.
 
-        :param detail:
-        :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect
-            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
-            models that have resolution constraints or when transmitting images to remote services.
+        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+            This will be passed to the created ImageContent objects.
+        :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
         """
         self.detail = detail
         self.size = size
@@ -74,11 +75,12 @@ class ImageFileToImageContent:
             If it's a list, its length must match the number of sources as they're zipped together.
             For ByteStream objects, their `meta` is added to the output documents.
         :param detail:
-            The detail level of the image content.
+            Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+            This will be passed to the created ImageContent objects.
             If not provided, the detail level will be the one set in the constructor.
-        :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect
-            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
-            models that have resolution constraints or when transmitting images to remote services.
+        :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
             If not provided, the size value will be the one set in the constructor.
 
         :returns:
