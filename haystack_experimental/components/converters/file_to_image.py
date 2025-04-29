@@ -22,7 +22,7 @@ with LazyImport(
     "Image resizing will be applied, which requires the Pillow library. "
     "Run 'pip install pillow'"
 ) as pillow_import:
-    import PIL
+    import PIL  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -104,25 +104,23 @@ class ImageFileToImageContent:
             if isinstance(source, str):
                 source = Path(source)
 
-            mime_type = None
-            if isinstance(source, Path):
-                mime_type = mimetypes.guess_type(source.as_posix())[0]
-            elif isinstance(source, ByteStream):
-                mime_type = source.mime_type
-
             try:
                 bytestream = get_bytestream_from_source(source)
             except Exception as e:
                 logger.warning("Could not read {source}. Skipping it. Error: {error}", source=source, error=e)
                 continue
 
+            if bytestream.mime_type is None and isinstance(source, Path):
+                bytestream.mime_type = mimetypes.guess_type(source.as_posix())[0]
+
             if bytestream.data == _EMPTY_BYTE_STRING:
                 logger.warning("File {source} is empty. Skipping it.", source=source)
                 continue
 
             try:
-                # we need base64 here
-                base64_image = encode_image_to_base64(bytestream=bytestream, size=size, downsize=downsize)
+                inferred_mime_type, base64_image = encode_image_to_base64(
+                    bytestream=bytestream, size=size, downsize=downsize
+                )
             except Exception as e:
                 logger.warning(
                     "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e
@@ -131,7 +129,7 @@ class ImageFileToImageContent:
 
             merged_metadata = {**bytestream.meta, **metadata}
             image_content = ImageContent(
-                base64_image=base64_image, mime_type=mime_type, meta=merged_metadata, detail=detail
+                base64_image=base64_image, mime_type=inferred_mime_type, meta=merged_metadata, detail=detail
             )
             image_contents.append(image_content)
 

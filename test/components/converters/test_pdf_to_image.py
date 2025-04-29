@@ -7,12 +7,11 @@
 
 from pathlib import Path
 
-import pytest
 from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
 from haystack_experimental.components.converters.pdf_to_image import PDFToImageContent
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, convert_pdf_to_images
+from haystack_experimental.components.converters.image_utils import convert_pdf_to_images
 
 
 class TestPDFToImageContent:
@@ -49,11 +48,15 @@ class TestPDFToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert (
                 results["image_contents"][0].base64_image
-                == convert_pdf_to_images(bytestream=byte_stream, size=None, page_range=[1])[0]
+                == convert_pdf_to_images(bytestream=byte_stream, size=None, page_range=[1])[0][1]
         )
-        assert results["image_contents"][0].mime_type == mime_type
+        assert results["image_contents"][0].mime_type == "image/jpeg"
         assert results["image_contents"][0].detail is None
         assert results["image_contents"][0].meta["file_path"] == str(Path(file_path))
+        assert results["image_contents"][0].meta["page_number"] == 1
+        assert results["image_contents"][1].meta["page_number"] == 2
+        assert results["image_contents"][2].meta["page_number"] == 3
+        assert results["image_contents"][3].meta["page_number"] == 4
 
     def test_run_with_no_sources(self) -> None:
         converter = PDFToImageContent()
@@ -88,10 +91,11 @@ class TestPDFToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert results["image_contents"][0].base64_image == convert_pdf_to_images(
             bytestream=byte_stream, size=None, page_range=[1]
-        )[0]
-        assert results["image_contents"][0].mime_type == mime_type
+        )[0][1]
+        assert results["image_contents"][0].mime_type == "image/jpeg"
         assert results["image_contents"][0].detail is None
         assert results["image_contents"][0].meta["file_path"] == file_path
+        assert results["image_contents"][0].meta["page_number"] == 1
 
     def test_run_with_empty_bytestream(self) -> None:
         # Create an empty ByteStream object

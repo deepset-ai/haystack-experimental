@@ -64,7 +64,7 @@ def encode_image_to_base64(
     bytestream: ByteStream,
     size: Optional[Tuple[int, int]] = None,
     downsize: bool = False,
-) -> str:
+) -> Tuple[str, str]:
     """
     Encode an image from a ByteStream into a base64-encoded string.
 
@@ -77,10 +77,13 @@ def encode_image_to_base64(
         have resolution constraints or when transmitting images to remote services.
 
     :returns:
-        Base64-encoded string of the image.
+        A tuple (mime_type, base64_str), where:
+        - mime_type (str): The MIME type of the encoded image, determined from the original data or image content.
+          Defaults to 'image/jpeg' if the type cannot be reliably identified.
+        - base64_str (str): The base64-encoded string representation of the (optionally resized) image.
     """
     if not downsize or size is None:
-        return base64.b64encode(bytestream.data).decode("utf-8")
+        return bytestream.mime_type, base64.b64encode(bytestream.data).decode("utf-8")
 
     # Check the import
     pillow_import.check()
@@ -92,21 +95,20 @@ def encode_image_to_base64(
         formats = None
     image: "ImageFile" = PILImage.open(BytesIO(bytestream.data), formats=formats)
 
-    # TODO Probably should defer to image.get_format_mimetype() and print warning if bytestream.mime_type is not None
-    #      and doesn't match?
-    resolved_mime_type = bytestream.mime_type or image.get_format_mimetype()
+    # NOTE: We prefer the format returned by PIL
+    inferred_mime_type = image.get_format_mimetype() or bytestream.mime_type
 
     # Downsize the image
     downsized_image: "Image" = resize_image_preserving_aspect_ratio(image, size)
 
     # Convert the image to base64 string
-    if not resolved_mime_type:
+    if not inferred_mime_type:
         logger.warning(
             "Could not determine mime type for image. Defaulting to 'image/jpeg'. "
             "Consider providing a mime_type parameter."
         )
-        resolved_mime_type = "image/jpeg"
-    return encode_pil_image_to_base64(downsized_image, mime_type=resolved_mime_type)
+        inferred_mime_type = "image/jpeg"
+    return inferred_mime_type, encode_pil_image_to_base64(downsized_image, mime_type=inferred_mime_type)
 
 
 def encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
@@ -204,9 +206,9 @@ def convert_pdf_to_images(
     page_range: Optional[List[int]] = None,
     size: Optional[Union[Tuple[int, int]]] = None,
     downsize: bool = False,
-) -> List[str]:
+) -> List[Tuple[int, str]]:
     """
-    Convert PDF file into a list of base64 encoded images.
+    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
 
     Checks PDF dimensions and adjusts size constraints based on aspect ratio.
 
@@ -221,7 +223,7 @@ def convert_pdf_to_images(
         This reduces file size, memory usage, and processing time, which is beneficial when working with models that
         have resolution constraints or when transmitting images to remote services.
     :returns:
-        List of Base64 strings
+        A list of tuples, each tuple containing the page number and the base64-encoded image string.
     """
     # Check the imports
     pypdf_and_pdf2image_import.check()
@@ -298,6 +300,6 @@ def convert_pdf_to_images(
         # We always convert PDF to JPG
         base64_image = encode_pil_image_to_base64(image, mime_type="image/jpeg")
 
-        all_pdf_images.append(base64_image)
+        all_pdf_images.append((page_number, base64_image))
 
     return all_pdf_images

@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -115,22 +114,13 @@ class PDFToImageContent:
             if isinstance(source, str):
                 source = Path(source)
 
-            mime_type = None
-            if isinstance(source, Path):
-                mime_type = mimetypes.guess_type(source.as_posix())[0]
-            elif isinstance(source, ByteStream):
-                mime_type = source.mime_type
-
             try:
                 bytestream = get_bytestream_from_source(source)
             except Exception as e:
                 logger.warning("Could not read {source}. Skipping it. Error: {error}", source=source, error=e)
                 continue
             try:
-                # we need base64 here
-                # TODO Should add the page number to the metadata
-                #      Update function to return additional metadata
-                base64_images = convert_pdf_to_images(
+                page_num_and_base64_images = convert_pdf_to_images(
                     bytestream=bytestream, page_range=expanded_page_range, size=size, downsize=downsize
                 )
             except Exception as e:
@@ -141,14 +131,12 @@ class PDFToImageContent:
                 )
                 continue
 
-            # TODO Add additional metadata here
             merged_metadata = {**bytestream.meta, **metadata}
 
-            image_contents.extend(
-                [
-                    ImageContent(base64_image=image, mime_type=mime_type, meta=merged_metadata, detail=detail)
-                    for image in base64_images
-                ]
-            )
+            for page_number, image in page_num_and_base64_images:
+                per_page_metadata = {**merged_metadata, "page_number": page_number}
+                image_contents.append(
+                    ImageContent(base64_image=image, mime_type="image/jpeg", meta=per_page_metadata, detail=detail)
+                )
 
         return {"image_contents": image_contents}
