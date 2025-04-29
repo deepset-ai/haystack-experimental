@@ -11,7 +11,11 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, convert_pdf_to_images
+from haystack_experimental.components.converters.image_utils import (
+    DETAIL_TO_IMAGE_SIZE,
+    convert_pdf_to_images,
+    pypdf_and_pdf2image_import
+)
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 logger = logging.getLogger(__name__)
@@ -33,7 +37,13 @@ class PDFToImageContent:
         """
         Create the PDFToImageContent component.
 
-        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param detail: Determines the target size of the converted images. Maps to predefined dimensions:
+            - "auto": Uses dimensions (768, 2048)
+            - "high": Uses dimensions (768, 2048)
+            - "low": Uses dimensions (512, 512)
+            The dimensions are specified as (width, height) tuples.
+            When combined with `downsize=True`, these dimensions serve as maximum constraints while maintaining the
+            original aspect ratio.
         :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
             ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
             models that have resolution constraints or when transmitting images to remote services.
@@ -42,11 +52,11 @@ class PDFToImageContent:
             will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
             pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
             will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
-            If None, metadata will be extracted from the entire document for each document in the documents list.
         """
         self.detail = detail
         self.downsize = downsize
         self.page_range = page_range
+        pypdf_and_pdf2image_import.check()
 
     @component.output_types(image_contents=List[ImageContent])
     def run(

@@ -29,7 +29,13 @@ class ImageFileToImageContent:
         """
         Create the ImageFileToImageContent component.
 
-        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param detail: Determines the target size of the converted images. Maps to predefined dimensions:
+            - "auto": Uses dimensions (768, 2048)
+            - "high": Uses dimensions (768, 2048)
+            - "low": Uses dimensions (512, 512)
+            The dimensions are specified as (width, height) tuples.
+            When combined with `downsize=True`, these dimensions serve as maximum constraints while maintaining the
+            original aspect ratio.
         :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
             ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
             models that have resolution constraints or when transmitting images to remote services.
@@ -42,7 +48,9 @@ class ImageFileToImageContent:
         self,
         sources: List[Union[str, Path, ByteStream]],
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+        *,
         detail: Optional[Literal["auto", "high", "low"]] = None,
+        downsize: Optional[bool] = None,
     ):
         """
         Converts files to ImageContent objects.
@@ -58,6 +66,10 @@ class ImageFileToImageContent:
         :param detail:
             The detail level of the image content.
             If not provided, the detail level will be the one set in the constructor.
+        :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
+            ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
+            models that have resolution constraints or when transmitting images to remote services.
+            If not provided, the downsize value will be the one set in the constructor.
 
         :returns:
             A dictionary with the following keys:
@@ -67,6 +79,7 @@ class ImageFileToImageContent:
             return {"image_contents": []}
 
         detail = detail or self.detail
+        downsize = downsize or self.downsize
         size = DETAIL_TO_IMAGE_SIZE[detail] if detail else None
 
         image_contents = []
@@ -95,7 +108,7 @@ class ImageFileToImageContent:
 
             try:
                 # we need base64 here
-                base64_image = encode_image_to_base64(bytestream=bytestream, size=size, downsize=self.downsize)
+                base64_image = encode_image_to_base64(bytestream=bytestream, size=size, downsize=downsize)
             except Exception as e:
                 logger.warning(
                     "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e

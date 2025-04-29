@@ -120,6 +120,9 @@ def encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: st
     :returns:
         Base64-encoded string representing the image.
     """
+    # Check the import
+    pillow_import.check()
+
     # Convert image to RGB if it has an alpha channel and we are saving as JPEG
     if (mime_type == "image/jpeg" or mime_type == "image/jpg") and (
         image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info)
@@ -156,6 +159,9 @@ def resize_image_preserving_aspect_ratio(
     :returns:
         A resized PIL Image object.
     """
+    # Check the import
+    pillow_import.check()
+
     longer_dim = max(image.size)
     shorter_dim = min(image.size)
     aspect_ratio = shorter_dim / longer_dim
@@ -215,9 +221,11 @@ def convert_pdf_to_images(
         This reduces file size, memory usage, and processing time, which is beneficial when working with models that
         have resolution constraints or when transmitting images to remote services.
     :returns:
-        - List of Base64 strings
+        List of Base64 strings
     """
+    # Check the imports
     pypdf_and_pdf2image_import.check()
+    pillow_import.check()
 
     try:
         pdf = PdfReader(BytesIO(bytestream.data))
