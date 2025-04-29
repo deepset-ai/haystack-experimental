@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
-#
-# SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
 
@@ -18,20 +15,20 @@ class TestPDFToImageContent:
     def test_to_dict(self) -> None:
         converter = PDFToImageContent()
         assert component_to_dict(converter, "converter") == {
-            "init_parameters": {"detail": None, "downsize": False, "page_range": None},
+            "init_parameters": {"detail": None, "size": None, "page_range": None},
             "type": "haystack_experimental.components.converters.pdf_to_image.PDFToImageContent",
         }
 
     def test_to_dict_not_defaults(self) -> None:
-        converter = PDFToImageContent(detail="low", downsize=True, page_range=[1])
+        converter = PDFToImageContent(detail="low", size=(128, 128), page_range=[1])
         assert component_to_dict(converter, "converter") == {
-            "init_parameters": {"detail": "low", "downsize": True, "page_range": [1]},
+            "init_parameters": {"detail": "low", "size": (128, 128), "page_range": [1]},
             "type": "haystack_experimental.components.converters.pdf_to_image.PDFToImageContent",
         }
 
     def test_from_dict(self) -> None:
         data = {
-            "init_parameters": {"detail": "auto", "downsize": False, "page_range": [1]},
+            "init_parameters": {"detail": "auto", "size": None, "page_range": [1]},
             "type": "haystack_experimental.components.converters.pdf_to_image.PDFToImageContent",
         }
         converter = component_from_dict(PDFToImageContent, data, "name")

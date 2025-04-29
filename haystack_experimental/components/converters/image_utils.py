@@ -23,7 +23,7 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
 logger = logging.getLogger(__name__)
 
 
-DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2_048)}
+_OPENAI_DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2_048)}
 
 # NOTE: We have to rely on this since our util functions are using the bytestream object.
 #      We could change this to use the file path instead, where the file extension is used to determine the format.
@@ -63,7 +63,6 @@ MIME_TO_FORMAT["image/jpg"] = "JPEG"
 def encode_image_to_base64(
     bytestream: ByteStream,
     size: Optional[Tuple[int, int]] = None,
-    downsize: bool = False,
 ) -> Tuple[str, str]:
     """
     Encode an image from a ByteStream into a base64-encoded string.
@@ -72,9 +71,9 @@ def encode_image_to_base64(
 
     :param bytestream: ByteStream containing the image data.
     :param size: Maximum dimensions (width, height) to resize the image to.
-    :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
-        This reduces file size, memory usage, and processing time, which is beneficial when working with models that
-        have resolution constraints or when transmitting images to remote services.
+    :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+        maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+        when working with models that have resolution constraints or when transmitting images to remote services.
 
     :returns:
         A tuple (mime_type, base64_str), where:
@@ -82,7 +81,7 @@ def encode_image_to_base64(
           Defaults to 'image/jpeg' if the type cannot be reliably identified.
         - base64_str (str): The base64-encoded string representation of the (optionally resized) image.
     """
-    if not downsize or size is None:
+    if size is None:
         return bytestream.mime_type, base64.b64encode(bytestream.data).decode("utf-8")
 
     # Check the import
@@ -205,7 +204,6 @@ def convert_pdf_to_images(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
     size: Optional[Union[Tuple[int, int]]] = None,
-    downsize: bool = False,
 ) -> List[Tuple[int, str]]:
     """
     Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
@@ -218,8 +216,7 @@ def convert_pdf_to_images(
         will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
         pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
         will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
-    :param size: Maximum dimensions (width, height) to resize the image to.
-    :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
+    :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect ratio.
         This reduces file size, memory usage, and processing time, which is beneficial when working with models that
         have resolution constraints or when transmitting images to remote services.
     :returns:
@@ -294,7 +291,7 @@ def convert_pdf_to_images(
         pdf_images: List[Image] = pdf2image.convert_from_bytes(bytestream.data, **conversion_args)
 
         image = pdf_images[0]
-        if downsize and size is not None:
+        if size is not None:
             image = resize_image_preserving_aspect_ratio(image, size)
 
         # We always convert PDF to JPG

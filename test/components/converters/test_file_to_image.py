@@ -9,27 +9,27 @@ from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
 from haystack_experimental.components.converters.file_to_image import ImageFileToImageContent
-from haystack_experimental.components.converters.image_utils import DETAIL_TO_IMAGE_SIZE, encode_image_to_base64
+from haystack_experimental.components.converters.image_utils import encode_image_to_base64
 
 
 class TestImageFileToImageContent:
     def test_to_dict(self) -> None:
         converter = ImageFileToImageContent()
         assert component_to_dict(converter, "converter") == {
-            "init_parameters": {"detail": None, "downsize": False},
+            "init_parameters": {"detail": None, "size": None},
             "type": "haystack_experimental.components.converters.file_to_image.ImageFileToImageContent",
         }
 
     def test_to_dict_not_defaults(self) -> None:
-        converter = ImageFileToImageContent(detail="low", downsize=True)
+        converter = ImageFileToImageContent(detail="low", size=(128, 128))
         assert component_to_dict(converter, "converter") == {
-            "init_parameters": {"detail": "low", "downsize": True},
+            "init_parameters": {"detail": "low", "size": (128, 128)},
             "type": "haystack_experimental.components.converters.file_to_image.ImageFileToImageContent",
         }
 
     def test_from_dict(self) -> None:
         data = {
-            "init_parameters": {"detail": "auto", "downsize": False},
+            "init_parameters": {"detail": "auto", "size": None},
             "type": "haystack_experimental.components.converters.file_to_image.ImageFileToImageContent",
         }
         converter = component_from_dict(ImageFileToImageContent, data, "name")
@@ -44,7 +44,7 @@ class TestImageFileToImageContent:
     )
     def test_run_with_valid_sources(self, image_path: str, mime_type: str) -> None:
         converter = ImageFileToImageContent()
-        results = converter.run(sources=[image_path])
+        results = converter.run(sources=[image_path], size=(128, 128))
 
         byte_stream = ByteStream.from_file_path(
             Path(image_path), mime_type=mime_type, meta={"file_name": image_path.split("/")[-1]}
@@ -52,7 +52,7 @@ class TestImageFileToImageContent:
         assert len(results["image_contents"]) == 1
         assert results["image_contents"][0].base64_image is not None
         assert results["image_contents"][0].base64_image == encode_image_to_base64(
-            bytestream=byte_stream, size=DETAIL_TO_IMAGE_SIZE["auto"]
+            bytestream=byte_stream, size=(128, 128)
         )[1]
         assert results["image_contents"][0].mime_type == mime_type
         assert results["image_contents"][0].detail is None
@@ -86,7 +86,7 @@ class TestImageFileToImageContent:
         byte_stream = ByteStream.from_file_path(Path(image_path), mime_type=mime_type, meta={"file_path": image_path})
 
         # Initialize the converter
-        converter = ImageFileToImageContent()
+        converter = ImageFileToImageContent(size=(128, 128))
 
         # Run the converter with the ByteStream
         results = converter.run(sources=[byte_stream])
@@ -95,7 +95,7 @@ class TestImageFileToImageContent:
         assert len(results["image_contents"]) == 1
         assert results["image_contents"][0].base64_image is not None
         assert results["image_contents"][0].base64_image == encode_image_to_base64(
-            bytestream=byte_stream, size=DETAIL_TO_IMAGE_SIZE["auto"]
+            bytestream=byte_stream, size=(128, 128)
         )[1]
         assert results["image_contents"][0].mime_type == mime_type
         assert results["image_contents"][0].detail is None

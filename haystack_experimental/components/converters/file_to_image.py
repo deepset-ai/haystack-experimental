@@ -4,17 +4,14 @@
 
 import mimetypes
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from haystack import component, logging
 from haystack.components.converters.utils import get_bytestream_from_source, normalize_metadata
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.components.converters.image_utils import (
-    DETAIL_TO_IMAGE_SIZE,
-    encode_image_to_base64,
-)
+from haystack_experimental.components.converters.image_utils import encode_image_to_base64
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 with LazyImport(
@@ -36,25 +33,24 @@ class ImageFileToImageContent:
     Converts image files to ImageContent objects.
     """
 
-    def __init__(self, *, detail: Optional[Literal["auto", "high", "low"]] = None, downsize: bool = False):
+    def __init__(
+        self,
+        *,
+        detail: Optional[Literal["auto", "high", "low"]] = None,
+        size: Optional[Tuple[int, int]] = None
+    ):
         """
         Create the ImageFileToImageContent component.
 
-        :param detail: Determines the target size of the converted images. Maps to predefined dimensions:
-            - "auto": Uses dimensions (768, 2048)
-            - "high": Uses dimensions (768, 2048)
-            - "low": Uses dimensions (512, 512)
-            The dimensions are specified as (width, height) tuples.
-            When combined with `downsize=True`, these dimensions serve as maximum constraints while maintaining the
-            original aspect ratio.
-        :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
+        :param detail:
+        :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect
             ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
             models that have resolution constraints or when transmitting images to remote services.
         """
         self.detail = detail
-        self.downsize = downsize
+        self.size = size
 
-        if self.detail and self.downsize:
+        if self.size is not None:
             pillow_import.check()
 
     @component.output_types(image_contents=List[ImageContent])
@@ -64,7 +60,7 @@ class ImageFileToImageContent:
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         *,
         detail: Optional[Literal["auto", "high", "low"]] = None,
-        downsize: Optional[bool] = None,
+        size: Optional[Tuple[int, int]] = None,
     ):
         """
         Converts files to ImageContent objects.
@@ -80,10 +76,10 @@ class ImageFileToImageContent:
         :param detail:
             The detail level of the image content.
             If not provided, the detail level will be the one set in the constructor.
-        :param downsize: If True, resizes the image to fit within the specified dimensions while maintaining aspect
+        :param size: If provided, resizes the image to fit within the specified dimensions while maintaining aspect
             ratio. This reduces file size, memory usage, and processing time, which is beneficial when working with
             models that have resolution constraints or when transmitting images to remote services.
-            If not provided, the downsize value will be the one set in the constructor.
+            If not provided, the size value will be the one set in the constructor.
 
         :returns:
             A dictionary with the following keys:
@@ -92,12 +88,11 @@ class ImageFileToImageContent:
         if not sources:
             return {"image_contents": []}
 
-        detail = detail or self.detail
-        downsize = downsize or self.downsize
-        size = DETAIL_TO_IMAGE_SIZE[detail] if detail else None
+        resolved_detail = detail or self.detail
+        resolved_size = size or self.size
 
         # Check import
-        if detail and downsize:
+        if resolved_size:
             pillow_import.check()
 
         image_contents = []
@@ -122,9 +117,7 @@ class ImageFileToImageContent:
                 continue
 
             try:
-                inferred_mime_type, base64_image = encode_image_to_base64(
-                    bytestream=bytestream, size=size, downsize=downsize
-                )
+                inferred_mime_type, base64_image = encode_image_to_base64(bytestream=bytestream, size=resolved_size)
             except Exception as e:
                 logger.warning(
                     "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e
@@ -133,7 +126,7 @@ class ImageFileToImageContent:
 
             merged_metadata = {**bytestream.meta, **metadata}
             image_content = ImageContent(
-                base64_image=base64_image, mime_type=inferred_mime_type, meta=merged_metadata, detail=detail
+                base64_image=base64_image, mime_type=inferred_mime_type, meta=merged_metadata, detail=resolved_detail
             )
             image_contents.append(image_content)
 
