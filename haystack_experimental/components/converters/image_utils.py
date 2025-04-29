@@ -264,9 +264,9 @@ def convert_pdf_to_images(
         # Calculate potential pixels for 300 dpi
         potential_pixels = (width * dpi / 72) * (height * 300 / 72)
 
-        # TODO Can we dynamically load PIL's default limit?
+        pil_max_pixels = PILImage.MAX_IMAGE_PIXELS or int(1024 * 1024 * 1024 // 4 // 3)
         # 90% of PIL's default limit to prevent borderline cases
-        pixel_limit = 89478485 * 0.9  # PIL's default limit * 0.9 margin factor
+        pixel_limit = pil_max_pixels * 0.9
 
         conversion_args: Dict[str, Any] = {
             "dpi": dpi,
