@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
@@ -11,7 +12,6 @@ import haystack.dataclasses.chat_message
 from haystack import logging
 from haystack.dataclasses import ChatMessage as HaystackChatMessage
 from haystack.dataclasses import ChatRole, TextContent, ToolCall, ToolCallResult
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +196,7 @@ class ChatMessage(HaystackChatMessage):
 
         serialized["content"] = content
         return serialized
-    
+
     def to_openai_dict_format(self) -> Dict[str, Any]:
         """
         Convert a ChatMessage to the dictionary format expected by OpenAI's Chat API.
@@ -241,7 +241,7 @@ class ChatMessage(HaystackChatMessage):
                         image_item["image_url"]["detail"] = part.detail
                     content.append(image_item)
             openai_msg["content"] = content
-            return openai_msg            
+            return openai_msg
 
         # tool message
         if tool_call_results:
