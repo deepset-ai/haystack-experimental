@@ -15,7 +15,7 @@ from haystack_experimental.components.converters.image_utils import encode_image
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 with LazyImport(
-    "Both 'detail' and 'downsize' parameters are set. "
+    "The 'size' parameter is set. "
     "Image resizing will be applied, which requires the Pillow library. "
     "Run 'pip install pillow'"
 ) as pillow_import:

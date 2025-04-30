@@ -23,8 +23,6 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
 logger = logging.getLogger(__name__)
 
 
-_OPENAI_DETAIL_TO_IMAGE_SIZE = {"low": (512, 512), "high": (768, 2_048), "auto": (768, 2_048)}
-
 # NOTE: We have to rely on this since our util functions are using the bytestream object.
 #      We could change this to use the file path instead, where the file extension is used to determine the format.
 # This is a mapping of image formats to their MIME types.
@@ -202,7 +200,7 @@ def resize_image_preserving_aspect_ratio(
 def convert_pdf_to_images(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
-    size: Optional[Union[Tuple[int, int]]] = None,
+    size: Optional[Tuple[int, int]] = None,
 ) -> List[Tuple[int, str]]:
     """
     Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
