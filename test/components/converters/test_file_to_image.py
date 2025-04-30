@@ -8,8 +8,8 @@ import pytest
 from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.converters.file_to_image import ImageFileToImageContent
-from haystack_experimental.components.converters.image_utils import encode_image_to_base64
+from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
+from haystack_experimental.components.image_converters.image_utils import encode_image_to_base64
 
 
 class TestImageFileToImageContent:
@@ -17,20 +17,20 @@ class TestImageFileToImageContent:
         converter = ImageFileToImageContent()
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"detail": None, "size": None},
-            "type": "haystack_experimental.components.converters.file_to_image.ImageFileToImageContent",
+            "type": "haystack_experimental.components.image_converters.file_to_image.ImageFileToImageContent",
         }
 
     def test_to_dict_not_defaults(self) -> None:
         converter = ImageFileToImageContent(detail="low", size=(128, 128))
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"detail": "low", "size": (128, 128)},
-            "type": "haystack_experimental.components.converters.file_to_image.ImageFileToImageContent",
+            "type": "haystack_experimental.components.image_converters.file_to_image.ImageFileToImageContent",
         }
 
     def test_from_dict(self) -> None:
         data = {
             "init_parameters": {"detail": "auto", "size": None},
-            "type": "haystack_experimental.components.converters.file_to_image.ImageFileToImageContent",
+            "type": "haystack_experimental.components.image_converters.file_to_image.ImageFileToImageContent",
         }
         converter = component_from_dict(ImageFileToImageContent, data, "name")
         assert component_to_dict(converter, "converter") == data

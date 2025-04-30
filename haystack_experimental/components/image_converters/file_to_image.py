@@ -11,7 +11,7 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.components.converters.image_utils import encode_image_to_base64
+from haystack_experimental.components.image_converters.image_utils import encode_image_to_base64
 from haystack_experimental.dataclasses.chat_message import ImageContent
 
 with LazyImport(
