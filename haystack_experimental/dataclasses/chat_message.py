@@ -210,7 +210,8 @@ class ChatMessage(HaystackChatMessage):
                 "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
             )
         if len(text_contents) + len(tool_call_results) > 1:
-            raise ValueError("A `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`.")
+            raise ValueError("For OpenAI compatibility, a `ChatMessage` can only contain one `TextContent` or "
+                             "one `ToolCallResult`.")
 
         openai_msg: Dict[str, Any] = {"role": self._role.value}
 
