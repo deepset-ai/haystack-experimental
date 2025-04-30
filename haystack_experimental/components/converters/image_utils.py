@@ -61,7 +61,7 @@ MIME_TO_FORMAT["image/jpg"] = "JPEG"
 def encode_image_to_base64(
     bytestream: ByteStream,
     size: Optional[Tuple[int, int]] = None,
-) -> Tuple[str, str]:
+) -> Tuple[Optional[str], str]:
     """
     Encode an image from a ByteStream into a base64-encoded string.
 
@@ -74,11 +74,17 @@ def encode_image_to_base64(
 
     :returns:
         A tuple (mime_type, base64_str), where:
-        - mime_type (str): The MIME type of the encoded image, determined from the original data or image content.
-          Defaults to 'image/jpeg' if the type cannot be reliably identified.
+        - mime_type (Optional[str]): The mime type of the encoded image, determined from the original data or image
+          content. Can be None if the mime type cannot be reliably identified.
         - base64_str (str): The base64-encoded string representation of the (optionally resized) image.
     """
     if size is None:
+        if bytestream.mime_type is None:
+            logger.warning(
+                "No mime type provided for the image. "
+                "This may cause compatibility issues with downstream systems requiring a specific mime type. "
+                "Please provide a mime type for the image."
+            )
         return bytestream.mime_type, base64.b64encode(bytestream.data).decode("utf-8")
 
     # Check the import
