@@ -232,8 +232,8 @@ class ChatMessage(HaystackChatMessage):
                 elif isinstance(part, ImageContent):
                     image_item: Dict[str, Any] = {
                         "type": "image_url",
-                        # if the mime type is not provided, we assume it's a jpeg.
-                        # OpenAI API sometimes works even with the incorrect mime type.
+                        # If no MIME type is provided, default to JPEG.
+                        # OpenAI API appears to tolerate MIME type mismatches.
                         "image_url": {"url": f"data:{part.mime_type or 'image/jpeg'};base64,{part.base64_image}"},
                     }
                     if part.detail:
