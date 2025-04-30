@@ -17,9 +17,9 @@ processors:
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
   excerpt: Enables text generation using LLMs.
-  category_slug: haystack-api
+  category_slug: experiments-api
   title: Generators
-  slug: generators-api
+  slug: experimental-generators-api
   order: 20
   markdown:
     descriptive_class_title: false
@@ -27,4 +27,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: generators_api.md
+    filename: experimental_generators_api.md
