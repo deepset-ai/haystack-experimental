@@ -38,7 +38,6 @@ class TestPipelineBreakpoints:
 
             # Create a mock for the OpenAIChatGenerator
             @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-api-key'})
-
             def create_mock_generator(model_name):
                 generator = OpenAIChatGenerator(model=model_name, api_key=Secret.from_env_var("OPENAI_API_KEY"))
 

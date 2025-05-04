@@ -19,7 +19,7 @@ from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from test.conftest import load_and_resume_pipeline_state
-
+from unittest.mock import patch
 
 class TestPipelineBreakpoints:
     """
@@ -30,7 +30,7 @@ class TestPipelineBreakpoints:
     def mock_sentence_transformers_doc_embedder(self):
         with patch(
             "haystack.components.embedders.sentence_transformers_document_embedder._SentenceTransformersEmbeddingBackendFactory") as mock_doc_embedder:
-        
+
             mock_model = MagicMock()
             mock_doc_embedder.return_value = mock_model
 
@@ -53,11 +53,11 @@ class TestPipelineBreakpoints:
 
                 import numpy as np
                 embedding = np.ones(384).tolist()
-                
+
                 # Add the embedding to each document
                 for doc in documents:
                     doc.embedding = embedding
-                
+
                 # Return the documents with embeddings, matching the actual implementation
                 return {"documents": documents}
 
@@ -143,21 +143,21 @@ class TestPipelineBreakpoints:
                     ranked_docs = ranked_docs[:top_k]
                 else:
                     ranked_docs = ranked_docs[:ranker.top_k]
-                    
+
                 # apply score threshold if provided
                 if score_threshold is not None:
                     ranked_docs = [doc for doc in ranked_docs if doc.score >= score_threshold]
-                    
+
                 return {"documents": ranked_docs}
-            
+
             # replace the run method with our mock
             ranker.run = mock_run
-            
+
             # warm_up to initialize the component
             ranker.warm_up()
-            
+
             return ranker
-            
+
     @pytest.fixture
     def mock_sentence_transformers_text_embedder(self):
         """
@@ -166,7 +166,7 @@ class TestPipelineBreakpoints:
         with patch("haystack.components.embedders.sentence_transformers_text_embedder._SentenceTransformersEmbeddingBackendFactory") as mock_text_embedder:
             mock_model = MagicMock()
             mock_text_embedder.return_value = mock_model
-            
+
             # the mock returns a fixed embedding
             def mock_encode(texts, batch_size=None, show_progress_bar=None, normalize_embeddings=None, precision=None, **kwargs):
                 import numpy as np
@@ -174,7 +174,7 @@ class TestPipelineBreakpoints:
 
             mock_model.encode = mock_encode
             embedder = SentenceTransformersTextEmbedder(model="mock-model", progress_bar=False)
-            
+
             # mocked run method to return a fixed embedding
             def mock_run(text):
                 if not isinstance(text, str):
@@ -186,16 +186,17 @@ class TestPipelineBreakpoints:
                 import numpy as np
                 embedding = np.ones(384).tolist()
                 return {"embedding": embedding}
-            
+
             # mocked run
             embedder.run = mock_run
-            
+
             # initialize the component
             embedder.warm_up()
-            
+
             return embedder
 
     @pytest.fixture
+    @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-api-key'})
     def hybrid_rag_pipeline(self, document_store, mock_transformers_similarity_ranker, mock_sentence_transformers_text_embedder):
         """Create a hybrid RAG pipeline for testing."""
 
@@ -210,13 +211,13 @@ class TestPipelineBreakpoints:
         """
         pipeline = Pipeline()
         pipeline.add_component(instance=InMemoryBM25Retriever(document_store=document_store), name="bm25_retriever")
-        
-        # Use the mocked embedder instead of creating a new one        
+
+        # Use the mocked embedder instead of creating a new one
         pipeline.add_component(instance=mock_sentence_transformers_text_embedder, name="query_embedder")
-        
+
         pipeline.add_component(instance=InMemoryEmbeddingRetriever(document_store=document_store),name="embedding_retriever")
         pipeline.add_component(instance=DocumentJoiner(sort_by_score=False), name="doc_joiner")
-        
+
         # Use the mocked ranker instead of the real one
         pipeline.add_component(instance=mock_transformers_similarity_ranker, name="ranker")
 
@@ -226,7 +227,7 @@ class TestPipelineBreakpoints:
         )
 
         # Use a mocked API key for the OpenAIGenerator
-        pipeline.add_component(instance=OpenAIGenerator(api_key=Secret.from_token("test-api-key")), name="llm")
+        pipeline.add_component(instance=OpenAIGenerator(api_key=Secret.from_env_var("OPENAI_API_KEY")), name="llm")
         pipeline.add_component(instance=AnswerBuilder(), name="answer_builder")
 
         pipeline.connect("query_embedder", "embedding_retriever.query_embedding")
@@ -280,4 +281,3 @@ class TestPipelineBreakpoints:
 
         result = load_and_resume_pipeline_state(hybrid_rag_pipeline, output_directory, component, data)
         assert result['answer_builder']
-

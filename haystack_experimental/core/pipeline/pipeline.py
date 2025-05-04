@@ -122,6 +122,7 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
             try:
+                print(f"Running component {component_name} with inputs: {component_inputs}")
                 component_output = instance.run(**component_inputs)
             except Exception as error:
                 raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
