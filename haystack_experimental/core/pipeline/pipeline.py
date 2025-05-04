@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from copy import deepcopy
+from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
@@ -89,9 +89,10 @@ class Pipeline(PipelineBase):
             breakpoint_inputs = deepcopy(inputs)
             # we deepcopy the component_inputs to avoid modifying the original inputs
             breakpoint_inputs[component_name] = deepcopy(Pipeline._remove_unserializable_data(component_inputs))
-            if hasattr(component["instance"], "to_dict"):
-                params = component["instance"].to_dict()
-                breakpoint_inputs[component_name]["init_parameters"] = params["init_parameters"]
+            params = copy(component["instance"].__dict__)
+            if any(key == "_template_string" for key in params):
+                params["template"] = params["_template_string"]
+            breakpoint_inputs[component_name]["init_parameters"] = params
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
@@ -122,7 +123,6 @@ class Pipeline(PipelineBase):
             span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
             try:
-                print(f"Running component {component_name} with inputs: {component_inputs}")
                 component_output = instance.run(**component_inputs)
             except Exception as error:
                 raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
@@ -578,7 +578,7 @@ class Pipeline(PipelineBase):
                 init_params = value.pop("init_parameters")
                 for k, v in value.items():
                     if k in init_params.keys() and v is None:
-                        value[k] = init_params[k]
+                        value[k] = self._serialize_component_input(init_params[k])
 
         state = {
             "input_data": self._serialize_component_input(self.original_input_data),  # original input data
