@@ -54,6 +54,7 @@ class Pipeline(PipelineBase):
         """
         instance: Component = component["instance"]
         component_name = self.get_component_name(instance)
+
         component_inputs = self._consume_component_inputs(
             component_name=component_name, component=component, inputs=inputs
         )
@@ -83,10 +84,14 @@ class Pipeline(PipelineBase):
             for key, value in component_inputs.items():
                 component_inputs[key] = Pipeline._deserialize_component_input(value)
 
-        # add component_inputs to inputs
-        breakpoint_inputs = deepcopy(inputs)
-        breakpoint_inputs[component_name] = Pipeline._remove_unserializable_data(component_inputs)
         if breakpoints and not self.resume_state:
+            # add component_inputs to inputs
+            breakpoint_inputs = deepcopy(inputs)
+            # we deepcopy the component_inputs to avoid modifying the original inputs
+            breakpoint_inputs[component_name] = deepcopy(Pipeline._remove_unserializable_data(component_inputs))
+            if hasattr(component["instance"], "to_dict"):
+                params = component["instance"].to_dict()
+                breakpoint_inputs[component_name]["init_parameters"] = params["init_parameters"]
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with tracing.tracer.trace(
@@ -476,7 +481,6 @@ class Pipeline(PipelineBase):
         """
         value = Pipeline._remove_unserializable_data(value)
         value = Pipeline.transform_json_structure(value)
-
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             serialized_value = value.to_dict()
             serialized_value["_type"] = value.__class__.__name__
@@ -566,6 +570,15 @@ class Pipeline(PipelineBase):
 
         dt = datetime.now()
         file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+        # we store init_parameters for the component with breakpoint in the saved state
+        # this is helpful for debugging or manually updating the state
+        for value in inputs.values():
+            if "init_parameters" in value.keys():
+                init_params = value.pop("init_parameters")
+                for k, v in value.items():
+                    if k in init_params.keys() and v is None:
+                        value[k] = init_params[k]
+
         state = {
             "input_data": self._serialize_component_input(self.original_input_data),  # original input data
             "timestamp": dt.isoformat(),
