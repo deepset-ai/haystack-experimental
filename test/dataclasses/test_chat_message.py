@@ -183,61 +183,6 @@ def test_chat_message_init_content_parameter_type():
         ChatMessage(ChatRole.USER, "This is a message")
 
 
-def test_to_openai_dict_format():
-    message = ChatMessage.from_system("You are good assistant")
-    assert message.to_openai_dict_format() == {"role": "system", "content": "You are good assistant"}
-
-    message = ChatMessage.from_user("I have a question")
-    assert message.to_openai_dict_format() == {"role": "user", "content": "I have a question"}
-
-    message = ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})
-    assert message.to_openai_dict_format() == {"role": "assistant", "content": "I have an answer"}
-
-    message = ChatMessage.from_assistant(
-        tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})]
-    )
-    assert message.to_openai_dict_format() == {
-        "role": "assistant",
-        "tool_calls": [
-            {"id": "123", "type": "function", "function": {"name": "weather", "arguments": '{"city": "Paris"}'}}
-        ],
-    }
-
-    tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
-    message = ChatMessage.from_tool(
-        tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})
-    )
-    assert message.to_openai_dict_format() == {"role": "tool", "content": tool_result, "tool_call_id": "123"}
-
-    message = ChatMessage.from_user(text="I have a question", name="John")
-    assert message.to_openai_dict_format() == {"role": "user", "content": "I have a question", "name": "John"}
-
-    message = ChatMessage.from_assistant(text="I have an answer", name="Assistant1")
-    assert message.to_openai_dict_format() == {"role": "assistant", "content": "I have an answer", "name": "Assistant1"}
-
-
-def test_to_openai_dict_format_invalid():
-    message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
-    with pytest.raises(ValueError):
-        message.to_openai_dict_format()
-
-    message = ChatMessage(
-        _role=ChatRole.ASSISTANT,
-        _content=[TextContent(text="I have an answer"), TextContent(text="I have another answer")],
-    )
-    with pytest.raises(ValueError):
-        message.to_openai_dict_format()
-
-    tool_call_null_id = ToolCall(id=None, tool_name="weather", arguments={"city": "Paris"})
-    message = ChatMessage.from_assistant(tool_calls=[tool_call_null_id])
-    with pytest.raises(ValueError):
-        message.to_openai_dict_format()
-
-    message = ChatMessage.from_tool(tool_result="result", origin=tool_call_null_id)
-    with pytest.raises(ValueError):
-        message.to_openai_dict_format()
-
-
 def test_from_openai_dict_format_user_message():
     openai_msg = {"role": "user", "content": "Hello, how are you?", "name": "John"}
     message = ChatMessage.from_openai_dict_format(openai_msg)
@@ -399,6 +344,9 @@ def test_from_user_with_content_parts():
     assert message.role == ChatRole.USER
     assert message._content == [TextContent(text="text"), ImageContent(base64_image="base64_string")]
 
+def test_from_user_with_content_parts_fails_if_no_textual_parts():
+    with pytest.raises(ValueError):
+        ChatMessage.from_user(content_parts=[ImageContent(base64_image="base64_string")])
 
 def test_from_system_with_valid_content():
     text = "I have a question."
@@ -506,3 +454,64 @@ def test_image_content_mime_type_guessing(test_files_path):
     assert image_content.mime_type == "image/png"
 
 
+def test_to_openai_dict_format_system_message():
+    message = ChatMessage.from_system("You are good assistant")
+    assert message.to_openai_dict_format() == {"role": "system", "content": "You are good assistant"}
+
+def test_to_openai_dict_format_user_message():
+    message = ChatMessage.from_user("I have a question")
+    assert message.to_openai_dict_format() == {"role": "user", "content": "I have a question"}
+
+def test_to_openai_dict_format_multimodal_user_message():
+    message = ChatMessage.from_user(content_parts=[TextContent("I have a question"), ImageContent(base64_image="base64_string")])
+    assert message.to_openai_dict_format() == {"role": "user", "content": [{"type": "text", "text": "I have a question"}, {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,base64_string"}}]}    
+
+def test_to_openai_dict_format_assistant_message():
+    message = ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})
+    assert message.to_openai_dict_format() == {"role": "assistant", "content": "I have an answer"}
+
+    message = ChatMessage.from_assistant(
+        tool_calls=[ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})]
+    )
+    assert message.to_openai_dict_format() == {
+        "role": "assistant",
+        "tool_calls": [
+            {"id": "123", "type": "function", "function": {"name": "weather", "arguments": '{"city": "Paris"}'}}
+        ],
+    }
+
+def test_to_openai_dict_format_tool_message():
+    tool_result = json.dumps({"weather": "sunny", "temperature": "25"})
+    message = ChatMessage.from_tool(
+        tool_result=tool_result, origin=ToolCall(id="123", tool_name="weather", arguments={"city": "Paris"})
+    )
+    assert message.to_openai_dict_format() == {"role": "tool", "content": tool_result, "tool_call_id": "123"}
+
+def test_to_openai_dict_format_with_name():
+    message = ChatMessage.from_user(text="I have a question", name="John")
+    assert message.to_openai_dict_format() == {"role": "user", "content": "I have a question", "name": "John"}
+
+    message = ChatMessage.from_assistant(text="I have an answer", name="Assistant1")
+    assert message.to_openai_dict_format() == {"role": "assistant", "content": "I have an answer", "name": "Assistant1"}
+
+
+def test_to_openai_dict_format_invalid():
+    message = ChatMessage(_role=ChatRole.ASSISTANT, _content=[])
+    with pytest.raises(ValueError):
+        message.to_openai_dict_format()
+
+    message = ChatMessage(
+        _role=ChatRole.ASSISTANT,
+        _content=[TextContent(text="I have an answer"), TextContent(text="I have another answer")],
+    )
+    with pytest.raises(ValueError):
+        message.to_openai_dict_format()
+
+    tool_call_null_id = ToolCall(id=None, tool_name="weather", arguments={"city": "Paris"})
+    message = ChatMessage.from_assistant(tool_calls=[tool_call_null_id])
+    with pytest.raises(ValueError):
+        message.to_openai_dict_format()
+
+    message = ChatMessage.from_tool(tool_result="result", origin=tool_call_null_id)
+    with pytest.raises(ValueError):
+        message.to_openai_dict_format()
