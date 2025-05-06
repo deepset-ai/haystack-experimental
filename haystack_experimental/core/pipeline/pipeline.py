@@ -571,7 +571,7 @@ class Pipeline(PipelineBase):
 
         dt = datetime.now()
         file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
-        # we store init_parameters for the component with breakpoint in the saved state
+        # we store a component init_parameters together with the breakpoint in the saved state
         # this is helpful for debugging or manually updating the state
         for value in inputs.values():
             if "init_parameters" in value.keys():
