@@ -89,8 +89,17 @@ class Pipeline(PipelineBase):
             breakpoint_inputs = deepcopy(inputs)
             # we deepcopy the component_inputs to avoid modifying the original inputs
             breakpoint_inputs[component_name] = deepcopy(Pipeline._remove_unserializable_data(component_inputs))
+
+            # TODO: Find a better way to handle this.
+            # Using to_dict() here strips away class types like ChatMessage,
+            # which makes deserialization of the params problematic. On the other hand, using __dict__ relies on
+            # class variables being stored with the same names as their constructor parameters.
+
+            # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
             params = copy(component["instance"].__dict__)
-            if any(key == "_template_string" for key in params):
+
+            # this is needed as the template param is stored as _template_string in the component's __dict__
+            if "_template_string" in params:
                 params["template"] = params["_template_string"]
             breakpoint_inputs[component_name]["init_parameters"] = params
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
