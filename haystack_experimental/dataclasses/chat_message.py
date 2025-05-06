@@ -129,9 +129,6 @@ class ImageContent:
         """
         Create an ImageContent object from a URL.
 
-        It exposes similar functionality as the `ImageFileToImageContent` component. For PDF to ImageContent conversion,
-        use the `ImageFileToImageContent` component.
-
         :param url:
             The URL of the image.
         :param retry_attempts:
