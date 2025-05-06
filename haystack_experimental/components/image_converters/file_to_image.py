@@ -126,8 +126,6 @@ class ImageFileToImageContent:
                 )
                 continue
 
-            print(f"metadata: {metadata}")
-            print(f"bytestream.meta: {bytestream.meta}")
 
             merged_metadata = {**bytestream.meta, **metadata}
             image_content = ImageContent(
