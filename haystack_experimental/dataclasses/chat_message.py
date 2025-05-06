@@ -83,7 +83,7 @@ class ImageContent:
         Create an ImageContent object from a file path.
 
         It exposes similar functionality as the `ImageFileToImageContent` component. For PDF to ImageContent conversion,
-        use the `ImageFileToImageContent` component.
+        use the `PDFToImageContent` component.
 
         :param file_path:
             The path to the image file.
