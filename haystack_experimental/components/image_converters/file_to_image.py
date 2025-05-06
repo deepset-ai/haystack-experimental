@@ -126,6 +126,9 @@ class ImageFileToImageContent:
                 )
                 continue
 
+            print(f"metadata: {metadata}")
+            print(f"bytestream.meta: {bytestream.meta}")
+
             merged_metadata = {**bytestream.meta, **metadata}
             image_content = ImageContent(
                 base64_image=base64_image, mime_type=inferred_mime_type, meta=merged_metadata, detail=resolved_detail

@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 import base64
 import json
-
+import logging
 import pytest
-
+from unittest.mock import Mock, patch
+import httpx
 from haystack_experimental.dataclasses.chat_message import (
     ChatMessage,
     ChatRole,
@@ -515,3 +516,91 @@ def test_to_openai_dict_format_invalid():
     message = ChatMessage.from_tool(tool_result="result", origin=tool_call_null_id)
     with pytest.raises(ValueError):
         message.to_openai_dict_format()
+
+def test_image_content_from_file_path(test_files_path):
+    image_content = ImageContent.from_file_path(
+        file_path=test_files_path / "images" / "apple.jpg",
+        size=(100, 100),
+        detail="high",
+        meta={"test": "test"},
+    )
+
+    assert image_content.base64_image is not None
+    assert image_content.mime_type == "image/jpeg"
+    assert image_content.detail == "high"
+    assert image_content.meta == {"test": "test", "file_path": str(test_files_path / "images" / "apple.jpg")}
+
+def test_image_content_from_file_path_with_mime_type(test_files_path):
+    image_content = ImageContent.from_file_path(
+        file_path=test_files_path / "images" / "apple.jpg",
+        detail="high",
+        meta={"test": "test"},
+        mime_type="image/png",  # in case the mime type is provided, the file extension is ignored
+    )
+
+    assert image_content.base64_image is not None
+    assert image_content.mime_type == "image/png"
+    assert image_content.detail == "high"
+    assert image_content.meta == {"test": "test", "file_path": str(test_files_path / "images" / "apple.jpg")}
+
+def test_image_content_from_file_path_non_existing(test_files_path, caplog):
+    caplog.set_level(logging.WARNING)
+
+    with pytest.raises(IndexError):
+        ImageContent.from_file_path(
+            file_path=test_files_path / "images" / "non_existing.jpg",
+        )
+    assert "No such file" in caplog.text
+
+def test_image_content_from_url(test_files_path):
+
+    with patch("haystack.components.fetchers.link_content.httpx.Client.get") as mock_get:
+        mock_response = Mock(
+            status_code=200,
+            content=open(test_files_path / "images" / "apple.jpg", "rb").read(),
+            headers={"Content-Type": "image/jpeg"},
+        )
+        mock_get.return_value = mock_response
+
+        image_content = ImageContent.from_url(
+            url="https://example.com/apple.jpg",
+            size=(100, 100),
+            detail="high",
+            meta={"test": "test"},
+        )
+
+        assert image_content.base64_image is not None
+        assert image_content.mime_type == "image/jpeg"
+        assert image_content.detail == "high"
+        assert image_content.meta == {"test": "test", "url": "https://example.com/apple.jpg", "content_type": "image/jpeg"}
+
+
+def test_image_content_from_url_with_mime_type(test_files_path):
+    with patch("haystack.components.fetchers.link_content.httpx.Client.get") as mock_get:
+        mock_response = Mock(
+            status_code=200,
+            content=open(test_files_path / "images" / "apple.jpg", "rb").read(),
+            headers={"Content-Type": "image/jpeg"},
+        )
+        mock_get.return_value = mock_response
+
+        image_content = ImageContent.from_url(
+            url="https://example.com/apple.jpg",
+            mime_type="image/png",  # in case the mime type is provided, the URL content type is ignored
+        )
+
+        assert image_content.base64_image is not None
+        assert image_content.mime_type == "image/png"
+        assert image_content.meta == {"url": "https://example.com/apple.jpg", "content_type": "image/jpeg"}
+
+def test_image_content_from_url_bad_request(test_files_path):
+
+    with patch("haystack.components.fetchers.link_content.httpx.Client.get") as mock_get:
+        mock_get.side_effect = httpx.HTTPStatusError("403 Client Error", request=Mock(), response=Mock())       
+
+        with pytest.raises(httpx.HTTPStatusError):
+            ImageContent.from_url(
+                url="https://non_existent_website_dot.com/image.jpg",
+                retry_attempts=0,
+                timeout=1,
+            )
