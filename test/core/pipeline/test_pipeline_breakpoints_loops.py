@@ -16,7 +16,7 @@ from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
-
+from unittest.mock import patch
 
 # Define the component input parameters
 @component
@@ -88,13 +88,14 @@ class TestPipelineBreakpointsLoops:
                 "completion_tokens": 40,
                 "total_tokens": 97
             }
-            
+
             mock_chat_completion_create.return_value = mock_completion
-            
+
             # Create a mock for the OpenAIChatGenerator
+            @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-api-key'})
             def create_mock_generator():
-                generator = OpenAIChatGenerator(api_key=Secret.from_token("dummy-api-key"))
-                
+                generator = OpenAIChatGenerator(api_key=Secret.from_env_var("OPENAI_API_KEY"))
+
                 # Mock the run method
                 def mock_run(messages, streaming_callback=None, generation_kwargs=None, tools=None, tools_strict=None):
                     # Check if this is a retry attempt
@@ -110,12 +111,12 @@ class TestPipelineBreakpointsLoops:
                             "replies": [ChatMessage.from_assistant('{"cities": [{"name": "Berlin", "country": "Germany", "population": 3850809}, {"name": "Paris", "country": "France", "population": 2161000}, {"name": "Lisbon", "country": "Portugal", "population": 504718}]}')],
                             "meta": {"model": "gpt-4", "usage": {"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97}}
                         }
-                
+
                 # Replace the run method with our mock
                 generator.run = mock_run
-                
+
                 return generator
-            
+
             yield create_mock_generator
 
     @pytest.fixture

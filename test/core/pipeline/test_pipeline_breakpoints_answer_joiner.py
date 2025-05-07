@@ -11,6 +11,8 @@ from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from test.conftest import load_and_resume_pipeline_state
+from unittest.mock import patch
+
 
 
 class TestPipelineBreakpoints:
@@ -31,30 +33,31 @@ class TestPipelineBreakpoints:
                 "completion_tokens": 40,
                 "total_tokens": 97
             }
-            
+
             mock_chat_completion_create.return_value = mock_completion
-            
+
             # Create a mock for the OpenAIChatGenerator
+            @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-api-key'})
             def create_mock_generator(model_name):
-                generator = OpenAIChatGenerator(model=model_name, api_key=Secret.from_token("test-api-key"))
-                
+                generator = OpenAIChatGenerator(model=model_name, api_key=Secret.from_env_var("OPENAI_API_KEY"))
+
                 # Mock the run method
                 def mock_run(messages, streaming_callback=None, generation_kwargs=None, tools=None, tools_strict=None):
                     if "gpt-4" in model_name:
                         content = "Natural Language Processing (NLP) is a field of AI focused on enabling computers to understand, interpret, and generate human language."
                     else:
                         content = "NLP is a branch of AI that helps machines understand and process human language."
-                    
+
                     return {
                         "replies": [ChatMessage.from_assistant(content)],
                         "meta": {"model": model_name, "usage": {"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97}}
                     }
-                
+
                 # Replace the run method with our mock
                 generator.run = mock_run
-                
+
                 return generator
-            
+
             yield create_mock_generator
 
     @pytest.fixture

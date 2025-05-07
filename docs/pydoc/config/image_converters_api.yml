@@ -17,15 +17,15 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: Various image_converters to transform data from one format to another.
+  excerpt: Various image conversion components.
   category_slug: experiments-api
-  title: Converters
-  slug: experimental-image_converters-api
-  order: 30
+  title: Image Converters
+  slug: experimental-image-converters-api
+  order: 22
   markdown:
     descriptive_class_title: false
     classdef_code_block: false
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: experimental_converters_api.md
+    filename: experimental_image_converters_api.md
