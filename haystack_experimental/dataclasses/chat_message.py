@@ -19,7 +19,7 @@ from haystack_experimental.components.image_converters.image_utils import MIME_T
 
 logger = logging.getLogger(__name__)
 
-IMAGE_MIME_TYPES = [key for key in MIME_TO_FORMAT.keys() if key != "application/pdf"]
+IMAGE_MIME_TYPES = {key for key in MIME_TO_FORMAT.keys() if key != "application/pdf"}
 
 
 @dataclass
