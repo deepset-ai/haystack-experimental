@@ -14,7 +14,7 @@ from haystack_experimental.components.image_converters.image_utils import (
     convert_pdf_to_images,
     pypdf_and_pdf2image_import,
 )
-from haystack_experimental.dataclasses.chat_message import ImageContent
+from haystack_experimental.dataclasses.image_content import ImageContent
 
 logger = logging.getLogger(__name__)
 

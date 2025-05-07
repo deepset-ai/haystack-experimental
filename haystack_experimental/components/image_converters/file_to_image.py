@@ -12,7 +12,7 @@ from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.components.image_converters.image_utils import encode_image_to_base64
-from haystack_experimental.dataclasses.chat_message import ImageContent
+from haystack_experimental.dataclasses.image_content import ImageContent
 
 with LazyImport(
     "The 'size' parameter is set. "
