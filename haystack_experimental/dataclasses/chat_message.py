@@ -127,7 +127,9 @@ class ImageContent:
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ImageContent":
         """
-        Create an ImageContent object from a URL.
+        Create an ImageContent object from a URL. The image is downloaded and converted to a base64 string.
+
+        For PDF to ImageContent conversion, use the `PDFToImageContent` component.
 
         :param url:
             The URL of the image.
