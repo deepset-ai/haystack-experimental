@@ -1,7 +1,7 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.dataclasses.chat_message"]
+    modules: ["haystack_experimental.dataclasses.chat_message", "haystack_experimental.dataclasses.image_content"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
