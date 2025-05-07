@@ -12,10 +12,14 @@ import filetype
 import haystack.dataclasses.chat_message
 from haystack import logging
 from haystack.components.fetchers.link_content import LinkContentFetcher
-from haystack.dataclasses import ByteStream, ChatRole, TextContent, ToolCall, ToolCallResult
+from haystack.dataclasses import ChatRole, TextContent, ToolCall, ToolCallResult
 from haystack.dataclasses import ChatMessage as HaystackChatMessage
 
+from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
+
 logger = logging.getLogger(__name__)
+
+IMAGE_MIME_TYPES = [key for key in MIME_TO_FORMAT.keys() if key != "application/pdf"]
 
 
 @dataclass
@@ -75,7 +79,6 @@ class ImageContent:
         file_path: Union[str, Path],
         *,
         size: Optional[Tuple[int, int]] = None,
-        mime_type: Optional[str] = None,
         detail: Optional[Literal["auto", "high", "low"]] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ImageContent":
@@ -86,13 +89,12 @@ class ImageContent:
         use the `PDFToImageContent` component.
 
         :param file_path:
-            The path to the image file.
+            The path to the image file. PDF files are not supported. For PDF to ImageContent conversion, use the
+            `PDFToImageContent` component.
         :param size:
             If provided, resizes the image to fit within the specified dimensions (width, height) while
             maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
             when working with models that have resolution constraints or when transmitting images to remote services.
-        :param mime_type:
-            Optional MIME type of the image. If not provided, the MIME type is guessed from the file extension.
         :param detail:
             Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
         :param meta:
@@ -104,13 +106,8 @@ class ImageContent:
         # to avoid a circular import
         from haystack_experimental.components.image_converters import ImageFileToImageContent
 
-        if mime_type:
-            source = ByteStream.from_file_path(Path(file_path), mime_type=mime_type, meta={"file_path": str(file_path)})
-        else:
-            source = file_path
-
         converter = ImageFileToImageContent(size=size, detail=detail)
-        result = converter.run(sources=[source], meta=[meta] if meta else None)
+        result = converter.run(sources=[file_path], meta=[meta] if meta else None)
         return result["image_contents"][0]
 
 
@@ -122,7 +119,6 @@ class ImageContent:
         retry_attempts: int = 2,
         timeout: int = 10,
         size: Optional[Tuple[int, int]] = None,
-        mime_type: Optional[str] = None,
         detail: Optional[Literal["auto", "high", "low"]] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> "ImageContent":
@@ -132,7 +128,8 @@ class ImageContent:
         For PDF to ImageContent conversion, use the `PDFToImageContent` component.
 
         :param url:
-            The URL of the image.
+            The URL of the image. PDF files are not supported. For PDF to ImageContent conversion, use the
+            `PDFToImageContent` component.
         :param retry_attempts:
             The number of times to retry to fetch the URL's content.
         :param timeout:
@@ -141,12 +138,13 @@ class ImageContent:
             If provided, resizes the image to fit within the specified dimensions (width, height) while
             maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
             when working with models that have resolution constraints or when transmitting images to remote services.
-        :param mime_type:
-            Optional MIME type of the image. If not provided, the MIME type is guessed from the content type of the URL.
         :param detail:
             Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
         :param meta:
             Additional metadata for the image.
+
+        :raises ValueError:
+            If the URL does not point to an image.
 
         :returns:
             An ImageContent object.
@@ -157,8 +155,9 @@ class ImageContent:
         fetcher = LinkContentFetcher(raise_on_failure=True, retry_attempts=retry_attempts, timeout=timeout)
         bytestream = fetcher.run(urls=[url])["streams"][0]
 
-        if mime_type:
-            bytestream.mime_type = mime_type
+        if bytestream.mime_type not in IMAGE_MIME_TYPES:
+            msg = f"The URL does not point to an image. The MIME type of the URL is {bytestream.mime_type}."
+            raise ValueError(msg)
 
         converter = ImageFileToImageContent(size=size, detail=detail)
         result = converter.run(sources=[bytestream], meta=[meta] if meta else None)
