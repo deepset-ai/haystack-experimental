@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff: noqa: D103
-
 import base64
 import json
 import logging
