@@ -5,15 +5,21 @@
 import base64
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Sequence, Union
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import filetype
 import haystack.dataclasses.chat_message
 from haystack import logging
-from haystack.dataclasses import ChatMessage as HaystackChatMessage
+from haystack.components.fetchers.link_content import LinkContentFetcher
 from haystack.dataclasses import ChatRole, TextContent, ToolCall, ToolCallResult
+from haystack.dataclasses import ChatMessage as HaystackChatMessage
+
+from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
 
 logger = logging.getLogger(__name__)
+
+IMAGE_MIME_TYPES = {key for key in MIME_TO_FORMAT.keys() if key != "application/pdf"}
 
 
 @dataclass
@@ -67,6 +73,95 @@ class ImageContent:
         fields_str = ", ".join(fields)
         return f"{self.__class__.__name__}({fields_str})"
 
+    @classmethod
+    def from_file_path(
+        cls,
+        file_path: Union[str, Path],
+        *,
+        size: Optional[Tuple[int, int]] = None,
+        detail: Optional[Literal["auto", "high", "low"]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> "ImageContent":
+        """
+        Create an ImageContent object from a file path.
+
+        It exposes similar functionality as the `ImageFileToImageContent` component. For PDF to ImageContent conversion,
+        use the `PDFToImageContent` component.
+
+        :param file_path:
+            The path to the image file. PDF files are not supported. For PDF to ImageContent conversion, use the
+            `PDFToImageContent` component.
+        :param size:
+            If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
+        :param detail:
+            Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param meta:
+            Additional metadata for the image.
+
+        :returns:
+            An ImageContent object.
+        """
+        # to avoid a circular import
+        from haystack_experimental.components.image_converters import ImageFileToImageContent
+
+        converter = ImageFileToImageContent(size=size, detail=detail)
+        result = converter.run(sources=[file_path], meta=[meta] if meta else None)
+        return result["image_contents"][0]
+
+
+    @classmethod
+    def from_url(
+        cls,
+        url: str,
+        *,
+        retry_attempts: int = 2,
+        timeout: int = 10,
+        size: Optional[Tuple[int, int]] = None,
+        detail: Optional[Literal["auto", "high", "low"]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> "ImageContent":
+        """
+        Create an ImageContent object from a URL. The image is downloaded and converted to a base64 string.
+
+        For PDF to ImageContent conversion, use the `PDFToImageContent` component.
+
+        :param url:
+            The URL of the image. PDF files are not supported. For PDF to ImageContent conversion, use the
+            `PDFToImageContent` component.
+        :param retry_attempts:
+            The number of times to retry to fetch the URL's content.
+        :param timeout:
+            Timeout in seconds for the request.
+        :param size:
+            If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
+        :param detail:
+            Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param meta:
+            Additional metadata for the image.
+
+        :raises ValueError:
+            If the URL does not point to an image.
+
+        :returns:
+            An ImageContent object.
+        """
+        # to avoid a circular import
+        from haystack_experimental.components.image_converters import ImageFileToImageContent
+
+        fetcher = LinkContentFetcher(raise_on_failure=True, retry_attempts=retry_attempts, timeout=timeout)
+        bytestream = fetcher.run(urls=[url])["streams"][0]
+
+        if bytestream.mime_type not in IMAGE_MIME_TYPES:
+            msg = f"The URL does not point to an image. The MIME type of the URL is {bytestream.mime_type}."
+            raise ValueError(msg)
+
+        converter = ImageFileToImageContent(size=size, detail=detail)
+        result = converter.run(sources=[bytestream], meta=[meta] if meta else None)
+        return result["image_contents"][0]
 
 ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult, ImageContent]
 

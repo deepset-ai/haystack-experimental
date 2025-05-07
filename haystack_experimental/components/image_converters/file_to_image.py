@@ -69,11 +69,11 @@ class ImageFileToImageContent:
         :param sources:
             List of file paths or ByteStream objects to convert.
         :param meta:
-            Optional metadata to attach to the documents.
+            Optional metadata to attach to the ImageContent objects.
             This value can be a list of dictionaries or a single dictionary.
-            If it's a single dictionary, its content is added to the metadata of all produced documents.
+            If it's a single dictionary, its content is added to the metadata of all produced ImageContent objects.
             If it's a list, its length must match the number of sources as they're zipped together.
-            For ByteStream objects, their `meta` is added to the output documents.
+            For ByteStream objects, their `meta` is added to the output ImageContent objects.
         :param detail:
             Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
             This will be passed to the created ImageContent objects.
