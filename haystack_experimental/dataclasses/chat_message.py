@@ -18,6 +18,32 @@ logger = logging.getLogger(__name__)
 
 ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult, ImageContent]
 
+def _deserialize_content_part(part: Dict[str, Any]) -> ChatMessageContentT:
+    """
+    Deserialize a single content part of a serialized ChatMessage.
+
+    :param part:
+        A dictionary representing a single content part of a serialized ChatMessage.
+    :returns:
+        A ChatMessageContentT object.
+    :raises ValueError:
+        If the part is not a valid ChatMessageContentT object.
+    """
+    if "text" in part:
+        return TextContent(text=part["text"])
+    if "tool_call" in part:
+        return ToolCall(**part["tool_call"])
+    if "tool_call_result" in part:
+        result = part["tool_call_result"]["result"]
+        origin = ToolCall(**part["tool_call_result"]["origin"])
+        error = part["tool_call_result"]["error"]
+        tcr = ToolCallResult(result=result, origin=origin, error=error)
+        return tcr
+    if "image" in part:
+        return ImageContent(**part["image"])
+    raise ValueError(f"Unsupported part in serialized ChatMessage: `{part}`")
+    
+
 
 def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatMessageContentT]:
     """
@@ -29,30 +55,32 @@ def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatM
     :returns:
         Deserialized `content` field as a list of `ChatMessageContentT` objects.
     """
-    content: List[ChatMessageContentT] = []
-
-    for part in serialized_content:
-        if "text" in part:
-            content.append(TextContent(text=part["text"]))
-        elif "tool_call" in part:
-            content.append(ToolCall(**part["tool_call"]))
-        elif "tool_call_result" in part:
-            result = part["tool_call_result"]["result"]
-            origin = ToolCall(**part["tool_call_result"]["origin"])
-            error = part["tool_call_result"]["error"]
-            tcr = ToolCallResult(result=result, origin=origin, error=error)
-            content.append(tcr)
-        elif "image" in part:
-            content.append(ImageContent(**part["image"]))
-        else:
-            raise ValueError(f"Unsupported part in serialized ChatMessage: `{part}`")
-
-    return content
+    return [_deserialize_content_part(part) for part in serialized_content]
 
 
 # Note: this is a monkey patch to the original _deserialize_content function
 haystack.dataclasses.chat_message._deserialize_content = _deserialize_content
 
+def _serialize_content_part(part: ChatMessageContentT) -> Dict[str, Any]:
+    """
+    Serialize a single content part of a ChatMessage.
+
+    :param part:
+        A ChatMessageContentT object.
+    :returns:
+        A dictionary representing the content part.
+    :raises TypeError:
+        If the part is not a valid ChatMessageContentT object.
+    """
+    if isinstance(part, TextContent):
+        return {"text": part.text}
+    elif isinstance(part, ToolCall):
+        return {"tool_call": asdict(part)}
+    elif isinstance(part, ToolCallResult):
+        return {"tool_call_result": asdict(part)}
+    elif isinstance(part, ImageContent):
+        return {"image": asdict(part)}
+    raise TypeError(f"Unsupported type in ChatMessage content: `{type(part).__name__}` for `{part}`.")
 
 @dataclass
 class ChatMessage(HaystackChatMessage):
@@ -116,6 +144,7 @@ class ChatMessage(HaystackChatMessage):
                 raise ValueError("The user message must contain at least one textual part.")
 
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
+    
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -129,20 +158,8 @@ class ChatMessage(HaystackChatMessage):
         serialized["role"] = self._role.value
         serialized["meta"] = self._meta
         serialized["name"] = self._name
-        content: List[Dict[str, Any]] = []
-        for part in self._content:
-            if isinstance(part, TextContent):
-                content.append({"text": part.text})
-            elif isinstance(part, ToolCall):
-                content.append({"tool_call": asdict(part)})
-            elif isinstance(part, ToolCallResult):
-                content.append({"tool_call_result": asdict(part)})
-            elif isinstance(part, ImageContent):
-                content.append({"image": asdict(part)})
-            else:
-                raise TypeError(f"Unsupported type in ChatMessage content: `{type(part).__name__}` for `{part}`.")
 
-        serialized["content"] = content
+        serialized["content"] = [_serialize_content_part(part) for part in self._content]
         return serialized
 
     def to_openai_dict_format(self) -> Dict[str, Any]:
