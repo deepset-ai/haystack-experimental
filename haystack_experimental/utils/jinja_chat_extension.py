@@ -44,7 +44,7 @@ class ChatMessageExtension(Extension):
     {% endfor %}
     {% endmessage %}
 
-    ## How it works
+    ### How it works
     1. The {% message %} tag is used to define a chat message.
     2. The message can contain text and other structured content parts.
     3. To include a structured content part in the message, the `| for_template` filter is used.
