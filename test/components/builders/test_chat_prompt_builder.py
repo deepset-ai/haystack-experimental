@@ -4,12 +4,16 @@ import arrow
 import logging
 import pytest
 
-from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
+
 from haystack import component
 from haystack.core.pipeline.pipeline import Pipeline
-from haystack.dataclasses.chat_message import ChatMessage
 from haystack.dataclasses.document import Document
 
+from haystack_experimental.components.builders.chat_prompt_builder import ChatPromptBuilder
+from haystack_experimental.dataclasses.chat_message import ChatMessage
+
+
+TYPE = "haystack_experimental.components.builders.chat_prompt_builder.ChatPromptBuilder"
 
 class TestChatPromptBuilder:
     def test_init(self):
@@ -621,7 +625,7 @@ class TestChatPromptBuilderDynamic:
         )
 
         assert comp.to_dict() == {
-            "type": "haystack.components.builders.chat_prompt_builder.ChatPromptBuilder",
+            "type": TYPE,
             "init_parameters": {
                 "template": [
                     {"content": [{"text": "text and {var}"}], "role": "user", "meta": {}, "name": None},
@@ -635,7 +639,7 @@ class TestChatPromptBuilderDynamic:
     def test_from_dict(self):
         comp = ChatPromptBuilder.from_dict(
             data={
-                "type": "haystack.components.builders.chat_prompt_builder.ChatPromptBuilder",
+                "type": TYPE,
                 "init_parameters": {
                     "template": [
                         {"content": [{"text": "text and {var}"}], "role": "user", "meta": {}, "name": None},
@@ -662,7 +666,7 @@ class TestChatPromptBuilderDynamic:
     def test_from_dict_template_none(self):
         comp = ChatPromptBuilder.from_dict(
             data={
-                "type": "haystack.components.builders.chat_prompt_builder.ChatPromptBuilder",
+                "type": TYPE,
                 "init_parameters": {"template": None},
             }
         )

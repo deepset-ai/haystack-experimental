@@ -71,6 +71,7 @@ extra-dependencies = [
   "transformers[torch,sentencepiece]>=4.51.1,<4.52", # same as in haystack-ai
   "pdf2image", # for pdf to image conversion in PDFToImageContent
   "pillow", # for image processing in ImageFileToImageContent and PDFToImageContent
+  "arrow>=1.3.0", # Jinja2TimeExtension/ChatPromptBuilder 
 ]
 
 [tool.hatch.envs.test.scripts]

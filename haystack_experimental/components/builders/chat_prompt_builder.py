@@ -9,8 +9,10 @@ from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
 from haystack import component, default_from_dict, default_to_dict, logging
-from haystack.dataclasses.chat_message import ChatMessage, ChatRole, TextContent
 from haystack.utils import Jinja2TimeExtension
+
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, TextContent
+
 
 logger = logging.getLogger(__name__)
 
