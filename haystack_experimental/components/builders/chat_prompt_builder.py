@@ -10,12 +10,16 @@ from jinja2.sandbox import SandboxedEnvironment
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.utils import Jinja2TimeExtension
+from haystack.lazy_imports import LazyImport
 
+from haystack_experimental.utils.jinja_chat_extension import ChatMessageExtension, for_template
 from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, TextContent
 
 
 logger = logging.getLogger(__name__)
 
+with LazyImport() as arrow_import:
+    import arrow  # pylint: disable=unused-import
 
 @component
 class ChatPromptBuilder:
