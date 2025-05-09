@@ -258,7 +258,7 @@ class ChatMessageExtension(Extension):
 
 def for_template(value: ChatMessageContentT) -> str:
     """
-    Convert an ChatMessageContentT object into JSON string wrapped in special XML content tags.
+    Jinja filter to convert an ChatMessageContentT object into JSON string wrapped in special XML content tags.
 
     :param value: The ChatMessageContentT object to convert
     :return: A JSON string wrapped in special XML content tags
