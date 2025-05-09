@@ -59,19 +59,12 @@ dependencies = [
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  "colorama", # needed for the pipeline checkpoints test - might be removed later
-  "markdown-it-py", # MultiFileConverter
-  "mdit_plain", # MultiFileConverter
-  "openpyxl", # MultiFileConverter
-  "pandas", # MultiFileConverter
-  "pypdf", # MultiFileConverter
-  "python-docx", # MultiFileConverter
-  "python-pptx", # MultiFileConverter
-  "trafilatura", # MultiFileConverter
-  "transformers[torch,sentencepiece]>=4.51.1,<4.52", # same as in haystack-ai
-  "pdf2image", # for pdf to image conversion in PDFToImageContent
-  "pillow", # for image processing in ImageFileToImageContent and PDFToImageContent
-  "arrow>=1.3.0", # Jinja2TimeExtension/ChatPromptBuilder 
+  "colorama",                                         # Pipeline checkpoints experiment
+  "transformers[torch,sentencepiece]>=4.51.1,<4.52",  # Pipeline checkpoints experiment
+  "arrow>=1.3.0",                                     # Multimodal experiment - ChatPromptBuilder
+  "pypdf",                                            # Multimodal experiment - PDFToImageContent
+  "pdf2image",                                        # Multimodal experiment - PDFToImageContent
+  "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
 ]
 
 [tool.hatch.envs.test.scripts]

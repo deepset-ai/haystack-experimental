@@ -13,3 +13,4 @@ assignees: ''
 - [ ] Remove pydocs
 - [ ] Move experiment from _active experiments_ in the catalog in haystack-experimental README.md to _discontinued experiments_
 - [ ] Remove example notebook from haystack-experimental if it exists
+- [ ] Remove dependencies needed for the experiment from pyproject.toml
