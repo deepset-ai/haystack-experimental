@@ -365,29 +365,23 @@ But my favorite subject is Small Language Models.
     def test_message_with_whitespace_handling(self, jinja_env):
         # the following templates should all be equivalent
         templates = [
-            """{% message role="user" %}{{ image | for_template }}{% endmessage %}""",
-            """{% message role="user" %}    {{ image | for_template }}    {% endmessage %}""",
+            """{% message role="user" %}String{% endmessage %}""",
+            """{% message role="user" %}    String    {% endmessage %}""",
             """{% message role="user" %}
-            {{ image | for_template }}
+            String
             {% endmessage %}""",
-            """{% message role="user" %}\t{{ image | for_template }}\t{% endmessage %}"""
+            """{% message role="user" %}\tString\t{% endmessage %}"""
         ]
-        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
         expected = {
             "role": "user",
             "content": [
-                {"image": {
-                    "base64_image": "test_base64",
-                    "mime_type": "image/jpeg",
-                    "detail": None,
-                    "meta": {}
-                }}
+                {"text": "String"}
             ],
             "name": None,
             "meta": {}
         }
         for template in templates:
-            rendered = jinja_env.from_string(template).render(image=image)
+            rendered = jinja_env.from_string(template).render()
             output = json.loads(rendered.strip())
             assert output == expected
 
@@ -414,4 +408,89 @@ But my favorite subject is Small Language Models.
         with pytest.raises(json.JSONDecodeError):
             jinja_env.from_string(template).render()
 
+    def test_invalid_system_message_raises_error(self, jinja_env):
+        template = """
+        {% message role="system" %}
+        {{ image | for_template }}
+        {% endmessage %}
+        """
+        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
 
+        template = """
+        {% message role="system" %}
+        Some text.
+        {{ image | for_template }}
+        {% endmessage %}
+        """
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
+
+
+    def test_invalid_assistant_message_raises_error(self, jinja_env):
+        template = """
+        {% message role="assistant" %}
+        text 1
+        {{ image | for_template }}
+        text 2
+        {% endmessage %}
+        """
+        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
+        
+        template = """
+        {% message role="assistant" %}
+        {{ image | for_template }}
+        {% endmessage %}
+        """
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
+
+        template = """
+        {% message role="assistant" %}
+        text 1
+        {{ image | for_template }}
+        {% endmessage %}
+        """
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
+
+    def test_invalid_tool_message_raises_error(self, jinja_env):
+        template = """
+        {% message role="tool" %}
+        {{ image | for_template }}
+        {% endmessage %}
+        """
+        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
+
+        template = """
+        {% message role="tool" %}
+        {{ tool_result | for_template }}
+        {{ tool_result | for_template }}
+        {% endmessage %}
+        """
+        tool_call = ToolCall(
+            tool_name="search",
+            arguments={"query": "test"},
+            id="search_1"
+        )
+        tool_result = ToolCallResult(
+            result="Here are the search results",
+            origin=tool_call,
+            error=False
+        )
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(tool_result=tool_result)
+
+        template = """
+        {% message role="tool" %}
+        {{ tool_result | for_template }}
+        {{ image | for_template }}
+        {% endmessage %}
+        """
+        with pytest.raises(ValueError):
+            jinja_env.from_string(template).render(image=image)
