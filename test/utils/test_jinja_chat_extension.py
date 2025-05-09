@@ -53,6 +53,32 @@ class TestChatMessageExtension:
         with pytest.raises(TemplateSyntaxError, match="expected token 'role'"):
             jinja_env.from_string(template).render()
 
+    def test_message_meta_not_dict_raises_error(self, jinja_env):
+        template = """
+        {% message role="user" meta="not a dict" %}
+        Hello!
+        {% endmessage %}
+        """
+        with pytest.raises(TemplateSyntaxError, match="meta must be a dictionary"):
+            jinja_env.from_string(template).render()
+
+    def test_message_meta_invalid_dict_raises_error(self, jinja_env):
+        template = """
+        {% message role="user" meta={"key": "unclosed_value} %}
+        Hello!
+        {% endmessage %}
+        """
+        with pytest.raises(TemplateSyntaxError):
+            jinja_env.from_string(template).render()            
+
+    def test_message_name_not_str_raises_error(self, jinja_env):
+        template = """
+        {% message role="user" name=123 %}
+        Hello!
+        {% endmessage %}
+        """
+        with pytest.raises(TemplateSyntaxError, match="name must be a string"):
+            jinja_env.from_string(template).render()
 
     def test_system_message(self, jinja_env):
         template = """

@@ -87,6 +87,8 @@ class ChatMessageExtension(Extension):
             parser.stream.skip()
             parser.stream.expect("assign")
             name_expr = parser.parse_expression()
+            if not isinstance(name_expr.value, str):
+                raise TemplateSyntaxError("name must be a string", lineno)
 
         # Parse optional meta attribute
         meta_expr = None
@@ -94,6 +96,8 @@ class ChatMessageExtension(Extension):
             parser.stream.skip()
             parser.stream.expect("assign")
             meta_expr = parser.parse_expression()
+            if not isinstance(meta_expr, nodes.Dict):
+                raise TemplateSyntaxError("meta must be a dictionary", lineno)
 
         # Parse message body
         body = parser.parse_statements(("name:endmessage",), drop_needle=True)
