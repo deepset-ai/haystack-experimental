@@ -42,7 +42,7 @@ def _deserialize_content_part(part: Dict[str, Any]) -> ChatMessageContentT:
     if "image" in part:
         return ImageContent(**part["image"])
     raise ValueError(f"Unsupported part in serialized ChatMessage: `{part}`")
-    
+
 
 
 def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatMessageContentT]:
@@ -143,8 +143,13 @@ class ChatMessage(HaystackChatMessage):
             if not any(isinstance(el, TextContent) for el in content):
                 raise ValueError("The user message must contain at least one textual part.")
 
+            unsupported_parts = [el for el in content if not isinstance(el, (ImageContent, TextContent))]
+            if unsupported_parts:
+                raise ValueError(f"The user message must contain only text or image parts."
+                                 f"Unsupported parts: {unsupported_parts}")
+
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
-    
+
 
     def to_dict(self) -> Dict[str, Any]:
         """

@@ -14,6 +14,8 @@ from haystack_experimental.dataclasses.chat_message import (
     ChatMessageContentT,
     ChatRole,
     TextContent,
+    ToolCall,
+    ToolCallResult,
     _deserialize_content_part,
     _serialize_content_part,
 )
@@ -87,6 +89,8 @@ class ChatMessageExtension(Extension):
             parser.stream.skip()
             parser.stream.expect("assign")
             name_expr = parser.parse_expression()
+            if not isinstance(name_expr.value, str):
+                raise TemplateSyntaxError("name must be a string", lineno)
 
         # Parse optional meta attribute
         meta_expr = None
@@ -94,6 +98,8 @@ class ChatMessageExtension(Extension):
             parser.stream.skip()
             parser.stream.expect("assign")
             meta_expr = parser.parse_expression()
+            if not isinstance(meta_expr, nodes.Dict):
+                raise TemplateSyntaxError("meta must be a dictionary", lineno)
 
         # Parse message body
         body = parser.parse_statements(("name:endmessage",), drop_needle=True)
@@ -126,17 +132,22 @@ class ChatMessageExtension(Extension):
         :param meta: Optional metadata dictionary
         :param caller: Callable that returns the rendered content
         :return: A JSON string representation of the ChatMessage object
-        :raises ValueError: If the message content is empty
         """
 
         content = caller()
         parts = self._parse_content_parts(content)
         if not parts:
-            raise ValueError("Message content is empty")
-        message = ChatMessage(_role=ChatRole(role), _content=parts, _name=name, _meta=meta)
-        return json.dumps(message.to_dict()) + "\n"
+            raise ValueError(
+                f"Message template produced content that couldn't be parsed into any message parts. "
+                f"Content: '{content!r}'"
+            )
 
-    def _parse_content_parts(self, content: str) -> List[ChatMessageContentT]:
+        chat_message = self._validate_build_chat_message(parts=parts, role=role, meta=meta, name=name)
+
+        return json.dumps(chat_message.to_dict()) + "\n"
+
+    @staticmethod
+    def _parse_content_parts(content: str) -> List[ChatMessageContentT]:
         """
         Parse a string into a sequence of ChatMessageContentT objects.
 
@@ -146,8 +157,15 @@ class ChatMessageExtension(Extension):
 
         :param content: Input string containing mixed text and content parts
         :return: A list of ChatMessageContentT objects
-        :raises ValueError: If a <haystack_content_part> tag is found without a matching closing tag
+        :raises ValueError: If the content is empty or contains only whitespace characters or if a
+                            <haystack_content_part> tag is found without a matching closing tag.
         """
+        if not content.strip():
+            raise ValueError(
+                f"Message content in template is empty or contains only whitespace characters. "
+                f"Content: {content!r}"
+            )
+
         parts: List[ChatMessageContentT] = []
         cursor = 0
         total_length = len(content)
@@ -186,10 +204,61 @@ class ChatMessageExtension(Extension):
 
         return parts
 
+    @staticmethod
+    def _validate_build_chat_message(parts: List[ChatMessageContentT], role: str, meta: dict,
+                                     name: Optional[str]=None) -> ChatMessage:
+        """
+        Validate the parts of a chat message and build a ChatMessage object.
+
+        :param parts: Content parts of the message
+        :param role: The role of the message
+        :param meta: The metadata of the message
+        :param name: The optional name of the message
+        :return: A ChatMessage object
+
+        :raises ValueError: If content parts don't allow to build a valid ChatMessage object or the role is not
+                            supported
+        """
+
+        if role == "user":
+            return ChatMessage.from_user(meta=meta, name=name, content_parts=parts)
+
+        if role == "system":
+            if not isinstance(parts[0], TextContent):
+                raise ValueError("System message must contain a text part.")
+            text = parts[0].text
+            if len(parts) > 1:
+                raise ValueError("System message must contain only one text part.")
+            return ChatMessage.from_system(meta=meta, name=name, text=text)
+
+        if role == "assistant":
+            texts = [part.text for part in parts if isinstance(part, TextContent)]
+            tool_calls = [part for part in parts if isinstance(part, ToolCall)]
+            if len(texts) > 1:
+                raise ValueError("Assistant message must contain one text part at most.")
+            if len(texts) == 0 and len(tool_calls) == 0:
+                raise ValueError("Assistant message must contain at least one text or tool call part.")
+            if len(parts) > len(texts) + len(tool_calls):
+                raise ValueError("Assistant message must contain only text or tool call parts.")
+            return ChatMessage.from_assistant(meta=meta, name=name, text=texts[0] if texts else None,
+                                              tool_calls=tool_calls or None)
+
+        if role == "tool":
+            tool_call_results = [part for part in parts if isinstance(part, ToolCallResult)]
+            if len(tool_call_results) ==0 or len(tool_call_results) > 1 or len(parts) > len(tool_call_results):
+                raise ValueError("Tool message must contain only one tool call result.")
+
+            tool_result = tool_call_results[0].result
+            origin = tool_call_results[0].origin
+            error = tool_call_results[0].error
+
+            return ChatMessage.from_tool(meta=meta, tool_result=tool_result, origin=origin, error=error)
+
+        raise ValueError(f"Unsupported role: {role}")
 
 def for_template(value: ChatMessageContentT) -> str:
     """
-    Convert an ChatMessageContentT object into JSON string wrapped in special XML content tags.
+    Jinja filter to convert an ChatMessageContentT object into JSON string wrapped in special XML content tags.
 
     :param value: The ChatMessageContentT object to convert
     :return: A JSON string wrapped in special XML content tags
