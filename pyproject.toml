@@ -60,14 +60,6 @@ dependencies = [
 [tool.hatch.envs.test]
 extra-dependencies = [
   "colorama", # needed for the pipeline checkpoints test - might be removed later
-  "markdown-it-py", # MultiFileConverter
-  "mdit_plain", # MultiFileConverter
-  "openpyxl", # MultiFileConverter
-  "pandas", # MultiFileConverter
-  "pypdf", # MultiFileConverter
-  "python-docx", # MultiFileConverter
-  "python-pptx", # MultiFileConverter
-  "trafilatura", # MultiFileConverter
   "transformers[torch,sentencepiece]>=4.51.1,<4.52", # same as in haystack-ai
   "pdf2image", # for pdf to image conversion in PDFToImageContent
   "pillow", # for image processing in ImageFileToImageContent and PDFToImageContent
