@@ -130,13 +130,17 @@ class ChatMessageExtension(Extension):
         :param meta: Optional metadata dictionary
         :param caller: Callable that returns the rendered content
         :return: A JSON string representation of the ChatMessage object
-        :raises ValueError: If the message content is empty
         """
 
         content = caller()
         parts = self._parse_content_parts(content)
         if not parts:
-            raise ValueError("Message content is empty")
+            raise ValueError(
+                f"Message template produced content that couldn't be parsed into any message parts. "
+                f"Content: '{content!r}'"
+            )
+
+
         message = ChatMessage(_role=ChatRole(role), _content=parts, _name=name, _meta=meta)
         return json.dumps(message.to_dict()) + "\n"
 
@@ -150,8 +154,15 @@ class ChatMessageExtension(Extension):
 
         :param content: Input string containing mixed text and content parts
         :return: A list of ChatMessageContentT objects
-        :raises ValueError: If a <haystack_content_part> tag is found without a matching closing tag
+        :raises ValueError: If the content is empty or contains only whitespace characters or if a 
+                            <haystack_content_part> tag is found without a matching closing tag.
         """
+        if not content.strip():
+            raise ValueError(
+                f"Message content in template is empty or contains only whitespace characters. "
+                f"Content: {content!r}"
+            )
+
         parts: List[ChatMessageContentT] = []
         cursor = 0
         total_length = len(content)

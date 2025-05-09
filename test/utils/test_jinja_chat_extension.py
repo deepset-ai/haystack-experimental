@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-
+from unittest.mock import patch
 import pytest
 from jinja2 import TemplateSyntaxError
 from jinja2.sandbox import SandboxedEnvironment
@@ -319,12 +319,47 @@ But my favorite subject is Small Language Models.
             for_template(123)
 
     def test_empty_message_content_raises_error(self, jinja_env):
+        error_message = "Message content in template is empty or contains only whitespace characters."
+
+        template = "{% message role='user' %}{% endmessage %}"
+        with pytest.raises(ValueError, match=error_message):
+            jinja_env.from_string(template).render()
+
+        template = "{% message role='user' %}  \n\t\n\t  {% endmessage %}"    
+        with pytest.raises(ValueError, match=error_message):
+            jinja_env.from_string(template).render()
+
         template = """
         {% message role="user" %}
+        {% if some_condition %}
+        {% else %}
+        {% endif %}
         {% endmessage %}
         """
-        with pytest.raises(ValueError, match="Message content is empty"):
+        with pytest.raises(ValueError, match=error_message):
             jinja_env.from_string(template).render()
+
+        template = """
+        {% message role="user" %}
+        {{ variable_that_doesnt_exist }}
+        {% endmessage %}
+        """
+        with pytest.raises(ValueError, match=error_message):
+            jinja_env.from_string(template).render()            
+
+    def test_message_no_parts_raises_error(self, jinja_env):
+        template = """
+        {% message role="user" %}
+        Something
+        {% endmessage %}
+        """
+        
+        # I am patching the _parse_content_parts method to return an empty list
+        # because I could not find a template that raises a similar error
+        with patch("haystack_experimental.utils.jinja_chat_extension.ChatMessageExtension._parse_content_parts", 
+                   return_value=[]):
+            with pytest.raises(ValueError, match="message parts"):
+                jinja_env.from_string(template).render()
 
 
     def test_message_with_whitespace_handling(self, jinja_env):
