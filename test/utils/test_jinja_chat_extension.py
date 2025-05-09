@@ -36,6 +36,15 @@ class TestChatMessageExtension:
         }
         assert output == expected
 
+    def test_message_no_endmessage_raises_error(self, jinja_env):
+        template = """
+        {% message role="user" %}
+        Hello!
+        """
+        with pytest.raises(TemplateSyntaxError, match="Jinja was looking for the following tags: 'endmessage'"):
+            jinja_env.from_string(template).render()
+
+
 
     def test_system_message(self, jinja_env):
         template = """
