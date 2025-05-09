@@ -15,6 +15,7 @@ from haystack_experimental.dataclasses.chat_message import ChatMessage
 
 TYPE = "haystack_experimental.components.builders.chat_prompt_builder.ChatPromptBuilder"
 
+# existing tests
 class TestChatPromptBuilder:
     def test_init(self):
         builder = ChatPromptBuilder(
