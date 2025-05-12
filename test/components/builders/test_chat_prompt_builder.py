@@ -868,7 +868,7 @@ class TestChatPromptBuilderWithStrTemplate:
         {% message role="user" %}
         Hello! I am {{user_name}}. What's the difference between the following images?
         {% for image in images %}
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endfor %}
         {% endmessage %}
         """

@@ -13,7 +13,7 @@ from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
 from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, TextContent
-from haystack_experimental.utils.jinja_chat_extension import ChatMessageExtension, for_template
+from haystack_experimental.utils.jinja_chat_extension import ChatMessageExtension, templatize_part
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class ChatPromptBuilder:
     {% message role="user" %}
     Hello! I am {{user_name}}. What's the difference between the following images?
     {% for image in images %}
-    {{ image | for_template }}
+    {{ image | templatize_part }}
     {% endfor %}
     {% endmessage %}
     \"\"\"
@@ -154,7 +154,7 @@ class ChatPromptBuilder:
         # variables = variables or []
 
         self._env = SandboxedEnvironment(extensions=[ChatMessageExtension])
-        self._env.filters["for_template"] = for_template
+        self._env.filters["templatize_part"] = templatize_part
         if arrow_import.is_successful():
             self._env.add_extension(Jinja2TimeExtension)
 
@@ -268,7 +268,7 @@ class ChatPromptBuilder:
         Renders a chat message from a string template.
 
         This must be used in conjunction with the `ChatMessageExtension` Jinja2 extension
-        and the `for_template` filter.
+        and the `templatize_part` filter.
         """
         compiled_template = self._env.from_string(template)
         rendered = compiled_template.render(template_variables)
