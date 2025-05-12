@@ -6,12 +6,17 @@ import base64
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, Union
+from io import BytesIO
 
 import filetype
 from haystack import logging
+from haystack.lazy_imports import LazyImport
 from haystack.components.fetchers.link_content import LinkContentFetcher
 
 from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
+
+with LazyImport("The 'show' method requires the 'PIL' library. Run 'pip install pillow'") as pillow_import:
+    from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +73,15 @@ class ImageContent:
         fields.append(f"meta={self.meta!r}")
         fields_str = ", ".join(fields)
         return f"{self.__class__.__name__}({fields_str})"
+    
+    def show(self) -> None:
+        """
+        Shows the image.
+        """
+        pillow_import.check()
+        image_bytes = BytesIO(base64.b64decode(self.base64_image))
+        image = Image.open(image_bytes)
+        image.show()
 
     @classmethod
     def from_file_path(
