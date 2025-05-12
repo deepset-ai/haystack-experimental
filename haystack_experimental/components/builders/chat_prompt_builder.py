@@ -279,12 +279,6 @@ class ChatPromptBuilder:
             if line:
                 messages.append(ChatMessage.from_dict(json.loads(line)))
 
-        # # Fallback for templates without message tags
-        # if not messages:
-        #     content = rendered.strip()
-        #     if content:
-        #         messages.append(ChatMessage(_role=ChatRole("user"), _content=[TextContent(text=content)]))
-
         return messages
 
     def _validate_variables(self, provided_variables: Set[str]):

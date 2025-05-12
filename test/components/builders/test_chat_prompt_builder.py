@@ -676,6 +676,8 @@ class TestChatPromptBuilderDynamic:
         assert comp._variables is None
         assert comp._required_variables is None
 
+
+# new tests
 class TestChatPromptBuilderWithStrTemplate:
     def test_init(self):
         template = """
@@ -689,6 +691,15 @@ class TestChatPromptBuilderWithStrTemplate:
         assert builder._variables is None
         assert builder._required_variables is None
         assert builder.variables == ["name"]
+
+    def test_init_with_invalid_template(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}!
+        {% endmessage %}
+        """
+        with pytest.raises(TemplateSyntaxError):
+            ChatPromptBuilder(template=template)        
 
     def test_run(self):
         template = """
@@ -804,7 +815,55 @@ class TestChatPromptBuilderWithStrTemplate:
             ChatMessage.from_user("Hello, I come from Italy!"),
         ]
 
-    def test_run_with_multiple_images(self, test_files_path):
+    def test_run_with_name_and_meta(self):
+        template = """
+        {% message role="user" name="John" meta={"key": "value"} %}
+        Hello from {{country}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run(country = "Italy")
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello from Italy!", name="John", meta={"key": "value"}),
+        ]
+
+    def test_with_now_filter(self):
+        template = """
+        {% message role="user" %}
+        Hello, the date is {% now 'UTC', '%Y-%m-%d'%}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run()
+
+        expected_date = arrow.now('UTC').strftime('%Y-%m-%d')
+        assert result["prompt"] == [
+            ChatMessage.from_user(f"Hello, the date is {expected_date}!"),
+        ]
+
+    def test_run_multiple_messages(self):
+        template = """
+        {% message role="system" %}
+        You are a {{adjective}} assistant.
+        {% endmessage %}
+
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+
+        {% message role="assistant" %}
+        Hello, {{name}}! How can I help you today?
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run(name="John", adjective="helpful")
+        assert result["prompt"] == [
+            ChatMessage.from_system("You are a helpful assistant."),
+            ChatMessage.from_user("Hello, my name is John!"),
+            ChatMessage.from_assistant("Hello, John! How can I help you today?"),
+        ]
+    
+    def test_run_multiple_images(self, test_files_path):
         template = """
         {% message role="user" %}
         Hello! I am {{user_name}}. What's the difference between the following images?
@@ -816,11 +875,56 @@ class TestChatPromptBuilderWithStrTemplate:
         builder = ChatPromptBuilder(template=template)
         images=[ImageContent.from_file_path(test_files_path / "images" / "apple.jpg"), 
                 ImageContent.from_file_path(test_files_path / "images" / "haystack-logo.png")]        
-        result = builder.run(name="John", images=images)
-        print(result["prompt"])
-        # assert result["prompt"] == [
-        #     ChatMessage.from_user(content_parts=[
-        #         "Hello, I am John. Please describe the images.",
-        #         *images
-        #     ])
-        # ]
+        result = builder.run(user_name="John", images=images)
+
+        assert result["prompt"] == [
+            ChatMessage.from_user(content_parts=[
+                "Hello! I am John. What's the difference between the following images?",
+                *images
+            ])
+        ]
+
+    def test_to_dict(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+
+        {% message role="assistant" %}
+        Hello, I am {{assistant_name}}! How can I help you today?
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template, variables=["name", "assistant_name"], required_variables=["name"])
+        
+        assert builder.to_dict() == {
+            "type": TYPE,
+            "init_parameters": {
+                "template": template,
+                "variables": ["name", "assistant_name"],
+                "required_variables": ["name"],
+            },
+        }
+        
+    def test_from_dict(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+
+        {% message role="assistant" %}
+        Hello, I am {{assistant_name}}! How can I help you today?
+        """
+        
+        data = {
+            "type": TYPE,
+            "init_parameters": {
+                "template": template,
+                "variables": ["name", "assistant_name"],
+                "required_variables": ["name"],
+            },
+        }
+        builder = ChatPromptBuilder.from_dict(data)
+        assert builder.template == template
+        assert builder.variables == ["name", "assistant_name"]
+        assert builder.required_variables == ["name"]
+        
