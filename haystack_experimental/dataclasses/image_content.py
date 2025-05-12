@@ -4,16 +4,16 @@
 
 import base64
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, Union
-from io import BytesIO
-from IPython.display import display
 
 import filetype
 from haystack import logging
+from haystack.components.fetchers.link_content import LinkContentFetcher
 from haystack.lazy_imports import LazyImport
 from haystack.utils import is_in_jupyter
-from haystack.components.fetchers.link_content import LinkContentFetcher
+from IPython.display import display
 
 from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
 
@@ -75,7 +75,7 @@ class ImageContent:
         fields.append(f"meta={self.meta!r}")
         fields_str = ", ".join(fields)
         return f"{self.__class__.__name__}({fields_str})"
-    
+
     def show(self) -> None:
         """
         Shows the image.
@@ -83,7 +83,7 @@ class ImageContent:
         pillow_import.check()
         image_bytes = BytesIO(base64.b64decode(self.base64_image))
         image = Image.open(image_bytes)
-        
+
         if is_in_jupyter():
             display(image)
         else:

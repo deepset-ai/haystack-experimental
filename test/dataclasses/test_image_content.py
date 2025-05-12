@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import Mock, patch
 import base64
 import logging
+from unittest.mock import Mock, patch
+
 import httpx
 import pytest
+from PIL import Image
 
 from haystack_experimental.dataclasses.image_content import ImageContent
 
@@ -34,6 +36,28 @@ def test_image_content_mime_type_guessing(test_files_path):
     image_content = ImageContent(base64_image=base64_image, mime_type="image/png")
     assert image_content.mime_type == "image/png"
 
+def test_image_content_show_in_jupyter(test_files_path):
+    image_content = ImageContent.from_file_path(
+        file_path=test_files_path / "images" / "apple.jpg",
+    )
+
+    with patch("haystack_experimental.dataclasses.image_content.is_in_jupyter", return_value=True), \
+        patch("haystack_experimental.dataclasses.image_content.display") as mock_display:
+        image_content.show()
+
+        mock_display.assert_called_once()
+        displayed_image = mock_display.call_args[0][0]
+        assert isinstance(displayed_image, Image.Image)
+
+def test_image_content_show_outside_jupyter(test_files_path):
+    image_content = ImageContent.from_file_path(
+        file_path=test_files_path / "images" / "apple.jpg",
+    )
+
+    # mocking is_in_jupyter is not needed because we don't test in a Jupyter notebook
+    with patch.object(Image.Image, "show") as mock_show:
+        image_content.show()
+        mock_show.assert_called_once()
 
 def test_image_content_from_file_path(test_files_path):
     image_content = ImageContent.from_file_path(
@@ -146,4 +170,4 @@ def test_image_content_from_url_wrong_mime_type():
             size=(100, 100),
             detail="high",
             meta={"test": "test"},
-        )    
+        )
