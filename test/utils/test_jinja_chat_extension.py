@@ -9,7 +9,7 @@ from jinja2 import TemplateSyntaxError
 from jinja2.sandbox import SandboxedEnvironment
 
 from haystack_experimental.dataclasses.chat_message import ImageContent, ToolCall, ToolCallResult
-from haystack_experimental.utils.jinja_chat_extension import ChatMessageExtension, for_template
+from haystack_experimental.utils.jinja_chat_extension import ChatMessageExtension, templatize_part
 
 
 class TestChatMessageExtension:
@@ -17,7 +17,7 @@ class TestChatMessageExtension:
     def jinja_env(self) -> SandboxedEnvironment:
         # we use a SandboxedEnvironment here to replicate the conditions of the ChatPromptBuilder component
         env = SandboxedEnvironment(extensions=[ChatMessageExtension])
-        env.filters["for_template"] = for_template
+        env.filters["templatize_part"] = templatize_part
         return env
 
     def test_message_with_name_and_meta(self, jinja_env):
@@ -116,7 +116,7 @@ class TestChatMessageExtension:
         template = """
         {% message role="assistant" %}
         Let me search for that information.
-        {{ tool_call | for_template }}
+        {{ tool_call | templatize_part }}
         {% endmessage %}
         """
         tool_call = ToolCall(
@@ -144,7 +144,7 @@ class TestChatMessageExtension:
     def test_tool_message(self, jinja_env):
         template = """
         {% message role="tool" %}
-        {{ tool_result | for_template }}
+        {{ tool_result | templatize_part }}
         {% endmessage %}
         """
         tool_call = ToolCall(
@@ -181,7 +181,7 @@ class TestChatMessageExtension:
         template = """
         {% message role="user" %}
         Please describe this image:
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
@@ -209,7 +209,7 @@ class TestChatMessageExtension:
         {% message role="user" %}
         Compare these images:
         {% for img in images %}
-        {{ img | for_template }}
+        {{ img | templatize_part }}
         {% endfor %}
         {% endmessage %}
         """
@@ -251,7 +251,7 @@ class TestChatMessageExtension:
         {% message role="user" %}
         {% for image in images %}
         Image {{ loop.index }}:
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endfor %}
         What's the difference between the two images?
         {% endmessage %}
@@ -314,9 +314,9 @@ But my favorite subject is Small Language Models.
         with pytest.raises(TemplateSyntaxError, match="Role must be one of"):
             jinja_env.from_string(template).render()
 
-    def test_for_template_filter_with_invalid_type(self):
+    def test_templatize_part_filter_with_invalid_type(self):
         with pytest.raises(ValueError, match="Value must be an instance of one of the following types"):
-            for_template(123)
+            templatize_part(123)
 
     def test_empty_message_content_raises_error(self, jinja_env):
         error_message = "Message content in template is empty or contains only whitespace characters."
@@ -411,7 +411,7 @@ But my favorite subject is Small Language Models.
     def test_invalid_system_message_raises_error(self, jinja_env):
         template = """
         {% message role="system" %}
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
@@ -421,7 +421,7 @@ But my favorite subject is Small Language Models.
         template = """
         {% message role="system" %}
         Some text.
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         with pytest.raises(ValueError):
@@ -432,7 +432,7 @@ But my favorite subject is Small Language Models.
         template = """
         {% message role="assistant" %}
         text 1
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         text 2
         {% endmessage %}
         """
@@ -442,7 +442,7 @@ But my favorite subject is Small Language Models.
         
         template = """
         {% message role="assistant" %}
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         with pytest.raises(ValueError):
@@ -451,7 +451,7 @@ But my favorite subject is Small Language Models.
         template = """
         {% message role="assistant" %}
         text 1
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         with pytest.raises(ValueError):
@@ -460,7 +460,7 @@ But my favorite subject is Small Language Models.
     def test_invalid_tool_message_raises_error(self, jinja_env):
         template = """
         {% message role="tool" %}
-        {{ image | for_template }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
@@ -469,8 +469,8 @@ But my favorite subject is Small Language Models.
 
         template = """
         {% message role="tool" %}
-        {{ tool_result | for_template }}
-        {{ tool_result | for_template }}
+        {{ tool_result | templatize_part }}
+        {{ tool_result | templatize_part }}
         {% endmessage %}
         """
         tool_call = ToolCall(
@@ -488,8 +488,8 @@ But my favorite subject is Small Language Models.
 
         template = """
         {% message role="tool" %}
-        {{ tool_result | for_template }}
-        {{ image | for_template }}
+        {{ tool_result | templatize_part }}
+        {{ image | templatize_part }}
         {% endmessage %}
         """
         with pytest.raises(ValueError):
