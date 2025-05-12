@@ -7,10 +7,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 from io import BytesIO
+from IPython.display import display
 
 import filetype
 from haystack import logging
 from haystack.lazy_imports import LazyImport
+from haystack.utils import is_in_jupyter
 from haystack.components.fetchers.link_content import LinkContentFetcher
 
 from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
@@ -81,7 +83,11 @@ class ImageContent:
         pillow_import.check()
         image_bytes = BytesIO(base64.b64decode(self.base64_image))
         image = Image.open(image_bytes)
-        image.show()
+        
+        if is_in_jupyter():
+            display(image)
+        else:
+            image.show()
 
     @classmethod
     def from_file_path(
