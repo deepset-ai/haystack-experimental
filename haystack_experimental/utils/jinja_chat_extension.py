@@ -42,14 +42,14 @@ class ChatMessageExtension(Extension):
     {% message role="user" %}
     Hello! I am {{user_name}}. Please describe the images.
     {% for image in images %}
-    {{ image | for_template }}
+    {{ image | templatize_part }}
     {% endfor %}
     {% endmessage %}
 
     ### How it works
     1. The {% message %} tag is used to define a chat message.
     2. The message can contain text and other structured content parts.
-    3. To include a structured content part in the message, the `| for_template` filter is used.
+    3. To include a structured content part in the message, the `| templatize_part` filter is used.
        The filter serializes the content part into a JSON string and wraps it in a `<haystack_content_part>` tag.
     4. The `_build_chat_message_json` method of the extension parses the message content parts,
        converts them into a ChatMessage object and serializes it to a JSON string.
@@ -256,7 +256,7 @@ class ChatMessageExtension(Extension):
 
         raise ValueError(f"Unsupported role: {role}")
 
-def for_template(value: ChatMessageContentT) -> str:
+def templatize_part(value: ChatMessageContentT) -> str:
     """
     Jinja filter to convert an ChatMessageContentT object into JSON string wrapped in special XML content tags.
 
