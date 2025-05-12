@@ -10,7 +10,7 @@ from haystack.core.pipeline.pipeline import Pipeline
 from haystack.dataclasses.document import Document
 
 from haystack_experimental.components.builders.chat_prompt_builder import ChatPromptBuilder
-from haystack_experimental.dataclasses.chat_message import ChatMessage
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ImageContent
 
 
 TYPE = "haystack_experimental.components.builders.chat_prompt_builder.ChatPromptBuilder"
@@ -675,3 +675,152 @@ class TestChatPromptBuilderDynamic:
         assert comp.template is None
         assert comp._variables is None
         assert comp._required_variables is None
+
+class TestChatPromptBuilderWithStrTemplate:
+    def test_init(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        
+        assert builder.template == template
+        assert builder._variables is None
+        assert builder._required_variables is None
+        assert builder.variables == ["name"]
+
+    def test_run(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run(name="John")
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, my name is John!"),
+        ]
+
+    def test_run_template_variable(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run(template_variables={"name": "John"})
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, my name is John!"),
+        ]
+
+    def test_run_template_variable_overrides_variable(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run(name="John", template_variables={"name": "Jane"})
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, my name is Jane!"),
+        ]
+
+    def test_run_without_input(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is Lukas!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run()
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, my name is Lukas!"),
+        ]
+
+    def test_run_with_missing_input(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run()
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, my name is !"),
+        ]
+        
+    def test_run_with_missing_required_input(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template, required_variables=["name"])
+        with pytest.raises(ValueError):
+            builder.run()
+
+    def test_run_with_missing_required_input_using_star(self):
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template, required_variables="*")
+        with pytest.raises(ValueError):
+            builder.run()
+
+    def test_run_with_variables_and_runtime_template(self):
+        variables = ["name"]
+
+        builder = ChatPromptBuilder(variables=variables)
+
+        template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        template_variables = {"name": "John"}
+
+        expected_result = {"prompt": [ChatMessage.from_user("Hello, my name is John!")]}
+
+        assert builder.run(template_variables=template_variables, template=template) == expected_result
+
+    def test_run_overwriting_default_template(self):
+        initial_template = """
+        {% message role="user" %}
+        Hello, my name is {{name}}!
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=initial_template)
+
+        runtime_template = """
+        {% message role="user" %}
+        Hello, I come from {{country}}!
+        {% endmessage %}
+        """
+        result = builder.run(template_variables={"country": "Italy"}, template=runtime_template)
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, I come from Italy!"),
+        ]
+
+    def test_run_with_multiple_images(self, test_files_path):
+        template = """
+        {% message role="user" %}
+        Hello! I am {{user_name}}. What's the difference between the following images?
+        {% for image in images %}
+        {{ image | for_template }}
+        {% endfor %}
+        {% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        images=[ImageContent.from_file_path(test_files_path / "images" / "apple.jpg"), 
+                ImageContent.from_file_path(test_files_path / "images" / "haystack-logo.png")]        
+        result = builder.run(name="John", images=images)
+        print(result["prompt"])
+        # assert result["prompt"] == [
+        #     ChatMessage.from_user(content_parts=[
+        #         "Hello, I am John. Please describe the images.",
+        #         *images
+        #     ])
+        # ]

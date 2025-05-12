@@ -256,6 +256,7 @@ class ChatPromptBuilder:
                 else:
                     processed_messages.append(message)
         elif isinstance(template, str):
+            self._validate_variables(set(template_variables_combined.keys()))
             processed_messages = self._render_chat_messages_from_str_template(template, template_variables_combined)
 
         return {"prompt": processed_messages}
