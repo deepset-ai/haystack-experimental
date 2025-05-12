@@ -352,6 +352,11 @@ def test_from_user_with_content_parts_fails_if_no_textual_parts():
     with pytest.raises(ValueError):
         ChatMessage.from_user(content_parts=[ImageContent(base64_image="base64_string")])
 
+def test_from_user_with_content_parts_fails_unsupported_parts():
+    with pytest.raises(ValueError):
+        ChatMessage.from_user(content_parts=["text part", 
+                                             ToolCall(id="123", tool_name="mytool", arguments={"a": 1})])
+
 def test_from_system_with_valid_content():
     text = "I have a question."
     message = ChatMessage.from_system(text=text)
