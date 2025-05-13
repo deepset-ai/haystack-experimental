@@ -1,17 +1,15 @@
-from typing import Any, Dict, List, Optional, Union
-from jinja2 import TemplateSyntaxError
-import arrow
 import logging
+from typing import Any, Dict, List, Optional, Union
+
+import arrow
 import pytest
-
-
 from haystack import component
 from haystack.core.pipeline.pipeline import Pipeline
 from haystack.dataclasses.document import Document
+from jinja2 import TemplateSyntaxError
 
 from haystack_experimental.components.builders.chat_prompt_builder import ChatPromptBuilder
 from haystack_experimental.dataclasses.chat_message import ChatMessage, ImageContent
-
 
 TYPE = "haystack_experimental.components.builders.chat_prompt_builder.ChatPromptBuilder"
 
@@ -686,7 +684,7 @@ class TestChatPromptBuilderWithStrTemplate:
         {% endmessage %}
         """
         builder = ChatPromptBuilder(template=template)
-        
+
         assert builder.template == template
         assert builder._variables is None
         assert builder._required_variables is None
@@ -699,7 +697,7 @@ class TestChatPromptBuilderWithStrTemplate:
         {% endmessage %}
         """
         with pytest.raises(TemplateSyntaxError):
-            ChatPromptBuilder(template=template)        
+            ChatPromptBuilder(template=template)
 
     def test_run(self):
         template = """
@@ -760,7 +758,7 @@ class TestChatPromptBuilderWithStrTemplate:
         assert result["prompt"] == [
             ChatMessage.from_user("Hello, my name is !"),
         ]
-        
+
     def test_run_with_missing_required_input(self):
         template = """
         {% message role="user" %}
@@ -827,6 +825,20 @@ class TestChatPromptBuilderWithStrTemplate:
             ChatMessage.from_user("Hello from Italy!", name="John", meta={"key": "value"}),
         ]
 
+    def test_multiline_template(self):
+        template = """
+{% message role="user" %}
+Hello, my name is {{name}}!
+Second line.
+Third line.
+{% endmessage %}
+        """
+        builder = ChatPromptBuilder(template=template)
+        result = builder.run(name="John")
+        assert result["prompt"] == [
+            ChatMessage.from_user("Hello, my name is John!\nSecond line.\nThird line."),
+        ]
+
     def test_with_now_filter(self):
         template = """
         {% message role="user" %}
@@ -836,7 +848,7 @@ class TestChatPromptBuilderWithStrTemplate:
         builder = ChatPromptBuilder(template=template)
         result = builder.run()
 
-        expected_date = arrow.now('UTC').strftime('%Y-%m-%d')
+        expected_date = arrow.now("UTC").strftime("%Y-%m-%d")
         assert result["prompt"] == [
             ChatMessage.from_user(f"Hello, the date is {expected_date}!"),
         ]
@@ -862,7 +874,7 @@ class TestChatPromptBuilderWithStrTemplate:
             ChatMessage.from_user("Hello, my name is John!"),
             ChatMessage.from_assistant("Hello, John! How can I help you today?"),
         ]
-    
+
     def test_run_multiple_images(self, test_files_path):
         template = """
         {% message role="user" %}
@@ -873,8 +885,8 @@ class TestChatPromptBuilderWithStrTemplate:
         {% endmessage %}
         """
         builder = ChatPromptBuilder(template=template)
-        images=[ImageContent.from_file_path(test_files_path / "images" / "apple.jpg"), 
-                ImageContent.from_file_path(test_files_path / "images" / "haystack-logo.png")]        
+        images=[ImageContent.from_file_path(test_files_path / "images" / "apple.jpg"),
+                ImageContent.from_file_path(test_files_path / "images" / "haystack-logo.png")]
         result = builder.run(user_name="John", images=images)
 
         assert result["prompt"] == [
@@ -894,8 +906,9 @@ class TestChatPromptBuilderWithStrTemplate:
         Hello, I am {{assistant_name}}! How can I help you today?
         {% endmessage %}
         """
-        builder = ChatPromptBuilder(template=template, variables=["name", "assistant_name"], required_variables=["name"])
-        
+        builder = ChatPromptBuilder(template=template, variables=["name", "assistant_name"],
+                                    required_variables=["name"])
+
         assert builder.to_dict() == {
             "type": TYPE,
             "init_parameters": {
@@ -904,7 +917,7 @@ class TestChatPromptBuilderWithStrTemplate:
                 "required_variables": ["name"],
             },
         }
-        
+
     def test_from_dict(self):
         template = """
         {% message role="user" %}
@@ -913,8 +926,9 @@ class TestChatPromptBuilderWithStrTemplate:
 
         {% message role="assistant" %}
         Hello, I am {{assistant_name}}! How can I help you today?
+        {% endmessage %}
         """
-        
+
         data = {
             "type": TYPE,
             "init_parameters": {
@@ -942,4 +956,4 @@ class TestChatPromptBuilderWithStrTemplate:
             ChatMessage.from_user("This is a {{ variable | templatize_part }}"),
         ]
         with pytest.raises(ValueError, match="templatize_part filter cannot be used"):
-            builder.run(template=template, variable="test")            
+            builder.run(template=template, variable="test")

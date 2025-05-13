@@ -171,7 +171,7 @@ class ChatPromptBuilder:
                         if message.text is None:
                             raise ValueError(NO_TEXT_ERROR_MESSAGE.format(role=message.role.value, message=message))
                         if message.text and "templatize_part" in message.text:
-                            raise ValueError(FILTER_NOT_ALLOWED_ERROR_MESSAGE)                            
+                            raise ValueError(FILTER_NOT_ALLOWED_ERROR_MESSAGE)
                         ast = self._env.parse(message.text)
                         template_variables = meta.find_undeclared_variables(ast)
                         extracted_variables += list(template_variables)
