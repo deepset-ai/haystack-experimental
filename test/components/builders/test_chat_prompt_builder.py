@@ -927,4 +927,19 @@ class TestChatPromptBuilderWithStrTemplate:
         assert builder.template == template
         assert builder.variables == ["name", "assistant_name"]
         assert builder.required_variables == ["name"]
-        
+
+    # TODO: when moving tests to Haystack, put these 2 tests in TestChatPromptBuilder test class
+    def test_chat_message_list_with_templatize_part_init_raises_error(self):
+        template = [
+            ChatMessage.from_user("This is a {{ variable | templatize_part }}"),
+        ]
+        with pytest.raises(ValueError, match="templatize_part filter cannot be used"):
+            ChatPromptBuilder(template=template)
+
+    def test_chat_message_list_with_templatize_part_run_raises_error(self):
+        builder = ChatPromptBuilder()
+        template = [
+            ChatMessage.from_user("This is a {{ variable | templatize_part }}"),
+        ]
+        with pytest.raises(ValueError, match="templatize_part filter cannot be used"):
+            builder.run(template=template, variable="test")            

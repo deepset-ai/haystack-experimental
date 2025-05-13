@@ -22,6 +22,10 @@ with LazyImport("Run 'pip install \"arrow>=1.3.0\"'") as arrow_import:
 
 NO_TEXT_ERROR_MESSAGE = "ChatMessages from {role} role must contain text. Received ChatMessage with no text: {message}"
 
+FILTER_NOT_ALLOWED_ERROR_MESSAGE = ("The templatize_part filter cannot be used with a template containing a list of"
+                                    "ChatMessage objects. Use a string template or remove the templatize_part filter "
+                                    "from the template.")
+
 @component
 class ChatPromptBuilder:
     """
@@ -166,6 +170,8 @@ class ChatPromptBuilder:
                         # infer variables from template
                         if message.text is None:
                             raise ValueError(NO_TEXT_ERROR_MESSAGE.format(role=message.role.value, message=message))
+                        if message.text and "templatize_part" in message.text:
+                            raise ValueError(FILTER_NOT_ALLOWED_ERROR_MESSAGE)                            
                         ast = self._env.parse(message.text)
                         template_variables = meta.find_undeclared_variables(ast)
                         extracted_variables += list(template_variables)
@@ -247,6 +253,8 @@ class ChatPromptBuilder:
                     self._validate_variables(set(template_variables_combined.keys()))
                     if message.text is None:
                         raise ValueError(NO_TEXT_ERROR_MESSAGE.format(role=message.role.value, message=message))
+                    if message.text and "templatize_part" in message.text:
+                        raise ValueError(FILTER_NOT_ALLOWED_ERROR_MESSAGE)
                     compiled_template = self._env.from_string(message.text)
                     rendered_text = compiled_template.render(template_variables_combined)
                     # deep copy the message to avoid modifying the original message
