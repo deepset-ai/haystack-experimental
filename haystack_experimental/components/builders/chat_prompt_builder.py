@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 with LazyImport("Run 'pip install \"arrow>=1.3.0\"'") as arrow_import:
     import arrow  # pylint: disable=unused-import
 
+NO_TEXT_ERROR_MESSAGE = "ChatMessages from {role} role must contain text. Received ChatMessage with no text: {message}"
+
 @component
 class ChatPromptBuilder:
     """
@@ -149,9 +151,7 @@ class ChatPromptBuilder:
         """
         self._variables = variables
         self._required_variables = required_variables
-        # self.required_variables = required_variables or []
         self.template = template
-        # variables = variables or []
 
         self._env = SandboxedEnvironment(extensions=[ChatMessageExtension])
         self._env.filters["templatize_part"] = templatize_part
@@ -165,7 +165,7 @@ class ChatPromptBuilder:
                     if message.is_from(ChatRole.USER) or message.is_from(ChatRole.SYSTEM):
                         # infer variables from template
                         if message.text is None:
-                            raise ValueError(f"The provided ChatMessage has no text. ChatMessage: {message}")
+                            raise ValueError(NO_TEXT_ERROR_MESSAGE.format(role=message.role.value, message=message))
                         ast = self._env.parse(message.text)
                         template_variables = meta.find_undeclared_variables(ast)
                         extracted_variables += list(template_variables)
@@ -246,7 +246,7 @@ class ChatPromptBuilder:
                 if message.is_from(ChatRole.USER) or message.is_from(ChatRole.SYSTEM):
                     self._validate_variables(set(template_variables_combined.keys()))
                     if message.text is None:
-                        raise ValueError(f"The provided ChatMessage has no text. ChatMessage: {message}")
+                        raise ValueError(NO_TEXT_ERROR_MESSAGE.format(role=message.role.value, message=message))
                     compiled_template = self._env.from_string(message.text)
                     rendered_text = compiled_template.render(template_variables_combined)
                     # deep copy the message to avoid modifying the original message
