@@ -13,7 +13,6 @@ from haystack import logging
 from haystack.components.fetchers.link_content import LinkContentFetcher
 from haystack.lazy_imports import LazyImport
 from haystack.utils import is_in_jupyter
-from IPython.display import display
 
 from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
 
@@ -85,6 +84,8 @@ class ImageContent:
         image = Image.open(image_bytes)
 
         if is_in_jupyter():
+            # ipython is not a core dependency so we cannot import it at the module level
+            from IPython.display import display
             display(image)
         else:
             image.show()
