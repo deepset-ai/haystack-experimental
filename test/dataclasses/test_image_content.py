@@ -42,7 +42,7 @@ def test_image_content_show_in_jupyter(test_files_path):
     )
 
     with patch("haystack_experimental.dataclasses.image_content.is_in_jupyter", return_value=True), \
-        patch("haystack_experimental.dataclasses.image_content.display") as mock_display:
+        patch("IPython.display.display") as mock_display:
         image_content.show()
 
         mock_display.assert_called_once()
