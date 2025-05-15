@@ -335,22 +335,22 @@ def test_from_user_fails_if_text_and_content_parts():
     with pytest.raises(ValueError):
         ChatMessage.from_user(text="text", content_parts=[TextContent(text="text")])
 
-def test_from_user_with_content_parts():
-    content_parts = [TextContent(text="text"), ImageContent(base64_image="base64_string")]
+def test_from_user_with_content_parts(base64_image_string):
+    content_parts = [TextContent(text="text"), ImageContent(base64_image=base64_image_string)]
     message = ChatMessage.from_user(content_parts=content_parts)
 
     assert message.role == ChatRole.USER
     assert message._content == content_parts
 
-    content_parts = ["text", ImageContent(base64_image="base64_string")]
+    content_parts = ["text", ImageContent(base64_image=base64_image_string)]
     message = ChatMessage.from_user(content_parts=content_parts)
 
     assert message.role == ChatRole.USER
-    assert message._content == [TextContent(text="text"), ImageContent(base64_image="base64_string")]
+    assert message._content == [TextContent(text="text"), ImageContent(base64_image=base64_image_string)]
 
-def test_from_user_with_content_parts_fails_if_no_textual_parts():
+def test_from_user_with_content_parts_fails_if_no_textual_parts(base64_image_string):
     with pytest.raises(ValueError):
-        ChatMessage.from_user(content_parts=[ImageContent(base64_image="base64_string")])
+        ChatMessage.from_user(content_parts=[ImageContent(base64_image=base64_image_string)])
 
 def test_from_user_with_content_parts_fails_unsupported_parts():
     with pytest.raises(ValueError):
@@ -396,7 +396,7 @@ def test_from_tool_with_valid_content():
     assert not message.images
     assert not message.image
 
-def test_serde():
+def test_serde(base64_image_string):
     # the following message is created just for testing purposes and does not make sense in a real use case
 
     role = ChatRole.ASSISTANT
@@ -404,7 +404,7 @@ def test_serde():
     text_content = TextContent(text="Hello")
     tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
     tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
-    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto",
+    image_content = ImageContent(base64_image=base64_image_string, mime_type="image/png", detail="auto",
                                  meta={"key": "value"})
     meta = {"some": "info"}
 
@@ -424,7 +424,7 @@ def test_serde():
             },
             {
                 "image": {
-                    "base64_image": "base64_string",
+                    "base64_image": base64_image_string,
                     "mime_type": "image/png",
                     "detail": "auto",
                     "meta": {"key": "value"},
@@ -447,13 +447,13 @@ def test_to_openai_dict_format_user_message():
     message = ChatMessage.from_user("I have a question")
     assert message.to_openai_dict_format() == {"role": "user", "content": "I have a question"}
 
-def test_to_openai_dict_format_multimodal_user_message():
+def test_to_openai_dict_format_multimodal_user_message(base64_image_string):
     message = ChatMessage.from_user(content_parts=[TextContent("I have a question"),
-                                                   ImageContent(base64_image="base64_string")])
+                                                   ImageContent(base64_image=base64_image_string)])
     assert message.to_openai_dict_format() == {"role": "user",
                                                "content": [{"type": "text", "text": "I have a question"},
                                                             {"type": "image_url", "image_url":
-                                                            {"url": "data:image/jpeg;base64,base64_string"}}]}
+                                                            {"url": f"data:image/png;base64,{base64_image_string}"}}]}
 
 def test_to_openai_dict_format_assistant_message():
     message = ChatMessage.from_assistant(text="I have an answer", meta={"finish_reason": "stop"})

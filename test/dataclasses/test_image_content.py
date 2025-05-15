@@ -12,14 +12,17 @@ from PIL import Image
 
 from haystack_experimental.dataclasses.image_content import ImageContent
 
-
-def test_image_content_init():
-    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto",
+def test_image_content_init(base64_image_string):
+    image_content = ImageContent(base64_image=base64_image_string, mime_type="image/png", detail="auto",
                                  meta={"key": "value"})
-    assert image_content.base64_image == "base64_string"
+    assert image_content.base64_image == base64_image_string
     assert image_content.mime_type == "image/png"
     assert image_content.detail == "auto"
     assert image_content.meta == {"key": "value"}
+
+def test_image_content_init_with_invalid_base64_string():
+    with pytest.raises(ValueError):
+        ImageContent(base64_image="invalid_base64_string")
 
 def test_image_content_mime_type_guessing(test_files_path):
     image_path = test_files_path / "images" / "apple.jpg"
@@ -28,9 +31,6 @@ def test_image_content_mime_type_guessing(test_files_path):
     image_content = ImageContent(base64_image=base64_image)
     assert image_content.mime_type == "image/jpeg"
 
-    # do not guess mime type if base64 decoding fails
-    image_content = ImageContent(base64_image="base64_string")
-    assert image_content.mime_type is None
 
     # do not guess mime type if mime type is provided
     image_content = ImageContent(base64_image=base64_image, mime_type="image/png")

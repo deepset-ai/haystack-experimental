@@ -42,24 +42,23 @@ class ImageContent:
     detail: Optional[Literal["auto", "high", "low"]] = None
     meta: Dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self):       
+        try:
+            decoded_image = base64.b64decode(self.base64_image, validate=True)
+        except Exception as e:
+            raise ValueError("The base64 string is not valid") from e
+
         # mime_type is an important information, so we try to guess it if not provided
         if not self.mime_type:
-            try:
-                # Attempt to decode the string as base64
-                decoded_image = base64.b64decode(self.base64_image)
-
-                guess = filetype.guess(decoded_image)
-                if guess:
-                    self.mime_type = guess.mime
-                else:
-                    msg = (
-                        "Failed to guess the MIME type of the image. Omitting the MIME type may result in "
-                        "processing errors or incorrect handling of the image by LLM providers."
-                    )
-                    logger.warning(msg)
-            except:
-                pass
+            guess = filetype.guess(decoded_image)
+            if guess:
+                self.mime_type = guess.mime
+            else:
+                msg = (
+                    "Failed to guess the MIME type of the image. Omitting the MIME type may result in "
+                    "processing errors or incorrect handling of the image by LLM providers."
+                )
+                logger.warning(msg)
 
     def __repr__(self) -> str:
         """
