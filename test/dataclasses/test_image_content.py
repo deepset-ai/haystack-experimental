@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import json
 import logging
 from unittest.mock import Mock, patch
 
@@ -11,6 +12,7 @@ import pytest
 from PIL import Image
 
 from haystack_experimental.dataclasses.image_content import ImageContent
+
 
 def test_image_content_init(base64_image_string):
     image_content = ImageContent(base64_image=base64_image_string, mime_type="image/png", detail="auto",
@@ -24,13 +26,21 @@ def test_image_content_init_with_invalid_base64_string():
     with pytest.raises(ValueError):
         ImageContent(base64_image="invalid_base64_string")
 
+def test_image_content_init_with_invalid_mime_type(test_files_path, base64_image_string):
+    with pytest.raises(ValueError):
+        ImageContent(base64_image=base64_image_string, mime_type="text/xml")
+
+    with open(test_files_path / "docx" / "sample_docx.docx", "rb") as docx_file:
+        docx_base64 = base64.b64encode(docx_file.read()).decode("utf-8")
+    with pytest.raises(ValueError):
+        ImageContent(base64_image=docx_base64)
+
 def test_image_content_mime_type_guessing(test_files_path):
     image_path = test_files_path / "images" / "apple.jpg"
     with open(image_path, "rb") as image_file:
         base64_image = base64.b64encode(image_file.read()).decode("utf-8")
     image_content = ImageContent(base64_image=base64_image)
     assert image_content.mime_type == "image/jpeg"
-
 
     # do not guess mime type if mime type is provided
     image_content = ImageContent(base64_image=base64_image, mime_type="image/png")
