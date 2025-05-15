@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
-import json
 import logging
 from unittest.mock import Mock, patch
 

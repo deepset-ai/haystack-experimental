@@ -195,7 +195,7 @@ class ImageContent:
             Additional metadata for the image.
 
         :raises ValueError:
-            If the URL does not point to an image.
+            If the URL does not point to an image or to a PDF file.
 
         :returns:
             An ImageContent object.
