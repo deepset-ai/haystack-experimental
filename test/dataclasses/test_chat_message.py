@@ -405,7 +405,7 @@ def test_serde(base64_image_string):
     tool_call = ToolCall(id="123", tool_name="mytool", arguments={"a": 1})
     tool_call_result = ToolCallResult(result="result", origin=tool_call, error=False)
     image_content = ImageContent(base64_image=base64_image_string, mime_type="image/png", detail="auto",
-                                 meta={"key": "value"})
+                                 meta={"key": "value"}, validate=True)
     meta = {"some": "info"}
 
     message = ChatMessage(_role=role, _content=[text_content, tool_call, tool_call_result, image_content], _meta=meta)
@@ -428,6 +428,7 @@ def test_serde(base64_image_string):
                     "mime_type": "image/png",
                     "detail": "auto",
                     "meta": {"key": "value"},
+                    "validate": True,
                 }
             },
         ],

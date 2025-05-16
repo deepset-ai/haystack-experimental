@@ -195,7 +195,8 @@ class TestChatMessageExtension:
                     "base64_image": base64_image_string,
                     "mime_type": "image/png",
                     "detail": None,
-                    "meta": {}
+                    "meta": {},
+                    "validate": True
                 }}
             ],
             "name": None,
@@ -227,13 +228,15 @@ class TestChatMessageExtension:
                     "base64_image": base64_image_string,
                     "mime_type": "image/png",
                     "detail": None,
-                    "meta": {}
+                    "meta": {},
+                    "validate": True
                 }},
                 {"image": {
                     "base64_image": base64_image_string,
                     "mime_type": "image/png",
                     "detail": None,
-                    "meta": {}
+                    "meta": {},
+                    "validate": True
                 }}
             ],
             "name": None,
@@ -267,14 +270,16 @@ class TestChatMessageExtension:
                             "base64_image": base64_image_string,
                             "mime_type": "image/png",
                             "detail": None,
-                            "meta": {}
+                            "meta": {},
+                            "validate": True
                         }},
                         {"text": "Image 2:"},
                         {"image": {
                             "base64_image": base64_image_string,
                             "mime_type": "image/png",
                             "detail": None,
-                            "meta": {}
+                            "meta": {},
+                            "validate": True
                         }},
                         {"text": "What's the difference between the two images?"}
             ],

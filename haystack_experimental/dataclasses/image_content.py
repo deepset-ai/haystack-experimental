@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, Union
@@ -67,14 +67,23 @@ class ImageContent:
         If not provided, the MIME type is guessed from the base64 string, which can be slow and not always reliable.
     :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
     :param meta: Optional metadata for the image.
+    :param validate: If True (default), a validation process is performed:
+        - Check whether the base64 string is valid;
+        - Guess the MIME type if not provided;
+        - Check if the MIME type is a valid image MIME type.
+        Set to False to skip validation and speed up initialization.
     """
 
     base64_image: str
     mime_type: Optional[str] = None
     detail: Optional[Literal["auto", "high", "low"]] = None
     meta: Dict[str, Any] = field(default_factory=dict)
+    validate: bool = True
 
     def __post_init__(self):
+        if not self.validate:
+            return
+
         try:
             decoded_image = base64.b64decode(self.base64_image, validate=True)
         except Exception as e:
