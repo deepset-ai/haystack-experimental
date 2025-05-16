@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, Union
