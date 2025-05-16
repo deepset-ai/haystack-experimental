@@ -177,14 +177,14 @@ class TestChatMessageExtension:
         }
         assert output == expected
 
-    def test_user_message_with_image(self, jinja_env):
+    def test_user_message_with_image(self, jinja_env, base64_image_string):
         template = """
         {% message role="user" %}
         Please describe this image:
         {{ image | templatize_part }}
         {% endmessage %}
         """
-        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        image = ImageContent(base64_image=base64_image_string, mime_type="image/png")
         rendered = jinja_env.from_string(template).render(image=image)
         output = json.loads(rendered.strip())
         expected = {
@@ -192,10 +192,11 @@ class TestChatMessageExtension:
             "content": [
                 {"text": "Please describe this image:"},
                 {"image": {
-                    "base64_image": "test_base64",
-                    "mime_type": "image/jpeg",
+                    "base64_image": base64_image_string,
+                    "mime_type": "image/png",
                     "detail": None,
-                    "meta": {}
+                    "meta": {},
+                    "validate": True
                 }}
             ],
             "name": None,
@@ -204,7 +205,7 @@ class TestChatMessageExtension:
         assert output == expected
 
 
-    def test_user_message_with_multiple_images(self, jinja_env):
+    def test_user_message_with_multiple_images(self, jinja_env, base64_image_string):
         template = """
         {% message role="user" %}
         Compare these images:
@@ -214,8 +215,8 @@ class TestChatMessageExtension:
         {% endmessage %}
         """
         images = [
-            ImageContent(base64_image="test_base64_1", mime_type="image/jpeg"),
-            ImageContent(base64_image="test_base64_2", mime_type="image/png")
+            ImageContent(base64_image=base64_image_string, mime_type="image/png"),
+            ImageContent(base64_image=base64_image_string, mime_type="image/png")
         ]
         rendered = jinja_env.from_string(template).render(images=images)
         output = json.loads(rendered.strip())
@@ -224,16 +225,18 @@ class TestChatMessageExtension:
             "content": [
                 {"text": "Compare these images:"},
                 {"image": {
-                    "base64_image": "test_base64_1",
-                    "mime_type": "image/jpeg",
-                    "detail": None,
-                    "meta": {}
-                }},
-                {"image": {
-                    "base64_image": "test_base64_2",
+                    "base64_image": base64_image_string,
                     "mime_type": "image/png",
                     "detail": None,
-                    "meta": {}
+                    "meta": {},
+                    "validate": True
+                }},
+                {"image": {
+                    "base64_image": base64_image_string,
+                    "mime_type": "image/png",
+                    "detail": None,
+                    "meta": {},
+                    "validate": True
                 }}
             ],
             "name": None,
@@ -241,7 +244,7 @@ class TestChatMessageExtension:
         }
         assert output == expected
 
-    def test_user_message_with_multiple_images_and_interleaved_text(self, jinja_env):
+    def test_user_message_with_multiple_images_and_interleaved_text(self, jinja_env, base64_image_string):
         """
         Tests that messages with multiple images and interleaved text are rendered correctly.
         This format is used by Anthropic models:
@@ -256,7 +259,7 @@ class TestChatMessageExtension:
         What's the difference between the two images?
         {% endmessage %}
         """
-        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        image = ImageContent(base64_image=base64_image_string, mime_type="image/png")
         rendered = jinja_env.from_string(template).render(images=[image, image])
         output = json.loads(rendered.strip())
 
@@ -264,17 +267,19 @@ class TestChatMessageExtension:
             "role": "user",
             "content": [{"text": "Image 1:"},
                         {"image": {
-                            "base64_image": "test_base64",
-                            "mime_type": "image/jpeg",
+                            "base64_image": base64_image_string,
+                            "mime_type": "image/png",
                             "detail": None,
-                            "meta": {}
+                            "meta": {},
+                            "validate": True
                         }},
                         {"text": "Image 2:"},
                         {"image": {
-                            "base64_image": "test_base64",
-                            "mime_type": "image/jpeg",
+                            "base64_image": base64_image_string,
+                            "mime_type": "image/png",
                             "detail": None,
-                            "meta": {}
+                            "meta": {},
+                            "validate": True
                         }},
                         {"text": "What's the difference between the two images?"}
             ],
@@ -408,13 +413,13 @@ But my favorite subject is Small Language Models.
         with pytest.raises(json.JSONDecodeError):
             jinja_env.from_string(template).render()
 
-    def test_invalid_system_message_raises_error(self, jinja_env):
+    def test_invalid_system_message_raises_error(self, jinja_env, base64_image_string):
         template = """
         {% message role="system" %}
         {{ image | templatize_part }}
         {% endmessage %}
         """
-        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        image = ImageContent(base64_image=base64_image_string, mime_type="image/png")
         with pytest.raises(ValueError):
             jinja_env.from_string(template).render(image=image)
 
@@ -428,7 +433,7 @@ But my favorite subject is Small Language Models.
             jinja_env.from_string(template).render(image=image)
 
 
-    def test_invalid_assistant_message_raises_error(self, jinja_env):
+    def test_invalid_assistant_message_raises_error(self, jinja_env, base64_image_string):
         template = """
         {% message role="assistant" %}
         text 1
@@ -436,7 +441,7 @@ But my favorite subject is Small Language Models.
         text 2
         {% endmessage %}
         """
-        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        image = ImageContent(base64_image=base64_image_string, mime_type="image/png")
         with pytest.raises(ValueError):
             jinja_env.from_string(template).render(image=image)
         
@@ -457,13 +462,13 @@ But my favorite subject is Small Language Models.
         with pytest.raises(ValueError):
             jinja_env.from_string(template).render(image=image)
 
-    def test_invalid_tool_message_raises_error(self, jinja_env):
+    def test_invalid_tool_message_raises_error(self, jinja_env, base64_image_string):
         template = """
         {% message role="tool" %}
         {{ image | templatize_part }}
         {% endmessage %}
         """
-        image = ImageContent(base64_image="test_base64", mime_type="image/jpeg")
+        image = ImageContent(base64_image=base64_image_string, mime_type="image/png")
         with pytest.raises(ValueError):
             jinja_env.from_string(template).render(image=image)
 

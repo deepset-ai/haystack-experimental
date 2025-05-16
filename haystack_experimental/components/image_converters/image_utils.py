@@ -10,6 +10,8 @@ from haystack import logging
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
+from haystack_experimental.dataclasses.image_content import MIME_TO_FORMAT
+
 with LazyImport("Run 'pip install pypdf pdf2image'") as pypdf_and_pdf2image_import:
     import pdf2image
     from pypdf import PdfReader
@@ -21,41 +23,6 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
 
 
 logger = logging.getLogger(__name__)
-
-
-# NOTE: We have to rely on this since our util functions are using the bytestream object.
-#      We could change this to use the file path instead, where the file extension is used to determine the format.
-# This is a mapping of image formats to their MIME types.
-# from PIL import Image
-# Image.init()  # <- Must force all plugins to initialize to get this mapping
-# print(Image.MIME)
-FORMAT_TO_MIME = {
-    "BMP": "image/bmp",
-    "DIB": "image/bmp",
-    "PCX": "image/x-pcx",
-    "EPS": "application/postscript",
-    "GIF": "image/gif",
-    "PNG": "image/png",
-    "JPEG2000": "image/jp2",
-    "ICNS": "image/icns",
-    "ICO": "image/x-icon",
-    "JPEG": "image/jpeg",
-    "MPEG": "video/mpeg",
-    "TIFF": "image/tiff",
-    "MPO": "image/mpo",
-    "PALM": "image/palm",
-    "PDF": "application/pdf",
-    "PPM": "image/x-portable-anymap",
-    "PSD": "image/vnd.adobe.photoshop",
-    "SGI": "image/sgi",
-    "TGA": "image/x-tga",
-    "WEBP": "image/webp",
-    "XBM": "image/xbm",
-    "XPM": "image/xpm",
-}
-MIME_TO_FORMAT = {v: k for k, v in FORMAT_TO_MIME.items()}
-# Adding some common MIME types that are not in the PIL mapping
-MIME_TO_FORMAT["image/jpg"] = "JPEG"
 
 
 def encode_image_to_base64(

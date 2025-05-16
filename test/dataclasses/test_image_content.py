@@ -13,13 +13,53 @@ from PIL import Image
 from haystack_experimental.dataclasses.image_content import ImageContent
 
 
-def test_image_content_init():
-    image_content = ImageContent(base64_image="base64_string", mime_type="image/png", detail="auto",
+def test_image_content_init(base64_image_string):
+    image_content = ImageContent(base64_image=base64_image_string, mime_type="image/png", detail="auto",
                                  meta={"key": "value"})
-    assert image_content.base64_image == "base64_string"
+    assert image_content.base64_image == base64_image_string
     assert image_content.mime_type == "image/png"
     assert image_content.detail == "auto"
     assert image_content.meta == {"key": "value"}
+    assert image_content.validate
+
+def test_image_content_init_with_invalid_base64_string():
+    with pytest.raises(ValueError):
+        ImageContent(base64_image="invalid_base64_string")
+
+def test_image_content_init_with_invalid_base64_string_and_validate_false():
+    image_content = ImageContent(base64_image="invalid_base64_string", validate=False)
+    assert image_content.base64_image == "invalid_base64_string"
+    assert image_content.mime_type is None
+    assert image_content.detail is None
+    assert image_content.meta == {}
+    assert not image_content.validate
+
+def test_image_content_init_with_invalid_mime_type(test_files_path, base64_image_string):
+    with pytest.raises(ValueError):
+        ImageContent(base64_image=base64_image_string, mime_type="text/xml")
+
+    with open(test_files_path / "docx" / "sample_docx.docx", "rb") as docx_file:
+        docx_base64 = base64.b64encode(docx_file.read()).decode("utf-8")
+    with pytest.raises(ValueError):
+        ImageContent(base64_image=docx_base64)
+
+def test_image_content_init_with_invalid_mime_type_and_validate_false(test_files_path, base64_image_string):
+    image_content = ImageContent(base64_image=base64_image_string, mime_type="text/xml", validate=False)
+    assert image_content.base64_image == base64_image_string
+    assert image_content.mime_type == "text/xml"
+    assert image_content.detail is None
+    assert image_content.meta == {}
+    assert not image_content.validate
+
+    with open(test_files_path / "docx" / "sample_docx.docx", "rb") as docx_file:
+        docx_base64 = base64.b64encode(docx_file.read()).decode("utf-8")
+    image_content = ImageContent(base64_image=docx_base64, validate=False)
+    assert image_content.base64_image == docx_base64
+    assert image_content.mime_type is None
+    assert image_content.detail is None
+    assert image_content.meta == {}
+    assert not image_content.validate
+
 
 def test_image_content_mime_type_guessing(test_files_path):
     image_path = test_files_path / "images" / "apple.jpg"
@@ -27,10 +67,6 @@ def test_image_content_mime_type_guessing(test_files_path):
         base64_image = base64.b64encode(image_file.read()).decode("utf-8")
     image_content = ImageContent(base64_image=base64_image)
     assert image_content.mime_type == "image/jpeg"
-
-    # do not guess mime type if base64 decoding fails
-    image_content = ImageContent(base64_image="base64_string")
-    assert image_content.mime_type is None
 
     # do not guess mime type if mime type is provided
     image_content = ImageContent(base64_image=base64_image, mime_type="image/png")

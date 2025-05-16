@@ -14,14 +14,46 @@ from haystack.components.fetchers.link_content import LinkContentFetcher
 from haystack.lazy_imports import LazyImport
 from haystack.utils import is_in_jupyter
 
-from haystack_experimental.components.image_converters.image_utils import MIME_TO_FORMAT
-
 with LazyImport("The 'show' method requires the 'PIL' library. Run 'pip install pillow'") as pillow_import:
     from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-IMAGE_MIME_TYPES = {key for key in MIME_TO_FORMAT.keys() if key != "application/pdf"}
+# NOTE: We have to rely on this since our util functions are using the bytestream object.
+#      We could change this to use the file path instead, where the file extension is used to determine the format.
+# This is a mapping of image formats to their MIME types.
+# from PIL import Image
+# Image.init()  # <- Must force all plugins to initialize to get this mapping
+# print(Image.MIME)
+FORMAT_TO_MIME = {
+    "BMP": "image/bmp",
+    "DIB": "image/bmp",
+    "PCX": "image/x-pcx",
+    "EPS": "application/postscript",
+    "GIF": "image/gif",
+    "PNG": "image/png",
+    "JPEG2000": "image/jp2",
+    "ICNS": "image/icns",
+    "ICO": "image/x-icon",
+    "JPEG": "image/jpeg",
+    "MPEG": "video/mpeg",
+    "TIFF": "image/tiff",
+    "MPO": "image/mpo",
+    "PALM": "image/palm",
+    "PDF": "application/pdf",
+    "PPM": "image/x-portable-anymap",
+    "PSD": "image/vnd.adobe.photoshop",
+    "SGI": "image/sgi",
+    "TGA": "image/x-tga",
+    "WEBP": "image/webp",
+    "XBM": "image/xbm",
+    "XPM": "image/xpm",
+}
+MIME_TO_FORMAT = {v: k for k, v in FORMAT_TO_MIME.items()}
+# Adding some common MIME types that are not in the PIL mapping
+MIME_TO_FORMAT["image/jpg"] = "JPEG"
+
+IMAGE_MIME_TYPES = set(MIME_TO_FORMAT.keys())
 
 
 @dataclass
@@ -35,31 +67,42 @@ class ImageContent:
         If not provided, the MIME type is guessed from the base64 string, which can be slow and not always reliable.
     :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
     :param meta: Optional metadata for the image.
+    :param validate: If True (default), a validation process is performed:
+        - Check whether the base64 string is valid;
+        - Guess the MIME type if not provided;
+        - Check if the MIME type is a valid image MIME type.
+        Set to False to skip validation and speed up initialization.
     """
 
     base64_image: str
     mime_type: Optional[str] = None
     detail: Optional[Literal["auto", "high", "low"]] = None
     meta: Dict[str, Any] = field(default_factory=dict)
+    validate: bool = True
 
     def __post_init__(self):
+        if not self.validate:
+            return
+
+        try:
+            decoded_image = base64.b64decode(self.base64_image, validate=True)
+        except Exception as e:
+            raise ValueError("The base64 string is not valid") from e
+
         # mime_type is an important information, so we try to guess it if not provided
         if not self.mime_type:
-            try:
-                # Attempt to decode the string as base64
-                decoded_image = base64.b64decode(self.base64_image)
+            guess = filetype.guess(decoded_image)
+            if guess:
+                self.mime_type = guess.mime
+            else:
+                msg = (
+                    "Failed to guess the MIME type of the image. Omitting the MIME type may result in "
+                    "processing errors or incorrect handling of the image by LLM providers."
+                )
+                logger.warning(msg)
 
-                guess = filetype.guess(decoded_image)
-                if guess:
-                    self.mime_type = guess.mime
-                else:
-                    msg = (
-                        "Failed to guess the MIME type of the image. Omitting the MIME type may result in "
-                        "processing errors or incorrect handling of the image by LLM providers."
-                    )
-                    logger.warning(msg)
-            except:
-                pass
+        if self.mime_type and self.mime_type not in IMAGE_MIME_TYPES:
+            raise ValueError(f"{self.mime_type} is not a valid image MIME type.")
 
     def __repr__(self) -> str:
         """
@@ -161,7 +204,7 @@ class ImageContent:
             Additional metadata for the image.
 
         :raises ValueError:
-            If the URL does not point to an image.
+            If the URL does not point to an image or if it points to a PDF file.
 
         :returns:
             An ImageContent object.
@@ -175,6 +218,10 @@ class ImageContent:
         if bytestream.mime_type not in IMAGE_MIME_TYPES:
             msg = f"The URL does not point to an image. The MIME type of the URL is {bytestream.mime_type}."
             raise ValueError(msg)
+
+        if bytestream.mime_type == "application/pdf":
+            raise ValueError("PDF files are not supported. "
+                             "For PDF to ImageContent conversion, use the `PDFToImageContent` component.")
 
         converter = ImageFileToImageContent(size=size, detail=detail)
         result = converter.run(sources=[bytestream], meta=[meta] if meta else None)
