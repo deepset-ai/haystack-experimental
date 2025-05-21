@@ -65,6 +65,7 @@ extra-dependencies = [
   "pypdf",                                            # Multimodal experiment - PDFToImageContent
   "pdf2image",                                        # Multimodal experiment - PDFToImageContent
   "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
+  "amazon-bedrock-haystack>=3.6.2",                   # Multimodal experiment - AmazonBedrockChatGenerator
 ]
 
 [tool.hatch.envs.test.scripts]
