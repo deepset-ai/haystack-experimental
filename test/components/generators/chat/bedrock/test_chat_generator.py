@@ -236,7 +236,7 @@ class TestAmazonBedrockChatGenerator:
                                     "name": "weather",
                                     "description": "useful to determine the weather in a given location",
                                     "parameters": {"city": {"type": "string"}},
-                                    "function": "tests.test_chat_generator.weather",
+                                    "function": "test_chat_generator.weather",
                                     "outputs_to_string": None,
                                     "inputs_from_state": None,
                                     "outputs_to_state": None,
