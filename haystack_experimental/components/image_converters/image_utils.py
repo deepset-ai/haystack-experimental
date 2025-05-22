@@ -17,7 +17,7 @@ from haystack_experimental.dataclasses.image_content import MIME_TO_FORMAT
 #     from pypdf import PdfReader
 
 with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
-    import pypdfium2 as pdfium
+    from pypdfium2 import PdfDocument
 
 with LazyImport("Run 'pip install pillow'") as pillow_import:
     from PIL import Image as PILImage
@@ -200,7 +200,7 @@ def convert_pdf_to_images(
     pillow_import.check()
 
     try:
-        pdf = pdfium.PdfDocument(BytesIO(bytestream.data))
+        pdf = PdfDocument(BytesIO(bytestream.data))
     except Exception as e:
         logger.warning(
             "Could not read PDF file {file_path}. Skipping it. Error: {error}",
@@ -212,12 +212,13 @@ def convert_pdf_to_images(
     num_pages = len(pdf)
     if num_pages == 0:
         logger.warning("PDF file is empty: {file_path}", file_path=bytestream.meta.get("file_path"))
+        pdf.close()
         return []
 
     all_pdf_images = []
-    dpi = 300
+
     resolved_page_range = page_range or range(1, num_pages + 1)
-    
+
     for page_number in resolved_page_range:
         if page_number < 1 or page_number > num_pages:
             logger.warning(
@@ -229,39 +230,35 @@ def convert_pdf_to_images(
         # Get dimensions of the page
         page = pdf[max(page_number - 1, 0)]  # Adjust for 0-based indexing
         _,_,width,height = page.get_mediabox()
-        aspect_ratio = width / height
 
-        target_dpi = 300.0
-        scale_for_target_dpi = target_dpi / 72.0
+        target_resolution_dpi = 300.0
+
+        # From pypdfium2 docs: scale (float) – A factor scaling the number of pixels per PDF canvas unit. This defines
+        # the resolution of the image. To convert a DPI value to a scale factor, multiply it by the size of 1 canvas
+        # unit in inches (usually 1/72in).
+        # https://pypdfium2.readthedocs.io/en/stable/python_api.html#pypdfium2._helpers.page.PdfPage.render
+        target_scale = target_resolution_dpi / 72.0
 
         # Calculate potential pixels for target_dpi
-        potential_pixels = (width * scale_for_target_dpi) * (height * scale_for_target_dpi)
+        pixels_for_target_scale = width * height * target_scale ** 2
 
         pil_max_pixels = PILImage.MAX_IMAGE_PIXELS or int(1024 * 1024 * 1024 // 4 // 3)
         # 90% of PIL's default limit to prevent borderline cases
         pixel_limit = pil_max_pixels * 0.9
 
-        # conversion_args: Dict[str, Any] = {
-        #     "dpi": dpi,
-        #     "first_page": page_number,
-        #     "last_page": page_number,
-        # }
-        render_scale = scale_for_target_dpi
-
-        if potential_pixels > pixel_limit:
+        scale = target_scale
+        if pixels_for_target_scale > pixel_limit:
             logger.info(
-                "Large PDF detected ({pixels:.2f} pixels, aspect ratio: {ratio:.2f}). "
+                "Large PDF detected ({pixels:.2f} pixels). "
                 "Resizing the image to fit the pixel limit.",
-                pixels=potential_pixels,
-                ratio=aspect_ratio,
+                pixels=pixels_for_target_scale,
             )
-            render_scale = (pixel_limit / (width * height)) ** 0.5
+            scale = (pixel_limit / (width * height)) ** 0.5
 
-        pdf_bitmap = page.render(scale=render_scale)
+        pdf_bitmap = page.render(scale=scale)
 
-        
-        image: "Image" = pdf_bitmap.to_pil()  # Convert pypdfium2 bitmap to PIL Image
-        pdf_bitmap.close() # Release the bitmap resources        
+        image: "Image" = pdf_bitmap.to_pil()
+        pdf_bitmap.close()
         if size is not None:
             image = resize_image_preserving_aspect_ratio(image, size)
 
@@ -269,5 +266,7 @@ def convert_pdf_to_images(
         base64_image = encode_pil_image_to_base64(image, mime_type="image/jpeg")
 
         all_pdf_images.append((page_number, base64_image))
+
+    pdf.close()
 
     return all_pdf_images

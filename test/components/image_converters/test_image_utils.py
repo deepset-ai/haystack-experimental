@@ -2,20 +2,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
+from haystack.components.converters.utils import get_bytestream_from_source
+from haystack.dataclasses import ByteStream
 from PIL import Image
 from pytest import LogCaptureFixture
 
-from haystack.components.converters.utils import get_bytestream_from_source
-from haystack.dataclasses import ByteStream
-
 from haystack_experimental.components.image_converters.image_utils import (
-    resize_image_preserving_aspect_ratio,
     convert_pdf_to_images,
-    encode_pil_image_to_base64,
     encode_image_to_base64,
+    encode_pil_image_to_base64,
+    resize_image_preserving_aspect_ratio,
 )
 
 
@@ -92,19 +93,49 @@ class TestReadImageFromPdf:
         image = convert_pdf_to_images(bytestream=bytestream, page_range=[1])
         assert image is not None
 
+    def test_read_image_from_pdf_with_size(self) -> None:
+        bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
+        image = convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
+        assert image is not None
+
     def test_read_image_from_pdf_invalid_page(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
         out = convert_pdf_to_images(bytestream=bytestream, page_range=[5])
         assert out == []
         assert "Page 5 is out of range for the PDF file. Skipping it." in caplog.text
 
-    def test_read_image_from_pdf_empty_file(self, caplog: LogCaptureFixture) -> None:
+    def test_read_image_from_pdf_error_reading_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = ByteStream(
-            data=b"", mime_type="application/pdf", meta={"file_path": "test/test_files/pdf/empty_pdf.pdf"}
-        )
+            data=b"", mime_type="application/pdf")
         out = convert_pdf_to_images(bytestream, [1])
         assert out == []
         assert "Could not read PDF file" in caplog.text
+
+    def test_read_image_from_pdf_empty_file(self, caplog: LogCaptureFixture) -> None:
+        bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
+
+        with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument") as mock_pdf_document:
+            mock_pdf_document.__len__.return_value = 0
+            out = convert_pdf_to_images(bytestream, [1])
+
+        assert out == []
+        assert "PDF file is empty" in caplog.text
+
+    def test_scale_if_large_pdf(self, caplog: LogCaptureFixture) -> None:
+        bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
+
+        caplog.set_level(logging.INFO)
+
+        mock_pdf_document = MagicMock()
+        mock_pdf_document.__len__.return_value = 1
+        mock_page = MagicMock()
+        mock_page.get_mediabox.return_value = (0, 0, 1e6, 1e6)
+        mock_pdf_document.__getitem__.return_value = mock_page
+
+        with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument", return_value=mock_pdf_document):
+            convert_pdf_to_images(bytestream, [1])
+
+        assert "Large PDF detected" in caplog.text
 
 
 class TestOpenImageToBase64:
