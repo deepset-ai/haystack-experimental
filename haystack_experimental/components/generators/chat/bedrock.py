@@ -139,9 +139,9 @@ else:
         return system_prompts, repaired_bedrock_formatted_messages
 
     # NOTE: monkey patches needed to use the new ChatMessage dataclass and _format_messages function
-    original_utils._format_messages = _format_messages
     original_utils.ChatMessage = ChatMessage
     original_chat_generator.ChatMessage = ChatMessage
+    original_chat_generator._format_messages = _format_messages
 
     @component
     class AmazonBedrockChatGenerator(original_chat_generator.AmazonBedrockChatGenerator):  # type: ignore[no-redef]

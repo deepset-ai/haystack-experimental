@@ -1,4 +1,6 @@
 import pytest
+import base64
+
 from haystack.dataclasses import StreamingChunk
 from haystack.tools import Tool
 from haystack_integrations.components.generators.amazon_bedrock.chat.utils import (
@@ -9,10 +11,12 @@ from haystack_integrations.components.generators.amazon_bedrock.chat.utils impor
 
 from haystack_experimental.components.generators.chat.bedrock import (
     _format_messages,
+    _format_text_image_message
 )
-from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, ToolCall
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, ToolCall, ImageContent
 
 
+# NOTE: original module and tests
 def weather(city: str):
     """Get weather for a given city."""
     return f"The weather in {city} is sunny and 32°C"
@@ -496,3 +500,47 @@ class TestAmazonBedrockChatGeneratorUtils:
             ),
         ]
         assert replies == expected_messages
+
+# NOTE: new tests
+
+    def test_format_text_image_message(self):
+        plain_assistant_message = ChatMessage.from_assistant("This is a test message.")
+        formatted_message = _format_text_image_message(plain_assistant_message)
+        assert formatted_message == {
+            "role": "assistant",
+            "content": [{"text": "This is a test message."}],
+        }
+
+        plain_user_message = ChatMessage.from_user("This is a test message.")
+        formatted_message = _format_text_image_message(plain_user_message)
+        assert formatted_message == {
+            "role": "user",
+            "content": [{"text": "This is a test message."}],
+        }
+
+        base64_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
+        image_content = ImageContent(base64_image)
+        image_message = ChatMessage.from_user(content_parts=["This is a test message.", image_content])
+        formatted_message = _format_text_image_message(image_message)
+        assert formatted_message == {
+            "role": "user",
+            "content": [
+                {"text": "This is a test message."},
+                {"image": {"format": "png", "source": {"bytes": base64.b64decode(base64_image)}}},
+            ],
+        }
+
+    def test_format_text_image_message_errors(self):
+        base64_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
+        image_content = ImageContent(base64_image)
+        assistant_message_with_image = ChatMessage.from_user(content_parts=["This is a test message.", image_content])
+        assistant_message_with_image._role = ChatRole.ASSISTANT
+        with pytest.raises(ValueError):
+            _format_text_image_message(assistant_message_with_image)
+
+        image_content_unsupported_format = ImageContent(base64_image, mime_type="image/tiff")
+        image_message = ChatMessage.from_user(
+            content_parts=["This is a test message.", image_content_unsupported_format]
+        )
+        with pytest.raises(ValueError):
+            _format_text_image_message(image_message)

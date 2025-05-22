@@ -8,7 +8,10 @@ from haystack.dataclasses import StreamingChunk
 from haystack.tools import Tool
 
 from haystack_experimental.components.generators.chat import AmazonBedrockChatGenerator
-from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, ImageContent
+
+
+# NOTE: original module and tests
 
 CLASS_TYPE = "haystack_experimental.components.generators.chat.bedrock.AmazonBedrockChatGenerator"
 MODELS_TO_TEST = [
@@ -24,7 +27,6 @@ MODELS_TO_TEST_WITH_TOOLS = [
 
 # so far we've discovered these models support streaming and tool use
 STREAMING_TOOL_MODELS = ["anthropic.claude-3-5-sonnet-20240620-v1:0", "cohere.command-r-plus-v1:0"]
-
 
 def weather(city: str):
     """Get weather for a given city."""
@@ -315,7 +317,7 @@ class TestAmazonBedrockChatGeneratorInference:
         assert first_reply.text, "First reply has no content"
         assert ChatMessage.is_from(first_reply, ChatRole.ASSISTANT), "First reply is not from the assistant"
         assert "paris" in first_reply.text.lower(), "First reply does not contain 'paris'"
-        assert first_reply.meta, "First reply has no metadata"
+        assert first_reply.meta, "First reply has no metadata"    
 
     @pytest.mark.parametrize("model_name", MODELS_TO_TEST_WITH_TOOLS)
     def test_live_run_with_multi_tool_calls(self, model_name, tools):
@@ -575,3 +577,27 @@ class TestAmazonBedrockChatGeneratorAsyncInference:
         assert len(final_message.text) > 0
         assert "paris" in final_message.text.lower()
         assert "berlin" in final_message.text.lower()
+
+# NOTE: new integration test
+MODELS_TO_TEST_WITH_IMAGE_INPUT = [
+    "anthropic.claude-3-5-sonnet-20240620-v1:0",
+]
+@pytest.mark.integration
+class TestAmazonBedrockChatGeneratorMultimodalInference:
+    @pytest.mark.parametrize("model_name", MODELS_TO_TEST_WITH_IMAGE_INPUT)
+    def test_run_with_image_input(self, model_name, test_files_path):
+        client = AmazonBedrockChatGenerator(model=model_name)
+        
+        image_path = test_files_path / "images" / "apple.jpg"
+        image_content = ImageContent.from_file_path(image_path, size=(100, 100))
+        
+        chat_message = ChatMessage.from_user(content_parts=["What's in the image? Max 5 words.", image_content])
+
+        response = client.run([chat_message])
+
+        first_reply = response["replies"][0]
+        assert isinstance(first_reply, ChatMessage)
+        assert ChatMessage.is_from(first_reply, ChatRole.ASSISTANT)
+        assert first_reply.text
+        assert "apple" in first_reply.text.lower()
+
