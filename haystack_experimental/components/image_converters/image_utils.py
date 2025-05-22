@@ -4,17 +4,13 @@
 
 import base64
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from haystack import logging
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.dataclasses.image_content import MIME_TO_FORMAT
-
-# with LazyImport("Run 'pip install pypdf pdf2image'") as pypdf_and_pdf2image_import:
-#     import pdf2image
-#     from pypdf import PdfReader
 
 with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
     from pypdfium2 import PdfDocument
