@@ -12,8 +12,8 @@ from haystack.utils import expand_page_range
 
 from haystack_experimental.components.image_converters.image_utils import (
     convert_pdf_to_images,
-    pypdfium2_import,
     pillow_import,
+    pypdfium2_import,
 )
 from haystack_experimental.dataclasses.image_content import ImageContent
 

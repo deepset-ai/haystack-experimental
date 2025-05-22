@@ -245,9 +245,10 @@ def convert_pdf_to_images(
         scale = target_scale
         if pixels_for_target_scale > pixel_limit:
             logger.info(
+                (
                 "Large PDF detected ({pixels:.2f} pixels). "
-                "Resizing the image to fit the pixel limit.",
-                pixels=pixels_for_target_scale,
+                "Resizing the image to fit the pixel limit."
+                ), pixels=pixels_for_target_scale,
             )
             scale = (pixel_limit / (width * height)) ** 0.5
 
