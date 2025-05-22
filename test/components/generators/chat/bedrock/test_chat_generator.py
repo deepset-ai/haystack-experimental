@@ -1,16 +1,16 @@
-import os
 from typing import Any, Dict, Optional
 
 import pytest
 from haystack import Pipeline
 from haystack.components.generators.utils import print_streaming_chunk
 from haystack.components.tools import ToolInvoker
-from haystack.dataclasses import ChatMessage, ChatRole, StreamingChunk
+from haystack.dataclasses import StreamingChunk
 from haystack.tools import Tool
 
-from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockChatGenerator
+from haystack_experimental.components.generators.chat import AmazonBedrockChatGenerator
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole
 
-CLASS_TYPE = "haystack_integrations.components.generators.amazon_bedrock.chat.chat_generator.AmazonBedrockChatGenerator"
+CLASS_TYPE = "haystack_experimental.components.generators.chat.bedrock.AmazonBedrockChatGenerator"
 MODELS_TO_TEST = [
     "anthropic.claude-3-5-sonnet-20240620-v1:0",
     "cohere.command-r-plus-v1:0",
@@ -425,8 +425,8 @@ class TestAmazonBedrockChatGeneratorInference:
         )
 
         assert (
-            "The weather in Paris is sunny and 32°C"
-            == results["tool_invoker"]["tool_messages"][0].tool_call_result.result
+            results["tool_invoker"]["tool_messages"][0].tool_call_result.result
+            == "The weather in Paris is sunny and 32°C"
         )
 
 

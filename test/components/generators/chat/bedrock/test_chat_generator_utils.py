@@ -1,13 +1,16 @@
 import pytest
-from haystack.dataclasses import ChatMessage, ChatRole, StreamingChunk, ToolCall
+from haystack.dataclasses import StreamingChunk
 from haystack.tools import Tool
-
 from haystack_integrations.components.generators.amazon_bedrock.chat.utils import (
-    _format_messages,
     _format_tools,
     _parse_completion_response,
     _parse_streaming_response,
 )
+
+from haystack_experimental.components.generators.chat.bedrock import (
+    _format_messages,
+)
+from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole, ToolCall
 
 
 def weather(city: str):
