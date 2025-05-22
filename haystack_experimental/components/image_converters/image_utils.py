@@ -12,9 +12,12 @@ from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.dataclasses.image_content import MIME_TO_FORMAT
 
-with LazyImport("Run 'pip install pypdf pdf2image'") as pypdf_and_pdf2image_import:
-    import pdf2image
-    from pypdf import PdfReader
+# with LazyImport("Run 'pip install pypdf pdf2image'") as pypdf_and_pdf2image_import:
+#     import pdf2image
+#     from pypdf import PdfReader
+
+with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
+    import pypdfium2 as pdfium
 
 with LazyImport("Run 'pip install pillow'") as pillow_import:
     from PIL import Image as PILImage
@@ -193,11 +196,11 @@ def convert_pdf_to_images(
         A list of tuples, each tuple containing the page number and the base64-encoded image string.
     """
     # Check the imports
-    pypdf_and_pdf2image_import.check()
+    pypdfium2_import.check()
     pillow_import.check()
 
     try:
-        pdf = PdfReader(BytesIO(bytestream.data))
+        pdf = pdfium.PdfDocument(BytesIO(bytestream.data))
     except Exception as e:
         logger.warning(
             "Could not read PDF file {file_path}. Skipping it. Error: {error}",
@@ -206,14 +209,15 @@ def convert_pdf_to_images(
         )
         return []
 
-    if not pdf.pages:
+    num_pages = len(pdf)
+    if num_pages == 0:
         logger.warning("PDF file is empty: {file_path}", file_path=bytestream.meta.get("file_path"))
         return []
 
     all_pdf_images = []
     dpi = 300
-    resolved_page_range = page_range or range(1, len(pdf.pages) + 1)
-    num_pages = len(pdf.pages)
+    resolved_page_range = page_range or range(1, num_pages + 1)
+    
     for page_number in resolved_page_range:
         if page_number < 1 or page_number > num_pages:
             logger.warning(
@@ -223,23 +227,26 @@ def convert_pdf_to_images(
             continue
 
         # Get dimensions of the page
-        page = pdf.pages[max(page_number - 1, 0)]  # Adjust for 0-based indexing
-        width = float(page.mediabox.width)
-        height = float(page.mediabox.height)
+        page = pdf[max(page_number - 1, 0)]  # Adjust for 0-based indexing
+        _,_,width,height = page.get_mediabox()
         aspect_ratio = width / height
 
-        # Calculate potential pixels for 300 dpi
-        potential_pixels = (width * dpi / 72) * (height * 300 / 72)
+        target_dpi = 300.0
+        scale_for_target_dpi = target_dpi / 72.0
+
+        # Calculate potential pixels for target_dpi
+        potential_pixels = (width * scale_for_target_dpi) * (height * scale_for_target_dpi)
 
         pil_max_pixels = PILImage.MAX_IMAGE_PIXELS or int(1024 * 1024 * 1024 // 4 // 3)
         # 90% of PIL's default limit to prevent borderline cases
         pixel_limit = pil_max_pixels * 0.9
 
-        conversion_args: Dict[str, Any] = {
-            "dpi": dpi,
-            "first_page": page_number,
-            "last_page": page_number,
-        }
+        # conversion_args: Dict[str, Any] = {
+        #     "dpi": dpi,
+        #     "first_page": page_number,
+        #     "last_page": page_number,
+        # }
+        render_scale = scale_for_target_dpi
 
         if potential_pixels > pixel_limit:
             logger.info(
@@ -248,19 +255,13 @@ def convert_pdf_to_images(
                 pixels=potential_pixels,
                 ratio=aspect_ratio,
             )
+            render_scale = (pixel_limit / (width * height)) ** 0.5
 
-            # For wide images (aspect ratio > 1), resize based on height while maintaining aspect ratio
-            if aspect_ratio > 1:
-                max_height = int((pixel_limit / aspect_ratio) ** 0.5)
-                conversion_args["size"] = (None, max_height)
-            # For tall images (aspect ratio < 1), resize based on width while maintaining aspect ratio
-            else:
-                max_width = int((pixel_limit * aspect_ratio) ** 0.5)
-                conversion_args["size"] = (max_width, None)
+        pdf_bitmap = page.render(scale=render_scale)
 
-        pdf_images: List[Image] = pdf2image.convert_from_bytes(bytestream.data, **conversion_args)
-
-        image = pdf_images[0]
+        
+        image: "Image" = pdf_bitmap.to_pil()  # Convert pypdfium2 bitmap to PIL Image
+        pdf_bitmap.close() # Release the bitmap resources        
         if size is not None:
             image = resize_image_preserving_aspect_ratio(image, size)
 
