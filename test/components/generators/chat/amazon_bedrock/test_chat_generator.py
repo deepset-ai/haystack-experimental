@@ -13,7 +13,8 @@ from haystack_experimental.dataclasses.chat_message import ChatMessage, ChatRole
 
 # NOTE: original module and tests
 
-CLASS_TYPE = "haystack_experimental.components.generators.chat.bedrock.AmazonBedrockChatGenerator"
+CLASS_TYPE = "haystack_experimental.components.generators.chat.amazon_bedrock.AmazonBedrockChatGenerator"
+
 MODELS_TO_TEST = [
     "anthropic.claude-3-5-sonnet-20240620-v1:0",
     "cohere.command-r-plus-v1:0",

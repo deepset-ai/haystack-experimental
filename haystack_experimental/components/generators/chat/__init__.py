@@ -9,11 +9,11 @@ from lazy_imports import LazyImporter
 
 _import_structure = {
     "openai": ["OpenAIChatGenerator"],
-    "bedrock": ["AmazonBedrockChatGenerator"],
+    "amazon_bedrock": ["AmazonBedrockChatGenerator"],
 }
 
 if TYPE_CHECKING:
-    from .bedrock import AmazonBedrockChatGenerator
+    from .amazon_bedrock import AmazonBedrockChatGenerator
     from .openai import OpenAIChatGenerator
 else:
     sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)

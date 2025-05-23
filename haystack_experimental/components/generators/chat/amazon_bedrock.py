@@ -72,6 +72,7 @@ if not bedrock_integration_import.is_successful():
             # NOTE: placeholder run method needed to make component happy
             raise NotImplementedError("Unreachable code")
 else:
+    # see https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ImageBlock.html for supported formats
     IMAGE_SUPPORTED_FORMATS = ["png", "jpeg", "gif", "webp"]
 
     # NOTE: this is the new function needed to support images

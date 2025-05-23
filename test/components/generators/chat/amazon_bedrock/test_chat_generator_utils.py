@@ -9,7 +9,7 @@ from haystack_integrations.components.generators.amazon_bedrock.chat.utils impor
     _parse_streaming_response,
 )
 
-from haystack_experimental.components.generators.chat.bedrock import (
+from haystack_experimental.components.generators.chat.amazon_bedrock import (
     _format_messages,
     _format_text_image_message
 )
