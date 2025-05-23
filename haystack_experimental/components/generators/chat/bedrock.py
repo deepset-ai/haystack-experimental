@@ -35,7 +35,7 @@ with LazyImport("Run 'pip install amazon-bedrock-haystack'") as bedrock_integrat
 
 if not bedrock_integration_import.is_successful():
     @component
-    class AmazonBedrockChatGenerator():
+    class AmazonBedrockChatGenerator:
         """
         Experimental version of AmazonBedrockChatGenerator that allows multimodal chat messages.
         """
