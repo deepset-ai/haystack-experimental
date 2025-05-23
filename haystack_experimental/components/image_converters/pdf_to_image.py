@@ -12,7 +12,8 @@ from haystack.utils import expand_page_range
 
 from haystack_experimental.components.image_converters.image_utils import (
     convert_pdf_to_images,
-    pypdf_and_pdf2image_import,
+    pillow_import,
+    pypdfium2_import,
 )
 from haystack_experimental.dataclasses.image_content import ImageContent
 
@@ -49,7 +50,8 @@ class PDFToImageContent:
         self.detail = detail
         self.size = size
         self.page_range = page_range
-        pypdf_and_pdf2image_import.check()
+        pypdfium2_import.check()
+        pillow_import.check()
 
     @component.output_types(image_contents=List[ImageContent])
     def run(
