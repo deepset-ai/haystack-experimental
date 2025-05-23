@@ -24,13 +24,17 @@ on:
       - "pyproject.toml"
       - ".github/workflows/tests.yml"
 
+
+permissions:
+  id-token: write
+  contents: read
 env:
   PYTHON_VERSION: "3.9"
   HATCH_VERSION: "1.14.1"
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
+  AWS_REGION: "us-east-1"
 jobs:
   linting:
     runs-on: ubuntu-latest
@@ -112,5 +116,10 @@ jobs:
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
 
+      - name: AWS authentication
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}        
       - name: Run
         run: hatch run test:integration

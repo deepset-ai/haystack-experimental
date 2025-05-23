@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import haystack.components.generators.chat.openai
-from haystack_experimental.dataclasses.chat_message import ChatMessage
 from haystack import component
 
-# Monkey patch the Haystack ChatMessage class with the experimental one. By doing so, we can use the new 
+from haystack_experimental.dataclasses.chat_message import ChatMessage
+
+# Monkey patch the Haystack ChatMessage class with the experimental one. By doing so, we can use the new
 # `to_openai_dict_format` method, allowing multimodal chat messages.
 haystack.components.generators.chat.openai.ChatMessage = ChatMessage
 
@@ -16,5 +17,5 @@ class OpenAIChatGenerator(haystack.components.generators.chat.openai.OpenAIChatG
     Experimental version of OpenAIChatGenerator that allows multimodal chat messages.
     """
     pass
-        
-        
+
+

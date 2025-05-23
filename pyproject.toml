@@ -64,6 +64,7 @@ extra-dependencies = [
   "arrow>=1.3.0",                                     # Multimodal experiment - ChatPromptBuilder
   "pypdfium2",                                        # Multimodal experiment - PDFToImageContent
   "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
+  "amazon-bedrock-haystack>=3.6.2",                   # Multimodal experiment - AmazonBedrockChatGenerator
 ]
 
 [tool.hatch.envs.test.scripts]

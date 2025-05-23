@@ -4,6 +4,7 @@ loaders:
     modules:
       [
         "haystack_experimental.components.generators.chat.openai",
+        "haystack_experimental.components.generators.chat.amazon_bedrock",
       ]
     ignore_when_discovered: ["__init__"]
 processors:
