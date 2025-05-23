@@ -62,8 +62,7 @@ extra-dependencies = [
   "colorama",                                         # Pipeline checkpoints experiment
   "transformers[torch,sentencepiece]>=4.51.1,<4.52",  # Pipeline checkpoints experiment
   "arrow>=1.3.0",                                     # Multimodal experiment - ChatPromptBuilder
-  "pypdf",                                            # Multimodal experiment - PDFToImageContent
-  "pdf2image",                                        # Multimodal experiment - PDFToImageContent
+  "pypdfium2",                                        # Multimodal experiment - PDFToImageContent
   "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
 ]
 
