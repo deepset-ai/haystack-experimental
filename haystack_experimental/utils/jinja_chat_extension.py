@@ -13,7 +13,6 @@ from haystack_experimental.dataclasses.chat_message import (
     ChatMessage,
     ChatMessageContentT,
     ChatRole,
-    ImageContent,
     TextContent,
     ToolCall,
     ToolCallResult,

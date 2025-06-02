@@ -17,5 +17,3 @@ class OpenAIChatGenerator(haystack.components.generators.chat.openai.OpenAIChatG
     Experimental version of OpenAIChatGenerator that allows multimodal chat messages.
     """
     pass
-
-
