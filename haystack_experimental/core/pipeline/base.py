@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
-from haystack import logging
+from haystack import logging, tracing
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
     DeserializationError,
@@ -51,6 +51,10 @@ T = TypeVar("T", bound="PipelineBase")
 
 logger = logging.getLogger(__name__)
 
+# Constants for tracing tags
+_COMPONENT_INPUT = "haystack.component.input"
+_COMPONENT_OUTPUT = "haystack.component.output"
+_COMPONENT_VISITS = "haystack.component.visits"
 
 class ComponentPriority(IntEnum):
     HIGHEST = 1
