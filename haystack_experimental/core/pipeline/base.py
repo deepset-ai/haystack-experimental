@@ -1240,7 +1240,9 @@ class PipelineBase:
         candidate = priority_queue.peek()
         if candidate is not None and candidate[0] == ComponentPriority.BLOCKED:
             raise PipelineRuntimeError(
-                "Cannot run pipeline - all components are blocked. "
+                component_name=None,
+                component_type=None,
+                message="Cannot run pipeline - all components are blocked. "
                 "This typically happens when:\n"
                 "1. There is no valid entry point for the pipeline\n"
                 "2. There is a circular dependency preventing the pipeline from running\n"
