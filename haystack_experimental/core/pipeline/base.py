@@ -94,7 +94,7 @@ class PipelineBase:
         self._telemetry_runs = 0
         self._last_telemetry_sent: Optional[datetime] = None
         self.metadata = metadata or {}
-        self.graph = networkx.MultiDiGraph()
+        self.graph: networkx.MultiDiGraph = networkx.MultiDiGraph()
         self._max_runs_per_component = max_runs_per_component
         self._connection_type_validation = connection_type_validation
 
