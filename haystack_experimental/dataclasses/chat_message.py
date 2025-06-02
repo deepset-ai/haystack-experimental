@@ -59,7 +59,7 @@ def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatM
 
 
 # Note: this is a monkey patch to the original _deserialize_content function
-haystack.dataclasses.chat_message._deserialize_content = _deserialize_content
+haystack.dataclasses.chat_message._deserialize_content = _deserialize_content  # type: ignore[assignment]
 
 def _serialize_content_part(part: ChatMessageContentT) -> Dict[str, Any]:
     """
@@ -91,7 +91,7 @@ class ChatMessage(HaystackChatMessage):
     """
 
     _role: ChatRole
-    _content: Sequence[ChatMessageContentT]
+    _content: Sequence[ChatMessageContentT]  # type: ignore[assignment]
     _name: Optional[str] = None
     _meta: Dict[str, Any] = field(default_factory=dict, hash=False)
 
