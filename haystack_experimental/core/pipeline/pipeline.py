@@ -14,6 +14,14 @@ from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
+from haystack.core.pipeline.base import (
+    _COMPONENT_INPUT,
+    _COMPONENT_OUTPUT,
+    _COMPONENT_VISITS,
+    ComponentPriority,
+    PipelineBase,
+)
+
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
     PipelineInvalidResumeStateError,
