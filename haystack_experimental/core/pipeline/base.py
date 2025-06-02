@@ -181,7 +181,7 @@ class PipelineBase:
         :returns:
             Deserialized component.
         """
-        data_copy = deepcopy(data)  # to prevent modification of original data
+        data_copy = _deepcopy_with_exceptions(data)  # to prevent modification of original data
         metadata = data_copy.get("metadata", {})
         max_runs_per_component = data_copy.get("max_runs_per_component", 100)
         connection_type_validation = data_copy.get("connection_type_validation", True)
