@@ -5,8 +5,7 @@
 from typing import Dict, List
 
 import networkx  # type:ignore
-
-from haystack.core.component.types import InputSocket, InputSocketTypeDescriptor, OutputSocket
+from haystack.core.component.types import InputSocket, OutputSocket
 from haystack.core.type_utils import _type_name
 
 
@@ -44,11 +43,11 @@ def find_pipeline_outputs(
     }
 
 
-def describe_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, Dict[str, InputSocketTypeDescriptor]]:
+def describe_pipeline_inputs(graph: networkx.MultiDiGraph):
     """
     Returns a dictionary with the input names and types that this pipeline accepts.
     """
-    inputs: Dict[str, Dict[str, InputSocketTypeDescriptor]] = {
+    inputs = {
         comp: {socket.name: {"type": socket.type, "is_mandatory": socket.is_mandatory} for socket in data}
         for comp, data in find_pipeline_inputs(graph).items()
         if data
@@ -56,7 +55,7 @@ def describe_pipeline_inputs(graph: networkx.MultiDiGraph) -> Dict[str, Dict[str
     return inputs
 
 
-def describe_pipeline_inputs_as_string(graph: networkx.MultiDiGraph) -> str:
+def describe_pipeline_inputs_as_string(graph: networkx.MultiDiGraph):
     """
     Returns a string representation of the input names and types that this pipeline accepts.
     """
