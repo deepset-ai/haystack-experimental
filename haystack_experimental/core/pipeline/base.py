@@ -1119,7 +1119,7 @@ class PipelineBase:
         priority: ComponentPriority,
         priority_queue: FIFOPriorityQueue,
         topological_sort: Union[Dict[str, int], None],
-    ):
+    ) -> Tuple[str, Union[Dict[str, int], None]]:
         """
         Decides which component to run when multiple components are waiting for inputs with the same priority.
 
@@ -1127,6 +1127,7 @@ class PipelineBase:
         :param priority: Priority of the component.
         :param priority_queue: Priority queue of component names.
         :param topological_sort: Cached topological sort of all components in the pipeline.
+        :returns: A tuple containing the selected component name and the updated topological sort.
         """
         components_with_same_priority = [component_name]
 
@@ -1141,13 +1142,14 @@ class PipelineBase:
         if len(components_with_same_priority) > 1:
             if topological_sort is None:
                 if networkx.is_directed_acyclic_graph(self.graph):
-                    topological_sort = networkx.lexicographical_topological_sort(self.graph)
-                    topological_sort = {node: idx for idx, node in enumerate(topological_sort)}
+                    sorted_nodes = list(networkx.lexicographical_topological_sort(self.graph))
+                    topological_sort = {node: idx for idx, node in enumerate(sorted_nodes)}
                 else:
                     condensed = networkx.condensation(self.graph)
-                    condensed_sorted = {node: idx for idx, node in enumerate(networkx.topological_sort(condensed))}
+                    condensed_sorted = list(networkx.topological_sort(condensed))
+                    condensed_sorted_dict = {node: idx for idx, node in enumerate(condensed_sorted)}
                     topological_sort = {
-                        component_name: condensed_sorted[node]
+                        component_name: condensed_sorted_dict[node]
                         for component_name, node in condensed.graph["mapping"].items()
                     }
 
