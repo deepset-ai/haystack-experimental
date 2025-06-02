@@ -9,7 +9,7 @@ from haystack_experimental.dataclasses.chat_message import ChatMessage
 
 # Monkey patch the Haystack ChatMessage class with the experimental one. By doing so, we can use the new
 # `to_openai_dict_format` method, allowing multimodal chat messages.
-haystack.components.generators.chat.openai.ChatMessage = ChatMessage
+haystack.components.generators.chat.openai.ChatMessage = ChatMessage    # type: ignore
 
 @component
 class OpenAIChatGenerator(haystack.components.generators.chat.openai.OpenAIChatGenerator):
