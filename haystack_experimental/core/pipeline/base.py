@@ -4,22 +4,22 @@
 
 import itertools
 from collections import defaultdict
-from copy import deepcopy
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
+from typing import Any, ContextManager, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
-from haystack import logging
+
+from haystack import logging, tracing
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
     DeserializationError,
+    PipelineComponentsBlockedError,
     PipelineConnectError,
     PipelineDrawingError,
     PipelineError,
     PipelineMaxComponentRuns,
-    PipelineRuntimeError,
     PipelineUnmarshalError,
     PipelineValidationError,
 )
@@ -32,7 +32,12 @@ from haystack.core.pipeline.component_checks import (
     is_any_greedy_socket_ready,
     is_socket_lazy_variadic,
 )
-from haystack.core.pipeline.utils import FIFOPriorityQueue, parse_connect_string
+from haystack.core.pipeline.utils import (
+    FIFOPriorityQueue,
+    _deepcopy_with_exceptions,
+    args_deprecated,
+    parse_connect_string,
+)
 from haystack.core.serialization import DeserializationCallbacks, component_from_dict, component_to_dict
 from haystack.core.type_utils import _type_name, _types_are_compatible
 from haystack.marshal import Marshaller, YamlMarshaller
@@ -50,6 +55,12 @@ DEFAULT_MARSHALLER = YamlMarshaller()
 T = TypeVar("T", bound="PipelineBase")
 
 logger = logging.getLogger(__name__)
+
+
+# Constants for tracing tags
+_COMPONENT_INPUT = "haystack.component.input"
+_COMPONENT_OUTPUT = "haystack.component.output"
+_COMPONENT_VISITS = "haystack.component.visits"
 
 
 class ComponentPriority(IntEnum):
@@ -107,6 +118,7 @@ class PipelineBase:
         """
         if not isinstance(self, type(other)):
             return False
+        assert isinstance(other, PipelineBase)
         return self.to_dict() == other.to_dict()
 
     def __repr__(self) -> str:
@@ -359,6 +371,7 @@ class PipelineBase:
             raise PipelineError(msg)
 
         setattr(instance, "__haystack_added_to_pipeline__", self)
+        setattr(instance, "__component_name__", name)
 
         # Add component to the graph, disconnected
         logger.debug("Adding component '{component_name}' ({component})", component_name=name, component=instance)
@@ -427,8 +440,7 @@ class PipelineBase:
         :param receiver:
             The component that receives the value. This can be either just a component name or can be
             in the format `component_name.connection_name` if the component has multiple inputs.
-        :param connection_type_validation: Whether the pipeline will validate the types of the connections.
-            Defaults to the value set in the pipeline.
+
         :returns:
             The Pipeline instance.
 
@@ -668,6 +680,7 @@ class PipelineBase:
         }
         return outputs
 
+    @args_deprecated
     def show(self, server_url: str = "https://mermaid.ink", params: Optional[dict] = None, timeout: int = 30) -> None:
         """
         Display an image representing this `Pipeline` in a Jupyter notebook.
