@@ -753,7 +753,7 @@ class PipelineBase:
         image_data = _to_mermaid_image(self.graph, server_url=server_url, params=params, timeout=timeout)
         Path(path).write_bytes(image_data)
 
-    def walk(self) -> Iterator[Tuple[str, Component]]:
+    def walk(self) -> Iterator[tuple[Any, dict[str, Any]]]:
         """
         Visits each component in the pipeline exactly once and yields its name and instance.
 
@@ -762,7 +762,7 @@ class PipelineBase:
         :returns:
             An iterator of tuples of component name and component instance.
         """
-        for component_name, instance in self.graph.nodes(data="instance"):  # type: ignore # type is wrong in networkx
+        for component_name, instance in self.graph.nodes(data="instance"):
             yield component_name, instance
 
     def warm_up(self):
