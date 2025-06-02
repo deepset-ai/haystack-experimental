@@ -104,6 +104,11 @@ class PipelineBase:
         self._max_runs_per_component = max_runs_per_component
         self._connection_type_validation = connection_type_validation
 
+        self.ordered_component_names: List[str] = []
+        self.original_input_data: Dict[str, Any] = {}
+        self.resume_state: Optional[Dict[str, Any]] = None
+        self.debug_path: Optional[Union[str, Path]] = None
+
     def __eq__(self, other: object) -> bool:
         """
         Pipeline equality is defined by their type and the equality of their serialized form.
