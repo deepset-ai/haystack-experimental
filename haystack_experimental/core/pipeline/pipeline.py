@@ -25,7 +25,6 @@ from haystack_experimental.core.errors import (
     PipelineInvalidResumeStateError,
     PipelineRuntimeError,
 )
-from haystack_experimental.core.pipeline.base import ComponentPriority, PipelineBase
 
 logger = logging.getLogger(__name__)
 
