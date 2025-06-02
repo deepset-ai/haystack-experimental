@@ -51,11 +51,6 @@ T = TypeVar("T", bound="PipelineBase")
 
 logger = logging.getLogger(__name__)
 
-# Constants for tracing tags
-_COMPONENT_INPUT = "haystack.component.input"
-_COMPONENT_OUTPUT = "haystack.component.output"
-_COMPONENT_VISITS = "haystack.component.visits"
-
 
 class ComponentPriority(IntEnum):
     HIGHEST = 1
@@ -776,34 +771,6 @@ class PipelineBase:
             if hasattr(self.graph.nodes[node]["instance"], "warm_up"):
                 logger.info("Warming up component {node}...", node=node)
                 self.graph.nodes[node]["instance"].warm_up()
-
-    @staticmethod
-    def _create_component_span(
-        component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
-    ):
-        return tracing.tracer.trace(
-            "haystack.component.run",
-            tags={
-                "haystack.component.name": component_name,
-                "haystack.component.type": instance.__class__.__name__,
-                "haystack.component.input_types": {k: type(v).__name__ for k, v in inputs.items()},
-                "haystack.component.input_spec": {
-                    key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                        "senders": value.senders,
-                    }
-                    for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
-                },
-                "haystack.component.output_spec": {
-                    key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                        "receivers": value.receivers,
-                    }
-                    for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
-                },
-            },
-            parent_span=parent_span,
-        )
 
     def _validate_input(self, data: Dict[str, Any]):
         """
