@@ -992,7 +992,7 @@ class PipelineBase:
         # deepcopying the inputs prevents the Pipeline run logic from being altered unexpectedly
         # when the same input reference is passed to multiple components.
         for component_name, component_inputs in data.items():
-            data[component_name] = {k: deepcopy(v) for k, v in component_inputs.items()}
+            data[component_name] = {k: _deepcopy_with_exceptions(v) for k, v in component_inputs.items()}
 
         return data
 
