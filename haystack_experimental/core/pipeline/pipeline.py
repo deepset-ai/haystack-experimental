@@ -60,7 +60,7 @@ class Pipeline(PipelineBase):
         :return: The output of the Component.
         """
         instance: Component = component["instance"]
-        component_name = self.get_component_name(instance)
+        # component_name = self.get_component_name(instance)
 
         component_inputs = self._consume_component_inputs(
             component_name=component_name, component=component, inputs=inputs
@@ -296,6 +296,7 @@ class Pipeline(PipelineBase):
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
+
             # check if pipeline is blocked before execution
             self.validate_pipeline(priority_queue)
 
@@ -321,10 +322,11 @@ class Pipeline(PipelineBase):
                     # keep track of the original input to save it in case of a breakpoint when running the component
                     self.original_input_data = data
                     component_outputs = self._run_component(
-                        component,
-                        inputs,
-                        component_visits,
-                        validated_breakpoints,
+                        component_name=component_name,
+                        component=component,
+                        inputs=inputs,
+                        component_visits=component_visits,
+                        breakpoints=validated_breakpoints,
                         parent_span=span,
                     )
 
