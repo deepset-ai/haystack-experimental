@@ -104,7 +104,7 @@ class PipelineBase:
         self._max_runs_per_component = max_runs_per_component
         self._connection_type_validation = connection_type_validation
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Pipeline equality is defined by their type and the equality of their serialized form.
 
@@ -166,7 +166,7 @@ class PipelineBase:
 
     @classmethod
     def from_dict(
-        cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs
+        cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs: Any
     ) -> T:
         """
         Deserializes the pipeline from a dictionary.
@@ -255,7 +255,7 @@ class PipelineBase:
         """
         return marshaller.marshal(self.to_dict())
 
-    def dump(self, fp: TextIO, marshaller: Marshaller = DEFAULT_MARSHALLER):
+    def dump(self, fp: TextIO, marshaller: Marshaller = DEFAULT_MARSHALLER) -> None:
         """
         Writes the string representation of this pipeline to the file-like object passed in the `fp` argument.
 
@@ -859,7 +859,7 @@ class PipelineBase:
         for component_name, instance in self.graph.nodes(data="instance"):  # type: ignore # type is wrong in networkx
             yield component_name, instance
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """
         Make sure all nodes are warm.
 
@@ -899,7 +899,7 @@ class PipelineBase:
             parent_span=parent_span,
         )
 
-    def _validate_input(self, data: Dict[str, Any]):
+    def _validate_input(self, data: Dict[str, Any]) -> None:
         """
         Validates pipeline input data.
 
@@ -1215,7 +1215,7 @@ class PipelineBase:
         priority: ComponentPriority,
         priority_queue: FIFOPriorityQueue,
         topological_sort: Union[Dict[str, int], None],
-    ):
+    ) -> Tuple[str, Union[Dict[str, int], None]]:
         """
         Decides which component to run when multiple components are waiting for inputs with the same priority.
 
@@ -1275,7 +1275,7 @@ class PipelineBase:
         for receiver_name, sender_socket, receiver_socket in receivers:
             # We either get the value that was produced by the actor or we use the _NO_OUTPUT_PRODUCED class to indicate
             # that the sender did not produce an output for this socket.
-            # This allows us to track if a pre-decessor already ran but did not produce an output.
+            # This allows us to track if a predecessor already ran but did not produce an output.
             value = component_outputs.get(sender_socket.name, _NO_OUTPUT_PRODUCED)
 
             if receiver_name not in inputs:
