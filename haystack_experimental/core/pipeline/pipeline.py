@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from copy import copy, deepcopy
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
@@ -61,20 +61,22 @@ class Pipeline(PipelineBase):
         :return: The output of the Component.
         """
         instance: Component = component["instance"]
-        component_name = self.get_component_name(instance)
-        component_inputs = inputs
+
+        print("\n\n")
+        print(f"Running component {component_name} with inputs: {inputs}")
+        print("\n\n")
 
         # Deserialize the inputs if they are passed in resume state
         # this check will prevent other inputs generated at runtime from being deserialized
         if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
-            for key, value in component_inputs.items():
-                component_inputs[key] = Pipeline._deserialize_component_input(value)
+            for key, value in inputs.items():
+                inputs[key] = Pipeline._deserialize_component_input(value)
 
         if breakpoints and not self.resume_state:
             # add component_inputs to inputs
             breakpoint_inputs = deepcopy(inputs)
             # we deepcopy the component_inputs to avoid modifying the original inputs
-            breakpoint_inputs[component_name] = deepcopy(Pipeline._remove_unserializable_data(component_inputs))
+            breakpoint_inputs[component_name] = deepcopy(Pipeline._remove_unserializable_data(inputs))
 
             # TODO: Find a better way to handle this.
             # Using to_dict() here strips away class types like ChatMessage,
@@ -82,12 +84,13 @@ class Pipeline(PipelineBase):
             # class variables being stored with the same names as their constructor parameters.
 
             # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
-            params = copy(component["instance"].__dict__)
+            # params = copy(component["instance"].__dict__)
 
             # this is needed as the template param is stored as _template_string in the component's __dict__
-            if "_template_string" in params:
-                params["template"] = params["_template_string"]
-            breakpoint_inputs[component_name]["init_parameters"] = params
+            # if "_template_string" in params:
+            #    params["template"] = params["_template_string"]
+            # breakpoint_inputs[component_name]["init_parameters"] = params
+
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
         with PipelineBase._create_component_span(
@@ -95,10 +98,10 @@ class Pipeline(PipelineBase):
         ) as span:
             # We deepcopy the inputs otherwise we might lose that information
             # when we delete them in case they're sent to other Components
-            span.set_content_tag(_COMPONENT_INPUT, deepcopy(component_inputs))
+            span.set_content_tag(_COMPONENT_INPUT, deepcopy(inputs))
             logger.info("Running component {component_name}", component_name=component_name)
             try:
-                component_output = instance.run(**component_inputs)
+                component_output = instance.run(**inputs)
             except Exception as error:
                 raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
             component_visits[component_name] += 1
@@ -564,11 +567,6 @@ class Pipeline(PipelineBase):
         dt = datetime.now()
         file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
 
-        for k in inputs.keys():
-            print(k)
-            if isinstance(inputs[k], dict) and "init_parameters" in inputs[k].keys():
-                inputs[k].pop("init_parameters", None)
-
         state = {
             "input_data": self._serialize_component_input(self.original_input_data),  # original input data
             "timestamp": dt.isoformat(),
@@ -579,6 +577,10 @@ class Pipeline(PipelineBase):
                 "ordered_component_names": self.ordered_component_names,
             },
         }
+
+        # from pprint import pprint
+        # pprint(state, indent=4)
+        # print("\n\n")
 
         try:
             with open(self.debug_path / file_name, "w") as f_out:
