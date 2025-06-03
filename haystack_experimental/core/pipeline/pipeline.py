@@ -125,7 +125,7 @@ class Pipeline(PipelineBase):
         ) as span:
             # We deepcopy the inputs otherwise we might lose that information
             # when we delete them in case they're sent to other Components
-            span.set_content_tag("haystack.component.input", deepcopy(component_inputs))
+            span.set_content_tag(_COMPONENT_INPUT, deepcopy(component_inputs))
             logger.info("Running component {component_name}", component_name=component_name)
             try:
                 component_output = instance.run(**component_inputs)
