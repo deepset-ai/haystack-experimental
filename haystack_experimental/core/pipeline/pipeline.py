@@ -40,6 +40,7 @@ class Pipeline(PipelineBase):
 
     def _run_component(  # pylint: disable=too-many-positional-arguments
         self,
+        component_name: str,
         component: Dict[str, Any],
         inputs: Dict[str, Any],
         component_visits: Dict[str, int],
@@ -49,6 +50,7 @@ class Pipeline(PipelineBase):
         """
         Runs a Component with the given inputs.
 
+        :param component_name: Name of the Component.
         :param component: Component with component metadata.
         :param inputs: Inputs for the Component.
         :param component_visits: Current state of component visits.
@@ -111,28 +113,8 @@ class Pipeline(PipelineBase):
             breakpoint_inputs[component_name]["init_parameters"] = params
             self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
 
-        with tracing.tracer.trace(
-            "haystack.component.run",
-            tags={
-                "haystack.component.name": component_name,
-                "haystack.component.type": instance.__class__.__name__,
-                "haystack.component.input_types": {k: type(v).__name__ for k, v in component_inputs.items()},
-                "haystack.component.input_spec": {
-                    key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                        "senders": value.senders,
-                    }
-                    for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
-                },
-                "haystack.component.output_spec": {
-                    key: {
-                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
-                        "receivers": value.receivers,
-                    }
-                    for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
-                },
-            },
-            parent_span=parent_span,
+        with PipelineBase._create_component_span(
+                component_name=component_name, instance=instance, inputs=inputs, parent_span=parent_span
         ) as span:
             # We deepcopy the inputs otherwise we might lose that information
             # when we delete them in case they're sent to other Components
@@ -147,8 +129,8 @@ class Pipeline(PipelineBase):
             if not isinstance(component_output, Mapping):
                 raise PipelineRuntimeError.from_invalid_output(component_name, instance.__class__, component_output)
 
-            span.set_tag("haystack.component.visits", component_visits[component_name])
-            span.set_content_tag("haystack.component.output", component_output)
+            span.set_tag(_COMPONENT_VISITS, component_visits[component_name])
+            span.set_content_tag(_COMPONENT_OUTPUT, component_output)
 
             return cast(Dict[Any, Any], component_output)
 
