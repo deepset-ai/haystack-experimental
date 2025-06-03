@@ -13,6 +13,7 @@ from haystack_experimental.dataclasses.chat_message import (
     ChatMessage,
     ChatMessageContentT,
     ChatRole,
+    ImageContent,
     TextContent,
     ToolCall,
     ToolCallResult,
@@ -225,10 +226,10 @@ class ChatMessageExtension(Extension):
         """
 
         if role == "user":
-            if any(isinstance(part, ToolCall) for part in parts):
+            valid_parts = [part for part in parts if isinstance(part, (TextContent, str, ImageContent))]
+            if len(parts) != len(valid_parts):
                 raise ValueError("User message must contain only TextContent, string or ImageContent parts.")
-            # Even with the above if check mypy still thinks parts could contain a ToolCall
-            return ChatMessage.from_user(meta=meta, name=name, content_parts=parts)  # type: ignore[arg-type]
+            return ChatMessage.from_user(meta=meta, name=name, content_parts=valid_parts)
 
         if role == "system":
             if not isinstance(parts[0], TextContent):
@@ -236,7 +237,7 @@ class ChatMessageExtension(Extension):
             text = parts[0].text
             if len(parts) > 1:
                 raise ValueError("System message must contain only one text part.")
-            return ChatMessage.from_system(meta=meta, name=name, text=text)  # type: ignore[return-value]
+            return ChatMessage.from_system(meta=meta, name=name, text=text)
 
         if role == "assistant":
             texts = [part.text for part in parts if isinstance(part, TextContent)]
@@ -249,7 +250,7 @@ class ChatMessageExtension(Extension):
                 raise ValueError("Assistant message must contain only text or tool call parts.")
             return ChatMessage.from_assistant(
                 meta=meta, name=name, text=texts[0] if texts else None, tool_calls=tool_calls or None
-            )  # type: ignore[return-value]
+            )
 
         if role == "tool":
             tool_call_results = [part for part in parts if isinstance(part, ToolCallResult)]
@@ -260,7 +261,7 @@ class ChatMessageExtension(Extension):
             origin = tool_call_results[0].origin
             error = tool_call_results[0].error
 
-            return ChatMessage.from_tool(meta=meta, tool_result=tool_result, origin=origin, error=error)  # type: ignore[return-value]
+            return ChatMessage.from_tool(meta=meta, tool_result=tool_result, origin=origin, error=error)
 
         raise ValueError(f"Unsupported role: {role}")
 

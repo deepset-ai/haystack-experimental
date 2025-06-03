@@ -287,7 +287,7 @@ class ChatPromptBuilder:
             if line:
                 messages.append(ChatMessage.from_dict(json.loads(line)))
 
-        return messages  # type: ignore[return-value]
+        return messages
 
     def _validate_variables(self, provided_variables: Set[str]):
         """
