@@ -64,7 +64,7 @@ You are a friendly assistant that answers questions based on user provided image
 Only provide an answer to the question using the images provided.
 
 Question: {{ question }}
-Answer: 
+Answer:
 
 {%- for img in image_contents -%}
   {{ img | templatize_part }}
