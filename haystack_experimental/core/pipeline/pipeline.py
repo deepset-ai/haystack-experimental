@@ -594,14 +594,12 @@ class Pipeline(PipelineBase):
 
         dt = datetime.now()
         file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
-        # we store a component init_parameters together with the breakpoint in the saved state
-        # this is helpful for debugging or manually updating the state
-        for value in inputs.values():
-            if "init_parameters" in value.keys():
-                init_params = value.pop("init_parameters")
-                for k, v in value.items():
-                    if k in init_params.keys() and v is None:
-                        value[k] = self._serialize_component_input(init_params[k])
+
+        for k in inputs.keys():
+            print(k)
+            if isinstance(inputs[k], dict) and "init_parameters" in inputs[k].keys():
+                # remove 'init_parameters' from inputs[k]
+                inputs[k].pop("init_parameters", None)
 
         state = {
             "input_data": self._serialize_component_input(self.original_input_data),  # original input data
