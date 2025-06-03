@@ -62,36 +62,6 @@ class Pipeline(PipelineBase):
         """
         instance: Component = component["instance"]
         component_name = self.get_component_name(instance)
-
-        """
-        component_inputs = self._consume_component_inputs(
-            component_name=component_name, component=component, inputs=inputs
-        )
-        """
-
-        """
-        # NOTE: a workaround for the DocumentJoiner and BranchJoiner components, since _consume_component_inputs()
-        # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
-        # ToDo: investigate why this is needed and if we can remove it
-        if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
-            if isinstance(component_inputs["documents"], list):  # noqa: SIM102
-                if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
-                    if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
-                        component_inputs["documents"] = component_inputs["documents"][0]
-
-        if self.resume_state and isinstance(instance, BranchJoiner):  # noqa: SIM102
-            if isinstance(component_inputs["value"], list):  # noqa: SIM102
-                if isinstance(component_inputs["value"][0], list):  # noqa: SIM102
-                    if isinstance(component_inputs["value"][0][0], list):  # noqa: SIM102
-                        component_inputs["value"] = component_inputs["value"][0]
-        """
-
-        """
-        # We need to add missing defaults using default values from input sockets because the run signature
-        # might not provide these defaults for components with inputs defined dynamically upon component initialization
-        component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
-        """
-
         component_inputs = inputs
 
         # Deserialize the inputs if they are passed in resume state
@@ -343,7 +313,6 @@ class Pipeline(PipelineBase):
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
-                        # inputs=inputs,
                         inputs=component_inputs,
                         component_visits=component_visits,
                         breakpoints=validated_breakpoints,
@@ -598,7 +567,6 @@ class Pipeline(PipelineBase):
         for k in inputs.keys():
             print(k)
             if isinstance(inputs[k], dict) and "init_parameters" in inputs[k].keys():
-                # remove 'init_parameters' from inputs[k]
                 inputs[k].pop("init_parameters", None)
 
         state = {
