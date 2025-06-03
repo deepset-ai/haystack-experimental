@@ -321,12 +321,22 @@ class Pipeline(PipelineBase):
                             component_name, component_visits[component_name]
                         )
 
+                    # this breaks the pipeline breakpoints
+                    component_inputs = self._consume_component_inputs(
+                        component_name=component_name, component=component, inputs=inputs
+                    )
+                    # We need to add missing defaults using default values from input sockets because the run signature
+                    # might not provide these defaults for components with inputs defined dynamically upon component
+                    # initialization
+                    component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
+
                     # keep track of the original input to save it in case of a breakpoint when running the component
                     self.original_input_data = data
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
-                        inputs=inputs,
+                        # inputs=inputs,
+                        inputs=component_inputs,
                         component_visits=component_visits,
                         breakpoints=validated_breakpoints,
                         parent_span=span,
