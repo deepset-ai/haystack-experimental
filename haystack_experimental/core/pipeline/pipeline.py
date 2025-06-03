@@ -298,6 +298,7 @@ class Pipeline(PipelineBase):
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
+
             # check if pipeline is blocked before execution
             self.validate_pipeline(priority_queue)
 
@@ -308,6 +309,7 @@ class Pipeline(PipelineBase):
                         break
 
                     priority, component_name, component = candidate
+
                     if len(priority_queue) > 0 and priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST]:
                         component_name, topological_sort = self._tiebreak_waiting_components(
                             component_name=component_name,
@@ -320,13 +322,25 @@ class Pipeline(PipelineBase):
                             component_name, component_visits[component_name]
                         )
 
+                    # added by Sebastian why?
+                    """
+                    component_inputs = self._consume_component_inputs(
+                        component_name=component_name, component=component, inputs=inputs
+                    )
+                    # We need to add missing defaults using default values from input sockets because the run signature
+                    # might not provide these defaults for components with inputs defined dynamically upon component
+                    # initialization
+                    component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
+                    """
+
                     # keep track of the original input to save it in case of a breakpoint when running the component
                     self.original_input_data = data
                     component_outputs = self._run_component(
-                        component,
-                        inputs,
-                        component_visits,
-                        validated_breakpoints,
+                        component_name=component_name,
+                        component=component,
+                        inputs=inputs,
+                        component_visits=component_visits,
+                        breakpoints=validated_breakpoints,
                         parent_span=span,
                     )
 
