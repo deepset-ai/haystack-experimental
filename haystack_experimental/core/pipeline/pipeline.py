@@ -19,7 +19,6 @@ from haystack_experimental.core.errors import (
     PipelineInvalidResumeStateError,
     PipelineRuntimeError,
 )
-
 from haystack_experimental.core.pipeline.base import (
     _COMPONENT_INPUT,
     _COMPONENT_OUTPUT,
@@ -321,17 +320,6 @@ class Pipeline(PipelineBase):
                         component = self._get_component_with_graph_metadata_and_visits(
                             component_name, component_visits[component_name]
                         )
-
-                    # added by Sebastian why?
-                    """
-                    component_inputs = self._consume_component_inputs(
-                        component_name=component_name, component=component, inputs=inputs
-                    )
-                    # We need to add missing defaults using default values from input sockets because the run signature
-                    # might not provide these defaults for components with inputs defined dynamically upon component
-                    # initialization
-                    component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
-                    """
 
                     # keep track of the original input to save it in case of a breakpoint when running the component
                     self.original_input_data = data
