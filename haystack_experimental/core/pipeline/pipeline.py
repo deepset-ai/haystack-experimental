@@ -454,6 +454,11 @@ class Pipeline(PipelineBase):
             if value.meta and "usage" in value.meta:  # noqa: SIM102
                 value.meta.pop("usage", None)
 
+            # all_messages contains a list of unserialized ChatMessages
+            # TODO: we should find a better way to handle this
+            if value.meta and "all_messages" in value.meta:
+                value.meta.pop("all_messages", None)
+
         return value
 
     @staticmethod

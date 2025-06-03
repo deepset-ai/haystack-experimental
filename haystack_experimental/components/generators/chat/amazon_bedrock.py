@@ -86,7 +86,7 @@ else:
         """
         content_parts = message._content
 
-        bedrock_content_blocks = []
+        bedrock_content_blocks: List[Dict[str, Any]] = []
         for part in content_parts:
             if isinstance(part, TextContent):
                 bedrock_content_blocks.append({"text": part.text})
