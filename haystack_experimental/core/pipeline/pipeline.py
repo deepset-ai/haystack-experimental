@@ -63,10 +63,13 @@ class Pipeline(PipelineBase):
         instance: Component = component["instance"]
         component_name = self.get_component_name(instance)
 
+        """
         component_inputs = self._consume_component_inputs(
             component_name=component_name, component=component, inputs=inputs
         )
+        """
 
+        """
         # NOTE: a workaround for the DocumentJoiner and BranchJoiner components, since _consume_component_inputs()
         # wraps 'documents' in an extra list, so if there's a 3 level deep list, we need to flatten it to 2 levels only
         # ToDo: investigate why this is needed and if we can remove it
@@ -81,10 +84,15 @@ class Pipeline(PipelineBase):
                 if isinstance(component_inputs["value"][0], list):  # noqa: SIM102
                     if isinstance(component_inputs["value"][0][0], list):  # noqa: SIM102
                         component_inputs["value"] = component_inputs["value"][0]
+        """
 
+        """
         # We need to add missing defaults using default values from input sockets because the run signature
         # might not provide these defaults for components with inputs defined dynamically upon component initialization
         component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
+        """
+
+        component_inputs = inputs
 
         # Deserialize the inputs if they are passed in resume state
         # this check will prevent other inputs generated at runtime from being deserialized
