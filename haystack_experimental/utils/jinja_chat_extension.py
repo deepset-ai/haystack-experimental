@@ -13,6 +13,7 @@ from haystack_experimental.dataclasses.chat_message import (
     ChatMessage,
     ChatMessageContentT,
     ChatRole,
+    ImageContent,
     TextContent,
     ToolCall,
     ToolCallResult,
@@ -205,8 +206,12 @@ class ChatMessageExtension(Extension):
         return parts
 
     @staticmethod
-    def _validate_build_chat_message(parts: List[ChatMessageContentT], role: str, meta: dict,
-                                     name: Optional[str]=None) -> ChatMessage:
+    def _validate_build_chat_message(
+        parts: List[ChatMessageContentT],
+        role: str,
+        meta: dict,
+        name: Optional[str] = None
+    ) -> ChatMessage:
         """
         Validate the parts of a chat message and build a ChatMessage object.
 
@@ -221,7 +226,10 @@ class ChatMessageExtension(Extension):
         """
 
         if role == "user":
-            return ChatMessage.from_user(meta=meta, name=name, content_parts=parts)
+            valid_parts = [part for part in parts if isinstance(part, (TextContent, str, ImageContent))]
+            if len(parts) != len(valid_parts):
+                raise ValueError("User message must contain only TextContent, string or ImageContent parts.")
+            return ChatMessage.from_user(meta=meta, name=name, content_parts=valid_parts)
 
         if role == "system":
             if not isinstance(parts[0], TextContent):
@@ -240,8 +248,9 @@ class ChatMessageExtension(Extension):
                 raise ValueError("Assistant message must contain at least one text or tool call part.")
             if len(parts) > len(texts) + len(tool_calls):
                 raise ValueError("Assistant message must contain only text or tool call parts.")
-            return ChatMessage.from_assistant(meta=meta, name=name, text=texts[0] if texts else None,
-                                              tool_calls=tool_calls or None)
+            return ChatMessage.from_assistant(
+                meta=meta, name=name, text=texts[0] if texts else None, tool_calls=tool_calls or None
+            )
 
         if role == "tool":
             tool_call_results = [part for part in parts if isinstance(part, ToolCallResult)]

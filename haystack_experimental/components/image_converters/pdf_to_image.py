@@ -102,7 +102,7 @@ class PDFToImageContent:
         resolved_size = size or self.size
         resolved_page_range = page_range or self.page_range
 
-        expanded_page_range = expand_page_range(resolved_page_range) if page_range else None
+        expanded_page_range = expand_page_range(resolved_page_range) if resolved_page_range else None
 
         image_contents = []
 
