@@ -1140,8 +1140,9 @@ class PipelineBase:
         if len(components_with_same_priority) > 1:
             if topological_sort is None:
                 if networkx.is_directed_acyclic_graph(self.graph):
-                    topological_sort = networkx.lexicographical_topological_sort(self.graph)
-                    topological_sort = {node: idx for idx, node in enumerate(topological_sort)}
+                    # Convert generator to list before creating dictionary
+                    topo_sort_list = list(networkx.lexicographical_topological_sort(self.graph))
+                    topological_sort = {node: idx for idx, node in enumerate(topo_sort_list)}
                 else:
                     condensed = networkx.condensation(self.graph)
                     condensed_sorted = {node: idx for idx, node in enumerate(networkx.topological_sort(condensed))}
