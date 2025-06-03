@@ -10,8 +10,8 @@ from haystack.components.writers.document_writer import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 from haystack_experimental.components.builders.chat_prompt_builder import ChatPromptBuilder
-from haystack_experimental.components.image_converters.document_to_image import DocumentToImageContent
 from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator
+from haystack_experimental.components.image_converters.document_to_image import DocumentToImageContent
 
 # Initialize the document store and document writer
 document_store = InMemoryDocumentStore()
