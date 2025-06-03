@@ -4,14 +4,14 @@
 
 import mimetypes
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.dataclasses.image_content import ImageContent, IMAGE_MIME_TYPES
 from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
 from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
+from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, ImageContent
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,8 @@ class DocumentToImageContent:
         size: Optional[Tuple[int, int]] = None
     ):
         """
+        Create the DocumentToImageContent component.
+
         :param root_path: The root path of the document to convert.
         :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
             This will be passed to the created ImageContent objects.
@@ -121,7 +123,7 @@ class DocumentToImageContent:
         pdf_docs = self._deduplicate(pdf_docs)
 
         # Convert the image documents into ImageContent objects via ByteStream
-        image_byte_streams = [
+        image_byte_streams: List[Union[str, Path, ByteStream]] = [
             ByteStream.from_file_path(
                 filepath=doc.meta["file_path"],
                 mime_type=mimetypes.guess_type(doc.meta["file_path"])[0],
@@ -141,7 +143,10 @@ class DocumentToImageContent:
             ],
             "page_range": [doc.meta["page_number"] for doc in pdf_docs],
         }
-        pdf_image_contents = self._pdf_to_image_converter.run(**pdf_to_image_inputs)["image_contents"]
+        pdf_image_contents = self._pdf_to_image_converter.run(
+            sources=pdf_to_image_inputs["sources"],
+            page_range=pdf_to_image_inputs["page_range"],
+        )["image_contents"]
 
         return {
             "image_documents": image_docs + pdf_docs,
