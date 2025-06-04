@@ -93,12 +93,10 @@ class Pipeline(PipelineBase):
                 component_name: Pipeline._remove_unserializable_data(deepcopy(inputs))
             }
 
-            """
             print("\n\n")
             print(f"Checking breakpoints for component {component_name} with inputs:")
             print(inputs_with_component_name)
             print("\n\n")
-            """
 
             state_inputs_serialised = Pipeline._remove_unserializable_data(deepcopy(state_inputs))
 
