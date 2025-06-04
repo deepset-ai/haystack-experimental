@@ -284,21 +284,22 @@ class Pipeline(PipelineBase):
 
                     # Deserialize the component_inputs if they are passed in resume state
                     # this check will prevent other component_inputs generated at runtime from being deserialized
-                    if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
+                    if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
                         for key, value in component_inputs.items():
                             component_inputs[key] = deserialize_component_input(value)
 
-                    if breakpoints and not resume_state:
+                    if validated_breakpoints and not self.resume_state:
                         state_inputs_serialised = remove_unserializable_data(deepcopy(inputs))
-                        # inject the component_inputs into the state_inputs so we can this component init params in the JSON state
+                        # inject the component_inputs into the state_inputs so we can this component init params in
+                        # the JSON state
                         state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(component_inputs))
 
                         Pipeline._check_breakpoints(
-                            breakpoints=breakpoints,
+                            breakpoints=validated_breakpoints,
                             component_name=component_name,
                             component_visits=component_visits,
                             inputs=state_inputs_serialised,
-                            debug_path=debug_path,
+                            debug_path=self.debug_path,
                             original_input_data=data,
                             ordered_component_names=self.ordered_component_names
                         )
@@ -306,7 +307,7 @@ class Pipeline(PipelineBase):
                     # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
                     # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
                     instance: Component = component["instance"]
-                    if resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+                    if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
                         if isinstance(component_inputs["documents"], list):  # noqa: SIM102
                             if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
                                 if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
