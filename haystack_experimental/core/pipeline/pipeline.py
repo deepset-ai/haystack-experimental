@@ -45,6 +45,7 @@ class Pipeline(PipelineBase):
         component_visits: Dict[str, int],
         breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
+        state_inputs: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -61,10 +62,6 @@ class Pipeline(PipelineBase):
         :return: The output of the Component.
         """
         instance: Component = component["instance"]
-
-        print("\n\n")
-        print(f"Running component {component_name} with inputs: {inputs}")
-        print("\n\n")
 
         # Deserialize the inputs if they are passed in resume state
         # this check will prevent other inputs generated at runtime from being deserialized
@@ -91,7 +88,25 @@ class Pipeline(PipelineBase):
             #    params["template"] = params["_template_string"]
             # breakpoint_inputs[component_name]["init_parameters"] = params
 
-            self._check_breakpoints(breakpoints, component_name, component_visits, breakpoint_inputs)
+            # ToDo: reconstruct the structure of inputs with the component name as the key of the inputs dict
+            inputs_with_component_name = {
+                component_name: Pipeline._remove_unserializable_data(deepcopy(inputs))
+            }
+
+            print("\n\n")
+            print(f"Checking breakpoints for component {component_name} with inputs:")
+            print(inputs_with_component_name)
+            print("\n\n")
+
+            from pprint import pprint
+            print(f"Complete inputs for pipeline state")
+            print("\n\n")
+            pprint(state_inputs)
+            print("\n\n")
+
+            state_inputs_serialised = Pipeline._remove_unserializable_data(deepcopy(inputs))
+
+            self._check_breakpoints(breakpoints, component_name, component_visits, state_inputs_serialised)
 
         with PipelineBase._create_component_span(
                 component_name=component_name, instance=instance, inputs=inputs, parent_span=parent_span
@@ -316,10 +331,11 @@ class Pipeline(PipelineBase):
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
-                        inputs=component_inputs,
+                        inputs=component_inputs,    # the inputs to the current component
                         component_visits=component_visits,
                         breakpoints=validated_breakpoints,
                         parent_span=span,
+                        state_inputs= inputs,  # global inputs here to be used in the save_state
                     )
 
                     # Updates global input state with component outputs and returns outputs that should go to
@@ -578,9 +594,10 @@ class Pipeline(PipelineBase):
             },
         }
 
-        # from pprint import pprint
-        # pprint(state, indent=4)
-        # print("\n\n")
+        from pprint import pprint
+        print("Saving pipeline state:")
+        pprint(state, indent=4)
+        print("\n\n")
 
         try:
             with open(self.debug_path / file_name, "w") as f_out:
