@@ -82,10 +82,6 @@ class Pipeline(PipelineBase):
 
             # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
             # params = copy(component["instance"].__dict__)
-
-            # this is needed as the template param is stored as _template_string in the component's __dict__
-            # if "_template_string" in params:
-            #    params["template"] = params["_template_string"]
             # breakpoint_inputs[component_name]["init_parameters"] = params
 
             """
@@ -110,7 +106,8 @@ class Pipeline(PipelineBase):
             print("\n\n")
             """
 
-            # inject the inputs into the state_inputs so that we can use them in the save_state
+            # inject the inputs into the state_inputs so that we can use them in the save_state, to have the init
+            # parameters of the component
             state_inputs_serialised[component_name] = Pipeline._remove_unserializable_data(deepcopy(inputs))
 
             self._check_breakpoints(breakpoints, component_name, component_visits, state_inputs_serialised)
@@ -122,6 +119,20 @@ class Pipeline(PipelineBase):
             # when we delete them in case they're sent to other Components
             span.set_content_tag(_COMPONENT_INPUT, deepcopy(inputs))
             logger.info("Running component {component_name}", component_name=component_name)
+
+            from pprint import pprint
+            print(f"Running component {component_name} with inputs:")
+            pprint(inputs, indent=4)
+            print("\n\n")
+
+            # the _consume_component_inputs() applied to the DocumentJoiner inputs wraps 'documents' in an extra list,
+            # so if there's a 3 level deep list, we need to flatten it to 2 levels only
+            if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+                if isinstance(inputs["documents"], list):  # noqa: SIM102
+                    if isinstance(inputs["documents"][0], list):  # noqa: SIM102
+                        if isinstance(inputs["documents"][0][0], list):  # noqa: SIM102
+                            inputs["documents"] = inputs["documents"][0]
+
             try:
                 component_output = instance.run(**inputs)
             except Exception as error:
