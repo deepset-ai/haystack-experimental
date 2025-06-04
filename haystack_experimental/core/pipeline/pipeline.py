@@ -93,18 +93,20 @@ class Pipeline(PipelineBase):
                 component_name: Pipeline._remove_unserializable_data(deepcopy(inputs))
             }
 
+            """
             print("\n\n")
             print(f"Checking breakpoints for component {component_name} with inputs:")
             print(inputs_with_component_name)
             print("\n\n")
+            """
+
+            state_inputs_serialised = Pipeline._remove_unserializable_data(deepcopy(state_inputs))
 
             from pprint import pprint
             print(f"Complete inputs for pipeline state")
             print("\n\n")
-            pprint(state_inputs)
+            pprint(state_inputs_serialised)
             print("\n\n")
-
-            state_inputs_serialised = Pipeline._remove_unserializable_data(deepcopy(inputs))
 
             self._check_breakpoints(breakpoints, component_name, component_visits, state_inputs_serialised)
 
@@ -605,11 +607,6 @@ class Pipeline(PipelineBase):
                 "ordered_component_names": self.ordered_component_names,
             },
         }
-
-        from pprint import pprint
-        print("Saving pipeline state:")
-        pprint(state, indent=4)
-        print("\n\n")
 
         try:
             with open(self.debug_path / file_name, "w") as f_out:
