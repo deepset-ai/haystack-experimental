@@ -38,18 +38,12 @@ class Pipeline(PipelineBase):
     """
 
     @staticmethod
-    def _run_component(  # pylint: disable=too-many-positional-arguments
+    def _run_component(
         component_name: str,
         component: Dict[str, Any],
         inputs: Dict[str, Any],
         component_visits: Dict[str, int],
-        breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
-        state_inputs: Optional[Dict[str, Any]] = None,
-        resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[Union[str, Path]] = None,
-        original_input_data: Optional[Dict[str, Any]] = None,
-        ordered_component_names: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -58,18 +52,10 @@ class Pipeline(PipelineBase):
         :param component: Component with component metadata.
         :param inputs: Inputs for the Component.
         :param component_visits: Current state of component visits.
-        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should break
-                            execution.
         :param parent_span: The parent span to use for the newly created span.
                             This is to allow tracing to be correctly linked to the pipeline run.
-        :param state_inputs: The current state of the pipeline inputs.
-        :param resume_state: The state of the pipeline to resume from.
-        :param debug_path: Path to the directory where the pipeline state should be saved.
-        :param original_input_data: The original input data to the pipeline, used for saving the state.
-        :param ordered_component_names: The ordered component names in the pipeline, used for saving the state.
 
         :raises:
-            PipelineBreakpointException: If a breakpoint is triggered.
             PipelineRuntimeError: If Component doesn't return a dictionary.
 
         :returns:
@@ -77,37 +63,8 @@ class Pipeline(PipelineBase):
         """
         instance: Component = component["instance"]
 
-        # Deserialize the inputs if they are passed in resume state
-        # this check will prevent other inputs generated at runtime from being deserialized
-        if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
-            for key, value in inputs.items():
-                inputs[key] = deserialize_component_input(value)
-
-        if breakpoints and not resume_state:
-            state_inputs_serialised = remove_unserializable_data(deepcopy(state_inputs))
-            # inject the inputs into the state_inputs so we can this component init params in the JSON state
-            state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(inputs))
-
-            Pipeline._check_breakpoints(
-                breakpoints=breakpoints,
-                component_name=component_name,
-                component_visits=component_visits,
-                inputs=state_inputs_serialised,
-                debug_path=debug_path,
-                original_input_data=original_input_data,
-                ordered_component_names=ordered_component_names
-            )
-
-        # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
-        # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
-        if resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
-            if isinstance(inputs["documents"], list):  # noqa: SIM102
-                if isinstance(inputs["documents"][0], list):  # noqa: SIM102
-                    if isinstance(inputs["documents"][0][0], list):  # noqa: SIM102
-                        inputs["documents"] = inputs["documents"][0]
-
         with PipelineBase._create_component_span(
-                component_name=component_name, instance=instance, inputs=inputs, parent_span=parent_span
+            component_name=component_name, instance=instance, inputs=inputs, parent_span=parent_span
         ) as span:
             # We deepcopy the inputs otherwise we might lose that information
             # when we delete them in case they're sent to other Components
@@ -325,20 +282,42 @@ class Pipeline(PipelineBase):
                     # initialization
                     component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
-                    # keep track of the original input to save it in case of a breakpoint when running the component
-                    self.original_input_data = data
+                    # Deserialize the component_inputs if they are passed in resume state
+                    # this check will prevent other component_inputs generated at runtime from being deserialized
+                    if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
+                        for key, value in component_inputs.items():
+                            component_inputs[key] = deserialize_component_input(value)
+
+                    if breakpoints and not resume_state:
+                        state_inputs_serialised = remove_unserializable_data(deepcopy(inputs))
+                        # inject the component_inputs into the state_inputs so we can this component init params in the JSON state
+                        state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(component_inputs))
+
+                        Pipeline._check_breakpoints(
+                            breakpoints=breakpoints,
+                            component_name=component_name,
+                            component_visits=component_visits,
+                            inputs=state_inputs_serialised,
+                            debug_path=debug_path,
+                            original_input_data=data,
+                            ordered_component_names=self.ordered_component_names
+                        )
+
+                    # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
+                    # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
+                    instance: Component = component["instance"]
+                    if resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+                        if isinstance(component_inputs["documents"], list):  # noqa: SIM102
+                            if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
+                                if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
+                                    component_inputs["documents"] = component_inputs["documents"][0]
+
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
                         inputs=component_inputs, # the inputs to the current component
                         component_visits=component_visits,
-                        breakpoints=validated_breakpoints,
                         parent_span=span,
-                        state_inputs=inputs,  # all current inputs to be used in the save_state
-                        resume_state=self.resume_state, # resume state in case we are resuming a pipeline
-                        debug_path=self.debug_path,  # where to save the pipeline state
-                        original_input_data=data,
-                        ordered_component_names=self.ordered_component_names,  # the ordered component names
                     )
 
                     # Updates global input state with component outputs and returns outputs that should go to
