@@ -47,9 +47,9 @@ class Pipeline(PipelineBase):
         parent_span: Optional[tracing.Span] = None,
         state_inputs: Optional[Dict[str, Any]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[Union[str, Path]] = None,  # ToDO
-        original_input_data: Optional[Dict[str, Any]] = None,  # ToDO
-        ordered_component_names: Optional[List[str]] = None,  # ToDo
+        debug_path: Optional[Union[str, Path]] = None,
+        original_input_data: Optional[Dict[str, Any]] = None,
+        ordered_component_names: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
@@ -58,12 +58,22 @@ class Pipeline(PipelineBase):
         :param component: Component with component metadata.
         :param inputs: Inputs for the Component.
         :param component_visits: Current state of component visits.
-        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline
-                            should break execution.
+        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should break
+                            execution.
         :param parent_span: The parent span to use for the newly created span.
-            This is to allow tracing to be correctly linked to the pipeline run.
-        :raises PipelineRuntimeError: If Component doesn't return a dictionary.
-        :return: The output of the Component.
+                            This is to allow tracing to be correctly linked to the pipeline run.
+        :param state_inputs: The current state of the pipeline inputs.
+        :param resume_state: The state of the pipeline to resume from.
+        :param debug_path: Path to the directory where the pipeline state should be saved.
+        :param original_input_data: The original input data to the pipeline, used for saving the state.
+        :param ordered_component_names: The ordered component names in the pipeline, used for saving the state.
+
+        :raises:
+            PipelineBreakpointException: If a breakpoint is triggered.
+            PipelineRuntimeError: If Component doesn't return a dictionary.
+
+        :returns:
+            The output of the Component.
         """
         instance: Component = component["instance"]
 
