@@ -20,28 +20,9 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
 @component
 class SentenceTransformersDocumentImageEmbedder:
     """
-    Calculates document embeddings using Sentence Transformers models.
+    A component for computing Document embeddings based on images using Sentence Transformers models.
 
-    It stores the embeddings in the `embedding` metadata field of each document.
-    You can also embed documents' metadata.
-    Use this component in indexing pipelines to embed input documents
-    and send them to DocumentWriter to write a into a Document Store.
-
-    ### Usage example:
-
-    ```python
-    from haystack import Document
-    from haystack.components.embedders import SentenceTransformersDocumentEmbedder
-
-    doc = Document(content="I love pizza!")
-    doc_embedder = SentenceTransformersDocumentEmbedder()
-    doc_embedder.warm_up()
-
-    result = doc_embedder.run([doc])
-    print(result["documents"][0].embedding)
-
-    # [-0.07804739475250244, 0.1498992145061493, ...]
-    ```
+    The embedding of each Document is stored in the `embedding` field of the Document.
     """
 
     def __init__(  # noqa: PLR0913 # pylint: disable=too-many-positional-arguments
@@ -65,6 +46,8 @@ class SentenceTransformersDocumentImageEmbedder:
         """
         Creates a SentenceTransformersDocumentEmbedder component.
 
+        :param meta_field_for_image_path:
+            The field in the Document metadata that contains the path to the image.
         :param model:
             The model to use for calculating embeddings.
             Pass a local path or ID of the model on Hugging Face.
@@ -73,22 +56,10 @@ class SentenceTransformersDocumentImageEmbedder:
             Overrides the default device.
         :param token:
             The API token to download private models from Hugging Face.
-        :param prefix:
-            A string to add at the beginning of each document text.
-            Can be used to prepend the text with an instruction, as required by some embedding models,
-            such as E5 and bge.
-        :param suffix:
-            A string to add at the end of each document text.
         :param batch_size:
             Number of documents to embed at once.
         :param progress_bar:
             If `True`, shows a progress bar when embedding documents.
-        :param normalize_embeddings:
-            If `True`, the embeddings are normalized using L2 normalization, so that each embedding has a norm of 1.
-        :param meta_fields_to_embed:
-            List of metadata fields to embed along with the document text.
-        :param embedding_separator:
-            Separator used to concatenate the metadata fields to the document text.
         :param trust_remote_code:
             If `False`, allows only Hugging Face verified model architectures.
             If `True`, allows custom models and scripts.
