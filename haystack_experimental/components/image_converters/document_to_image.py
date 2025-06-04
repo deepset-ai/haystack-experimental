@@ -138,7 +138,7 @@ class DocumentToImageContent:
 
         for doc in documents:
             file_path = doc.meta.get("file_path")
-            if not Path(root_path, file_path).is_file():
+            if file_path is None or not Path(root_path, file_path).is_file():
                 missing_info_docs.append(doc)
                 continue
 
@@ -146,16 +146,18 @@ class DocumentToImageContent:
             mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(file_path)[0]
             if mime_type not in IMAGE_MIME_TYPES:
                 non_image_docs.append(doc)
+                continue
 
             # If mimetype is PDF we also need the page number to be able to convert the right page
             if mime_type == "application/pdf":
                 page_number = doc.meta.get("page_number")
                 if page_number is None:
                     missing_info_docs.append(doc)
-                    continue
-                pdf_docs.append(doc)
-            else:
-                image_docs.append(doc)
+                else:
+                    pdf_docs.append(doc)
+                continue
+
+            image_docs.append(doc)
 
         if missing_info_docs:
             logger.warning(
@@ -183,7 +185,7 @@ class DocumentToImageContent:
         pdf_to_image_inputs = {
             "sources": [
                 ByteStream.from_file_path(
-                    filepath=Path(doc.meta["file_path"]),
+                    filepath=Path(root_path, doc.meta["file_path"]),
                     mime_type="application/pdf",
                     meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]}
                 ) for doc in pdf_docs
