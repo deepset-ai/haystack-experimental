@@ -88,6 +88,7 @@ class Pipeline(PipelineBase):
             #    params["template"] = params["_template_string"]
             # breakpoint_inputs[component_name]["init_parameters"] = params
 
+            """
             # ToDo: reconstruct the structure of inputs with the component name as the key of the inputs dict
             inputs_with_component_name = {
                 component_name: Pipeline._remove_unserializable_data(deepcopy(inputs))
@@ -97,14 +98,20 @@ class Pipeline(PipelineBase):
             print(f"Checking breakpoints for component {component_name} with inputs:")
             print(inputs_with_component_name)
             print("\n\n")
+            """
 
             state_inputs_serialised = Pipeline._remove_unserializable_data(deepcopy(state_inputs))
 
+            """
             from pprint import pprint
             print(f"Complete inputs for pipeline state")
             print("\n\n")
             pprint(state_inputs_serialised)
             print("\n\n")
+            """
+
+            # inject the inputs into the state_inputs so that we can use them in the save_state
+            state_inputs_serialised[component_name] = Pipeline._remove_unserializable_data(deepcopy(inputs))
 
             self._check_breakpoints(breakpoints, component_name, component_visits, state_inputs_serialised)
 
