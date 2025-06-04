@@ -86,10 +86,10 @@ class TestPipelineBreakpoints:
 
     components = [
         "gpt-4o",
-        # "gpt-3",
-        # "answer_builder_a",
-        # "answer_builder_b",
-        # "answer_joiner",
+        "gpt-3",
+        "answer_builder_a",
+        "answer_builder_b",
+        "answer_joiner",
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
