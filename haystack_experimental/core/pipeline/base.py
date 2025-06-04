@@ -99,6 +99,8 @@ class PipelineBase:
 
         self.ordered_component_names: List[str] = []
         self.original_input_data: Dict[str, Any] = {}
+
+        # state for resuming the pipeline execution
         self.resume_state: Optional[Dict[str, Any]] = None
         self.debug_path: Optional[Union[str, Path]] = None
 
