@@ -477,7 +477,6 @@ class Pipeline(PipelineBase):
         :returns:
             Dict containing the loaded state
         """
-        import json
 
         file_path = Path(file_path)
 
