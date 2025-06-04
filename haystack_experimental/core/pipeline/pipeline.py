@@ -84,19 +84,12 @@ class Pipeline(PipelineBase):
                 inputs[key] = deserialize_component_input(value)
 
         if breakpoints and not resume_state:
+            """
             # add component_inputs to inputs
             breakpoint_inputs = deepcopy(inputs)
             # we deepcopy the component_inputs to avoid modifying the original inputs
             breakpoint_inputs[component_name] = deepcopy(remove_unserializable_data(inputs))
-
-            # TODO: Find a better way to handle this.
-            # Using to_dict() here strips away class types like ChatMessage,
-            # which makes deserialization of the params problematic. On the other hand, using __dict__ relies on
-            # class variables being stored with the same names as their constructor parameters.
-
-            # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
-            # params = copy(component["instance"].__dict__)
-            # breakpoint_inputs[component_name]["init_parameters"] = params
+            """
 
             state_inputs_serialised = remove_unserializable_data(deepcopy(state_inputs))
 
@@ -546,19 +539,17 @@ def save_state(
     ordered_component_names: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Saves the state of the pipeline at a given component visit count.
+    If a debug_path is given it saves the JSON state of the pipeline at a given component visit count in a file.
 
-    :returns: The saved state dictionary
+    If debug_path is not given, it returns the JSON state as a dictionary without saving it to a file.
+
+    :raises:
+        Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
+
+    :returns:
+        The saved state dictionary
     """
-    if isinstance(debug_path, str):
-        debug_path = Path(debug_path)
-    if not isinstance(debug_path, Path):
-        raise ValueError("Debug path must be a string or a Path object.")
-    debug_path.mkdir(exist_ok=True)
-
     dt = datetime.now()
-    file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
-
     state = {
         "input_data": serialize_component_input(original_input_data),  # original input data
         "timestamp": dt.isoformat(),
@@ -569,6 +560,15 @@ def save_state(
             "ordered_component_names": ordered_component_names,
         },
     }
+    if not debug_path:
+        return state
+
+    if isinstance(debug_path, str):
+        debug_path = Path(debug_path)
+    if not isinstance(debug_path, Path):
+        raise ValueError("Debug path must be a string or a Path object.")
+    debug_path.mkdir(exist_ok=True)
+    file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
 
     try:
         with open(debug_path / file_name, "w") as f_out:
