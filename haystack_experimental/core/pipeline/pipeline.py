@@ -98,6 +98,14 @@ class Pipeline(PipelineBase):
                 ordered_component_names=ordered_component_names
             )
 
+        # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
+        # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
+        if resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+            if isinstance(inputs["documents"], list):  # noqa: SIM102
+                if isinstance(inputs["documents"][0], list):  # noqa: SIM102
+                    if isinstance(inputs["documents"][0][0], list):  # noqa: SIM102
+                        inputs["documents"] = inputs["documents"][0]
+
         with PipelineBase._create_component_span(
                 component_name=component_name, instance=instance, inputs=inputs, parent_span=parent_span
         ) as span:
@@ -105,14 +113,6 @@ class Pipeline(PipelineBase):
             # when we delete them in case they're sent to other Components
             span.set_content_tag(_COMPONENT_INPUT, deepcopy(inputs))
             logger.info("Running component {component_name}", component_name=component_name)
-
-            # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
-            # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
-            if resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
-                if isinstance(inputs["documents"], list):  # noqa: SIM102
-                    if isinstance(inputs["documents"][0], list):  # noqa: SIM102
-                        if isinstance(inputs["documents"][0][0], list):  # noqa: SIM102
-                            inputs["documents"] = inputs["documents"][0]
 
             try:
                 component_output = instance.run(**inputs)
