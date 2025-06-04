@@ -326,6 +326,18 @@ class Pipeline(PipelineBase):
                     # initialization
                     component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
+                    """
+                    print("Global state inputs")
+                    from pprint import pprint
+                    pprint(inputs, indent=4)
+                    print("\n\n")
+
+                    print("self.original_input_data")
+                    from pprint import pprint
+                    pprint(data, indent=4)
+                    print("\n\n")
+                    """
+
                     # keep track of the original input to save it in case of a breakpoint when running the component
                     self.original_input_data = data
                     component_outputs = self._run_component(
@@ -335,7 +347,7 @@ class Pipeline(PipelineBase):
                         component_visits=component_visits,
                         breakpoints=validated_breakpoints,
                         parent_span=span,
-                        state_inputs= inputs,  # global inputs here to be used in the save_state
+                        state_inputs=inputs,  # global inputs here to be used in the save_state
                     )
 
                     # Updates global input state with component outputs and returns outputs that should go to
