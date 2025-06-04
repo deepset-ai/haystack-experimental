@@ -169,7 +169,8 @@ class CohereDocumentImageEmbedder:
                     # ok we have embeddings for this type, let's take all the embeddings (a list of embeddings)
                     all_embeddings.extend(emb_tuple[1])
 
-        for doc, embeddings in zip(documents, all_embeddings):
-            doc.embedding = embeddings
+        for doc, embedding in zip(documents, all_embeddings):
+            doc.embedding = embedding
+            doc.meta["embedding_source"] = f"meta.{self.meta_field_for_image_path}"
 
         return {"documents": documents}

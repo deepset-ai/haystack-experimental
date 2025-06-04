@@ -239,5 +239,6 @@ class SentenceTransformersDocumentImageEmbedder:
 
         for doc, emb in zip(documents, embeddings):
             doc.embedding = emb
+            doc.meta["embedding_source"] = f"meta.{self.meta_field_for_image_path}"
 
         return {"documents": documents}
