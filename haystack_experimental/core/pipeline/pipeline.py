@@ -45,7 +45,7 @@ class Pipeline(PipelineBase):
         component_visits: Dict[str, int],
         breakpoints: Optional[Set[Tuple[str, int]]] = None,
         parent_span: Optional[tracing.Span] = None,
-        state_inputs: Dict[str, Any] = None,
+        state_inputs: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Runs a Component with the given inputs.
