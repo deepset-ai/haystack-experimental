@@ -19,13 +19,40 @@ logger = logging.getLogger(__name__)
 @component
 class DocumentToImageContent:
     """
-    A component to convert documents sourced from PDF, and image files to ImageContent objects.
+    A component to convert documents sourced from PDF and image files to ImageContents.
 
-    Documents will be skipped under the following scenarios:
-    - If the `file_path` is not present in the metadata.
-    - If the file path does not start with the expected root path.
-    - If the file is not one of the supported image formats.
-    - If the `page_number` is not present in the metadata if the file path points to a PDF file.
+    This component processes a list of Documents and extracts visual content from supported file formats, converting
+    them into ImageContents that can be used for multimodal AI tasks. It handles both direct image files and PDF
+    documents by extracting specific pages as images.
+
+    The component categorizes input documents into three groups:
+    - Image documents: Successfully converted to ImageContent objects
+    - Non-image documents: Documents that don't contain supported image formats
+    - Documents with missing information: Documents lacking required metadata such as `file_path` or `page_number`.
+
+    Documents will be skipped and categorized as non-image documents in the following scenarios:
+    - The `file_path` is not present in the document metadata
+    - The file path does not point to an existing file when combined with `root_path`
+    - The file format is not among the supported image types
+    - For PDF files, the `page_number` is not present in the metadata
+
+    Example:
+        ```python
+        converter = DocumentToImageContent(
+            root_path="/data/documents",
+            detail="high",
+            size=(800, 600)
+        )
+
+        documents = [
+            Document(content="Optional description of image.jpg", meta={"file_path": "image.jpg"}),
+            Document(content="Text content of page 1 of doc.pdf", meta={"file_path": "doc.pdf", "page_number": 1})
+        ]
+
+        result = converter.run(documents)
+        image_documents = result["image_documents"]
+        image_contents = result["image_contents"]
+        ```
     """
 
     def __init__(
@@ -36,9 +63,10 @@ class DocumentToImageContent:
         size: Optional[Tuple[int, int]] = None
     ):
         """
-        Create the DocumentToImageContent component.
+        Initialize the DocumentToImageContent component.
 
-        :param root_path: The root path of the document to convert.
+        :param root_path: The root directory path where document files are located. If provided, file paths in
+            document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
         :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
             This will be passed to the created ImageContent objects.
         :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
@@ -58,8 +86,14 @@ class DocumentToImageContent:
         """
         Deduplicate the documents based on file path and page number if available.
 
-        This de-duplication is relevant for PDF documents where the same file path and page number combination can
-        occur because the same PDF page could have produced multiple documents, e.g., when splitting.
+        This deduplication is particularly important for PDF documents where the same page might be represented by
+        multiple Documents due to text splitting or other preprocessing steps. Only the first occurrence
+        of each unique (file_path, page_number) combination is retained.
+
+        :param documents: List of Documents to deduplicate.
+
+        :returns:
+            List of Documents with duplicates removed, maintaining original order of first occurrences.
         """
         unique_documents = []
         seen = set()
@@ -75,14 +109,27 @@ class DocumentToImageContent:
     )
     def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
-        Convert documents sourced from PDF files to base64 encoded images.
+        Convert documents with image or PDF sources to ImageContents.
 
-        :param documents: A list of documents with image information in their metadata.
+        This method processes the input documents, extracting images from supported file formats and converting them
+        to ImageContents. Documents are categorized based on their file type and processing success.
+
+        :param documents: List of Documents to process. Each document should have metadata containing at minimum
+            a 'file_path' key. PDF documents additionally require a 'page_number' key to specify which page to convert.
+
         :returns:
-            A list of text documents and a corresponding list of base64 encoded images.
+            Dictionary containing three lists:
+            - "image_documents": Document objects that were successfully processed and have corresponding ImageContents.
+                Includes both image files and PDF pages.
+            - "image_contents": ImageContents created from the processed documents. These contain base64-encoded image
+                data and metadata. The order corresponds to the `image_documents` list.
+            - "non_image_documents": Document objects that could not be processed as images. This includes unsupported
+                file types, missing files, and documents with insufficient metadata.
         """
         if not documents:
             return {"image_documents": [], "image_contents": [], "non_image_documents": []}
+
+        root_path = self.root_path or ""
 
         pdf_docs = []
         image_docs = []
@@ -91,7 +138,7 @@ class DocumentToImageContent:
 
         for doc in documents:
             file_path = doc.meta.get("file_path")
-            if file_path is None:
+            if not Path(root_path, file_path).is_file():
                 missing_info_docs.append(doc)
                 continue
 
@@ -112,27 +159,27 @@ class DocumentToImageContent:
 
         if missing_info_docs:
             logger.warning(
-                "Calling DocumentToImageContent with {len_missing_file_paths} out of {len_docs} Documents that "
-                "are missing file paths in their metadata.",
+                "In DocumentToImageContent {len_missing_file_paths} Documents are either missing a `file_path` "
+                "key in their metadata or the `file_path` does not point to a valid file. "
+                "They will be returned in the `non_image_documents` output.",
                 len_missing_file_paths=len(missing_info_docs),
-                len_docs=len(documents),
             )
 
         # We de-duplicate the pdf documents because it's possible that the same PDF page is represented by multiple
         # documents
         pdf_docs = self._deduplicate(pdf_docs)
 
-        # Convert the image documents into ImageContent objects via ByteStream
+        # Convert the image documents into ImageContent objects
         image_byte_streams: List[Union[str, Path, ByteStream]] = [
             ByteStream.from_file_path(
-                filepath=doc.meta["file_path"],
+                filepath=Path(root_path, doc.meta["file_path"]),
                 mime_type=mimetypes.guess_type(doc.meta["file_path"])[0],
                 meta={"file_path": doc.meta["file_path"]}
             ) for doc in image_docs
         ]
         image_contents = self._file_to_image_converter.run(sources=image_byte_streams)["image_contents"]
 
-        # Convert the PDF documents into ImageContent objects via ByteStream
+        # Convert the PDF documents into ImageContent objects
         pdf_to_image_inputs = {
             "sources": [
                 ByteStream.from_file_path(
