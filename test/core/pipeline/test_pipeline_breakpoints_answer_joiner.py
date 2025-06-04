@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -110,7 +109,6 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            output_directory = Path("output_files")
             _ = answer_join_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
