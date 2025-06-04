@@ -54,7 +54,8 @@ dependencies = [
   "pylint",
   "ruff",
   # PipelineBase.show
-  "ipython"
+  "ipython",
+  "cohere-haystack",
 ]
 
 [tool.hatch.envs.test]
