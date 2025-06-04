@@ -84,20 +84,11 @@ class Pipeline(PipelineBase):
                 inputs[key] = deserialize_component_input(value)
 
         if breakpoints and not resume_state:
-            """
-            # add component_inputs to inputs
-            breakpoint_inputs = deepcopy(inputs)
-            # we deepcopy the component_inputs to avoid modifying the original inputs
-            breakpoint_inputs[component_name] = deepcopy(remove_unserializable_data(inputs))
-            """
-
             state_inputs_serialised = remove_unserializable_data(deepcopy(state_inputs))
-
-            # inject the inputs into the state_inputs so that we can use them in the save_state, to have the init
-            # parameters of the component
+            # inject the inputs into the state_inputs so we can this component init params in the JSON state
             state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(inputs))
 
-            _check_breakpoints(
+            Pipeline._check_breakpoints(
                 breakpoints=breakpoints,
                 component_name=component_name,
                 component_visits=component_visits,
@@ -420,37 +411,6 @@ class Pipeline(PipelineBase):
             processed_breakpoints.add(valid_breakpoint)
         return processed_breakpoints
 
-    @staticmethod
-    def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
-        """
-        Load a saved pipeline state.
-
-        :param file_path: Path to the state file
-        :returns:
-            Dict containing the loaded state
-        """
-        import json
-
-        file_path = Path(file_path)
-
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                state = json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"File not found: {file_path}")
-        except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Invalid JSON file {file_path}: {str(e)}", e.doc, e.pos)
-        except IOError as e:
-            raise IOError(f"Error reading {file_path}: {str(e)}")
-
-        try:
-            Pipeline._validate_resume_state(state=state)
-        except ValueError as e:
-            raise ValueError(f"Invalid pipeline state from {file_path}: {str(e)}")
-
-        logger.info(f"Successfully loaded pipeline state from: {file_path}")
-        return state
-
     def _validate_pipeline_state(self, resume_state: Dict[str, Any]) -> None:
         """
         Validates that the resume_state contains valid configuration for the current pipeline.
@@ -528,62 +488,131 @@ class Pipeline(PipelineBase):
 
         logger.info("Passed resume state validated successfully.")
 
+    @staticmethod
+    def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
+        """
+        Load a saved pipeline state.
 
-def save_state(
-    inputs: Dict[str, Any],
-    component_name: str,
-    component_visits: Dict[str, int],
-    callback_fun: Optional[Callable[..., Any]] = None,
-    debug_path: Optional[Union[str, Path]] = None,
-    original_input_data: Optional[Dict[str, Any]] = None,
-    ordered_component_names: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    """
-    If a debug_path is given it saves the JSON state of the pipeline at a given component visit count in a file.
+        :param file_path: Path to the state file
+        :returns:
+            Dict containing the loaded state
+        """
+        import json
 
-    If debug_path is not given, it returns the JSON state as a dictionary without saving it to a file.
+        file_path = Path(file_path)
 
-    :raises:
-        Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File not found: {file_path}")
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(f"Invalid JSON file {file_path}: {str(e)}", e.doc, e.pos)
+        except IOError as e:
+            raise IOError(f"Error reading {file_path}: {str(e)}")
 
-    :returns:
-        The saved state dictionary
-    """
-    dt = datetime.now()
-    state = {
-        "input_data": serialize_component_input(original_input_data),  # original input data
-        "timestamp": dt.isoformat(),
-        "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
-        "pipeline_state": {
-            "inputs": serialize_component_input(inputs),  # current pipeline state inputs
-            "component_visits": component_visits,
-            "ordered_component_names": ordered_component_names,
-        },
-    }
-    if not debug_path:
+        try:
+            Pipeline._validate_resume_state(state=state)
+        except ValueError as e:
+            raise ValueError(f"Invalid pipeline state from {file_path}: {str(e)}")
+
+        logger.info(f"Successfully loaded pipeline state from: {file_path}")
         return state
 
-    if isinstance(debug_path, str):
-        debug_path = Path(debug_path)
-    if not isinstance(debug_path, Path):
-        raise ValueError("Debug path must be a string or a Path object.")
-    debug_path.mkdir(exist_ok=True)
-    file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+    @staticmethod
+    def save_state(
+        inputs: Dict[str, Any],
+        component_name: str,
+        component_visits: Dict[str, int],
+        callback_fun: Optional[Callable[..., Any]] = None,
+        debug_path: Optional[Union[str, Path]] = None,
+        original_input_data: Optional[Dict[str, Any]] = None,
+        ordered_component_names: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        If a debug_path is given it saves the JSON state of the pipeline at a given component visit count in a file.
 
-    try:
-        with open(debug_path / file_name, "w") as f_out:
-            json.dump(state, f_out, indent=2)
-        logger.info(f"Pipeline state saved at: {file_name}")
+        If debug_path is not given, it returns the JSON state as a dictionary without saving it to a file.
 
-        # pass the state to some user-defined callback function
-        if callback_fun is not None:
-            callback_fun(state)
+        :raises:
+            Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
 
-        return state
+        :returns:
+            The saved state dictionary
+        """
+        dt = datetime.now()
+        state = {
+            "input_data": serialize_component_input(original_input_data),  # original input data
+            "timestamp": dt.isoformat(),
+            "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
+            "pipeline_state": {
+                "inputs": serialize_component_input(inputs),  # current pipeline state inputs
+                "component_visits": component_visits,
+                "ordered_component_names": ordered_component_names,
+            },
+        }
+        if not debug_path:
+            return state
 
-    except Exception as e:
-        logger.error(f"Failed to save pipeline state: {str(e)}")
-        raise
+        if isinstance(debug_path, str):
+            debug_path = Path(debug_path)
+        if not isinstance(debug_path, Path):
+            raise ValueError("Debug path must be a string or a Path object.")
+        debug_path.mkdir(exist_ok=True)
+        file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+
+        try:
+            with open(debug_path / file_name, "w") as f_out:
+                json.dump(state, f_out, indent=2)
+            logger.info(f"Pipeline state saved at: {file_name}")
+
+            # pass the state to some user-defined callback function
+            if callback_fun is not None:
+                callback_fun(state)
+
+            return state
+
+        except Exception as e:
+            logger.error(f"Failed to save pipeline state: {str(e)}")
+            raise
+
+    @staticmethod
+    def _check_breakpoints(
+        breakpoints: Set[Tuple[str, int]],
+        component_name: str,
+        component_visits: Dict[str, int],
+        inputs: Dict[str, Any],
+        debug_path: Optional[Union[str, Path]] = None,
+        original_input_data: Optional[Dict[str, Any]] = None,
+        ordered_component_names: Optional[List[str]] = None
+    ):
+        """
+        Check if the `component_name` is in the breakpoints and if it should break.
+
+        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
+        :param component_name: Name of the component to check.
+        :param component_visits: The number of times the component has been visited.
+        :param inputs: The inputs to the pipeline.
+        :raises PipelineBreakpointException: When a breakpoint is triggered, with component state information.
+        """
+        matching_breakpoints = [bp for bp in breakpoints if bp[0] == component_name]
+
+        for bp in matching_breakpoints:
+            visit_count = bp[1]
+            # break only if the visit count is the same
+            if visit_count == component_visits[component_name]:
+                msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
+                logger.info(msg)
+                state = Pipeline.save_state(
+                    inputs=inputs,
+                    component_name=str(component_name),
+                    component_visits=component_visits,
+                    debug_path=debug_path,
+                    original_input_data=original_input_data,
+                    ordered_component_names=ordered_component_names
+                )
+                raise PipelineBreakpointException(msg, component=component_name, state=state)
+
 
 
 def deserialize_component_input(value):  # noqa: PLR0911
@@ -711,38 +740,3 @@ def serialize_component_input(value: Any) -> Any:
     return value
 
 
-def _check_breakpoints(
-    breakpoints: Set[Tuple[str, int]],
-    component_name: str,
-    component_visits: Dict[str, int],
-    inputs: Dict[str, Any],
-    debug_path: Optional[Union[str, Path]] = None,
-    original_input_data: Optional[Dict[str, Any]] = None,
-    ordered_component_names: Optional[List[str]] = None
-):
-    """
-    Check if the `component_name` is in the breakpoints and if it should break.
-
-    :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
-    :param component_name: Name of the component to check.
-    :param component_visits: The number of times the component has been visited.
-    :param inputs: The inputs to the pipeline.
-    :raises PipelineBreakpointException: When a breakpoint is triggered, with component state information.
-    """
-    matching_breakpoints = [bp for bp in breakpoints if bp[0] == component_name]
-
-    for bp in matching_breakpoints:
-        visit_count = bp[1]
-        # break only if the visit count is the same
-        if visit_count == component_visits[component_name]:
-            msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
-            logger.info(msg)
-            state = save_state(
-                inputs=inputs,
-                component_name=str(component_name),
-                component_visits=component_visits,
-                debug_path=debug_path,
-                original_input_data=original_input_data,
-                ordered_component_names=ordered_component_names
-            )
-            raise PipelineBreakpointException(msg, component=component_name, state=state)
