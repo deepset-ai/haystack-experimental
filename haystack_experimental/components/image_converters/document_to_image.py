@@ -25,17 +25,12 @@ class DocumentToImageContent:
     them into ImageContents that can be used for multimodal AI tasks. It handles both direct image files and PDF
     documents by extracting specific pages as images.
 
-    The component categorizes input documents into three groups:
-    - Image documents: Documents successfully converted into ImageContent objects
-    - Non-image documents: Documents that don't contain supported image formats
-    - Documents with missing information: Documents lacking required metadata such as `file_path_meta_field`
-      or `page_number`
-
-    Documents will be skipped and categorized as non-image documents in the following scenarios:
+    Documents are expected to have metadata containing:
     - The `file_path_meta_field` is not present in the document metadata
     - The file path does not point to an existing file when combined with `root_path`
     - The file format is not among the supported image types
     - For PDF files, the `page_number` is not present in the metadata
+    Otherwise, the component will raise a `ValueError` with a descriptive message.
 
     Usage example:
         ```python
@@ -108,6 +103,9 @@ class DocumentToImageContent:
                 Includes both image files and PDF pages.
             - "image_contents": ImageContents created from the processed documents. These contain base64-encoded image
                 data and metadata. The order corresponds to the `image_documents` list.
+        :raises ValueError:
+            If any document is missing the required metadata keys, has an invalid file path, or has an unsupported
+            MIME type. The error message will specify which document and what information is missing or incorrect.
         """
         if not documents:
             return {"image_documents": [], "image_contents": []}
