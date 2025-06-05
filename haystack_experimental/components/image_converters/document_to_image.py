@@ -114,7 +114,7 @@ class DocumentToImageContent:
         This method processes the input documents, extracting images from supported file formats and converting them
         into ImageContent objects. Documents are categorized based on their file type and processing success.
 
-        :param documents: List of Documents to process. Each document should have metadata containing at minimum
+        :param documents: A list of documents to process. Each document should have metadata containing at minimum
             a 'file_path' key. PDF documents additionally require a 'page_number' key to specify which page to convert.
 
         :returns:
