@@ -52,10 +52,17 @@ class DocumentToImageContent:
         result = converter.run(documents)
         image_documents = result["image_documents"]
         # [Document(id=..., content: 'Optional description of image.jpg', meta: {'file_path': 'image.jpg'}),
-        # Document(id=..., content: 'Text content of page 1 of doc.pdf', meta: {'file_path': 'doc.pdf', 'page_number': 1})]
+        #  Document(
+        #    id=..., content: 'Text content of page 1 of doc.pdf', meta: {'file_path': 'doc.pdf', 'page_number': 1}
+        #  )]
         image_contents = result["image_contents"]
-        # [ImageContent(base64_image='/9j/4A...', mime_type='image/jpeg', detail='high', meta={'file_path': 'image.jpg'}),
-        # ImageContent(base64_image='/9j/4A...', mime_type='image/jpeg', detail='high', meta={'page_number': 1, 'file_path': 'doc.pdf'})]
+        # [ImageContent(
+        #    base64_image='/9j/4A...', mime_type='image/jpeg', detail='high', meta={'file_path': 'image.jpg'}
+        #  ),
+        #  ImageContent(
+        #    base64_image='/9j/4A...', mime_type='image/jpeg', detail='high',
+        #    meta={'page_number': 1, 'file_path': 'doc.pdf'}
+        #  )]
         ```
     """
 
