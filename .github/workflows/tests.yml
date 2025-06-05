@@ -48,14 +48,11 @@ jobs:
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
 
-      - name: Check code format
-        run: hatch fmt
-
-      - name: Linting
-        run: hatch run test:lint
+      - name: Ruff - check format and linting
+        run: hatch run fmt-check
 
       - name: Typing
-        run: hatch run test:typing
+        run: hatch run test:types
 
   unit-tests:
     name: Unit / ${{ matrix.os }}
@@ -122,4 +119,4 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}        
       - name: Run
-        run: hatch run test:integration
+        run: hatch run test:integration-retry
