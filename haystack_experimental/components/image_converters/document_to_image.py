@@ -139,7 +139,6 @@ class DocumentToImageContent:
                     f"Please ensure that the documents you are trying to convert have valid file paths."
                 )
 
-            # Store the non-image documents separately
             mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(file_path)[0]
             if mime_type not in IMAGE_MIME_TYPES:
                 raise ValueError(
