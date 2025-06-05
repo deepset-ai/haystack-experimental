@@ -28,10 +28,11 @@ class DocumentToImageContent:
     The component categorizes input documents into three groups:
     - Image documents: Documents successfully converted into ImageContent objects
     - Non-image documents: Documents that don't contain supported image formats
-    - Documents with missing information: Documents lacking required metadata such as `file_path` or `page_number`
+    - Documents with missing information: Documents lacking required metadata such as `file_path_meta_field`
+      or `page_number`
 
     Documents will be skipped and categorized as non-image documents in the following scenarios:
-    - The `file_path` is not present in the document metadata
+    - The `file_path_meta_field` is not present in the document metadata
     - The file path does not point to an existing file when combined with `root_path`
     - The file format is not among the supported image types
     - For PDF files, the `page_number` is not present in the metadata
@@ -39,6 +40,7 @@ class DocumentToImageContent:
     Usage example:
         ```python
         converter = DocumentToImageContent(
+            file_path_meta_field="file_path",
             root_path="/data/documents",
             detail="high",
             size=(800, 600)
@@ -51,13 +53,16 @@ class DocumentToImageContent:
 
         result = converter.run(documents)
         image_documents = result["image_documents"]
+        #
         image_contents = result["image_contents"]
+        #
         ```
     """
 
     def __init__(
         self,
         *,
+        file_path_meta_field: str = "file_path",
         root_path: Optional[str] = None,
         detail: Optional[Literal["auto", "high", "low"]] = None,
         size: Optional[Tuple[int, int]] = None
@@ -65,6 +70,7 @@ class DocumentToImageContent:
         """
         Initialize the DocumentToImageContent component.
 
+        :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
         :param root_path: The root directory path where document files are located. If provided, file paths in
             document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
         :param detail: Optional detail level of the image (only supported by OpenAI). Can be "auto", "high", or "low".
@@ -73,7 +79,8 @@ class DocumentToImageContent:
             maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
             when working with models that have resolution constraints or when transmitting images to remote services.
         """
-        self.root_path = root_path
+        self.file_path_meta_field = file_path_meta_field
+        self.root_path = root_path or ""
         self.detail = detail
         self.size = size
 
@@ -81,33 +88,8 @@ class DocumentToImageContent:
         self._file_to_image_converter = ImageFileToImageContent(detail=detail, size=size)
         self._pdf_to_image_converter = PDFToImageContent(detail=detail, size=size)
 
-    @staticmethod
-    def _deduplicate(documents: List[Document]) -> List[Document]:
-        """
-        Deduplicate the documents based on file path and page number if available.
-
-        This deduplication is particularly important for PDF documents where the same page might be represented by
-        multiple documents due to text splitting or other preprocessing steps. Only the first occurrence
-        of each unique (file_path, page_number) combination is retained.
-
-        :param documents: A list of documents to deduplicate.
-
-        :returns:
-            A list of documents with duplicates removed, maintaining original order of first occurrences.
-        """
-        unique_documents = []
-        seen = set()
-        for doc in documents:
-            key = (doc.meta["file_path"], doc.meta.get("page_number"))
-            if key not in seen:
-                unique_documents.append(doc)
-                seen.add(key)
-        return unique_documents
-
-    @component.output_types(
-        image_documents=List[Document], image_contents=List[ImageContent], non_image_documents=List[Document]
-    )
-    def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
+    @component.output_types(image_documents=List[Document], image_contents=List[ImageContent])
+    def run(self, documents: List[Document]) -> Union[Dict[str, List[Document]], Dict[str, List[ImageContent]]]:
         """
         Convert documents with image or PDF sources into ImageContent objects.
 
@@ -115,7 +97,8 @@ class DocumentToImageContent:
         into ImageContent objects. Documents are categorized based on their file type and processing success.
 
         :param documents: A list of documents to process. Each document should have metadata containing at minimum
-            a 'file_path' key. PDF documents additionally require a 'page_number' key to specify which page to convert.
+            a 'file_path_meta_field' key. PDF documents additionally require a 'page_number' key to specify which
+            page to convert.
 
         :returns:
             Dictionary containing three lists:
@@ -123,58 +106,53 @@ class DocumentToImageContent:
                 Includes both image files and PDF pages.
             - "image_contents": ImageContents created from the processed documents. These contain base64-encoded image
                 data and metadata. The order corresponds to the `image_documents` list.
-            - "non_image_documents": Document objects that could not be processed as images. This includes unsupported
-                file types, missing files, and documents with insufficient metadata.
         """
         if not documents:
-            return {"image_documents": [], "image_contents": [], "non_image_documents": []}
-
-        root_path = self.root_path or ""
+            return {"image_documents": [], "image_contents": []}
 
         pdf_docs = []
         image_docs = []
-        non_image_docs = []
-        missing_info_docs = []
 
         for doc in documents:
-            file_path = doc.meta.get("file_path")
-            if file_path is None or not Path(root_path, file_path).is_file():
-                missing_info_docs.append(doc)
-                continue
+            file_path = doc.meta.get(self.file_path_meta_field)
+            if file_path is None:
+                raise ValueError(
+                    f"Document with ID '{doc.id}' is missing the '{self.file_path_meta_field}' key in its metadata."
+                    f" Please ensure that the documents you are trying to convert have this key set."
+                )
+
+            if not Path(self.root_path, file_path).is_file():
+                raise ValueError(
+                    f"Document with ID '{doc.id}' has an invalid file path '{file_path}'. "
+                    f"Please ensure that the documents you are trying to convert have valid file paths."
+                )
 
             # Store the non-image documents separately
             mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(file_path)[0]
             if mime_type not in IMAGE_MIME_TYPES:
-                non_image_docs.append(doc)
-                continue
+                raise ValueError(
+                    f"Document with file path '{file_path}' has an unsupported MIME type '{mime_type}'. "
+                    f"Please ensure that the documents you are trying to convert are of the supported "
+                    f"types: {', '.join(IMAGE_MIME_TYPES)}."
+                )
 
             # If mimetype is PDF we also need the page number to be able to convert the right page
             if mime_type == "application/pdf":
                 page_number = doc.meta.get("page_number")
                 if page_number is None:
-                    missing_info_docs.append(doc)
-                else:
-                    pdf_docs.append(doc)
-                continue
-
-            image_docs.append(doc)
-
-        if missing_info_docs:
-            logger.warning(
-                "In DocumentToImageContent {len_missing_file_paths} Documents are either missing a `file_path` "
-                "key in their metadata or the `file_path` does not point to a valid file. "
-                "They will be returned in the `non_image_documents` output.",
-                len_missing_file_paths=len(missing_info_docs),
-            )
-
-        # We de-duplicate the pdf documents because it's possible that the same PDF page is represented by multiple
-        # documents
-        pdf_docs = self._deduplicate(pdf_docs)
+                    raise ValueError(
+                        f"Document with ID '{doc.id}' comes from the PDF file '{file_path}' but is missing the "
+                        f"'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
+                        f"convert have this key set."
+                    )
+                pdf_docs.append(doc)
+            else:
+                image_docs.append(doc)
 
         # Convert the image documents into ImageContent objects
         image_byte_streams: List[Union[str, Path, ByteStream]] = [
             ByteStream.from_file_path(
-                filepath=Path(root_path, doc.meta["file_path"]),
+                filepath=Path(self.root_path, doc.meta["file_path"]),
                 mime_type=mimetypes.guess_type(doc.meta["file_path"])[0],
                 meta={"file_path": doc.meta["file_path"]}
             ) for doc in image_docs
@@ -185,7 +163,7 @@ class DocumentToImageContent:
         pdf_to_image_inputs = {
             "sources": [
                 ByteStream.from_file_path(
-                    filepath=Path(root_path, doc.meta["file_path"]),
+                    filepath=Path(self.root_path, doc.meta["file_path"]),
                     mime_type="application/pdf",
                     meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]}
                 ) for doc in pdf_docs
@@ -197,8 +175,4 @@ class DocumentToImageContent:
             page_range=pdf_to_image_inputs["page_range"],
         )["image_contents"]
 
-        return {
-            "image_documents": image_docs + pdf_docs,
-            "image_contents": image_contents + pdf_image_contents,
-            "non_image_documents": non_image_docs + missing_info_docs
-        }
+        return {"image_documents": image_docs + pdf_docs, "image_contents": image_contents + pdf_image_contents}
