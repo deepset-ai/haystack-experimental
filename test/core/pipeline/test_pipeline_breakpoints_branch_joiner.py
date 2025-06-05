@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 

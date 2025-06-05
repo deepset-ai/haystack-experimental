@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
-from haystack import logging
+from haystack import logging, tracing
 from haystack.core.component import Component, InputSocket, OutputSocket, component
 from haystack.core.errors import (
     DeserializationError,
@@ -51,6 +51,10 @@ T = TypeVar("T", bound="PipelineBase")
 
 logger = logging.getLogger(__name__)
 
+# Constants for tracing tags
+_COMPONENT_INPUT = "haystack.component.input"
+_COMPONENT_OUTPUT = "haystack.component.output"
+_COMPONENT_VISITS = "haystack.component.visits"
 
 class ComponentPriority(IntEnum):
     HIGHEST = 1
@@ -89,12 +93,14 @@ class PipelineBase:
         self._telemetry_runs = 0
         self._last_telemetry_sent: Optional[datetime] = None
         self.metadata = metadata or {}
-        self.graph = networkx.MultiDiGraph()
+        self.graph: networkx.MultiDiGraph = networkx.MultiDiGraph()
         self._max_runs_per_component = max_runs_per_component
         self._connection_type_validation = connection_type_validation
 
         self.ordered_component_names: List[str] = []
         self.original_input_data: Dict[str, Any] = {}
+
+        # state for resuming the pipeline execution
         self.resume_state: Optional[Dict[str, Any]] = None
         self.debug_path: Optional[Union[str, Path]] = None
 
@@ -748,7 +754,7 @@ class PipelineBase:
         image_data = _to_mermaid_image(self.graph, server_url=server_url, params=params, timeout=timeout)
         Path(path).write_bytes(image_data)
 
-    def walk(self) -> Iterator[Tuple[str, Component]]:
+    def walk(self) -> Iterator[tuple[Any, dict[str, Any]]]:
         """
         Visits each component in the pipeline exactly once and yields its name and instance.
 
@@ -771,6 +777,34 @@ class PipelineBase:
             if hasattr(self.graph.nodes[node]["instance"], "warm_up"):
                 logger.info("Warming up component {node}...", node=node)
                 self.graph.nodes[node]["instance"].warm_up()
+
+    @staticmethod
+    def _create_component_span(
+            component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
+    ):
+        return tracing.tracer.trace(
+            "haystack.component.run",
+            tags={
+                "haystack.component.name": component_name,
+                "haystack.component.type": instance.__class__.__name__,
+                "haystack.component.input_types": {k: type(v).__name__ for k, v in inputs.items()},
+                "haystack.component.input_spec": {
+                    key: {
+                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                        "senders": value.senders,
+                    }
+                    for key, value in instance.__haystack_input__._sockets_dict.items()  # type: ignore
+                },
+                "haystack.component.output_spec": {
+                    key: {
+                        "type": (value.type.__name__ if isinstance(value.type, type) else str(value.type)),
+                        "receivers": value.receivers,
+                    }
+                    for key, value in instance.__haystack_output__._sockets_dict.items()  # type: ignore
+                },
+            },
+            parent_span=parent_span,
+        )
 
     def _validate_input(self, data: Dict[str, Any]):
         """
@@ -1108,8 +1142,9 @@ class PipelineBase:
         if len(components_with_same_priority) > 1:
             if topological_sort is None:
                 if networkx.is_directed_acyclic_graph(self.graph):
-                    topological_sort = networkx.lexicographical_topological_sort(self.graph)
-                    topological_sort = {node: idx for idx, node in enumerate(topological_sort)}
+                    # Convert generator to list before creating dictionary
+                    topo_sort_list = list(networkx.lexicographical_topological_sort(self.graph))
+                    topological_sort = {node: idx for idx, node in enumerate(topo_sort_list)}
                 else:
                     condensed = networkx.condensation(self.graph)
                     condensed_sorted = {node: idx for idx, node in enumerate(networkx.topological_sort(condensed))}
