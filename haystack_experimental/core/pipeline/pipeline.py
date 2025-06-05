@@ -290,10 +290,10 @@ class Pipeline(PipelineBase):
                             component_inputs[key] = deserialize_component_input(value)
 
                     if validated_breakpoints and not self.resume_state:
-                        state_inputs_serialised = deepcopy(inputs)
+                        state_inputs_serialised = remove_unserializable_data(deepcopy(inputs))
                         # inject the component_inputs into the state_inputs so we can this component init params in
                         # the JSON state
-                        state_inputs_serialised[component_name] = deepcopy(component_inputs)
+                        state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(component_inputs))
 
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
@@ -666,6 +666,28 @@ def transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any
     else:
         # For other data types, just return the value as is.
         return data
+
+
+def remove_unserializable_data(value: Any) -> Any:
+    """
+    Removes certain unserializable data which is not needed for the pipeline state.
+    """
+
+    if isinstance(value, ChatMessage):  # noqa: SIM102
+        if "usage" in value.meta:  # noqa: SIM102
+            value.meta["usage"].pop("completion_tokens_details", None)
+            value.meta["usage"].pop("prompt_tokens_details", None)
+
+    if isinstance(value, GeneratedAnswer):  # noqa: SIM102
+        if value.meta and "usage" in value.meta:  # noqa: SIM102
+            value.meta.pop("usage", None)
+
+        # all_messages contains a list of unserialized ChatMessages
+        # TODO: we should find a better way to handle this
+        if value.meta and "all_messages" in value.meta:
+            value.meta.pop("all_messages", None)
+
+    return value
 
 
 def serialize_component_input_old(value: Any) -> Any:
