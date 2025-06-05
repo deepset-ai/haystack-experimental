@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @component
 class DocumentToImageContent:
     """
-    A component to convert documents sourced from PDF and image files to ImageContents.
+    Converts documents sourced from PDF and image files into ImageContents.
 
     This component processes a list of Documents and extracts visual content from supported file formats, converting
     them into ImageContents that can be used for multimodal AI tasks. It handles both direct image files and PDF
