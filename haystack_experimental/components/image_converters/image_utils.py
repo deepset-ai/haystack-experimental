@@ -225,7 +225,7 @@ def convert_pdf_to_images(
 
         # Get dimensions of the page
         page = pdf[max(page_number - 1, 0)]  # Adjust for 0-based indexing
-        _,_,width,height = page.get_mediabox()
+        _, _, width, height = page.get_mediabox()
 
         target_resolution_dpi = 300.0
 
@@ -236,7 +236,7 @@ def convert_pdf_to_images(
         target_scale = target_resolution_dpi / 72.0
 
         # Calculate potential pixels for target_dpi
-        pixels_for_target_scale = width * height * target_scale ** 2
+        pixels_for_target_scale = width * height * target_scale**2
 
         pil_max_pixels = PILImage.MAX_IMAGE_PIXELS or int(1024 * 1024 * 1024 // 4 // 3)
         # 90% of PIL's default limit to prevent borderline cases

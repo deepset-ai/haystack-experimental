@@ -56,6 +56,7 @@ _COMPONENT_INPUT = "haystack.component.input"
 _COMPONENT_OUTPUT = "haystack.component.output"
 _COMPONENT_VISITS = "haystack.component.visits"
 
+
 class ComponentPriority(IntEnum):
     HIGHEST = 1
     READY = 2
@@ -780,7 +781,7 @@ class PipelineBase:
 
     @staticmethod
     def _create_component_span(
-            component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
+        component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
     ):
         return tracing.tracer.trace(
             "haystack.component.run",

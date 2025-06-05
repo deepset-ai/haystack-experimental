@@ -163,7 +163,7 @@ def test_transform_json_structure_unwraps_sender_value():
         "key2": 42,
         "key3": "direct value"
     }
-        
+
 def test_transform_json_structure_handles_nested_structures():
     data = {
         "key1": [{"sender": None, "value": "value1"}],
@@ -190,7 +190,7 @@ def test_transform_json_structure_handles_nested_structures():
             "value5"
         ]
     }
-        
+
 def test_serialize_component_input_handles_objects_with_to_dict():
     class TestObject:
         def __init__(self, value):

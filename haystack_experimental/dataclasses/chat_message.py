@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult, ImageContent]
 
+
 def _deserialize_content_part(part: Dict[str, Any]) -> ChatMessageContentT:
     """
     Deserialize a single content part of a serialized ChatMessage.
@@ -41,7 +42,6 @@ def _deserialize_content_part(part: Dict[str, Any]) -> ChatMessageContentT:
     if "image" in part:
         return ImageContent(**part["image"])
     raise ValueError(f"Unsupported part in serialized ChatMessage: `{part}`")
-
 
 
 def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatMessageContentT]:
@@ -77,6 +77,7 @@ def _serialize_content_part(part: ChatMessageContentT) -> Dict[str, Any]:
     elif isinstance(part, ImageContent):
         return {"image": asdict(part)}
     raise TypeError(f"Unsupported type in ChatMessage content: `{type(part).__name__}` for `{part}`.")
+
 
 @dataclass
 class ChatMessage(HaystackChatMessage):
@@ -141,11 +142,11 @@ class ChatMessage(HaystackChatMessage):
 
             unsupported_parts = [el for el in content if not isinstance(el, (ImageContent, TextContent))]
             if unsupported_parts:
-                raise ValueError(f"The user message must contain only text or image parts."
-                                 f"Unsupported parts: {unsupported_parts}")
+                raise ValueError(
+                    f"The user message must contain only text or image parts.Unsupported parts: {unsupported_parts}"
+                )
 
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
-
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -176,8 +177,9 @@ class ChatMessage(HaystackChatMessage):
                 "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
             )
         if len(text_contents) + len(tool_call_results) > 1:
-            raise ValueError("For OpenAI compatibility, a `ChatMessage` can only contain one `TextContent` or "
-                             "one `ToolCallResult`.")
+            raise ValueError(
+                "For OpenAI compatibility, a `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`."
+            )
 
         openai_msg: Dict[str, Any] = {"role": self._role.value}
 
@@ -237,7 +239,6 @@ class ChatMessage(HaystackChatMessage):
                 )
             openai_msg["tool_calls"] = openai_tool_calls
         return openai_msg
-
 
     # NOTE: The following class methods are copied from Haystack.
     # They are needed to return the experimental ChatMessage type.

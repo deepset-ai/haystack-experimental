@@ -69,7 +69,7 @@ class TestChatMessageExtension:
         {% endmessage %}
         """
         with pytest.raises(TemplateSyntaxError):
-            jinja_env.from_string(template).render()            
+            jinja_env.from_string(template).render()
 
     def test_message_name_not_str_raises_error(self, jinja_env):
         template = """
@@ -330,7 +330,7 @@ But my favorite subject is Small Language Models.
         with pytest.raises(ValueError, match=error_message):
             jinja_env.from_string(template).render()
 
-        template = "{% message role='user' %}  \n\t\n\t  {% endmessage %}"    
+        template = "{% message role='user' %}  \n\t\n\t  {% endmessage %}"
         with pytest.raises(ValueError, match=error_message):
             jinja_env.from_string(template).render()
 
@@ -350,7 +350,7 @@ But my favorite subject is Small Language Models.
         {% endmessage %}
         """
         with pytest.raises(ValueError, match=error_message):
-            jinja_env.from_string(template).render()            
+            jinja_env.from_string(template).render()
 
     def test_message_no_parts_raises_error(self, jinja_env):
         template = """
@@ -358,10 +358,10 @@ But my favorite subject is Small Language Models.
         Something
         {% endmessage %}
         """
-        
+
         # I am patching the _parse_content_parts method to return an empty list
         # because I could not find a template that raises a similar error
-        with patch("haystack_experimental.utils.jinja_chat_extension.ChatMessageExtension._parse_content_parts", 
+        with patch("haystack_experimental.utils.jinja_chat_extension.ChatMessageExtension._parse_content_parts",
                    return_value=[]):
             with pytest.raises(ValueError, match="message parts"):
                 jinja_env.from_string(template).render()
@@ -444,7 +444,7 @@ But my favorite subject is Small Language Models.
         image = ImageContent(base64_image=base64_image_string, mime_type="image/png")
         with pytest.raises(ValueError):
             jinja_env.from_string(template).render(image=image)
-        
+
         template = """
         {% message role="assistant" %}
         {{ image | templatize_part }}

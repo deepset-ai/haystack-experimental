@@ -301,7 +301,7 @@ class Pipeline(PipelineBase):
                             inputs=state_inputs_serialised,
                             debug_path=self.debug_path,
                             original_input_data=data,
-                            ordered_component_names=self.ordered_component_names
+                            ordered_component_names=self.ordered_component_names,
                         )
 
                     # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
@@ -316,7 +316,7 @@ class Pipeline(PipelineBase):
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
-                        inputs=component_inputs, # the inputs to the current component
+                        inputs=component_inputs,  # the inputs to the current component
                         component_visits=component_visits,
                         parent_span=span,
                     )
@@ -563,7 +563,7 @@ class Pipeline(PipelineBase):
         inputs: Dict[str, Any],
         debug_path: Optional[Union[str, Path]] = None,
         original_input_data: Optional[Dict[str, Any]] = None,
-        ordered_component_names: Optional[List[str]] = None
+        ordered_component_names: Optional[List[str]] = None,
     ):
         """
         Check if the `component_name` is in the breakpoints and if it should break.
@@ -588,10 +588,9 @@ class Pipeline(PipelineBase):
                     component_visits=component_visits,
                     debug_path=debug_path,
                     original_input_data=original_input_data,
-                    ordered_component_names=ordered_component_names
+                    ordered_component_names=ordered_component_names,
                 )
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
-
 
 
 def deserialize_component_input(value):  # noqa: PLR0911
@@ -717,5 +716,3 @@ def serialize_component_input(value: Any) -> Any:
         return [serialize_component_input(item) for item in value]
 
     return value
-
-
