@@ -1,0 +1,366 @@
+{
+  "input_data": {
+    "serialization_schema": {
+      "type": "object",
+      "properties": {
+        "gpt-4o": {
+          "type": "object",
+          "properties": {
+            "messages": {
+              "type": "array",
+              "items": {
+                "type": "haystack.dataclasses.chat_message.ChatMessage"
+              }
+            }
+          }
+        },
+        "gpt-3": {
+          "type": "object",
+          "properties": {
+            "messages": {
+              "type": "array",
+              "items": {
+                "type": "haystack.dataclasses.chat_message.ChatMessage"
+              }
+            }
+          }
+        },
+        "answer_builder_a": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          }
+        },
+        "answer_builder_b": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "serialized_data": {
+      "gpt-4o": {
+        "messages": [
+          {
+            "role": "system",
+            "meta": {},
+            "name": null,
+            "content": [
+              {
+                "text": "You are a helpful, respectful and honest assistant. Be super concise."
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "meta": {},
+            "name": null,
+            "content": [
+              {
+                "text": "What's Natural Language Processing?"
+              }
+            ]
+          }
+        ]
+      },
+      "gpt-3": {
+        "messages": [
+          {
+            "role": "system",
+            "meta": {},
+            "name": null,
+            "content": [
+              {
+                "text": "You are a helpful, respectful and honest assistant. Be super concise."
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "meta": {},
+            "name": null,
+            "content": [
+              {
+                "text": "What's Natural Language Processing?"
+              }
+            ]
+          }
+        ]
+      },
+      "answer_builder_a": {
+        "query": "What's Natural Language Processing?"
+      },
+      "answer_builder_b": {
+        "query": "What's Natural Language Processing?"
+      }
+    }
+  },
+  "timestamp": "2025-06-05T16:10:38.350814",
+  "breakpoint": {
+    "component": "answer_joiner",
+    "visits": 0
+  },
+  "pipeline_state": {
+    "inputs": {
+      "serialization_schema": {
+        "type": "object",
+        "properties": {
+          "gpt-4o": {
+            "type": "object",
+            "properties": {
+              "messages": {
+                "type": "array",
+                "items": {
+                  "type": "haystack.dataclasses.chat_message.ChatMessage"
+                }
+              }
+            }
+          },
+          "gpt-3": {
+            "type": "object",
+            "properties": {
+              "messages": {
+                "type": "array",
+                "items": {
+                  "type": "haystack.dataclasses.chat_message.ChatMessage"
+                }
+              }
+            }
+          },
+          "answer_builder_a": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            }
+          },
+          "answer_builder_b": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            }
+          },
+          "answer_joiner": {
+            "type": "object",
+            "properties": {
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "top_k": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "serialized_data": {
+        "gpt-4o": {
+          "messages": [
+            {
+              "role": "system",
+              "meta": {},
+              "name": null,
+              "content": [
+                {
+                  "text": "You are a helpful, respectful and honest assistant. Be super concise."
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "meta": {},
+              "name": null,
+              "content": [
+                {
+                  "text": "What's Natural Language Processing?"
+                }
+              ]
+            }
+          ]
+        },
+        "gpt-3": {
+          "messages": [
+            {
+              "role": "system",
+              "meta": {},
+              "name": null,
+              "content": [
+                {
+                  "text": "You are a helpful, respectful and honest assistant. Be super concise."
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "meta": {},
+              "name": null,
+              "content": [
+                {
+                  "text": "What's Natural Language Processing?"
+                }
+              ]
+            }
+          ]
+        },
+        "answer_builder_a": {
+          "query": "What's Natural Language Processing?"
+        },
+        "answer_builder_b": {
+          "query": "What's Natural Language Processing?"
+        },
+        "answer_joiner": {
+          "answers": [
+            [
+              {
+                "type": "haystack.dataclasses.answer.GeneratedAnswer",
+                "init_parameters": {
+                  "data": "Natural Language Processing, or NLP, is a field of AI involving computer understanding, interpretation, manipulation, and generation of human language.\n",
+                  "query": "What's Natural Language Processing?",
+                  "documents": [],
+                  "meta": {
+                    "model": "gpt-4-0613",
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "usage": {
+                      "completion_tokens": 27,
+                      "prompt_tokens": 31,
+                      "total_tokens": 58,
+                      "completion_tokens_details": {
+                        "accepted_prediction_tokens": 0,
+                        "audio_tokens": 0,
+                        "reasoning_tokens": 0,
+                        "rejected_prediction_tokens": 0
+                      },
+                      "prompt_tokens_details": {
+                        "audio_tokens": 0,
+                        "cached_tokens": 0
+                      }
+                    },
+                    "all_messages": [
+                      {
+                        "role": "assistant",
+                        "meta": {
+                          "model": "gpt-4-0613",
+                          "index": 0,
+                          "finish_reason": "stop",
+                          "usage": {
+                            "completion_tokens": 27,
+                            "prompt_tokens": 31,
+                            "total_tokens": 58,
+                            "completion_tokens_details": {
+                              "accepted_prediction_tokens": 0,
+                              "audio_tokens": 0,
+                              "reasoning_tokens": 0,
+                              "rejected_prediction_tokens": 0
+                            },
+                            "prompt_tokens_details": {
+                              "audio_tokens": 0,
+                              "cached_tokens": 0
+                            }
+                          }
+                        },
+                        "name": null,
+                        "content": [
+                          {
+                            "text": "Natural Language Processing, or NLP, is a field of AI involving computer understanding, interpretation, manipulation, and generation of human language.\n"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            [
+              {
+                "type": "haystack.dataclasses.answer.GeneratedAnswer",
+                "init_parameters": {
+                  "data": "Natural Language Processing (NLP) is a branch of artificial intelligence that focuses on the interaction between computers and humans using natural language. It involves the development of models and algorithms to understand, interpret, and generate human language.",
+                  "query": "What's Natural Language Processing?",
+                  "documents": [],
+                  "meta": {
+                    "model": "gpt-3.5-turbo-0125",
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "usage": {
+                      "completion_tokens": 44,
+                      "prompt_tokens": 31,
+                      "total_tokens": 75,
+                      "completion_tokens_details": {
+                        "accepted_prediction_tokens": 0,
+                        "audio_tokens": 0,
+                        "reasoning_tokens": 0,
+                        "rejected_prediction_tokens": 0
+                      },
+                      "prompt_tokens_details": {
+                        "audio_tokens": 0,
+                        "cached_tokens": 0
+                      }
+                    },
+                    "all_messages": [
+                      {
+                        "role": "assistant",
+                        "meta": {
+                          "model": "gpt-3.5-turbo-0125",
+                          "index": 0,
+                          "finish_reason": "stop",
+                          "usage": {
+                            "completion_tokens": 44,
+                            "prompt_tokens": 31,
+                            "total_tokens": 75,
+                            "completion_tokens_details": {
+                              "accepted_prediction_tokens": 0,
+                              "audio_tokens": 0,
+                              "reasoning_tokens": 0,
+                              "rejected_prediction_tokens": 0
+                            },
+                            "prompt_tokens_details": {
+                              "audio_tokens": 0,
+                              "cached_tokens": 0
+                            }
+                          }
+                        },
+                        "name": null,
+                        "content": [
+                          {
+                            "text": "Natural Language Processing (NLP) is a branch of artificial intelligence that focuses on the interaction between computers and humans using natural language. It involves the development of models and algorithms to understand, interpret, and generate human language."
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          ],
+          "top_k": null
+        }
+      }
+    },
+    "component_visits": {
+      "answer_builder_a": 1,
+      "answer_builder_b": 1,
+      "answer_joiner": 0,
+      "gpt-3": 1,
+      "gpt-4o": 1
+    },
+    "ordered_component_names": [
+      "answer_builder_a",
+      "answer_builder_b",
+      "answer_joiner",
+      "gpt-3",
+      "gpt-4o"
+    ]
+  }
+}
