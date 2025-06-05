@@ -21,7 +21,7 @@ class DocumentToImageContent:
     """
     Converts documents sourced from PDF and image files into ImageContents.
 
-    This component processes a list of Documents and extracts visual content from supported file formats, converting
+    This component processes a list of documents and extracts visual content from supported file formats, converting
     them into ImageContents that can be used for multimodal AI tasks. It handles both direct image files and PDF
     documents by extracting specific pages as images.
 
