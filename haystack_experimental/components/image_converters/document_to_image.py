@@ -50,11 +50,6 @@ class DocumentToImageContent:
         ]
 
         result = converter.run(documents)
-        image_documents = result["image_documents"]
-        # [Document(id=..., content: 'Optional description of image.jpg', meta: {'file_path': 'image.jpg'}),
-        #  Document(
-        #    id=..., content: 'Text content of page 1 of doc.pdf', meta: {'file_path': 'doc.pdf', 'page_number': 1}
-        #  )]
         image_contents = result["image_contents"]
         # [ImageContent(
         #    base64_image='/9j/4A...', mime_type='image/jpeg', detail='high', meta={'file_path': 'image.jpg'}
@@ -95,10 +90,8 @@ class DocumentToImageContent:
         self._file_to_image_converter = ImageFileToImageContent(detail=detail, size=size)
         self._pdf_to_image_converter = PDFToImageContent(detail=detail, size=size)
 
-    @component.output_types(image_documents=List[Document], image_contents=List[ImageContent])
-    def run(
-        self, documents: List[Document]
-    ) -> Union[Dict[str, List[Document]], Dict[str, List[ImageContent]], Dict[str, List]]:
+    @component.output_types(image_contents=List[ImageContent])
+    def run(self, documents: List[Document]) -> Union[Dict[str, List[ImageContent]], Dict[str, List]]:
         """
         Convert documents with image or PDF sources into ImageContent objects.
 
@@ -110,17 +103,15 @@ class DocumentToImageContent:
             page to convert.
 
         :returns:
-            Dictionary containing three lists:
-            - "image_documents": Document objects that were successfully processed and have corresponding ImageContents.
-                Includes both image files and PDF pages.
+            Dictionary containing one key:
             - "image_contents": ImageContents created from the processed documents. These contain base64-encoded image
-                data and metadata. The order corresponds to the `image_documents` list.
+                data and metadata. The order corresponds to order of input documents.
         :raises ValueError:
             If any document is missing the required metadata keys, has an invalid file path, or has an unsupported
             MIME type. The error message will specify which document and what information is missing or incorrect.
         """
         if not documents:
-            return {"image_documents": [], "image_contents": []}
+            return {"image_contents": []}
 
         pdf_docs = []
         image_docs = []
@@ -186,4 +177,4 @@ class DocumentToImageContent:
             page_range=pdf_to_image_inputs["page_range"],
         )["image_contents"]
 
-        return {"image_documents": image_docs + pdf_docs, "image_contents": image_contents + pdf_image_contents}
+        return {"image_contents": image_contents + pdf_image_contents}

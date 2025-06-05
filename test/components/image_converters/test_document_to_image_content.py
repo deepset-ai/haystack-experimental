@@ -41,7 +41,7 @@ class TestDocumentToImageContent:
     def test_run_with_empty_documents_list(self) -> None:
         converter = DocumentToImageContent()
         results = converter.run(documents=[])
-        assert results == {"image_documents": [], "image_contents": []}
+        assert results == {"image_contents": []}
 
     def test_run_with_missing_file_path_metadata(self) -> None:
         converter = DocumentToImageContent()
@@ -74,17 +74,13 @@ class TestDocumentToImageContent:
         converter = DocumentToImageContent(root_path="test/test_files/images")
         image_doc = Document(content="test", meta={"file_path": "apple.jpg"})
         results = converter.run(documents=[image_doc])
-        assert len(results["image_documents"]) == 1
         assert len(results["image_contents"]) == 1
-        assert image_doc == results["image_documents"][0]
 
     def test_run_with_pdf_documents(self) -> None:
         converter = DocumentToImageContent()
         pdf_doc = Document(content="test", meta={"file_path": "test/test_files/pdf/sample_pdf_1.pdf", "page_number": 1})
         results = converter.run(documents=[pdf_doc])
-        assert len(results["image_documents"]) == 1
         assert len(results["image_contents"]) == 1
-        assert pdf_doc == results["image_documents"][0]
 
     def test_run_with_mixed_document_types(self) -> None:
         converter = DocumentToImageContent(root_path="test/test_files")
