@@ -87,13 +87,13 @@ class DocumentToImageContent:
         Deduplicate the documents based on file path and page number if available.
 
         This deduplication is particularly important for PDF documents where the same page might be represented by
-        multiple Documents due to text splitting or other preprocessing steps. Only the first occurrence
+        multiple documents due to text splitting or other preprocessing steps. Only the first occurrence
         of each unique (file_path, page_number) combination is retained.
 
-        :param documents: List of Documents to deduplicate.
+        :param documents: A list of documents to deduplicate.
 
         :returns:
-            List of Documents with duplicates removed, maintaining original order of first occurrences.
+            A list of documents with duplicates removed, maintaining original order of first occurrences.
         """
         unique_documents = []
         seen = set()
