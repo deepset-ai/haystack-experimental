@@ -701,10 +701,6 @@ def serialize_component_input(value: Any) -> Any:
     Serializes, so it can be saved to a file, any type of input to a pipeline component.
     """
     value = transform_json_structure(value)
-    print("VALUE")
-    print(value)
     serialized_value = _serialize_value_with_schema(value)
-    print("SERIALIZED VALUE")
-    print(serialized_value)
 
     return serialized_value
