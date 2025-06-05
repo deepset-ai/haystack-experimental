@@ -67,7 +67,7 @@ class DocumentToImageContent:
 
         :param root_path: The root directory path where document files are located. If provided, file paths in
             document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
-        :param detail: Optional detail level of the image (only supported by OpenAI). One of "auto", "high", or "low".
+        :param detail: Optional detail level of the image (only supported by OpenAI). Can be "auto", "high", or "low".
             This will be passed to the created ImageContent objects.
         :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
             maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
