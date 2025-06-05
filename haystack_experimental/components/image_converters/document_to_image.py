@@ -124,16 +124,17 @@ class DocumentToImageContent:
                     f" Please ensure that the documents you are trying to convert have this key set."
                 )
 
-            if not Path(self.root_path, file_path).is_file():
+            resolved_file_path = Path(self.root_path, file_path)
+            if not resolved_file_path.is_file():
                 raise ValueError(
-                    f"Document with ID '{doc.id}' has an invalid file path '{file_path}'. "
+                    f"Document with ID '{doc.id}' has an invalid file path '{resolved_file_path}'. "
                     f"Please ensure that the documents you are trying to convert have valid file paths."
                 )
 
-            mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(file_path)[0]
+            mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(resolved_file_path)[0]
             if mime_type not in IMAGE_MIME_TYPES:
                 raise ValueError(
-                    f"Document with file path '{file_path}' has an unsupported MIME type '{mime_type}'. "
+                    f"Document with file path '{resolved_file_path}' has an unsupported MIME type '{mime_type}'. "
                     f"Please ensure that the documents you are trying to convert are of the supported "
                     f"types: {', '.join(IMAGE_MIME_TYPES)}."
                 )
@@ -143,8 +144,8 @@ class DocumentToImageContent:
                 page_number = doc.meta.get("page_number")
                 if page_number is None:
                     raise ValueError(
-                        f"Document with ID '{doc.id}' comes from the PDF file '{file_path}' but is missing the "
-                        f"'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
+                        f"Document with ID '{doc.id}' comes from the PDF file '{resolved_file_path}' but is missing "
+                        f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
                         f"convert have this key set."
                     )
                 pdf_docs.append(doc)
