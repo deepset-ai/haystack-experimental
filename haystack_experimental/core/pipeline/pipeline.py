@@ -13,6 +13,7 @@ from haystack.components.joiners import BranchJoiner, DocumentJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
+from haystack.utils import _deserialize_value_with_schema, _serialize_value_with_schema
 
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
@@ -289,10 +290,10 @@ class Pipeline(PipelineBase):
                             component_inputs[key] = deserialize_component_input(value)
 
                     if validated_breakpoints and not self.resume_state:
-                        state_inputs_serialised = remove_unserializable_data(deepcopy(inputs))
+                        state_inputs_serialised = deepcopy(inputs)
                         # inject the component_inputs into the state_inputs so we can this component init params in
                         # the JSON state
-                        state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(component_inputs))
+                        state_inputs_serialised[component_name] = deepcopy(component_inputs)
 
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
@@ -301,7 +302,7 @@ class Pipeline(PipelineBase):
                             inputs=state_inputs_serialised,
                             debug_path=self.debug_path,
                             original_input_data=data,
-                            ordered_component_names=self.ordered_component_names
+                            ordered_component_names=self.ordered_component_names,
                         )
 
                     # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
@@ -316,7 +317,7 @@ class Pipeline(PipelineBase):
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
-                        inputs=component_inputs, # the inputs to the current component
+                        inputs=component_inputs,  # the inputs to the current component
                         component_visits=component_visits,
                         parent_span=span,
                     )
@@ -563,7 +564,7 @@ class Pipeline(PipelineBase):
         inputs: Dict[str, Any],
         debug_path: Optional[Union[str, Path]] = None,
         original_input_data: Optional[Dict[str, Any]] = None,
-        ordered_component_names: Optional[List[str]] = None
+        ordered_component_names: Optional[List[str]] = None,
     ):
         """
         Check if the `component_name` is in the breakpoints and if it should break.
@@ -588,10 +589,9 @@ class Pipeline(PipelineBase):
                     component_visits=component_visits,
                     debug_path=debug_path,
                     original_input_data=original_input_data,
-                    ordered_component_names=ordered_component_names
+                    ordered_component_names=ordered_component_names,
                 )
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
-
 
 
 def deserialize_component_input(value):  # noqa: PLR0911
@@ -668,33 +668,10 @@ def transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any
         return data
 
 
-def remove_unserializable_data(value: Any) -> Any:
-    """
-    Removes certain unserializable data which is not needed for the pipeline state.
-    """
-
-    if isinstance(value, ChatMessage):  # noqa: SIM102
-        if "usage" in value.meta:  # noqa: SIM102
-            value.meta["usage"].pop("completion_tokens_details", None)
-            value.meta["usage"].pop("prompt_tokens_details", None)
-
-    if isinstance(value, GeneratedAnswer):  # noqa: SIM102
-        if value.meta and "usage" in value.meta:  # noqa: SIM102
-            value.meta.pop("usage", None)
-
-        # all_messages contains a list of unserialized ChatMessages
-        # TODO: we should find a better way to handle this
-        if value.meta and "all_messages" in value.meta:
-            value.meta.pop("all_messages", None)
-
-    return value
-
-
-def serialize_component_input(value: Any) -> Any:
+def serialize_component_input_old(value: Any) -> Any:
     """
     Serializes, so it can be saved to a file, any type of input to a pipeline component.
     """
-    value = remove_unserializable_data(value)
     value = transform_json_structure(value)
     if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
         serialized_value = value.to_dict()
@@ -719,3 +696,15 @@ def serialize_component_input(value: Any) -> Any:
     return value
 
 
+def serialize_component_input(value: Any) -> Any:
+    """
+    Serializes, so it can be saved to a file, any type of input to a pipeline component.
+    """
+    value = transform_json_structure(value)
+    print("VALUE")
+    print(value)
+    serialized_value = _serialize_value_with_schema(value)
+    print("SERIALIZED VALUE")
+    print(serialized_value)
+
+    return serialized_value
