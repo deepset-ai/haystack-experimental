@@ -109,7 +109,7 @@ class DocumentToImageContent:
     )
     def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
-        Convert documents with image or PDF sources to ImageContents.
+        Convert documents with image or PDF sources into ImageContent objects.
 
         This method processes the input documents, extracting images from supported file formats and converting them
         to ImageContents. Documents are categorized based on their file type and processing success.
