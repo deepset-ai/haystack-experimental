@@ -9,11 +9,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
-from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
-from haystack.utils import _serialize_value_with_schema
 
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
@@ -300,10 +298,6 @@ class Pipeline(PipelineBase):
 
                         # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
                         params = copy(component["instance"].__dict__)
-
-                        # this is needed as the template param is stored as _template_string in the component's __dict__
-                        # if "_template_string" in params:
-                        #    params["template"] = params["_template_string"]
                         state_inputs_serialised[component_name]["init_parameters"] = params
 
                         Pipeline._check_breakpoints(
