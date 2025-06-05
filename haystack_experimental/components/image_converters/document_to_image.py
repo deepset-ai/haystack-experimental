@@ -111,9 +111,7 @@ class DocumentToImageContent:
         if not documents:
             return {"image_contents": []}
 
-        pdf_docs = []
-        image_docs = []
-
+        image_contents = []
         for doc in documents:
             file_path = doc.meta.get(self.file_path_meta_field)
             if file_path is None:
@@ -146,34 +144,26 @@ class DocumentToImageContent:
                         f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
                         f"convert have this key set."
                     )
-                pdf_docs.append(doc)
+                image_contents.extend(
+                    # Possible for _pdf_to_image_converter to return multiple images depending on the page range
+                    self._pdf_to_image_converter.run(
+                        sources=[ByteStream.from_file_path(
+                            filepath=resolved_file_path,
+                            mime_type="application/pdf",
+                            meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]}
+                        )],
+                        page_range=[doc.meta["page_number"]],
+                    )["image_contents"]
+                )
             else:
-                image_docs.append(doc)
+                image_contents.extend(
+                    self._file_to_image_converter.run(
+                        sources=[ByteStream.from_file_path(
+                            filepath=resolved_file_path,
+                            mime_type=mime_type,
+                            meta={"file_path": doc.meta["file_path"]}
+                        )]
+                    )["image_contents"]
+                )
 
-        # Convert the image documents into ImageContent objects
-        image_byte_streams: List[Union[str, Path, ByteStream]] = [
-            ByteStream.from_file_path(
-                filepath=Path(self.root_path, doc.meta["file_path"]),
-                mime_type=mimetypes.guess_type(doc.meta["file_path"])[0],
-                meta={"file_path": doc.meta["file_path"]}
-            ) for doc in image_docs
-        ]
-        image_contents = self._file_to_image_converter.run(sources=image_byte_streams)["image_contents"]
-
-        # Convert the PDF documents into ImageContent objects
-        pdf_to_image_inputs = {
-            "sources": [
-                ByteStream.from_file_path(
-                    filepath=Path(self.root_path, doc.meta["file_path"]),
-                    mime_type="application/pdf",
-                    meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]}
-                ) for doc in pdf_docs
-            ],
-            "page_range": [doc.meta["page_number"] for doc in pdf_docs],
-        }
-        pdf_image_contents = self._pdf_to_image_converter.run(
-            sources=pdf_to_image_inputs["sources"],
-            page_range=pdf_to_image_inputs["page_range"],
-        )["image_contents"]
-
-        return {"image_contents": image_contents + pdf_image_contents}
+        return {"image_contents": image_contents}
