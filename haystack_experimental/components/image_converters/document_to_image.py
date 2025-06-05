@@ -89,7 +89,9 @@ class DocumentToImageContent:
         self._pdf_to_image_converter = PDFToImageContent(detail=detail, size=size)
 
     @component.output_types(image_documents=List[Document], image_contents=List[ImageContent])
-    def run(self, documents: List[Document]) -> Union[Dict[str, List[Document]], Dict[str, List[ImageContent]]]:
+    def run(
+        self, documents: List[Document]
+    ) -> Union[Dict[str, List[Document]], Dict[str, List[ImageContent]], Dict[str, List]]:
         """
         Convert documents with image or PDF sources into ImageContent objects.
 
