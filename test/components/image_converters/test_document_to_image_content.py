@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+
 import pytest
 from haystack import Document
 from haystack.core.serialization import component_from_dict, component_to_dict
@@ -17,7 +18,9 @@ class TestDocumentToImageContent:
         }
 
     def test_to_dict_not_defaults(self) -> None:
-        converter = DocumentToImageContent(file_path_meta_field="image_path", root_path="/data", detail="high", size=(800, 600))
+        converter = DocumentToImageContent(
+            file_path_meta_field="image_path", root_path="/data", detail="high", size=(800, 600)
+        )
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {
                 "file_path_meta_field": "image_path", "root_path": "/data", "detail": "high", "size": (800, 600)
