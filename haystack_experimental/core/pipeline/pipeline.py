@@ -3,16 +3,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from copy import deepcopy
+from copy import copy, deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
-from haystack.components.joiners import BranchJoiner, DocumentJoiner
+from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
+from haystack.utils import _serialize_value_with_schema
 
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
@@ -289,10 +290,21 @@ class Pipeline(PipelineBase):
                             component_inputs[key] = deserialize_component_input(value)
 
                     if validated_breakpoints and not self.resume_state:
-                        state_inputs_serialised = remove_unserializable_data(deepcopy(inputs))
+                        state_inputs_serialised = deepcopy(inputs)
                         # inject the component_inputs into the state_inputs so we can this component init params in
                         # the JSON state
-                        state_inputs_serialised[component_name] = remove_unserializable_data(deepcopy(component_inputs))
+                        state_inputs_serialised[component_name] = deepcopy(component_inputs)
+
+                        # TODO: Adding the old approach until we finalize if we
+                        # want to use serialization with schema or without
+
+                        # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
+                        params = copy(component["instance"].__dict__)
+
+                        # this is needed as the template param is stored as _template_string in the component's __dict__
+                        # if "_template_string" in params:
+                        #    params["template"] = params["_template_string"]
+                        state_inputs_serialised[component_name]["init_parameters"] = params
 
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
@@ -301,22 +313,13 @@ class Pipeline(PipelineBase):
                             inputs=state_inputs_serialised,
                             debug_path=self.debug_path,
                             original_input_data=data,
-                            ordered_component_names=self.ordered_component_names
+                            ordered_component_names=self.ordered_component_names,
                         )
-
-                    # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
-                    # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
-                    instance: Component = component["instance"]
-                    if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
-                        if isinstance(component_inputs["documents"], list):  # noqa: SIM102
-                            if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
-                                if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
-                                    component_inputs["documents"] = component_inputs["documents"][0]
 
                     component_outputs = self._run_component(
                         component_name=component_name,
                         component=component,
-                        inputs=component_inputs, # the inputs to the current component
+                        inputs=component_inputs,  # the inputs to the current component
                         component_visits=component_visits,
                         parent_span=span,
                     )
@@ -520,6 +523,15 @@ class Pipeline(PipelineBase):
             The saved state dictionary
         """
         dt = datetime.now()
+
+        # we store a component init_parameters together with the breakpoint in the saved state
+        # this is helpful for debugging or manually updating the state
+        for value in inputs.values():
+            if "init_parameters" in value.keys():
+                init_params = value.pop("init_parameters")
+                for k, v in value.items():
+                    if k in init_params.keys() and v is None:
+                        value[k] = serialize_component_input(init_params[k])
         state = {
             "input_data": serialize_component_input(original_input_data),  # original input data
             "timestamp": dt.isoformat(),
@@ -563,7 +575,7 @@ class Pipeline(PipelineBase):
         inputs: Dict[str, Any],
         debug_path: Optional[Union[str, Path]] = None,
         original_input_data: Optional[Dict[str, Any]] = None,
-        ordered_component_names: Optional[List[str]] = None
+        ordered_component_names: Optional[List[str]] = None,
     ):
         """
         Check if the `component_name` is in the breakpoints and if it should break.
@@ -588,10 +600,9 @@ class Pipeline(PipelineBase):
                     component_visits=component_visits,
                     debug_path=debug_path,
                     original_input_data=original_input_data,
-                    ordered_component_names=ordered_component_names
+                    ordered_component_names=ordered_component_names,
                 )
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
-
 
 
 def deserialize_component_input(value):  # noqa: PLR0911
@@ -668,33 +679,10 @@ def transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any
         return data
 
 
-def remove_unserializable_data(value: Any) -> Any:
-    """
-    Removes certain unserializable data which is not needed for the pipeline state.
-    """
-
-    if isinstance(value, ChatMessage):  # noqa: SIM102
-        if "usage" in value.meta:  # noqa: SIM102
-            value.meta["usage"].pop("completion_tokens_details", None)
-            value.meta["usage"].pop("prompt_tokens_details", None)
-
-    if isinstance(value, GeneratedAnswer):  # noqa: SIM102
-        if value.meta and "usage" in value.meta:  # noqa: SIM102
-            value.meta.pop("usage", None)
-
-        # all_messages contains a list of unserialized ChatMessages
-        # TODO: we should find a better way to handle this
-        if value.meta and "all_messages" in value.meta:
-            value.meta.pop("all_messages", None)
-
-    return value
-
-
 def serialize_component_input(value: Any) -> Any:
     """
     Serializes, so it can be saved to a file, any type of input to a pipeline component.
     """
-    value = remove_unserializable_data(value)
     value = transform_json_structure(value)
     if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
         serialized_value = value.to_dict()
@@ -717,5 +705,3 @@ def serialize_component_input(value: Any) -> Any:
         return [serialize_component_input(item) for item in value]
 
     return value
-
-
