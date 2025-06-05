@@ -26,11 +26,9 @@ class DocumentToImageContent:
     documents by extracting specific pages as images.
 
     Documents are expected to have metadata containing:
-    - The `file_path_meta_field` is not present in the document metadata
-    - The file path does not point to an existing file when combined with `root_path`
-    - The file format is not among the supported image types
-    - For PDF files, the `page_number` is not present in the metadata
-    Otherwise, the component will raise a `ValueError` with a descriptive message.
+    - The `file_path_meta_field` key with a valid file path that exists when combined with `root_path`
+    - A supported image format (MIME type must be one of the supported image types)
+    - For PDF files, a `page_number` key specifying which page to extract
 
     Usage example:
         ```python
