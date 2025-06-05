@@ -36,7 +36,7 @@ class DocumentToImageContent:
     - The file format is not among the supported image types
     - For PDF files, the `page_number` is not present in the metadata
 
-    Example:
+    Usage example:
         ```python
         converter = DocumentToImageContent(
             root_path="/data/documents",
