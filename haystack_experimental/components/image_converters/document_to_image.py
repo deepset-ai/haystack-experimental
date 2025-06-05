@@ -26,7 +26,7 @@ class DocumentToImageContent:
     documents by extracting specific pages as images.
 
     The component categorizes input documents into three groups:
-    - Image documents: Successfully converted to ImageContent objects
+    - Image documents: Documents successfully converted into ImageContent objects
     - Non-image documents: Documents that don't contain supported image formats
     - Documents with missing information: Documents lacking required metadata such as `file_path` or `page_number`.
 
