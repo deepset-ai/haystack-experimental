@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pylint: disable=too-many-return-statements, too-many-positional-arguments
+
+
 import json
 from copy import deepcopy
 from datetime import datetime
@@ -9,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
-from haystack.components.joiners import BranchJoiner, DocumentJoiner
+from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
