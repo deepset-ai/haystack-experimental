@@ -28,7 +28,7 @@ class DocumentToImageContent:
     The component categorizes input documents into three groups:
     - Image documents: Documents successfully converted into ImageContent objects
     - Non-image documents: Documents that don't contain supported image formats
-    - Documents with missing information: Documents lacking required metadata such as `file_path` or `page_number`.
+    - Documents with missing information: Documents lacking required metadata such as `file_path` or `page_number`
 
     Documents will be skipped and categorized as non-image documents in the following scenarios:
     - The `file_path` is not present in the document metadata
