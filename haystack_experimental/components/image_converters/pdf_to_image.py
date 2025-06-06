@@ -62,7 +62,7 @@ class PDFToImageContent:
         detail: Optional[Literal["auto", "high", "low"]] = None,
         size: Optional[Tuple[int, int]] = None,
         page_range: Optional[List[Union[str, int]]] = None,
-    ):
+    ) -> Dict[str, List[ImageContent]]:
         """
         Converts files to ImageContent objects.
 

@@ -79,7 +79,7 @@ class ChatMessageWriter:
         return default_from_dict(cls, data)
 
     @component.output_types(messages_written=int)
-    def run(self, messages: List[ChatMessage]):
+    def run(self, messages: List[ChatMessage]) -> Dict[str, int]:
         """
         Run the ChatMessageWriter on the given input data.
 

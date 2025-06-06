@@ -89,7 +89,7 @@ class ChatMessageRetriever:
         return default_from_dict(cls, data)
 
     @component.output_types(messages=List[ChatMessage])
-    def run(self, last_k: Optional[int] = None):
+    def run(self, last_k: Optional[int] = None) -> Dict[str, List[ChatMessage]]:
         """
         Run the ChatMessageRetriever
 

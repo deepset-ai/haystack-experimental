@@ -59,7 +59,7 @@ class ImageFileToImageContent:
         *,
         detail: Optional[Literal["auto", "high", "low"]] = None,
         size: Optional[Tuple[int, int]] = None,
-    ):
+    ) -> Dict[str, List[ImageContent]]:
         """
         Converts files to ImageContent objects.
 

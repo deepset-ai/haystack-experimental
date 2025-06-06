@@ -206,8 +206,8 @@ class ChatPromptBuilder:
         self,
         template: Optional[Union[List[ChatMessage], str]] = None,
         template_variables: Optional[Dict[str, Any]] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Dict[str, List[ChatMessage]]:
         """
         Renders the prompt template with the provided variables.
 
@@ -292,7 +292,7 @@ class ChatPromptBuilder:
 
         return messages
 
-    def _validate_variables(self, provided_variables: Set[str]):
+    def _validate_variables(self, provided_variables: Set[str]) -> None:
         """
         Checks if all the required template variables are provided.
 
