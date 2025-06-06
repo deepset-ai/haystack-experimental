@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING
 from lazy_imports import LazyImporter
 
 _import_structure = {
+    "document_to_image": ["DocumentToImageContent"],
     "file_to_image": ["ImageFileToImageContent"],
     "pdf_to_image": ["PDFToImageContent"],
 }
 
 if TYPE_CHECKING:
+    from .document_to_image import DocumentToImageContent
     from .file_to_image import ImageFileToImageContent
     from .pdf_to_image import PDFToImageContent
 else:
