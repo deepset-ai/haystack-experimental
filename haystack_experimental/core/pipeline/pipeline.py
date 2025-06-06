@@ -303,9 +303,6 @@ class Pipeline(PipelineBase):
                             params["template"] = params["_template_string"]
                             params.pop("_template_string")
 
-                        print("PARAMS")
-                        print(params)
-
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
                             component_name=component_name,
@@ -578,47 +575,6 @@ class Pipeline(PipelineBase):
 
     @staticmethod
     def _check_breakpoints(
-        breakpoints: Set[Tuple[str, int]],
-        component_name: str,
-        component_visits: Dict[str, int],
-        inputs: Dict[str, Any],
-        debug_path: Optional[Union[str, Path]] = None,
-        original_input_data: Optional[Dict[str, Any]] = None,
-        ordered_component_names: Optional[List[str]] = None,
-    ) -> None:
-        """
-        Check if the `component_name` is in the breakpoints and if it should break.
-
-        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
-        :param component_name: Name of the component to check.
-        :param component_visits: The number of times the component has been visited.
-        :param inputs: The inputs to the pipeline.
-        :param debug_path: The file path where debug state is saved.
-        :param original_input_data: The original input data to the pipeline.
-        :param ordered_component_names: The ordered component names in the pipeline.
-
-        :raises PipelineBreakpointException: When a breakpoint is triggered, with component state information.
-        """
-        matching_breakpoints = [bp for bp in breakpoints if bp[0] == component_name]
-
-        for bp in matching_breakpoints:
-            visit_count = bp[1]
-            # break only if the visit count is the same
-            if visit_count == component_visits[component_name]:
-                msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
-                logger.info(msg)
-                state = Pipeline.save_state(
-                    inputs=inputs,
-                    component_name=str(component_name),
-                    component_visits=component_visits,
-                    debug_path=debug_path,
-                    original_input_data=original_input_data,
-                    ordered_component_names=ordered_component_names,
-                )
-                raise PipelineBreakpointException(msg, component=component_name, state=state)
-
-    @staticmethod
-    def _check_breakpoints_new(
         breakpoints: Set[Tuple[str, int]],
         component_name: str,
         component_visits: Dict[str, int],
