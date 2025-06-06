@@ -11,9 +11,9 @@ from haystack.core.component import component
 from haystack_experimental.core.errors import PipelineRuntimeError
 from haystack_experimental.core.pipeline.pipeline import (
     Pipeline,
-    transform_json_structure,
-    serialize_component_input,
-    deserialize_component_input
+    _transform_json_structure,
+    _serialize_component_input,
+    _deserialize_component_input
 )
 
 
@@ -156,14 +156,14 @@ def test_transform_json_structure_unwraps_sender_value():
         "key3": "direct value"
     }
 
-    result = transform_json_structure(data)
+    result = _transform_json_structure(data)
 
     assert result == {
         "key1": "some value",
         "key2": 42,
         "key3": "direct value"
     }
-        
+
 def test_transform_json_structure_handles_nested_structures():
     data = {
         "key1": [{"sender": None, "value": "value1"}],
@@ -177,7 +177,7 @@ def test_transform_json_structure_handles_nested_structures():
         ]
     }
 
-    result = transform_json_structure(data)
+    result = _transform_json_structure(data)
 
     assert result == {
         "key1": "value1",
@@ -190,7 +190,7 @@ def test_transform_json_structure_handles_nested_structures():
             "value5"
         ]
     }
-        
+
 def test_serialize_component_input_handles_objects_with_to_dict():
     class TestObject:
         def __init__(self, value):
@@ -200,7 +200,7 @@ def test_serialize_component_input_handles_objects_with_to_dict():
             return {"value": self.value}
 
     obj = TestObject("test")
-    result = serialize_component_input(obj)
+    result = _serialize_component_input(obj)
     assert result == {
         "_type": "TestObject",
         "value": "test"
@@ -212,7 +212,7 @@ def test_serialize_component_input_handles_objects_without_to_dict():
             self.value = value
 
     obj = TestObject("test")
-    result = serialize_component_input(obj)
+    result = _serialize_component_input(obj)
     assert result == {
         "_type": "TestObject",
         "attributes": {"value": "test"}
@@ -232,7 +232,7 @@ def test_serialize_component_input_handles_nested_structures():
         "key2": [obj, "string"],
         "key3": {"nested": obj}
     }
-    result = serialize_component_input(data)
+    result = _serialize_component_input(data)
 
     assert result["key1"]["_type"] == "TestObject"
     assert result["key2"][0]["_type"] == "TestObject"
@@ -247,7 +247,7 @@ def test_deserialize_component_input_handles_primitive_types():
         "bool": True,
         "none": None
     }
-    result = deserialize_component_input(data)
+    result = _deserialize_component_input(data)
     assert result == data
 
 def test_deserialize_component_input_handles_lists():
@@ -255,7 +255,7 @@ def test_deserialize_component_input_handles_lists():
         "primitive_list": [1, 2, 3],
         "mixed_list": [1, "string", True]
     }
-    result = deserialize_component_input(data)
+    result = _deserialize_component_input(data)
     assert result == data
 
 def test_deserialize_component_input_handles_dicts():
@@ -263,7 +263,7 @@ def test_deserialize_component_input_handles_dicts():
         "key1": "value1",
         "key2": {"nested": "value2"}
     }
-    result = deserialize_component_input(data)
+    result = _deserialize_component_input(data)
     assert result == data
 
 def test_deserialize_component_input_handles_nested_lists():
@@ -273,7 +273,7 @@ def test_deserialize_component_input_handles_nested_lists():
         "mixed_nested": [[1, "string"], [True, 3.14]]
     }
 
-    result = deserialize_component_input(data)
+    result = _deserialize_component_input(data)
 
     assert result == data
 
@@ -288,7 +288,7 @@ def test_deserialize_component_input_handles_nested_dicts():
         }
     }
 
-    result = deserialize_component_input(data)
+    result = _deserialize_component_input(data)
 
     assert result == data
 
@@ -300,7 +300,7 @@ def test_deserialize_component_input_handles_empty_structures():
         "nested_empty": {"empty": []}
     }
 
-    result = deserialize_component_input(data)
+    result = _deserialize_component_input(data)
 
     assert result == data
 
