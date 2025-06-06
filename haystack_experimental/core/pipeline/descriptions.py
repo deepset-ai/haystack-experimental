@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Type, TypedDict
+from typing import Dict, List, Type, TypedDict
 
 import networkx  # type:ignore
 from haystack.core.component.types import InputSocket, OutputSocket
