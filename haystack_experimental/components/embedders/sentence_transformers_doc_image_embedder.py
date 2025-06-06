@@ -38,7 +38,7 @@ class SentenceTransformersDocumentImageEmbedder:
     The embedding of each Document is stored in the `embedding` field of the Document.
     """
 
-    def __init__(  # noqa: PLR0913 # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
         *,
         file_path_meta_field: str = "file_path",
@@ -85,10 +85,6 @@ class SentenceTransformersDocumentImageEmbedder:
             If `True`, allows custom models and scripts.
         :param local_files_only:
             If `True`, does not attempt to download the model from Hugging Face Hub and only looks at local files.
-        :param truncate_dim:
-            The dimension to truncate sentence embeddings to. `None` does no truncation.
-            If the model wasn't trained with Matryoshka Representation Learning,
-            truncating embeddings can significantly affect performance.
         :param model_kwargs:
             Additional keyword arguments for `AutoModelForSequenceClassification.from_pretrained`
             when loading the model. Refer to specific model documentation for available kwargs.
@@ -204,6 +200,8 @@ class SentenceTransformersDocumentImageEmbedder:
 
         :returns:
             A list of dictionaries, each dictionary containing the path, type, and page number of the image (for PDF).
+        :raises ValueError: If the document is missing the file_path_meta_field key in its metadata, the file path is
+            invalid, the MIME type is not supported, or the page number is missing for a PDF document.
         """
         images_paths_types = []
         for doc in documents:
@@ -246,7 +244,7 @@ class SentenceTransformersDocumentImageEmbedder:
 
     @staticmethod
     def _process_pdf_documents(
-        images_to_embed: Union[List["Image"], List["ImageFile"], List[None]],
+        images_to_embed: List,
         pdf_documents: List[Dict[str, Any]],
         size: Optional[Tuple[int, int]],
     ):
@@ -296,7 +294,7 @@ class SentenceTransformersDocumentImageEmbedder:
 
         images_paths_types = self._validate_image_paths(documents)
 
-        images_to_embed: List[Union["Image", "ImageFile", None]] = [None] * len(documents)
+        images_to_embed: List = [None] * len(documents)
         pdf_documents = []
 
         for doc_idx, image_path_type in enumerate(images_paths_types):
@@ -304,7 +302,7 @@ class SentenceTransformersDocumentImageEmbedder:
                 # Process images directly
                 image: Union["Image", "ImageFile"] = PILImage.open(image_path_type["path"])
                 if self.size is not None:
-                    image = _resize_image_preserving_aspect_ratio(image, self.size)
+                    image = _resize_image_preserving_aspect_ratio(image=image, size=self.size)
                 images_to_embed[doc_idx] = image
             else:
                 # Store PDF documents for later processing
@@ -329,6 +327,7 @@ class SentenceTransformersDocumentImageEmbedder:
         for doc, emb in zip(documents, embeddings):
             copied_doc = copy(doc)
             copied_doc.embedding = emb
+            # we store this information for later inspection
             copied_doc.meta["embedding_source_type"] = "image"
             copied_doc.meta["embedding_source_file_path_meta_field"] = f"meta.{self.file_path_meta_field}"
             docs_with_embeddings.append(copied_doc)
