@@ -169,13 +169,13 @@ def resize_image_preserving_aspect_ratio(
     return resized_image
 
 
-def convert_pdf_to_images(
+def convert_pdf_to_pil_images(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
     size: Optional[Tuple[int, int]] = None,
-) -> List[Tuple[int, str]]:
+) -> List[Tuple[int, "Image"]]:
     """
-    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
+    Convert a PDF file into a list of PIL Image objects.
 
     Checks PDF dimensions and adjusts size constraints based on aspect ratio.
 
@@ -188,10 +188,11 @@ def convert_pdf_to_images(
     :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
         maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
         when working with models that have resolution constraints or when transmitting images to remote services.
+
     :returns:
-        A list of tuples, each tuple containing the page number and the base64-encoded image string.
+        A list of tuples, each tuple containing the page number and the PIL Image object.
     """
-    # Check the imports
+
     pypdfium2_import.check()
     pillow_import.check()
 
@@ -225,7 +226,7 @@ def convert_pdf_to_images(
 
         # Get dimensions of the page
         page = pdf[max(page_number - 1, 0)]  # Adjust for 0-based indexing
-        _,_,width,height = page.get_mediabox()
+        _, _, width, height = page.get_mediabox()
 
         target_resolution_dpi = 300.0
 
@@ -236,7 +237,7 @@ def convert_pdf_to_images(
         target_scale = target_resolution_dpi / 72.0
 
         # Calculate potential pixels for target_dpi
-        pixels_for_target_scale = width * height * target_scale ** 2
+        pixels_for_target_scale = width * height * target_scale**2
 
         pil_max_pixels = PILImage.MAX_IMAGE_PIXELS or int(1024 * 1024 * 1024 // 4 // 3)
         # 90% of PIL's default limit to prevent borderline cases
@@ -257,11 +258,38 @@ def convert_pdf_to_images(
         if size is not None:
             image = resize_image_preserving_aspect_ratio(image, size)
 
-        # We always convert PDF to JPG
-        base64_image = encode_pil_image_to_base64(image, mime_type="image/jpeg")
-
-        all_pdf_images.append((page_number, base64_image))
+        all_pdf_images.append((page_number, image))
 
     pdf.close()
 
     return all_pdf_images
+
+
+def convert_pdf_to_images(
+    bytestream: ByteStream,
+    page_range: Optional[List[int]] = None,
+    size: Optional[Tuple[int, int]] = None,
+) -> List[Tuple[int, str]]:
+    """
+    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
+
+    Checks PDF dimensions and adjusts size constraints based on aspect ratio.
+
+    :param bytestream: ByteStream object containing the PDF data
+    :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
+        If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
+        will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
+        pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
+        will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
+    :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+        maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+        when working with models that have resolution constraints or when transmitting images to remote services.
+    :returns:
+        A list of tuples, each tuple containing the page number and the base64-encoded image string.
+    """
+
+    pil_images = convert_pdf_to_pil_images(bytestream, page_range, size)
+
+    return [
+        (page_number, encode_pil_image_to_base64(image, mime_type="image/jpeg")) for page_number, image in pil_images
+    ]
