@@ -65,7 +65,7 @@ class DocumentToImageContent:
         file_path_meta_field: str = "file_path",
         root_path: Optional[str] = None,
         detail: Optional[Literal["auto", "high", "low"]] = None,
-        size: Optional[Tuple[int, int]] = None
+        size: Optional[Tuple[int, int]] = None,
     ):
         """
         Initialize the DocumentToImageContent component.
@@ -147,22 +147,26 @@ class DocumentToImageContent:
                 image_contents.extend(
                     # Possible for _pdf_to_image_converter to return multiple images depending on the page range
                     self._pdf_to_image_converter.run(
-                        sources=[ByteStream.from_file_path(
-                            filepath=resolved_file_path,
-                            mime_type="application/pdf",
-                            meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]}
-                        )],
+                        sources=[
+                            ByteStream.from_file_path(
+                                filepath=resolved_file_path,
+                                mime_type="application/pdf",
+                                meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]},
+                            )
+                        ],
                         page_range=[doc.meta["page_number"]],
                     )["image_contents"]
                 )
             else:
                 image_contents.extend(
                     self._file_to_image_converter.run(
-                        sources=[ByteStream.from_file_path(
-                            filepath=resolved_file_path,
-                            mime_type=mime_type,
-                            meta={"file_path": doc.meta["file_path"]}
-                        )]
+                        sources=[
+                            ByteStream.from_file_path(
+                                filepath=resolved_file_path,
+                                mime_type=mime_type,
+                                meta={"file_path": doc.meta["file_path"]},
+                            )
+                        ]
                     )["image_contents"]
                 )
 
