@@ -11,7 +11,7 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.components.image_converters.image_utils import encode_image_to_base64
+from haystack_experimental.components.image_converters.image_utils import _encode_image_to_base64
 from haystack_experimental.dataclasses.image_content import ImageContent
 
 with LazyImport(
@@ -116,7 +116,7 @@ class ImageFileToImageContent:
                 continue
 
             try:
-                inferred_mime_type, base64_image = encode_image_to_base64(bytestream=bytestream, size=resolved_size)
+                inferred_mime_type, base64_image = _encode_image_to_base64(bytestream=bytestream, size=resolved_size)
             except Exception as e:
                 logger.warning(
                     "Could not convert file {source}. Skipping it. Error message: {error}", source=source, error=e
