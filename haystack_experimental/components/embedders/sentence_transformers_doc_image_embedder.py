@@ -57,7 +57,7 @@ class SentenceTransformersDocumentImageEmbedder:
         precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
         encode_kwargs: Optional[Dict[str, Any]] = None,
         backend: Literal["torch", "onnx", "openvino"] = "torch",
-    ):
+    ) -> None:
         """
         Creates a SentenceTransformersDocumentEmbedder component.
 
@@ -175,7 +175,7 @@ class SentenceTransformersDocumentImageEmbedder:
             deserialize_hf_model_kwargs(init_params["model_kwargs"])
         return default_from_dict(cls, data)
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """
         Initializes the component.
         """
@@ -247,7 +247,7 @@ class SentenceTransformersDocumentImageEmbedder:
         images_to_embed: List,
         pdf_documents: List[Dict[str, Any]],
         size: Optional[Tuple[int, int]],
-    ):
+    ) -> None:
         """
         Process PDF documents and populate the images_to_embed list with converted images.
 
@@ -273,7 +273,7 @@ class SentenceTransformersDocumentImageEmbedder:
                 images_to_embed[doc_idx] = page_to_pil_image[page_num]
 
     @component.output_types(documents=List[Document])
-    def run(self, documents: List[Document]):
+    def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
         Embed a list of documents.
 
