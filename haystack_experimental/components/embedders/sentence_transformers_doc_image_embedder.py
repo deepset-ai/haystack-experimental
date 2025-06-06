@@ -19,8 +19,8 @@ from haystack.utils import ComponentDevice, Secret, deserialize_secrets_inplace
 from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kwargs
 
 from haystack_experimental.components.image_converters.image_utils import (
-    convert_pdf_to_pil_images,
-    resize_image_preserving_aspect_ratio,
+    _convert_pdf_to_pil_images,
+    _resize_image_preserving_aspect_ratio,
 )
 from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES
 
@@ -274,7 +274,7 @@ class SentenceTransformersDocumentImageEmbedder:
                 # Process images directly
                 image: Union["Image", "ImageFile"] = PILImage.open(image_path_type["path"])
                 if self.size is not None:
-                    image = resize_image_preserving_aspect_ratio(image, self.size)
+                    image = _resize_image_preserving_aspect_ratio(image, self.size)
                 images_to_embed[doc_idx] = image
             else:
                 # PDF files are accumulated for later batch processing
@@ -286,7 +286,7 @@ class SentenceTransformersDocumentImageEmbedder:
         for file_path, doc_page_pairs in pdf_files_by_path.items():
             page_numbers = [page_num for _, page_num in doc_page_pairs]
             bytestream = ByteStream.from_file_path(file_path)
-            pdf_images = convert_pdf_to_pil_images(bytestream, page_range=page_numbers, size=self.size)
+            pdf_images = _convert_pdf_to_pil_images(bytestream, page_range=page_numbers, size=self.size)
             # Map back to document positions
             page_to_pil_image = dict(pdf_images)
             for doc_idx, page_num in doc_page_pairs:
