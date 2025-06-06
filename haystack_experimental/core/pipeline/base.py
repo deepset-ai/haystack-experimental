@@ -38,9 +38,9 @@ from haystack.core.type_utils import _type_name, _types_are_compatible
 from haystack.marshal import Marshaller, YamlMarshaller
 from haystack.utils import is_in_jupyter, type_serialization
 
-from .descriptions import find_pipeline_inputs, find_pipeline_outputs
-from .draw import _to_mermaid_image
-from .template import PipelineTemplate, PredefinedPipeline
+from haystack_experimental.core.pipeline.descriptions import find_pipeline_inputs, find_pipeline_outputs
+from haystack_experimental.core.pipeline.draw import _to_mermaid_image
+from haystack_experimental.core.pipeline.template import PipelineTemplate, PredefinedPipeline
 
 DEFAULT_MARSHALLER = YamlMarshaller()
 
@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 _COMPONENT_INPUT = "haystack.component.input"
 _COMPONENT_OUTPUT = "haystack.component.output"
 _COMPONENT_VISITS = "haystack.component.visits"
+
 
 class ComponentPriority(IntEnum):
     HIGHEST = 1
@@ -780,7 +781,7 @@ class PipelineBase:
 
     @staticmethod
     def _create_component_span(
-            component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
+        component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
     ):
         return tracing.tracer.trace(
             "haystack.component.run",

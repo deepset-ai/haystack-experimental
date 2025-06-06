@@ -22,9 +22,12 @@ with LazyImport("Run 'pip install \"arrow>=1.3.0\"'") as arrow_import:
 
 NO_TEXT_ERROR_MESSAGE = "ChatMessages from {role} role must contain text. Received ChatMessage with no text: {message}"
 
-FILTER_NOT_ALLOWED_ERROR_MESSAGE = ("The templatize_part filter cannot be used with a template containing a list of"
-                                    "ChatMessage objects. Use a string template or remove the templatize_part filter "
-                                    "from the template.")
+FILTER_NOT_ALLOWED_ERROR_MESSAGE = (
+    "The templatize_part filter cannot be used with a template containing a list of"
+    "ChatMessage objects. Use a string template or remove the templatize_part filter "
+    "from the template."
+)
+
 
 @component
 class ChatPromptBuilder:

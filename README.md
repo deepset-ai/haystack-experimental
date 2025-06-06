@@ -64,7 +64,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker` | Tool Calling support                     | 0.4.0         |
 | `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                  | AsyncPipeline execution                  | 0.7.0         |
 | `LLMMetadataExtractor`                                                                 | Metadata extraction with LLM             | 0.7.0         |
-| `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                              | Document Splitting & Retrieval Technique | 0.8.0         | 
+| `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                              | Document Splitting & Retrieval Technique | 0.8.0         |
 | `Agent`                                                                                | Simplify Agent development               | 0.8.0         |
 | `SuperComponent`                                                                       | Simplify Pipeline development            | 0.8.0         |
 

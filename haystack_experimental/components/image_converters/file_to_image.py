@@ -34,10 +34,7 @@ class ImageFileToImageContent:
     """
 
     def __init__(
-        self,
-        *,
-        detail: Optional[Literal["auto", "high", "low"]] = None,
-        size: Optional[Tuple[int, int]] = None
+        self, *, detail: Optional[Literal["auto", "high", "low"]] = None, size: Optional[Tuple[int, int]] = None
     ):
         """
         Create the ImageFileToImageContent component.
