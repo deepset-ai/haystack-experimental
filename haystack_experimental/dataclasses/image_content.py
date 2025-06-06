@@ -129,6 +129,7 @@ class ImageContent:
         if is_in_jupyter():
             # ipython is not a core dependency so we cannot import it at the module level
             from IPython.display import display
+
             display(image)
         else:
             image.show()
@@ -169,7 +170,6 @@ class ImageContent:
         converter = ImageFileToImageContent(size=size, detail=detail)
         result = converter.run(sources=[file_path], meta=[meta] if meta else None)
         return result["image_contents"][0]
-
 
     @classmethod
     def from_url(
@@ -220,8 +220,10 @@ class ImageContent:
             raise ValueError(msg)
 
         if bytestream.mime_type == "application/pdf":
-            raise ValueError("PDF files are not supported. "
-                             "For PDF to ImageContent conversion, use the `PDFToImageContent` component.")
+            raise ValueError(
+                "PDF files are not supported. "
+                "For PDF to ImageContent conversion, use the `PDFToImageContent` component."
+            )
 
         converter = ImageFileToImageContent(size=size, detail=detail)
         result = converter.run(sources=[bytestream], meta=[meta] if meta else None)

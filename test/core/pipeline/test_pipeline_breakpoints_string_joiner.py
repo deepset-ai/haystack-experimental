@@ -55,4 +55,3 @@ class TestPipelineBreakpoints:
 
         result = load_and_resume_pipeline_state(string_joiner_pipeline, output_directory, component, data)
         assert result['string_joiner']
-

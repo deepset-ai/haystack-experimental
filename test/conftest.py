@@ -54,30 +54,30 @@ def base64_image_string():
 def load_and_resume_pipeline_state(pipeline, output_directory: Path, component: str, data: Dict = None) -> Dict:
     """
     Utility function to load and resume pipeline state from a breakpoint file.
-    
+
     Args:
         pipeline: The pipeline instance to resume
         output_directory: Directory containing the breakpoint files
         component: Component name to look for in breakpoint files
         data: Data to pass to the pipeline run (defaults to empty dict)
-    
+
     Returns:
         Dict containing the pipeline run results
-        
+
     Raises:
         ValueError: If no breakpoint file is found for the given component
     """
     data = data or {}
     all_files = list(output_directory.glob("*"))
     file_found = False
-    
+
     for full_path in all_files:
         f_name = Path(full_path).name
         if str(f_name).startswith(component):
             file_found = True
             resume_state = pipeline.load_state(full_path)
             return pipeline.run(data=data, resume_state=resume_state)
-            
+
     if not file_found:
         msg = f"No files found for {component} in {output_directory}."
         raise ValueError(msg)

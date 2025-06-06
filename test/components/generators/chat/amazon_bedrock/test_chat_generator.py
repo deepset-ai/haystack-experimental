@@ -318,7 +318,7 @@ class TestAmazonBedrockChatGeneratorInference:
         assert first_reply.text, "First reply has no content"
         assert ChatMessage.is_from(first_reply, ChatRole.ASSISTANT), "First reply is not from the assistant"
         assert "paris" in first_reply.text.lower(), "First reply does not contain 'paris'"
-        assert first_reply.meta, "First reply has no metadata"    
+        assert first_reply.meta, "First reply has no metadata"
 
     @pytest.mark.parametrize("model_name", MODELS_TO_TEST_WITH_TOOLS)
     def test_live_run_with_multi_tool_calls(self, model_name, tools):
@@ -588,10 +588,10 @@ class TestAmazonBedrockChatGeneratorMultimodalInference:
     @pytest.mark.parametrize("model_name", MODELS_TO_TEST_WITH_IMAGE_INPUT)
     def test_run_with_image_input(self, model_name, test_files_path):
         client = AmazonBedrockChatGenerator(model=model_name)
-        
+
         image_path = test_files_path / "images" / "apple.jpg"
         image_content = ImageContent.from_file_path(image_path, size=(100, 100))
-        
+
         chat_message = ChatMessage.from_user(content_parts=["What's in the image? Max 5 words.", image_content])
 
         response = client.run([chat_message])
@@ -601,4 +601,3 @@ class TestAmazonBedrockChatGeneratorMultimodalInference:
         assert ChatMessage.is_from(first_reply, ChatRole.ASSISTANT)
         assert first_reply.text
         assert "apple" in first_reply.text.lower()
-

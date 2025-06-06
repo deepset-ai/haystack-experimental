@@ -34,11 +34,13 @@ with LazyImport("Run 'pip install amazon-bedrock-haystack'") as bedrock_integrat
 # - AmazonBedrockChatGenerator fails with ImportError at init (due to bedrock_integration_import.check()).
 
 if not bedrock_integration_import.is_successful():
+
     @component
     class AmazonBedrockChatGenerator:
         """
         Experimental version of AmazonBedrockChatGenerator that allows multimodal chat messages.
         """
+
         def __init__(  # pylint: disable=too-many-positional-arguments
             self,
             model: str,
@@ -55,7 +57,7 @@ if not bedrock_integration_import.is_successful():
             boto3_config: Optional[Dict[str, Any]] = None,
             tools: Optional[Union[List[Tool], Toolset]] = None,
         ) -> None:
-            bedrock_integration_import.check() # this always fails
+            bedrock_integration_import.check()  # this always fails
 
         @component.output_types(replies=List[ChatMessage])
         def run(
