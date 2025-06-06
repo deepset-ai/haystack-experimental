@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -374,6 +375,9 @@ class TestSentenceTransformersDocumentImageEmbedder:
         assert images_to_embed[1] is None
 
     @pytest.mark.integration
+    @pytest.mark.skipif(sys.platform == "darwin",
+                        reason=("This model does not play well with GitHub macOS runners and"
+                                "we prefer to avoid altering PYTORCH_MPS_HIGH_WATERMARK_RATIO"))
     def test_live_run(self, test_files_path):
         embedder = SentenceTransformersDocumentImageEmbedder(model="sentence-transformers/clip-ViT-B-32")
         embedder.warm_up()
