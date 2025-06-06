@@ -198,7 +198,7 @@ class SentenceTransformersDocumentImageEmbedder:
             if self.tokenizer_kwargs and self.tokenizer_kwargs.get("model_max_length"):
                 self._embedding_backend.model.max_seq_length = self.tokenizer_kwargs["model_max_length"]
 
-    def _validate_image_paths(self, documents: List[Document]):
+    def _validate_image_paths(self, documents: List[Document]) -> List[Dict[str, str]]:
         """
         Validates the image paths in the documents.
 
@@ -244,6 +244,36 @@ class SentenceTransformersDocumentImageEmbedder:
 
         return images_paths_types
 
+    @staticmethod
+    def _process_pdf_documents(
+        images_to_embed: Union[List["Image"], List["ImageFile"], List[None]],
+        pdf_documents: List[Dict[str, Any]],
+        size: Optional[Tuple[int, int]],
+    ):
+        """
+        Process PDF documents and populate the images_to_embed list with converted images.
+
+        :param images_to_embed: List to populate with converted PIL images (modified in place).
+        :param pdf_documents: List of dictionaries with doc_idx, path, and page_number.
+        :param size: Optional tuple of width and height to resize the images to.
+        """
+        if not pdf_documents:
+            return
+
+        pdf_files_by_path = defaultdict(list)
+        for pdf_doc in pdf_documents:
+            pdf_files_by_path[pdf_doc["path"]].append((pdf_doc["doc_idx"], pdf_doc["page_number"]))
+
+        # Open and convert each PDF file once
+        for file_path, doc_page_pairs in pdf_files_by_path.items():
+            page_numbers = [page_num for _, page_num in doc_page_pairs]
+            bytestream = ByteStream.from_file_path(file_path)
+            pdf_images = _convert_pdf_to_pil_images(bytestream=bytestream, page_range=page_numbers, size=size)
+            # Map back to document positions
+            page_to_pil_image = dict(pdf_images)
+            for doc_idx, page_num in doc_page_pairs:
+                images_to_embed[doc_idx] = page_to_pil_image[page_num]
+
     @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]):
         """
@@ -258,7 +288,7 @@ class SentenceTransformersDocumentImageEmbedder:
         """
         if not isinstance(documents, list) or documents and not isinstance(documents[0], Document):
             raise TypeError(
-                "SentenceTransformersDocumentEmbedder expects a list of Documents as input."
+                "SentenceTransformersDocumentImageEmbedder expects a list of Documents as input. "
                 "In case you want to embed a list of strings, please use the SentenceTransformersTextEmbedder."
             )
         if self._embedding_backend is None:
@@ -267,7 +297,7 @@ class SentenceTransformersDocumentImageEmbedder:
         images_paths_types = self._validate_image_paths(documents)
 
         images_to_embed: List[Union["Image", "ImageFile", None]] = [None] * len(documents)
-        pdf_files_by_path = defaultdict(list)
+        pdf_documents = []
 
         for doc_idx, image_path_type in enumerate(images_paths_types):
             if image_path_type["type"] == "image":
@@ -277,20 +307,13 @@ class SentenceTransformersDocumentImageEmbedder:
                     image = _resize_image_preserving_aspect_ratio(image, self.size)
                 images_to_embed[doc_idx] = image
             else:
-                # PDF files are accumulated for later batch processing
-                pdf_path = image_path_type["path"]
-                page_number = image_path_type["page_number"]
-                pdf_files_by_path[pdf_path].append((doc_idx, page_number))
+                # Store PDF documents for later processing
+                pdf_documents.append(
+                    {"doc_idx": doc_idx, "path": image_path_type["path"], "page_number": image_path_type["page_number"]}
+                )
 
-        # Open and convert each PDF file once
-        for file_path, doc_page_pairs in pdf_files_by_path.items():
-            page_numbers = [page_num for _, page_num in doc_page_pairs]
-            bytestream = ByteStream.from_file_path(file_path)
-            pdf_images = _convert_pdf_to_pil_images(bytestream, page_range=page_numbers, size=self.size)
-            # Map back to document positions
-            page_to_pil_image = dict(pdf_images)
-            for doc_idx, page_num in doc_page_pairs:
-                images_to_embed[doc_idx] = page_to_pil_image[page_num]
+        # Process PDF files
+        self._process_pdf_documents(images_to_embed=images_to_embed, pdf_documents=pdf_documents, size=self.size)
 
         embeddings = self._embedding_backend.embed(
             # TODO: when moving this component to Haystack, adjust the signature of the embedding backend embed method
