@@ -319,7 +319,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
             if path_info["type"] == "pdf":
                 assert path_info["page_number"] == 1
             else:
-                assert "page_number" not in path
+                assert "page_number" not in path_info
 
     def test_validate_image_paths_errors(self, test_files_path):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model", file_path_meta_field="file_path")
