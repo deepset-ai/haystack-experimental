@@ -6,17 +6,19 @@ import mimetypes
 from collections import defaultdict
 from copy import copy
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.embedders.backends.sentence_transformers_backend import (
     _SentenceTransformersEmbeddingBackend,
     _SentenceTransformersEmbeddingBackendFactory,
 )
-from haystack.dataclasses import ByteStream
+from haystack.dataclasses.byte_stream import ByteStream
 from haystack.lazy_imports import LazyImport
-from haystack.utils import ComponentDevice, Secret, deserialize_secrets_inplace
+from haystack.utils.auth import Secret, deserialize_secrets_inplace
+from haystack.utils.device import ComponentDevice
 from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kwargs
+from typing_extensions import NotRequired
 
 from haystack_experimental.components.image_converters.image_utils import (
     _convert_pdf_to_pil_images,
@@ -28,6 +30,18 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
     from PIL import Image as PILImage
     from PIL.Image import Image
     from PIL.ImageFile import ImageFile
+
+
+class ImageSourceInfo(TypedDict):
+    path: Path
+    type: Literal["image", "pdf"]
+    page_number: NotRequired[int]  # Only present for PDF documents
+
+
+class PdfPageInfo(TypedDict):
+    doc_idx: int
+    path: Path
+    page_number: int
 
 
 @component
@@ -194,16 +208,17 @@ class SentenceTransformersDocumentImageEmbedder:
             if self.tokenizer_kwargs and self.tokenizer_kwargs.get("model_max_length"):
                 self._embedding_backend.model.max_seq_length = self.tokenizer_kwargs["model_max_length"]
 
-    def _validate_image_paths(self, documents: List[Document]) -> List[Dict[str, str]]:
+    def _extract_image_sources_info(self, documents: List[Document]) -> List[ImageSourceInfo]:
         """
-        Validates the image paths in the documents.
+        Extracts the image source information from the documents.
 
         :returns:
-            A list of dictionaries, each dictionary containing the path, type, and page number of the image (for PDF).
+            A list of ImageSourceInfo dictionaries, each containing the path and type of the image.
+            If the image is a PDF, the dictionary also contains the page number.
         :raises ValueError: If the document is missing the file_path_meta_field key in its metadata, the file path is
             invalid, the MIME type is not supported, or the page number is missing for a PDF document.
         """
-        images_paths_types = []
+        images_source_info: List[ImageSourceInfo] = []
         for doc in documents:
             file_path = doc.meta.get(self.file_path_meta_field)
             if file_path is None:
@@ -236,31 +251,34 @@ class SentenceTransformersDocumentImageEmbedder:
                         f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
                         f"convert have this key set."
                     )
-                images_paths_types.append({"path": resolved_file_path, "type": "pdf", "page_number": page_number})
+                pdf_info: ImageSourceInfo = {"path": resolved_file_path, "type": "pdf", "page_number": page_number}
+                images_source_info.append(pdf_info)
             else:
-                images_paths_types.append({"path": resolved_file_path, "type": "image"})
+                image_info: ImageSourceInfo = {"path": resolved_file_path, "type": "image"}
+                images_source_info.append(image_info)
 
-        return images_paths_types
+        return images_source_info
 
     @staticmethod
-    def _process_pdf_documents(
-        images_to_embed: List,
-        pdf_documents: List[Dict[str, Any]],
+    def _process_pdf_files(
+        pdf_pages_info: List[PdfPageInfo],
         size: Optional[Tuple[int, int]],
-    ) -> None:
+    ) -> Dict[int, "Image"]:
         """
-        Process PDF documents and populate the images_to_embed list with converted images.
+        Process PDF files and return a mapping of document indices to converted PIL images.
 
-        :param images_to_embed: List to populate with converted PIL images (modified in place).
-        :param pdf_documents: List of dictionaries with doc_idx, path, and page_number.
+        :param pdf_pages_info: List of PdfPageInfo dictionaries with doc_idx, path, and page_number.
         :param size: Optional tuple of width and height to resize the images to.
+        :returns: Dictionary mapping document indices to PIL images.
         """
-        if not pdf_documents:
-            return
+        if not pdf_pages_info:
+            return {}
 
+        pdf_images_by_doc_idx = {}
         pdf_files_by_path = defaultdict(list)
-        for pdf_doc in pdf_documents:
-            pdf_files_by_path[pdf_doc["path"]].append((pdf_doc["doc_idx"], pdf_doc["page_number"]))
+
+        for pdf_page_info in pdf_pages_info:
+            pdf_files_by_path[pdf_page_info["path"]].append((pdf_page_info["doc_idx"], pdf_page_info["page_number"]))
 
         # Open and convert each PDF file once
         for file_path, doc_page_pairs in pdf_files_by_path.items():
@@ -270,7 +288,9 @@ class SentenceTransformersDocumentImageEmbedder:
             # Map back to document positions
             page_to_pil_image = dict(pdf_images)
             for doc_idx, page_num in doc_page_pairs:
-                images_to_embed[doc_idx] = page_to_pil_image[page_num]
+                pdf_images_by_doc_idx[doc_idx] = page_to_pil_image[page_num]
+
+        return pdf_images_by_doc_idx
 
     @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
@@ -292,26 +312,33 @@ class SentenceTransformersDocumentImageEmbedder:
         if self._embedding_backend is None:
             raise RuntimeError("The embedding model has not been loaded. Please call warm_up() before running.")
 
-        images_paths_types = self._validate_image_paths(documents)
+        images_source_info = self._extract_image_sources_info(documents=documents)
 
         images_to_embed: List = [None] * len(documents)
-        pdf_documents = []
+        pdf_pages_info: List[PdfPageInfo] = []
 
-        for doc_idx, image_path_type in enumerate(images_paths_types):
-            if image_path_type["type"] == "image":
+        for doc_idx, image_source_info in enumerate(images_source_info):
+            if image_source_info["type"] == "image":
                 # Process images directly
-                image: Union["Image", "ImageFile"] = PILImage.open(image_path_type["path"])
+                image: Union["Image", "ImageFile"] = PILImage.open(image_source_info["path"])
                 if self.size is not None:
                     image = _resize_image_preserving_aspect_ratio(image=image, size=self.size)
                 images_to_embed[doc_idx] = image
             else:
                 # Store PDF documents for later processing
-                pdf_documents.append(
-                    {"doc_idx": doc_idx, "path": image_path_type["path"], "page_number": image_path_type["page_number"]}
-                )
+                page_number = image_source_info.get("page_number")
+                assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
+                pdf_page_info: PdfPageInfo = {
+                    "doc_idx": doc_idx,
+                    "path": image_source_info["path"],
+                    "page_number": page_number,
+                }
+                pdf_pages_info.append(pdf_page_info)
 
-        # Process PDF files
-        self._process_pdf_documents(images_to_embed=images_to_embed, pdf_documents=pdf_documents, size=self.size)
+        # Process PDF files and update images_to_embed
+        pdf_images = self._process_pdf_files(pdf_pages_info=pdf_pages_info, size=self.size)
+        for doc_idx, pil_image in pdf_images.items():
+            images_to_embed[doc_idx] = pil_image
 
         embeddings = self._embedding_backend.embed(
             # TODO: when moving this component to Haystack, adjust the signature of the embedding backend embed method

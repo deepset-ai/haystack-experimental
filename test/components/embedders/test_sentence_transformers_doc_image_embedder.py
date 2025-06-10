@@ -12,9 +12,13 @@ import glob
 from PIL import Image
 
 from haystack import Document
-from haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder import SentenceTransformersDocumentImageEmbedder
-from haystack.utils import ComponentDevice, Secret
-from haystack.dataclasses import ByteStream
+from haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder import (
+    SentenceTransformersDocumentImageEmbedder,
+    PdfPageInfo,
+)
+from haystack.utils.device import ComponentDevice
+from haystack.utils.auth import Secret
+from haystack.dataclasses.byte_stream import ByteStream
 
 
 class TestSentenceTransformersDocumentImageEmbedder:
@@ -302,7 +306,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
             backend="openvino",
         )
 
-    def test_validate_image_paths(self, test_files_path):
+    def test_extract_image_source_info(self, test_files_path):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
 
         image_paths = glob.glob(str(test_files_path / "images" / "*.*")) + glob.glob(str(test_files_path / "pdf" / "*.pdf"))
@@ -314,47 +318,48 @@ class TestSentenceTransformersDocumentImageEmbedder:
                 document.meta["page_number"] = 1
             documents.append(document)
 
-        validated_paths = embedder._validate_image_paths(documents)
-        assert len(validated_paths) == len(documents)
-        for path_info in validated_paths:
+        images_source_info = embedder._extract_image_sources_info(documents)
+        assert len(images_source_info) == len(documents)
+        for path_info in images_source_info:
             assert str(path_info["path"]) in image_paths
             assert path_info["type"] in ["image", "pdf"]
             if path_info["type"] == "pdf":
-                assert path_info["page_number"] == 1
+                assert path_info.get("page_number") == 1
             else:
                 assert "page_number" not in path_info
 
-    def test_validate_image_paths_errors(self, test_files_path):
+    def test_extract_image_source_info_errors(self, test_files_path):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model", file_path_meta_field="file_path")
 
         document = Document(content="test")
         with pytest.raises(ValueError, match="missing the 'file_path' key"):
-            embedder._validate_image_paths([document])
+            embedder._extract_image_sources_info([document])
 
         document = Document(content="test", meta={"file_path": "invalid_path"})
         with pytest.raises(ValueError, match="has an invalid file path"):
-            embedder._validate_image_paths([document])
+            embedder._extract_image_sources_info([document])
 
         document = Document(content="test", meta={"file_path": str(test_files_path / "docx" / "sample_docx.docx")})
         with pytest.raises(ValueError, match="has an unsupported MIME type"):
-            embedder._validate_image_paths([document])
+            embedder._extract_image_sources_info([document])
 
         document = Document(content="test", meta={"file_path": str(test_files_path / "pdf" / "sample_pdf_1.pdf")})
         with pytest.raises(ValueError, match="missing the 'page_number' key"):
-            embedder._validate_image_paths([document])
+            embedder._extract_image_sources_info([document])
 
 
     @patch("haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder._convert_pdf_to_pil_images")
-    def test_process_pdf_documents(self, mocked_convert_pdf_to_pil_images, test_files_path):
+    def test_process_pdf_files(self, mocked_convert_pdf_to_pil_images, test_files_path):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
 
         mocked_convert_pdf_to_pil_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
 
         pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
-        pdf_documents = [{"doc_idx": 0, "path": str(pdf_path), "page_number": 1}, {"doc_idx": 1, "path": str(pdf_path), "page_number": 2}]
-        images_to_embed = [None] * 2
+        pdf_doc_1: PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_documents = [pdf_doc_1, pdf_doc_2]
 
-        embedder._process_pdf_documents(images_to_embed=images_to_embed, pdf_documents=pdf_documents, size=None)
+        result = embedder._process_pdf_files(pdf_pages_info=pdf_documents, size=None)
 
         pdf_bytestream = ByteStream.from_file_path((pdf_path))
 
@@ -364,18 +369,17 @@ class TestSentenceTransformersDocumentImageEmbedder:
             size=None
         )
 
-        assert len(images_to_embed) == len(pdf_documents)
-        assert images_to_embed[0] is not None
-        assert isinstance(images_to_embed[0], Image.Image)
+        assert len(result) == len(pdf_documents)
+        assert 0 in result and 1 in result
+        assert isinstance(result[0], Image.Image)
+        assert isinstance(result[1], Image.Image)
 
-    def test_process_pdf_documents_no_docs(self):
+    def test_process_pdf_files_no_pages_info(self):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
-        images_to_embed = [None] * 2
-        embedder._process_pdf_documents(images_to_embed=images_to_embed, pdf_documents=[], size=None)
+        result = embedder._process_pdf_files(pdf_pages_info=[], size=None)
 
-        assert len(images_to_embed) == 2
-        assert images_to_embed[0] is None
-        assert images_to_embed[1] is None
+        assert isinstance(result, dict)
+        assert len(result) == 0
 
     @pytest.mark.integration
     @pytest.mark.skipif(sys.platform == "darwin",
@@ -397,3 +401,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
             assert isinstance(doc.embedding, list)
             assert len(doc.embedding) == 512
             assert all(isinstance(x, float) for x in doc.embedding)
+            assert "embedding_source" in doc.meta
+            assert doc.meta["embedding_source"]["type"] == "image"
+            assert "file_path_meta_field" in doc.meta["embedding_source"]
