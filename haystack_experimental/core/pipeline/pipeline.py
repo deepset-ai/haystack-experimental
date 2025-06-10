@@ -13,6 +13,7 @@ from haystack.core.component import Component
 from haystack.core.pipeline.component_checks import is_socket_lazy_variadic
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
+from haystack.utils.base_serialization import _deserialize_value_with_schema, _serialize_value_with_schema
 
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
@@ -273,7 +274,6 @@ class Pipeline(PipelineBase):
                             component_name, component_visits[component_name]
                         )
 
-                    # this breaks the pipeline breakpoints
                     component_inputs = self._consume_component_inputs(
                         component_name=component_name, component=component, inputs=inputs
                     )
@@ -294,14 +294,15 @@ class Pipeline(PipelineBase):
                         # the JSON state
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
 
-                        # we use dict instead of to_dict() because it strips away class types
-                        # We use copy instead of deepcopy to avoid issues with unpickleable objects like RLock
-                        params = copy(component["instance"].__dict__)
-                        state_inputs_serialised[component_name]["init_parameters"] = params
+                        # the init params are stored for the component with breakpoint
+                        # this is helpful for retaining the state of the component and manual debugging
+                        init_params = {}
+                        # we use dict instead of to_dict() because it strips away class types of init params
+                        for key, value in component["instance"].__dict__.items():
+                            if not key.startswith("__"):
+                                init_params[key] = value
 
-                        if "_template_string" in params:
-                            params["template"] = params["_template_string"]
-                            params.pop("_template_string")
+                        state_inputs_serialised[component_name]["init_parameters"] = init_params
 
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
