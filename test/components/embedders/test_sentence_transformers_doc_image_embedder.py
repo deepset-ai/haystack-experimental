@@ -14,7 +14,7 @@ from PIL import Image
 from haystack import Document
 from haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder import (
     SentenceTransformersDocumentImageEmbedder,
-    PdfPageInfo,
+    _PdfPageInfo,
 )
 from haystack.utils.device import ComponentDevice
 from haystack.utils.auth import Secret
@@ -357,8 +357,8 @@ class TestSentenceTransformersDocumentImageEmbedder:
         mocked_convert_pdf_to_pil_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
 
         pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
-        pdf_doc_1: PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
-        pdf_doc_2: PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
         pdf_documents = [pdf_doc_1, pdf_doc_2]
 
         result = embedder._process_pdf_files(pdf_pages_info=pdf_documents, size=None)

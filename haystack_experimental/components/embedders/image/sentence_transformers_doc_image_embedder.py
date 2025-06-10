@@ -32,13 +32,13 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
     from PIL.ImageFile import ImageFile
 
 
-class ImageSourceInfo(TypedDict):
+class _ImageSourceInfo(TypedDict):
     path: Path
     type: Literal["image", "pdf"]
     page_number: NotRequired[int]  # Only present for PDF documents
 
 
-class PdfPageInfo(TypedDict):
+class _PdfPageInfo(TypedDict):
     doc_idx: int
     path: Path
     page_number: int
@@ -208,17 +208,17 @@ class SentenceTransformersDocumentImageEmbedder:
             if self.tokenizer_kwargs and self.tokenizer_kwargs.get("model_max_length"):
                 self._embedding_backend.model.max_seq_length = self.tokenizer_kwargs["model_max_length"]
 
-    def _extract_image_sources_info(self, documents: List[Document]) -> List[ImageSourceInfo]:
+    def _extract_image_sources_info(self, documents: List[Document]) -> List[_ImageSourceInfo]:
         """
         Extracts the image source information from the documents.
 
         :returns:
-            A list of ImageSourceInfo dictionaries, each containing the path and type of the image.
+            A list of _ImageSourceInfo dictionaries, each containing the path and type of the image.
             If the image is a PDF, the dictionary also contains the page number.
         :raises ValueError: If the document is missing the file_path_meta_field key in its metadata, the file path is
             invalid, the MIME type is not supported, or the page number is missing for a PDF document.
         """
-        images_source_info: List[ImageSourceInfo] = []
+        images_source_info: List[_ImageSourceInfo] = []
         for doc in documents:
             file_path = doc.meta.get(self.file_path_meta_field)
             if file_path is None:
@@ -251,23 +251,23 @@ class SentenceTransformersDocumentImageEmbedder:
                         f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
                         f"convert have this key set."
                     )
-                pdf_info: ImageSourceInfo = {"path": resolved_file_path, "type": "pdf", "page_number": page_number}
+                pdf_info: _ImageSourceInfo = {"path": resolved_file_path, "type": "pdf", "page_number": page_number}
                 images_source_info.append(pdf_info)
             else:
-                image_info: ImageSourceInfo = {"path": resolved_file_path, "type": "image"}
+                image_info: _ImageSourceInfo = {"path": resolved_file_path, "type": "image"}
                 images_source_info.append(image_info)
 
         return images_source_info
 
     @staticmethod
     def _process_pdf_files(
-        pdf_pages_info: List[PdfPageInfo],
+        pdf_pages_info: List[_PdfPageInfo],
         size: Optional[Tuple[int, int]],
     ) -> Dict[int, "Image"]:
         """
         Process PDF files and return a mapping of document indices to converted PIL images.
 
-        :param pdf_pages_info: List of PdfPageInfo dictionaries with doc_idx, path, and page_number.
+        :param pdf_pages_info: List of _PdfPageInfo dictionaries with doc_idx, path, and page_number.
         :param size: Optional tuple of width and height to resize the images to.
         :returns: Dictionary mapping document indices to PIL images.
         """
@@ -315,7 +315,7 @@ class SentenceTransformersDocumentImageEmbedder:
         images_source_info = self._extract_image_sources_info(documents=documents)
 
         images_to_embed: List = [None] * len(documents)
-        pdf_pages_info: List[PdfPageInfo] = []
+        pdf_pages_info: List[_PdfPageInfo] = []
 
         for doc_idx, image_source_info in enumerate(images_source_info):
             if image_source_info["type"] == "image":
@@ -328,7 +328,7 @@ class SentenceTransformersDocumentImageEmbedder:
                 # Store PDF documents for later processing
                 page_number = image_source_info.get("page_number")
                 assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
-                pdf_page_info: PdfPageInfo = {
+                pdf_page_info: _PdfPageInfo = {
                     "doc_idx": doc_idx,
                     "path": image_source_info["path"],
                     "page_number": page_number,
