@@ -75,7 +75,7 @@ class AnswerBuilder:
         documents: Optional[List[Document]] = None,
         pattern: Optional[str] = None,
         reference_pattern: Optional[str] = None,
-    ):
+    ) -> Dict[str, List[GeneratedAnswer]]:
         """
         Turns the output of a Generator into `GeneratedAnswer` objects using regular expressions.
 
@@ -191,7 +191,7 @@ class AnswerBuilder:
         return [int(idx) - 1 for idx in document_idxs]
 
     @staticmethod
-    def _check_num_groups_in_regex(pattern: str):
+    def _check_num_groups_in_regex(pattern: str) -> None:
         num_groups = re.compile(pattern).groups
         if num_groups > 1:
             raise ValueError(
