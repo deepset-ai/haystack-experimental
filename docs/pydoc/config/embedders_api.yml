@@ -3,7 +3,7 @@ loaders:
     search_path: [../../../]
     modules:
       [
-        "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder",
+        "haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder",
       ]
     ignore_when_discovered: ["__init__"]
 processors:
