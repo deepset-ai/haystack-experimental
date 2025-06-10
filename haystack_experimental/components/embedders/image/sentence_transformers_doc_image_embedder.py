@@ -208,9 +208,16 @@ class SentenceTransformersDocumentImageEmbedder:
             if self.tokenizer_kwargs and self.tokenizer_kwargs.get("model_max_length"):
                 self._embedding_backend.model.max_seq_length = self.tokenizer_kwargs["model_max_length"]
 
-    def _extract_image_sources_info(self, documents: List[Document]) -> List[_ImageSourceInfo]:
+    @staticmethod
+    def _extract_image_sources_info(
+        documents: List[Document], file_path_meta_field: str, root_path: str
+    ) -> List[_ImageSourceInfo]:
         """
         Extracts the image source information from the documents.
+
+        :param documents: List of documents to extract image source information from.
+        :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
+        :param root_path: The root directory path where document files are located.
 
         :returns:
             A list of _ImageSourceInfo dictionaries, each containing the path and type of the image.
@@ -220,14 +227,14 @@ class SentenceTransformersDocumentImageEmbedder:
         """
         images_source_info: List[_ImageSourceInfo] = []
         for doc in documents:
-            file_path = doc.meta.get(self.file_path_meta_field)
+            file_path = doc.meta.get(file_path_meta_field)
             if file_path is None:
                 raise ValueError(
-                    f"Document with ID '{doc.id}' is missing the '{self.file_path_meta_field}' key in its metadata."
+                    f"Document with ID '{doc.id}' is missing the '{file_path_meta_field}' key in its metadata."
                     f" Please ensure that the documents you are trying to convert have this key set."
                 )
 
-            resolved_file_path = Path(self.root_path, file_path)
+            resolved_file_path = Path(root_path, file_path)
             if not resolved_file_path.is_file():
                 raise ValueError(
                     f"Document with ID '{doc.id}' has an invalid file path '{resolved_file_path}'. "
@@ -312,7 +319,11 @@ class SentenceTransformersDocumentImageEmbedder:
         if self._embedding_backend is None:
             raise RuntimeError("The embedding model has not been loaded. Please call warm_up() before running.")
 
-        images_source_info = self._extract_image_sources_info(documents=documents)
+        images_source_info = self._extract_image_sources_info(
+            documents=documents,
+            file_path_meta_field=self.file_path_meta_field,
+            root_path=self.root_path,
+        )
 
         images_to_embed: List = [None] * len(documents)
         pdf_pages_info: List[_PdfPageInfo] = []

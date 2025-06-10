@@ -320,7 +320,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
                 document.meta["page_number"] = 1
             documents.append(document)
 
-        images_source_info = embedder._extract_image_sources_info(documents)
+        images_source_info = embedder._extract_image_sources_info(documents=documents, file_path_meta_field="file_path", root_path="")
         assert len(images_source_info) == len(documents)
         for path_info in images_source_info:
             assert str(path_info["path"]) in image_paths
@@ -335,19 +335,19 @@ class TestSentenceTransformersDocumentImageEmbedder:
 
         document = Document(content="test")
         with pytest.raises(ValueError, match="missing the 'file_path' key"):
-            embedder._extract_image_sources_info([document])
+            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
         document = Document(content="test", meta={"file_path": "invalid_path"})
         with pytest.raises(ValueError, match="has an invalid file path"):
-            embedder._extract_image_sources_info([document])
+            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
         document = Document(content="test", meta={"file_path": str(test_files_path / "docx" / "sample_docx.docx")})
         with pytest.raises(ValueError, match="has an unsupported MIME type"):
-            embedder._extract_image_sources_info([document])
+            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
         document = Document(content="test", meta={"file_path": str(test_files_path / "pdf" / "sample_pdf_1.pdf")})
         with pytest.raises(ValueError, match="missing the 'page_number' key"):
-            embedder._extract_image_sources_info([document])
+            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
 
     @patch(f"{IMPORT_PATH}._convert_pdf_to_pil_images")
