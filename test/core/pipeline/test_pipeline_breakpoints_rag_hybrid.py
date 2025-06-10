@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from haystack.components.builders.answer_builder import AnswerBuilder
+from haystack_experimental.components.builders.answer_builder import AnswerBuilder
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder
 from haystack.components.generators import OpenAIGenerator

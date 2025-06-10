@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from haystack.components.builders.answer_builder import AnswerBuilder
+from haystack_experimental.components.builders.answer_builder import AnswerBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import AnswerJoiner
 from haystack.core.pipeline import Pipeline
