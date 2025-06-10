@@ -12,13 +12,15 @@ import glob
 from PIL import Image
 
 from haystack import Document
-from haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder import (
+from haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder import (
     SentenceTransformersDocumentImageEmbedder,
     PdfPageInfo,
 )
 from haystack.utils.device import ComponentDevice
 from haystack.utils.auth import Secret
 from haystack.dataclasses.byte_stream import ByteStream
+
+IMPORT_PATH = "haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder"
 
 
 class TestSentenceTransformersDocumentImageEmbedder:
@@ -74,7 +76,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
                                                               model_kwargs= {"torch_dtype": "torch.float32"})
         data = component.to_dict()
         assert data == {
-            "type": "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder.SentenceTransformersDocumentImageEmbedder",
+            "type": f"{IMPORT_PATH}.SentenceTransformersDocumentImageEmbedder",
             "init_parameters": {
                 "file_path_meta_field": "file_path",
                 "root_path": "",
@@ -114,7 +116,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         }
         component = SentenceTransformersDocumentImageEmbedder.from_dict(
             {
-                "type": "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder.SentenceTransformersDocumentImageEmbedder",
+                "type": f"{IMPORT_PATH}.SentenceTransformersDocumentImageEmbedder",
                 "init_parameters": init_parameters,
             }
         )
@@ -150,7 +152,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         }
         component = SentenceTransformersDocumentImageEmbedder.from_dict(
             {
-                "type": "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder.SentenceTransformersDocumentImageEmbedder",
+                "type": f"{IMPORT_PATH}.SentenceTransformersDocumentImageEmbedder",
                 "init_parameters": init_parameters,
             }
         )
@@ -167,7 +169,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         assert component.precision == "float32"
 
     @patch(
-        "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder._SentenceTransformersEmbeddingBackendFactory"
+        f"{IMPORT_PATH}._SentenceTransformersEmbeddingBackendFactory"
     )
     def test_warmup(self, mocked_factory):
         embedder = SentenceTransformersDocumentImageEmbedder(
@@ -193,7 +195,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         )
 
     @patch(
-        "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder._SentenceTransformersEmbeddingBackendFactory"
+        f"{IMPORT_PATH}._SentenceTransformersEmbeddingBackendFactory"
     )
     def test_warmup_doesnt_reload(self, mocked_factory):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
@@ -253,7 +255,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
 
 
     @patch(
-        "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder._SentenceTransformersEmbeddingBackendFactory"
+        f"{IMPORT_PATH}._SentenceTransformersEmbeddingBackendFactory"
     )
     def test_model_onnx_backend(self, mocked_factory):
         onnx_embedder = SentenceTransformersDocumentImageEmbedder(
@@ -280,7 +282,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         )
 
     @patch(
-        "haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder._SentenceTransformersEmbeddingBackendFactory"
+        f"{IMPORT_PATH}._SentenceTransformersEmbeddingBackendFactory"
     )
     def test_model_openvino_backend(self, mocked_factory):
         openvino_embedder = SentenceTransformersDocumentImageEmbedder(
@@ -348,7 +350,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
             embedder._extract_image_sources_info([document])
 
 
-    @patch("haystack_experimental.components.embedders.sentence_transformers_doc_image_embedder._convert_pdf_to_pil_images")
+    @patch(f"{IMPORT_PATH}._convert_pdf_to_pil_images")
     def test_process_pdf_files(self, mocked_convert_pdf_to_pil_images, test_files_path):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
 
