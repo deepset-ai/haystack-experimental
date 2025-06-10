@@ -34,10 +34,7 @@ class ImageFileToImageContent:
     """
 
     def __init__(
-        self,
-        *,
-        detail: Optional[Literal["auto", "high", "low"]] = None,
-        size: Optional[Tuple[int, int]] = None
+        self, *, detail: Optional[Literal["auto", "high", "low"]] = None, size: Optional[Tuple[int, int]] = None
     ):
         """
         Create the ImageFileToImageContent component.
@@ -62,7 +59,7 @@ class ImageFileToImageContent:
         *,
         detail: Optional[Literal["auto", "high", "low"]] = None,
         size: Optional[Tuple[int, int]] = None,
-    ):
+    ) -> Dict[str, List[ImageContent]]:
         """
         Converts files to ImageContent objects.
 

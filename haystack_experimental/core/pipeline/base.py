@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
+from typing import Any, ContextManager, Dict, Iterator, List, Optional, Set, TextIO, Tuple, Type, TypeVar, Union
 
 import networkx  # type:ignore
 from haystack import logging, tracing
@@ -38,9 +38,9 @@ from haystack.core.type_utils import _type_name, _types_are_compatible
 from haystack.marshal import Marshaller, YamlMarshaller
 from haystack.utils import is_in_jupyter, type_serialization
 
-from .descriptions import find_pipeline_inputs, find_pipeline_outputs
-from .draw import _to_mermaid_image
-from .template import PipelineTemplate, PredefinedPipeline
+from haystack_experimental.core.pipeline.descriptions import find_pipeline_inputs, find_pipeline_outputs
+from haystack_experimental.core.pipeline.draw import _to_mermaid_image
+from haystack_experimental.core.pipeline.template import PipelineTemplate, PredefinedPipeline
 
 DEFAULT_MARSHALLER = YamlMarshaller()
 
@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 _COMPONENT_INPUT = "haystack.component.input"
 _COMPONENT_OUTPUT = "haystack.component.output"
 _COMPONENT_VISITS = "haystack.component.visits"
+
 
 class ComponentPriority(IntEnum):
     HIGHEST = 1
@@ -104,7 +105,7 @@ class PipelineBase:
         self.resume_state: Optional[Dict[str, Any]] = None
         self.debug_path: Optional[Union[str, Path]] = None
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Pipeline equality is defined by their type and the equality of their serialized form.
 
@@ -113,6 +114,7 @@ class PipelineBase:
         """
         if not isinstance(self, type(other)):
             return False
+        assert isinstance(other, PipelineBase)
         return self.to_dict() == other.to_dict()
 
     def __repr__(self) -> str:
@@ -165,7 +167,7 @@ class PipelineBase:
 
     @classmethod
     def from_dict(
-        cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs
+        cls: Type[T], data: Dict[str, Any], callbacks: Optional[DeserializationCallbacks] = None, **kwargs: Any
     ) -> T:
         """
         Deserializes the pipeline from a dictionary.
@@ -254,7 +256,7 @@ class PipelineBase:
         """
         return marshaller.marshal(self.to_dict())
 
-    def dump(self, fp: TextIO, marshaller: Marshaller = DEFAULT_MARSHALLER):
+    def dump(self, fp: TextIO, marshaller: Marshaller = DEFAULT_MARSHALLER) -> None:
         """
         Writes the string representation of this pipeline to the file-like object passed in the `fp` argument.
 
@@ -780,8 +782,8 @@ class PipelineBase:
 
     @staticmethod
     def _create_component_span(
-            component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
-    ):
+        component_name: str, instance: Component, inputs: Dict[str, Any], parent_span: Optional[tracing.Span] = None
+    ) -> ContextManager[tracing.Span]:
         return tracing.tracer.trace(
             "haystack.component.run",
             tags={
@@ -806,7 +808,7 @@ class PipelineBase:
             parent_span=parent_span,
         )
 
-    def _validate_input(self, data: Dict[str, Any]):
+    def _validate_input(self, data: Dict[str, Any]) -> None:
         """
         Validates pipeline input data.
 
@@ -1098,7 +1100,9 @@ class PipelineBase:
         return None
 
     @staticmethod
-    def _add_missing_input_defaults(component_inputs: Dict[str, Any], component_input_sockets: Dict[str, InputSocket]):
+    def _add_missing_input_defaults(
+        component_inputs: Dict[str, Any], component_input_sockets: Dict[str, InputSocket]
+    ) -> Dict[str, Any]:
         """
         Updates the inputs with the default values for the inputs that are missing
 
@@ -1120,7 +1124,7 @@ class PipelineBase:
         priority: ComponentPriority,
         priority_queue: FIFOPriorityQueue,
         topological_sort: Union[Dict[str, int], None],
-    ):
+    ) -> Tuple[str, Union[Dict[str, int], None]]:
         """
         Decides which component to run when multiple components are waiting for inputs with the same priority.
 

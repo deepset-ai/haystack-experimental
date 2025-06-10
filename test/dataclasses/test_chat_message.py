@@ -354,7 +354,7 @@ def test_from_user_with_content_parts_fails_if_no_textual_parts(base64_image_str
 
 def test_from_user_with_content_parts_fails_unsupported_parts():
     with pytest.raises(ValueError):
-        ChatMessage.from_user(content_parts=["text part", 
+        ChatMessage.from_user(content_parts=["text part",
                                              ToolCall(id="123", tool_name="mytool", arguments={"a": 1})])
 
 def test_from_system_with_valid_content():
@@ -505,4 +505,3 @@ def test_to_openai_dict_format_invalid():
     message = ChatMessage.from_tool(tool_result="result", origin=tool_call_null_id)
     with pytest.raises(ValueError):
         message.to_openai_dict_format()
-

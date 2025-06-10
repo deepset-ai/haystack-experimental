@@ -62,7 +62,7 @@ class PDFToImageContent:
         detail: Optional[Literal["auto", "high", "low"]] = None,
         size: Optional[Tuple[int, int]] = None,
         page_range: Optional[List[Union[str, int]]] = None,
-    ):
+    ) -> Dict[str, List[ImageContent]]:
         """
         Converts files to ImageContent objects.
 
@@ -119,7 +119,9 @@ class PDFToImageContent:
                 continue
             try:
                 page_num_and_base64_images = convert_pdf_to_images(
-                    bytestream=bytestream, page_range=expanded_page_range, size=resolved_size,
+                    bytestream=bytestream,
+                    page_range=expanded_page_range,
+                    size=resolved_size,
                 )
             except Exception as e:
                 logger.warning(

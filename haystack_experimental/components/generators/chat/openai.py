@@ -11,9 +11,11 @@ from haystack_experimental.dataclasses.chat_message import ChatMessage
 # `to_openai_dict_format` method, allowing multimodal chat messages.
 haystack.components.generators.chat.openai.ChatMessage = ChatMessage  # type: ignore[misc]
 
+
 @component
 class OpenAIChatGenerator(haystack.components.generators.chat.openai.OpenAIChatGenerator):
     """
     Experimental version of OpenAIChatGenerator that allows multimodal chat messages.
     """
+
     pass
