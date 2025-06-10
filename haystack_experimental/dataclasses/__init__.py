@@ -10,9 +10,11 @@ from lazy_imports import LazyImporter
 _import_structure = {
     "chat_message": ["ChatMessage"],
     "image_content": ["ImageContent"],
+    "answer": ["Answer", "ExtractedAnswer", "GeneratedAnswer"],
 }
 
 if TYPE_CHECKING:
+    from .answer import Answer, ExtractedAnswer, GeneratedAnswer
     from .chat_message import ChatMessage
     from .image_content import ImageContent
 else:

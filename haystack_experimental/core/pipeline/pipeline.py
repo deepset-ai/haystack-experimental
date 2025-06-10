@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Uni
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
 from haystack.core.component import Component
 from haystack.core.pipeline.component_checks import is_socket_lazy_variadic
-from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
+from haystack.dataclasses import ChatMessage, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
 from haystack_experimental.core.errors import (
@@ -29,6 +29,7 @@ from haystack_experimental.core.pipeline.base import (
     ComponentPriority,
     PipelineBase,
 )
+from haystack_experimental.dataclasses import GeneratedAnswer
 
 logger = logging.getLogger(__name__)
 
@@ -312,9 +313,9 @@ class Pipeline(PipelineBase):
                             original_input_data=data,
                             ordered_component_names=self.ordered_component_names,
                         )
-                    # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
-                    # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
 
+                    # the _consume_component_inputs() creates a 3 level deep list for lazy variadic component
+                    # we need to flatten it to 2 levels only
                     if self.resume_state and self.resume_state["breakpoint"]["component"] == component_name:
                         for socket_name, socket in component["input_sockets"].items():
                             if is_socket_lazy_variadic(socket):
