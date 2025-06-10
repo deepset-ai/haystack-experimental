@@ -292,19 +292,16 @@ class Pipeline(PipelineBase):
 
                     if validated_breakpoints and not self.resume_state:
                         state_inputs_serialised = deepcopy(inputs)
-                        # inject the component_inputs into the state_inputs so we can this component init params in
-                        # the JSON state
+                        # we store the init params for the component with breakpoint in debug state
+                        # this is helpful for retaining the state of the component and manual debugging
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
 
-                        # the init params are stored for the component with breakpoint
-                        # this is helpful for retaining the state of the component and manual debugging
-                        init_params = {}
                         # we use dict instead of to_dict() because it strips away class types of init params
-                        for key, value in component["instance"].__dict__.items():
-                            if not key.startswith("__"):
-                                init_params[key] = value
-
-                        state_inputs_serialised[component_name]["init_parameters"] = init_params
+                        state_inputs_serialised[component_name]["init_parameters"] = {
+                            key: value
+                            for key, value in component["instance"].__dict__.items()
+                            if not key.startswith("__")
+                        }  # type: ignore[assignment]
 
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
