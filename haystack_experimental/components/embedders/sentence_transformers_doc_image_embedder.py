@@ -328,8 +328,7 @@ class SentenceTransformersDocumentImageEmbedder:
             copied_doc = copy(doc)
             copied_doc.embedding = emb
             # we store this information for later inspection
-            copied_doc.meta["embedding_source_type"] = "image"
-            copied_doc.meta["embedding_source_file_path_meta_field"] = f"meta.{self.file_path_meta_field}"
+            copied_doc.meta["embedding_source"] = {"type": "image", "file_path_meta_field": self.file_path_meta_field}
             docs_with_embeddings.append(copied_doc)
 
         return {"documents": docs_with_embeddings}

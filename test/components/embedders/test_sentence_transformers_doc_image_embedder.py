@@ -221,6 +221,9 @@ class TestSentenceTransformersDocumentImageEmbedder:
             assert isinstance(doc, Document)
             assert isinstance(doc.embedding, list)
             assert isinstance(doc.embedding[0], float)
+            assert "embedding_source" in doc.meta
+            assert doc.meta["embedding_source"]["type"] == "image"
+            assert "file_path_meta_field" in doc.meta["embedding_source"]
 
     def test_run_no_warmup(self):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
