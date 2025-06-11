@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import mimetypes
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
@@ -10,6 +11,7 @@ from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
 
 from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
+from haystack_experimental.components.image_converters.image_utils import _extract_image_sources_info, _PdfPageInfo
 from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
 from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, ImageContent
 
@@ -111,63 +113,59 @@ class DocumentToImageContent:
         if not documents:
             return {"image_contents": []}
 
+        images_source_info = _extract_image_sources_info(
+            documents=documents,
+            file_path_meta_field=self.file_path_meta_field,
+            root_path=self.root_path,
+        )
+
         image_contents = []
-        for doc in documents:
-            file_path = doc.meta.get(self.file_path_meta_field)
-            if file_path is None:
-                raise ValueError(
-                    f"Document with ID '{doc.id}' is missing the '{self.file_path_meta_field}' key in its metadata."
-                    f" Please ensure that the documents you are trying to convert have this key set."
-                )
 
-            resolved_file_path = Path(self.root_path, file_path)
-            if not resolved_file_path.is_file():
-                raise ValueError(
-                    f"Document with ID '{doc.id}' has an invalid file path '{resolved_file_path}'. "
-                    f"Please ensure that the documents you are trying to convert have valid file paths."
-                )
+        pdf_pages_info: List[_PdfPageInfo] = []
 
-            mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(resolved_file_path)[0]
-            if mime_type not in IMAGE_MIME_TYPES:
-                raise ValueError(
-                    f"Document with file path '{resolved_file_path}' has an unsupported MIME type '{mime_type}'. "
-                    f"Please ensure that the documents you are trying to convert are of the supported "
-                    f"types: {', '.join(IMAGE_MIME_TYPES)}."
-                )
-
-            # If mimetype is PDF we also need the page number to be able to convert the right page
-            if mime_type == "application/pdf":
-                page_number = doc.meta.get("page_number")
-                if page_number is None:
-                    raise ValueError(
-                        f"Document with ID '{doc.id}' comes from the PDF file '{resolved_file_path}' but is missing "
-                        f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
-                        f"convert have this key set."
-                    )
-                image_contents.extend(
-                    # Possible for _pdf_to_image_converter to return multiple images depending on the page range
-                    self._pdf_to_image_converter.run(
-                        sources=[
-                            ByteStream.from_file_path(
-                                filepath=resolved_file_path,
-                                mime_type="application/pdf",
-                                meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]},
-                            )
-                        ],
-                        page_range=[doc.meta["page_number"]],
-                    )["image_contents"]
-                )
-            else:
+        for doc_idx, image_source_info in enumerate(images_source_info):
+            if image_source_info["type"] == "image":
+                # Process images directly
                 image_contents.extend(
                     self._file_to_image_converter.run(
                         sources=[
                             ByteStream.from_file_path(
-                                filepath=resolved_file_path,
-                                mime_type=mime_type,
-                                meta={"file_path": doc.meta["file_path"]},
+                                filepath=image_source_info["path"],
+                                mime_type=image_source_info["mime_type"],
+                                meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]},
                             )
                         ]
                     )["image_contents"]
                 )
+            else:
+                # Store PDF documents for later processing
+                page_number = image_source_info.get("page_number")
+                assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
+                pdf_page_info: _PdfPageInfo = {
+                    "doc_idx": doc_idx,
+                    "path": image_source_info["path"],
+                    "page_number": page_number,
+                }
+                pdf_pages_info.append(pdf_page_info)
+
+        pdf_files_by_path = defaultdict(list)
+
+        for pdf_page_info in pdf_pages_info:
+            pdf_files_by_path[pdf_page_info["path"]].append((pdf_page_info["doc_idx"], pdf_page_info["page_number"]))
+
+        # Open and convert each PDF file once
+        for file_path, doc_page_pairs in pdf_files_by_path.items():
+            page_numbers = [page_num for _, page_num in doc_page_pairs]
+            meta = {"file_path": documents[doc_idx].meta[self.file_path_meta_field]}
+            # "page_number": page_numbers}
+            bytestream = ByteStream.from_file_path(filepath=file_path, mime_type="application/pdf", meta=meta)
+
+            image_contents.extend(
+                # Possible for _pdf_to_image_converter to return multiple images depending on the page range
+                self._pdf_to_image_converter.run(
+                    sources=[bytestream],
+                    page_range=page_numbers,
+                )["image_contents"]
+            )
 
         return {"image_contents": image_contents}

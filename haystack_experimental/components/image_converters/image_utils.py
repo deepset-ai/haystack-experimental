@@ -301,6 +301,7 @@ def _convert_pdf_to_images(
 class _ImageSourceInfo(TypedDict):
     path: Path
     type: Literal["image", "pdf"]
+    mime_type: Optional[str]
     page_number: NotRequired[int]  # Only present for PDF documents
 
 
@@ -353,10 +354,15 @@ def _extract_image_sources_info(
                     f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
                     f"convert have this key set."
                 )
-            pdf_info: _ImageSourceInfo = {"path": resolved_file_path, "type": "pdf", "page_number": page_number}
+            pdf_info: _ImageSourceInfo = {
+                "type": "pdf",
+                "path": resolved_file_path,
+                "mime_type": mime_type,
+                "page_number": page_number,
+            }
             images_source_info.append(pdf_info)
         else:
-            image_info: _ImageSourceInfo = {"path": resolved_file_path, "type": "image"}
+            image_info: _ImageSourceInfo = {"type": "image", "path": resolved_file_path, "mime_type": mime_type}
             images_source_info.append(image_info)
 
     return images_source_info
