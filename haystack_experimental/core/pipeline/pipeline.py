@@ -277,9 +277,15 @@ class Pipeline(PipelineBase):
                             component_name, component_visits[component_name]
                         )
 
-                    component_inputs = self._consume_component_inputs(
-                        component_name=component_name, component=component, inputs=inputs
-                    )
+                    if self.resume_state and self.resume_state["breakpoint"]["component"] == component_name:
+                        component_inputs = self._consume_component_inputs(
+                            component_name=component_name, component=component, inputs=inputs, is_resume=True
+                        )
+                    else:
+                        component_inputs = self._consume_component_inputs(
+                            component_name=component_name, component=component, inputs=inputs
+                        )
+
                     # We need to add missing defaults using default values from input sockets because the run signature
                     # might not provide these defaults for components with inputs defined dynamically upon component
                     # initialization
@@ -304,6 +310,12 @@ class Pipeline(PipelineBase):
                             if not key.startswith("__")
                         }  # type: ignore[assignment]
 
+                        if "_template_string" in state_inputs_serialised[component_name]["init_parameters"]:
+                            state_inputs_serialised[component_name]["init_parameters"]["template"] = (
+                                state_inputs_serialised[component_name]["init_parameters"]["_template_string"]
+                            )
+                            state_inputs_serialised[component_name]["init_parameters"].pop("_template_string")
+
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
                             component_name=component_name,
@@ -316,10 +328,12 @@ class Pipeline(PipelineBase):
 
                     # the _consume_component_inputs() creates a 3 level deep list for lazy variadic component
                     # we need to flatten it to 2 levels only
-                    if self.resume_state and self.resume_state["breakpoint"]["component"] == component_name:
-                        for socket_name, socket in component["input_sockets"].items():
-                            if is_socket_lazy_variadic(socket):
-                                component_inputs[socket_name] = component_inputs[socket_name][0]
+                    # if self.resume_state and self.resume_state["breakpoint"]["component"] == component_name:
+                    # for socket_name, socket in component["input_sockets"].items():
+                    # if is_socket_lazy_variadic(socket):
+                    # print ("I am a lazy variadic component")
+                    # print (component_inputs[socket_name])
+                    # component_inputs[socket_name] = component_inputs[socket_name][0]
 
                     component_outputs = self._run_component(
                         component_name=component_name,
