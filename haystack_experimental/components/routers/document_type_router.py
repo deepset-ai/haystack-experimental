@@ -55,13 +55,14 @@ class DocumentTypeRouter:
     }
     ```
     """
+
     def __init__(
         self,
         *,
         mime_type_meta_field: Optional[str] = None,
         file_path_meta_field: Optional[str] = None,
         mime_types: List[str],
-        additional_mimetypes: Optional[Dict[str, str]] = None
+        additional_mimetypes: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Initialize the DocumentTypeRouter component.
