@@ -13,7 +13,6 @@ from haystack.components.joiners import BranchJoiner, DocumentJoiner
 from haystack.core.component import Component
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
-from haystack.utils import _deserialize_value_with_schema, _serialize_value_with_schema
 
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
@@ -27,6 +26,7 @@ from haystack_experimental.core.pipeline.base import (
     ComponentPriority,
     PipelineBase,
 )
+from haystack_experimental.utils import _deserialize_value_with_schema, _serialize_value_with_schema
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +248,8 @@ class Pipeline(PipelineBase):
                 "haystack.pipeline.max_runs_per_component": self._max_runs_per_component,
             },
         ) as span:
+            if self.resume_state:
+                data = _deserialize_value_with_schema(self.resume_state["pipeline_state"]["inputs"])
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
             priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
 
@@ -360,7 +362,7 @@ class Pipeline(PipelineBase):
         if not self.resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
 
-        self._validate_pipeline_state(self.resume_state)
+        # self._validate_pipeline_state(self.resume_state)
         data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
         component_visits = self.resume_state["pipeline_state"]["component_visits"]
         self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
@@ -594,7 +596,7 @@ class Pipeline(PipelineBase):
                 raise PipelineBreakpointException(msg, component=component_name, state=state)
 
 
-def deserialize_component_input(value):  # noqa: PLR0911
+def deserialize_component_input_old(value):  # noqa: PLR0911
     """
     Tries to deserialize any type of input that can be passed to as input to a pipeline component.
 
@@ -638,6 +640,13 @@ def deserialize_component_input(value):  # noqa: PLR0911
         return {k: deserialize_component_input(v) for k, v in value.items()}
 
     return value
+
+
+def deserialize_component_input(value):  # noqa: PLR0911
+    """
+    Deserializes a component input.
+    """
+    return _deserialize_value_with_schema(value)
 
 
 def transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any:
