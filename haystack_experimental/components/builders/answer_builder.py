@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import re
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import Document, component, logging
