@@ -120,7 +120,7 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = list_joiner_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+            _ = list_joiner_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 

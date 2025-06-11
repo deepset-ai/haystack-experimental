@@ -114,7 +114,7 @@ class TestPipeline:
 
         _ = pp.run({"value": "test_value"})
 
-    def test_validate_breakpoints(self):
+    def test_validate_breakpoint(self):
         # simple pipeline
         joiner_1 = BranchJoiner(type_=str)
         joiner_2 = BranchJoiner(type_=str)
@@ -124,29 +124,29 @@ class TestPipeline:
         pipeline.connect("comp1", "comp2")
 
         # valid breakpoints
-        breakpoints = {("comp1", 0), ("comp2", 1)}
-        validated = pipeline._validate_breakpoints(breakpoints)
-        assert validated == {("comp1", 0), ("comp2", 1)}
+        breakpoints = ("comp1", 0)
+        validated = pipeline._validate_breakpoint(breakpoints)
+        assert validated == ("comp1", 0)
 
         # should default to 0
-        breakpoints = {("comp1", None), ("comp2", 1)}
-        validated = pipeline._validate_breakpoints(breakpoints)
-        assert validated == {("comp1", 0), ("comp2", 1)}
+        breakpoints = ("comp1", None)
+        validated = pipeline._validate_breakpoint(breakpoints)
+        assert validated == ("comp1", 0)
 
         # should remain as it is
-        breakpoints = {("comp1", -1)}
-        validated = pipeline._validate_breakpoints(breakpoints)
-        assert validated == {("comp1", -1)}
+        breakpoints = ("comp1", -1)
+        validated = pipeline._validate_breakpoint(breakpoints)
+        assert validated == ("comp1", -1)
 
         # contains invalid components
-        breakpoints = {("comp1", 0), ("non_existent_component", 1)}
-        with pytest.raises(ValueError, match="Breakpoint .* is not a registered component"):
-            pipeline._validate_breakpoints(breakpoints)
+        breakpoints = ("comp3", 0)
+        with pytest.raises(ValueError, match="pipeline_breakpoint .* is not a registered component"):
+            pipeline._validate_breakpoint(breakpoints)
 
         # no breakpoints are defined
-        breakpoints = set()
-        validated = pipeline._validate_breakpoints(breakpoints)
-        assert validated == set()
+        breakpoint = None
+        validated = pipeline._validate_breakpoint(breakpoint)
+        assert validated is None
 
 
 def test_transform_json_structure_unwraps_sender_value():
@@ -307,7 +307,7 @@ def test_deserialize_component_input_handles_empty_structures():
 def test_validate_resume_state_validates_required_keys():
     state = {
         "input_data": {},
-        "breakpoint": {"component": "comp1", "visits": 0}
+        "pipeline_breakpoint": {"component": "comp1", "visits": 0}
         # Missing pipeline_state
     }
 
@@ -316,7 +316,7 @@ def test_validate_resume_state_validates_required_keys():
 
     state = {
         "input_data": {},
-        "breakpoint": {"component": "comp1", "visits": 0},
+        "pipeline_breakpoint": {"component": "comp1", "visits": 0},
         "pipeline_state": {
             "inputs": {},
             "component_visits": {}
@@ -330,7 +330,7 @@ def test_validate_resume_state_validates_required_keys():
 def test_validate_resume_state_validates_component_consistency():
     state = {
         "input_data": {},
-        "breakpoint": {"component": "comp1", "visits": 0},
+        "pipeline_breakpoint": {"component": "comp1", "visits": 0},
         "pipeline_state": {
             "inputs": {},
             "component_visits": {"comp1": 0, "comp2": 0},
@@ -344,7 +344,7 @@ def test_validate_resume_state_validates_component_consistency():
 def test_validate_resume_state_validates_valid_state():
     state = {
         "input_data": {},
-        "breakpoint": {"component": "comp1", "visits": 0},
+        "pipeline_breakpoint": {"component": "comp1", "visits": 0},
         "pipeline_state": {
             "inputs": {},
             "component_visits": {"comp1": 0, "comp2": 0},
@@ -357,7 +357,7 @@ def test_validate_resume_state_validates_valid_state():
 def test_load_state_loads_valid_state(tmp_path):
     state = {
         "input_data": {},
-        "breakpoint": {"component": "comp1", "visits": 0},
+        "pipeline_breakpoint": {"component": "comp1", "visits": 0},
         "pipeline_state": {
             "inputs": {},
             "component_visits": {"comp1": 0, "comp2": 0},
@@ -374,7 +374,7 @@ def test_load_state_loads_valid_state(tmp_path):
 def test_load_state_handles_invalid_state(tmp_path):
     state = {
         "input_data": {},
-        "breakpoint": {"component": "comp1", "visits": 0},
+        "pipeline_breakpoint": {"component": "comp1", "visits": 0},
         "pipeline_state": {
             "inputs": {},
             "component_visits": {"comp1": 0, "comp2": 0},

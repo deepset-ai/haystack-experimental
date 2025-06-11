@@ -200,7 +200,7 @@ class TestPipelineBreakpointsLoops:
         }
 
         try:
-            _ = validation_loop_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+            _ = validation_loop_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
         except PipelineBreakpointException:
             pass
 

@@ -92,7 +92,7 @@ class Pipeline(PipelineBase):
         self,
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
-        breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
+        pipeline_breakpoint: Optional[Tuple[str, Optional[int]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
@@ -171,8 +171,8 @@ class Pipeline(PipelineBase):
             invoked multiple times (in a loop), only the last-produced
             output is included.
 
-        :param breakpoints:
-            Set of tuples of component names and visit counts at which the pipeline should break execution.
+        :param pipeline_breakpoint:
+            Tuple of component name and visit count at which the pipeline should break execution.
             If the visit count is not given, it is assumed to be 0, it will break on the first visit.
 
         :param resume_state:
@@ -196,19 +196,19 @@ class Pipeline(PipelineBase):
         :raises PipelineMaxComponentRuns:
             If a Component reaches the maximum number of times it can be run in this Pipeline.
         :raises PipelineBreakpointException:
-            When a breakpoint is triggered. Contains the component name, state, and partial results.
+            When a pipeline_breakpoint is triggered. Contains the component name, state, and partial results.
         """
         pipeline_running(self)
 
-        if breakpoints and resume_state:
+        if pipeline_breakpoint and resume_state:
             logger.warning(
-                "Breakpoints cannot be provided when resuming a pipeline. All breakpoints will be ignored.",
+                "pipeline_breakpoint will be ignored because it cannot be provided when resuming a pipeline.",
             )
         self.debug_path = debug_path
         self.resume_state = resume_state
 
-        # make sure breakpoints are valid and have a default visit count
-        validated_breakpoints = self._validate_breakpoints(breakpoints) if breakpoints else None
+        # make sure pipeline_breakpoint is valid and have a default visit count
+        validated_breakpoint = self._validate_breakpoint(pipeline_breakpoint) if pipeline_breakpoint else None
 
         # TODO: Remove this warmup once we can check reliably whether a component has been warmed up or not
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
@@ -256,49 +256,56 @@ class Pipeline(PipelineBase):
             # check if pipeline is blocked before execution
             self.validate_pipeline(priority_queue)
 
-            try:
-                while True:
-                    candidate = self._get_next_runnable_component(priority_queue, component_visits)
-                    if candidate is None:
-                        break
+            while True:
+                candidate = self._get_next_runnable_component(priority_queue, component_visits)
+                if candidate is None:
+                    break
 
-                    priority, component_name, component = candidate
+                priority, component_name, component = candidate
 
-                    if len(priority_queue) > 0 and priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST]:
-                        component_name, topological_sort = self._tiebreak_waiting_components(
-                            component_name=component_name,
-                            priority=priority,
-                            priority_queue=priority_queue,
-                            topological_sort=cached_topological_sort,
-                        )
-                        cached_topological_sort = topological_sort
-                        component = self._get_component_with_graph_metadata_and_visits(
-                            component_name, component_visits[component_name]
-                        )
+                if len(priority_queue) > 0 and priority in [ComponentPriority.DEFER, ComponentPriority.DEFER_LAST]:
+                    component_name, topological_sort = self._tiebreak_waiting_components(
+                        component_name=component_name,
+                        priority=priority,
+                        priority_queue=priority_queue,
+                        topological_sort=cached_topological_sort,
+                    )
+                    cached_topological_sort = topological_sort
+                    component = self._get_component_with_graph_metadata_and_visits(
+                        component_name, component_visits[component_name]
+                    )
 
-                    if self.resume_state and self.resume_state["breakpoint"]["component"] == component_name:
-                        component_inputs = self._consume_component_inputs(
-                            component_name=component_name, component=component, inputs=inputs, is_resume=True
-                        )
-                    else:
-                        component_inputs = self._consume_component_inputs(
-                            component_name=component_name, component=component, inputs=inputs
-                        )
+                is_resume = bool(
+                    self.resume_state and self.resume_state["pipeline_breakpoint"]["component"] == component_name
+                )
+                component_inputs = self._consume_component_inputs(
+                    component_name=component_name, component=component, inputs=inputs, is_resume=is_resume
+                )
 
-                    # We need to add missing defaults using default values from input sockets because the run signature
-                    # might not provide these defaults for components with inputs defined dynamically upon component
-                    # initialization
-                    component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
+                # We need to add missing defaults using default values from input sockets because the run signature
+                # might not provide these defaults for components with inputs defined dynamically upon component
+                # initialization
+                component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
-                    # Deserialize the component_inputs if they are passed in resume state
-                    # this check will prevent other component_inputs generated at runtime from being deserialized
-                    if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
-                        for key, value in component_inputs.items():
-                            component_inputs[key] = _deserialize_component_input(value)
+                # Scenario 1: Resume state is provided to resume the pipeline at a specific component
 
-                    if validated_breakpoints and not self.resume_state:
+                # Deserialize the component_inputs if they are passed in resume state
+                # this check will prevent other component_inputs generated at runtime from being deserialized
+                if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
+                    for key, value in component_inputs.items():
+                        component_inputs[key] = _deserialize_component_input(value)
+
+                # Scenario 2: pipeline_breakpoint is provided to stop the pipeline at
+                # a specific component and visit count
+
+                if validated_breakpoint:
+                    breakpoint_component, visit_count = validated_breakpoint
+                    breakpoint_triggered = bool(
+                        breakpoint_component == component_name and visit_count == component_visits[component_name]
+                    )
+                    if breakpoint_triggered:
                         state_inputs_serialised = deepcopy(inputs)
-                        # we store the init params for the component with breakpoint in debug state
+                        # we store the init params for the component with pipeline_breakpoint in debug state
                         # this is helpful for retaining the state of the component and manual debugging
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
 
@@ -315,57 +322,50 @@ class Pipeline(PipelineBase):
 
                         state_inputs_serialised[component_name]["init_parameters"] = init_params  # type: ignore[assignment]
 
-                        Pipeline._check_breakpoints(
-                            breakpoints=validated_breakpoints,
-                            component_name=component_name,
-                            component_visits=component_visits,
+                        Pipeline._save_state(
                             inputs=state_inputs_serialised,
+                            component_name=str(component_name),
+                            component_visits=component_visits,
                             debug_path=self.debug_path,
                             original_input_data=data,
                             ordered_component_names=self.ordered_component_names,
                         )
+                        msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
+                        logger.info(msg)
+                        raise PipelineBreakpointException(
+                            message=msg,
+                            component=component_name,
+                            state=state_inputs_serialised,
+                            results=pipeline_outputs,
+                        )
 
-                    # the _consume_component_inputs() creates a 3 level deep list for lazy variadic component
-                    # we need to flatten it to 2 levels only
-                    # if self.resume_state and self.resume_state["breakpoint"]["component"] == component_name:
-                    # for socket_name, socket in component["input_sockets"].items():
-                    # if is_socket_lazy_variadic(socket):
-                    # print ("I am a lazy variadic component")
-                    # print (component_inputs[socket_name])
-                    # component_inputs[socket_name] = component_inputs[socket_name][0]
+                component_outputs = self._run_component(
+                    component_name=component_name,
+                    component=component,
+                    inputs=component_inputs,  # the inputs to the current component
+                    component_visits=component_visits,
+                    parent_span=span,
+                )
 
-                    component_outputs = self._run_component(
-                        component_name=component_name,
-                        component=component,
-                        inputs=component_inputs,  # the inputs to the current component
-                        component_visits=component_visits,
-                        parent_span=span,
-                    )
+                # Updates global input state with component outputs and returns outputs that should go to
+                # pipeline outputs.
+                component_pipeline_outputs = self._write_component_outputs(
+                    component_name=component_name,
+                    component_outputs=component_outputs,
+                    inputs=inputs,
+                    receivers=cached_receivers[component_name],
+                    include_outputs_from=include_outputs_from,
+                )
 
-                    # Updates global input state with component outputs and returns outputs that should go to
-                    # pipeline outputs.
-                    component_pipeline_outputs = self._write_component_outputs(
-                        component_name=component_name,
-                        component_outputs=component_outputs,
-                        inputs=inputs,
-                        receivers=cached_receivers[component_name],
-                        include_outputs_from=include_outputs_from,
-                    )
+                if component_pipeline_outputs:
+                    pipeline_outputs[component_name] = deepcopy(component_pipeline_outputs)
+                if self._is_queue_stale(priority_queue):
+                    priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
 
-                    if component_pipeline_outputs:
-                        pipeline_outputs[component_name] = deepcopy(component_pipeline_outputs)
-                    if self._is_queue_stale(priority_queue):
-                        priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
-
-            except PipelineBreakpointException as e:
-                # Add the current pipeline results to the exception
-                e.results = pipeline_outputs
-                raise
-
-            if breakpoints:
-                logger.warning(f"Given breakpoint {breakpoints} was never triggered. This is because:")
+            if pipeline_breakpoint:
+                logger.warning(f"Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:")
                 logger.warning("1. The provided component is not a part of the pipeline execution path.")
-                logger.warning("2. The component did not reach the visit count specified in the breakpoint")
+                logger.warning("2. The component did not reach the visit count specified in the pipeline_breakpoint")
             return pipeline_outputs
 
     def inject_resume_state_into_graph(
@@ -385,32 +385,32 @@ class Pipeline(PipelineBase):
         component_visits = self.resume_state["pipeline_state"]["component_visits"]
         self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
         msg = (
-            f"Resuming pipeline from {self.resume_state['breakpoint']['component']} "
-            f"visit count {self.resume_state['breakpoint']['visits']}"
+            f"Resuming pipeline from {self.resume_state['pipeline_breakpoint']['component']} "
+            f"visit count {self.resume_state['pipeline_breakpoint']['visits']}"
         )
         logger.info(msg)
         return component_visits, data
 
-    def _validate_breakpoints(self, breakpoints: Set[Tuple[str, Optional[int]]]) -> Set[Tuple[str, int]]:
+    def _validate_breakpoint(self, pipeline_breakpoint: Tuple[str, Optional[int]]) -> Tuple[str, int]:
         """
-        Validates the breakpoints passed to the pipeline.
+        Validates the pipeline_breakpoint passed to the pipeline.
 
         Make sure they are all valid components registered in the pipeline,
         If the visit is not given, it is assumed to be 0, it will break on the first visit.
 
-        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
+        :param pipeline_breakpoint: Tuple of component name and visit count at which the pipeline should stop.
         :returns:
-            Set of valid breakpoints.
+            Tuple of valid pipeline_breakpoint.
         """
 
-        processed_breakpoints: Set[Tuple[str, int]] = set()
-
-        for break_point in breakpoints:
-            if break_point[0] not in self.graph.nodes:
-                raise ValueError(f"Breakpoint {break_point} is not a registered component in the pipeline")
-            valid_breakpoint: Tuple[str, int] = (break_point[0], 0 if break_point[1] is None else break_point[1])
-            processed_breakpoints.add(valid_breakpoint)
-        return processed_breakpoints
+        if pipeline_breakpoint and pipeline_breakpoint[0] not in self.graph.nodes:
+            raise ValueError(f"pipeline_breakpoint {pipeline_breakpoint} is not a registered component in the pipeline")
+        valid_breakpoint: Tuple[str, int] = (
+            (pipeline_breakpoint[0], 0 if pipeline_breakpoint[1] is None else pipeline_breakpoint[1])
+            if pipeline_breakpoint
+            else None
+        )
+        return valid_breakpoint
 
     def _validate_pipeline_state(self, resume_state: Dict[str, Any]) -> None:
         """
@@ -449,8 +449,8 @@ class Pipeline(PipelineBase):
             )
 
         logger.info(
-            f"Resuming pipeline from component: {resume_state['breakpoint']['component']} "
-            f"(visit {resume_state['breakpoint']['visits']})"
+            f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
+            f"(visit {resume_state['pipeline_breakpoint']['visits']})"
         )
 
     @staticmethod
@@ -458,14 +458,14 @@ class Pipeline(PipelineBase):
         """
         Validates the loaded pipeline state.
 
-        Ensures that the state contains required keys: "input_data", "breakpoint", and "pipeline_state".
+        Ensures that the state contains required keys: "input_data", "pipeline_breakpoint", and "pipeline_state".
 
         Raises:
             ValueError: If required keys are missing or the component sets are inconsistent.
         """
 
         # top-level state has all required keys
-        required_top_keys = {"input_data", "breakpoint", "pipeline_state"}
+        required_top_keys = {"input_data", "pipeline_breakpoint", "pipeline_state"}
         missing_top = required_top_keys - state.keys()
         if missing_top:
             raise ValueError(f"Invalid state file: missing required keys {missing_top}")
@@ -520,7 +520,7 @@ class Pipeline(PipelineBase):
         return state
 
     @staticmethod
-    def save_state(
+    def _save_state(
         inputs: Dict[str, Any],
         component_name: str,
         component_visits: Dict[str, int],
@@ -555,7 +555,7 @@ class Pipeline(PipelineBase):
         state = {
             "input_data": _serialize_component_input(original_input_data),  # original input data
             "timestamp": dt.isoformat(),
-            "breakpoint": {"component": component_name, "visits": component_visits[component_name]},
+            "pipeline_breakpoint": {"component": component_name, "visits": component_visits[component_name]},
             "pipeline_state": {
                 "inputs": _serialize_component_input(inputs),  # current pipeline state inputs
                 "component_visits": component_visits,
@@ -586,46 +586,6 @@ class Pipeline(PipelineBase):
         except Exception as e:
             logger.error(f"Failed to save pipeline state: {str(e)}")
             raise
-
-    @staticmethod
-    def _check_breakpoints(
-        breakpoints: Set[Tuple[str, int]],
-        component_name: str,
-        component_visits: Dict[str, int],
-        inputs: Dict[str, Any],
-        debug_path: Optional[Union[str, Path]] = None,
-        original_input_data: Optional[Dict[str, Any]] = None,
-        ordered_component_names: Optional[List[str]] = None,
-    ) -> None:
-        """
-        Check if the `component_name` is in the breakpoints and if it should break.
-
-        :param breakpoints: Set of tuples of component names and visit counts at which the pipeline should stop.
-        :param component_name: Name of the component to check.
-        :param component_visits: The number of times the component has been visited.
-        :param inputs: The inputs to the pipeline.
-        :param debug_path: The file path where debug state is saved.
-        :param original_input_data: The original input data to the pipeline.
-        :param ordered_component_names: The ordered component names in the pipeline.
-
-        :raises PipelineBreakpointException: When a breakpoint is triggered, with component state information.
-        """
-        for component, visit_count in breakpoints:
-            if component != component_name:
-                continue
-
-            if visit_count == component_visits[component_name]:
-                msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
-                logger.info(msg)
-                state = Pipeline.save_state(
-                    inputs=inputs,
-                    component_name=str(component_name),
-                    component_visits=component_visits,
-                    debug_path=debug_path,
-                    original_input_data=original_input_data,
-                    ordered_component_names=ordered_component_names,
-                )
-                raise PipelineBreakpointException(msg, component=component_name, state=state)
 
 
 def _deserialize_component_input(value: Any) -> Any:  # noqa: PLR0911
