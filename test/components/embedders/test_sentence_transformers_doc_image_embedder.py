@@ -28,7 +28,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
         assert embedder.file_path_meta_field == "file_path"
         assert embedder.root_path == ""
-        assert embedder.size is None
         assert embedder.model == "model"
         assert embedder.device == ComponentDevice.resolve_device(None)
         assert embedder.token == Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False)
@@ -43,7 +42,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         embedder = SentenceTransformersDocumentImageEmbedder(
             file_path_meta_field="custom_file_path",
             root_path="root_path",
-            size=(800, 600),
             model="model",
             device=ComponentDevice.from_str("cuda:0"),
             token=Secret.from_token("fake-api-token"),
@@ -55,7 +53,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         )
         assert embedder.file_path_meta_field == "custom_file_path"
         assert embedder.root_path == "root_path"
-        assert embedder.size == (800, 600)
         assert embedder.model == "model"
         assert embedder.device == ComponentDevice.from_str("cuda:0")
         assert embedder.token == Secret.from_token("fake-api-token")
@@ -80,7 +77,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
             "init_parameters": {
                 "file_path_meta_field": "file_path",
                 "root_path": "",
-                "size": None,
                 "model": "model",
                 "device": ComponentDevice.from_str("cpu").to_dict(),
                 "token": {"env_vars": ["HF_API_TOKEN", "HF_TOKEN"], "strict": False, "type": "env_var"},
@@ -101,7 +97,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         init_parameters = {
             "file_path_meta_field": "custom_file_path",
             "root_path": "root_path",
-            "size": (800, 600),
             "model": "model",
             "device": ComponentDevice.from_str("cuda:0").to_dict(),
             "token": {"env_vars": ["ENV_VAR"], "strict": False, "type": "env_var"},
@@ -122,7 +117,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         )
         assert component.file_path_meta_field == "custom_file_path"
         assert component.root_path == "root_path"
-        assert component.size == (800, 600)
         assert component.model == "model"
         assert component.device == ComponentDevice.from_str("cuda:0")
         assert component.token == Secret.from_env_var("ENV_VAR", strict=False)
@@ -140,7 +134,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         init_parameters = {
             "file_path_meta_field": "custom_file_path",
             "root_path": "root_path",
-            "size": (800, 600),
             "model": "model",
             "device": None,
             "token": {"env_vars": ["ENV_VAR"], "strict": False, "type": "env_var"},
@@ -158,7 +151,6 @@ class TestSentenceTransformersDocumentImageEmbedder:
         )
         assert component.file_path_meta_field == "custom_file_path"
         assert component.root_path == "root_path"
-        assert component.size == (800, 600)
         assert component.model == "model"
         assert component.device == ComponentDevice.resolve_device(None)
         assert component.token == Secret.from_env_var("ENV_VAR", strict=False)
@@ -205,7 +197,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         mocked_factory.get_embedding_backend.assert_called_once()
 
     def test_run(self, test_files_path):
-        embedder = SentenceTransformersDocumentImageEmbedder(model="model", size=(100, 100))
+        embedder = SentenceTransformersDocumentImageEmbedder(model="model")
         embedder._embedding_backend = MagicMock()
         embedder._embedding_backend.embed = lambda x, **kwargs: [
             [random.random() for _ in range(16)] for _ in range(len(x))
@@ -361,7 +353,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
         pdf_documents = [pdf_doc_1, pdf_doc_2]
 
-        result = embedder._process_pdf_files(pdf_pages_info=pdf_documents, size=None)
+        result = embedder._process_pdf_files(pdf_pages_info=pdf_documents)
 
         pdf_bytestream = ByteStream.from_file_path((pdf_path))
 
@@ -378,7 +370,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
 
     def test_process_pdf_files_no_pages_info(self):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
-        result = embedder._process_pdf_files(pdf_pages_info=[], size=None)
+        result = embedder._process_pdf_files(pdf_pages_info=[])
 
         assert isinstance(result, dict)
         assert len(result) == 0

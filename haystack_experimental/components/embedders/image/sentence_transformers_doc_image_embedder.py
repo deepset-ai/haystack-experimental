@@ -22,7 +22,6 @@ from typing_extensions import NotRequired
 
 from haystack_experimental.components.image_converters.image_utils import (
     _convert_pdf_to_pil_images,
-    _resize_image_preserving_aspect_ratio,
 )
 from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES
 
@@ -57,7 +56,6 @@ class SentenceTransformersDocumentImageEmbedder:
         *,
         file_path_meta_field: str = "file_path",
         root_path: Optional[str] = None,
-        size: Optional[Tuple[int, int]] = None,
         model: str = "sentence-transformers/clip-ViT-B-32",
         device: Optional[ComponentDevice] = None,
         token: Optional[Secret] = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
@@ -78,9 +76,6 @@ class SentenceTransformersDocumentImageEmbedder:
         :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
         :param root_path: The root directory path where document files are located. If provided, file paths in
             document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
-        :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
-            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
-            when working with models that have resolution constraints or when transmitting images to remote services.
         :param model:
             The Sentence Transformers model to use for calculating embeddings. To be used with this component,
             the model must be able to embed images and text into the same vector space.
@@ -125,7 +120,6 @@ class SentenceTransformersDocumentImageEmbedder:
 
         self.file_path_meta_field = file_path_meta_field
         self.root_path = root_path or ""
-        self.size = size
         self.model = model
         self.device = ComponentDevice.resolve_device(device)
         self.token = token
@@ -152,7 +146,6 @@ class SentenceTransformersDocumentImageEmbedder:
             self,
             file_path_meta_field=self.file_path_meta_field,
             root_path=self.root_path,
-            size=self.size,
             model=self.model,
             device=self.device.to_dict(),
             token=self.token.to_dict() if self.token else None,
@@ -269,7 +262,7 @@ class SentenceTransformersDocumentImageEmbedder:
     @staticmethod
     def _process_pdf_files(
         pdf_pages_info: List[_PdfPageInfo],
-        size: Optional[Tuple[int, int]],
+        size: Optional[Tuple[int, int]] = None,
     ) -> Dict[int, "Image"]:
         """
         Process PDF files and return a mapping of document indices to converted PIL images.
@@ -332,8 +325,6 @@ class SentenceTransformersDocumentImageEmbedder:
             if image_source_info["type"] == "image":
                 # Process images directly
                 image: Union["Image", "ImageFile"] = PILImage.open(image_source_info["path"])
-                if self.size is not None:
-                    image = _resize_image_preserving_aspect_ratio(image=image, size=self.size)
                 images_to_embed[doc_idx] = image
             else:
                 # Store PDF documents for later processing
@@ -347,7 +338,7 @@ class SentenceTransformersDocumentImageEmbedder:
                 pdf_pages_info.append(pdf_page_info)
 
         # Process PDF files and update images_to_embed
-        pdf_images = self._process_pdf_files(pdf_pages_info=pdf_pages_info, size=self.size)
+        pdf_images = self._process_pdf_files(pdf_pages_info=pdf_pages_info)
         for doc_idx, pil_image in pdf_images.items():
             images_to_embed[doc_idx] = pil_image
 
