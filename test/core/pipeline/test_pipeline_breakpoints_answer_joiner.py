@@ -66,7 +66,7 @@ class TestPipelineBreakpoints:
         Creates a pipeline with mocked OpenAI components.
         """
         # Create the pipeline with mocked components
-        pipeline = Pipeline()
+        pipeline = Pipeline(connection_type_validation=False)
         pipeline.add_component("gpt-4o", mock_openai_chat_generator("gpt-4o"))
         pipeline.add_component("gpt-3", mock_openai_chat_generator("gpt-3.5-turbo"))
         pipeline.add_component("answer_builder_a", AnswerBuilder())

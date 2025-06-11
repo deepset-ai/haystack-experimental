@@ -208,7 +208,7 @@ class TestPipelineBreakpoints:
         \nQuestion: {{question}}
         \nAnswer:
         """
-        pipeline = Pipeline()
+        pipeline = Pipeline(connection_type_validation=False)
         pipeline.add_component(instance=InMemoryBM25Retriever(document_store=document_store), name="bm25_retriever")
 
         # Use the mocked embedder instead of creating a new one

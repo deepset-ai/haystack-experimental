@@ -6,6 +6,7 @@ import re
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import Document, component, logging
+from haystack.components.builders.answer_builder import AnswerBuilder as HaystackAnswerBuilder
 from haystack.dataclasses.chat_message import ChatMessage
 
 from haystack_experimental.dataclasses import GeneratedAnswer
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @component
-class AnswerBuilder:
+class AnswerBuilder(HaystackAnswerBuilder):
     """
     Converts a query and Generator replies into a `GeneratedAnswer` object.
 
@@ -32,39 +33,6 @@ class AnswerBuilder:
     builder.run(query="What's the answer?", replies=["This is an argument. Answer: This is the answer."])
     ```
     """
-
-    def __init__(
-        self, pattern: Optional[str] = None, reference_pattern: Optional[str] = None, last_message_only: bool = False
-    ):
-        """
-        Creates an instance of the AnswerBuilder component.
-
-        :param pattern:
-            The regular expression pattern to extract the answer text from the Generator.
-            If not specified, the entire response is used as the answer.
-            The regular expression can have one capture group at most.
-            If present, the capture group text
-            is used as the answer. If no capture group is present, the whole match is used as the answer.
-            Examples:
-                `[^\\n]+$` finds "this is an answer" in a string "this is an argument.\\nthis is an answer".
-                `Answer: (.*)` finds "this is an answer" in a string "this is an argument. Answer: this is an answer".
-
-        :param reference_pattern:
-            The regular expression pattern used for parsing the document references.
-            If not specified, no parsing is done, and all documents are referenced.
-            References need to be specified as indices of the input documents and start at [1].
-            Example: `\\[(\\d+)\\]` finds "1" in a string "this is an answer[1]".
-
-        :param last_message_only:
-           If False (default value), all messages are used as the answer.
-           If True, only the last message is used as the answer.
-        """
-        if pattern:
-            AnswerBuilder._check_num_groups_in_regex(pattern)
-
-        self.pattern = pattern
-        self.reference_pattern = reference_pattern
-        self.last_message_only = last_message_only
 
     @component.output_types(answers=List[GeneratedAnswer])
     def run(  # pylint: disable=too-many-positional-arguments
@@ -161,40 +129,3 @@ class AnswerBuilder:
             all_answers.append(answer)
 
         return {"answers": all_answers}
-
-    @staticmethod
-    def _extract_answer_string(reply: str, pattern: Optional[str] = None) -> str:
-        """
-        Extract the answer string from the generator output using the specified pattern.
-
-        If no pattern is specified, the whole string is used as the answer.
-
-        :param reply:
-            The output of the Generator. A string.
-        :param pattern:
-            The regular expression pattern to use to extract the answer text from the generator output.
-        """
-        if pattern is None:
-            return reply
-
-        if match := re.search(pattern, reply):
-            # No capture group in pattern -> use the whole match as answer
-            if not match.lastindex:
-                return match.group(0)
-            # One capture group in pattern -> use the capture group as answer
-            return match.group(1)
-        return ""
-
-    @staticmethod
-    def _extract_reference_idxs(reply: str, reference_pattern: str) -> List[int]:
-        document_idxs = re.findall(reference_pattern, reply)
-        return [int(idx) - 1 for idx in document_idxs]
-
-    @staticmethod
-    def _check_num_groups_in_regex(pattern: str) -> None:
-        num_groups = re.compile(pattern).groups
-        if num_groups > 1:
-            raise ValueError(
-                f"Pattern '{pattern}' contains multiple capture groups. "
-                f"Please specify a pattern with at most one capture group."
-            )
