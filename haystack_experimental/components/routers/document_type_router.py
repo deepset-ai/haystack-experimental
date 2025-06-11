@@ -9,16 +9,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from haystack import component
+from haystack.components.routers.file_type_router import CUSTOM_MIMETYPES
 from haystack.dataclasses import Document
-
-CUSTOM_MIMETYPES = {
-    # we add markdown because it is not added by the mimetypes module
-    # see https://github.com/python/cpython/pull/17995
-    ".md": "text/markdown",
-    ".markdown": "text/markdown",
-    # we add msg because it is not added by the mimetypes module
-    ".msg": "application/vnd.ms-outlook",
-}
 
 
 @component
@@ -26,11 +18,11 @@ class DocumentTypeRouter:
     """
     Categorizes documents by MIME types based on their metadata.
 
-    DocumentTypeRouter is used to dynamically route documents within a pipeline based on
-    their MIME types. It supports exact MIME type matches and regex patterns.
+    DocumentTypeRouter is used to dynamically route documents within a pipeline based on their MIME types.
+    It supports exact MIME type matches and regex patterns.
 
-    MIME types can be extracted directly from document metadata or inferred from file paths
-    using standard or user-supplied MIME type mappings.
+    MIME types can be extracted directly from document metadata or inferred from file paths using standard or
+    user-supplied MIME type mappings.
 
     ### Usage example
 
