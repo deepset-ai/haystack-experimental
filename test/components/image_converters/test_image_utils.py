@@ -7,8 +7,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import glob
+import pytest
 from haystack.components.converters.utils import get_bytestream_from_source
-from haystack.dataclasses import ByteStream
+from haystack.dataclasses import ByteStream, Document
 from PIL import Image
 from pytest import LogCaptureFixture
 
@@ -17,6 +19,9 @@ from haystack_experimental.components.image_converters.image_utils import (
     _encode_image_to_base64,
     _encode_pil_image_to_base64,
     _resize_image_preserving_aspect_ratio,
+    _process_pdf_files,
+    _PdfPageInfo,
+    _extract_image_sources_info,
 )
 
 
@@ -148,3 +153,77 @@ class TestOpenImageToBase64:
         bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = _encode_image_to_base64(bytestream=bytestream, size=(128, 128))
         assert base64_str is not None
+
+
+class TestExtractImageSourcesInfo:
+    def test_extract_image_source_info(self, test_files_path):
+
+        image_paths = glob.glob(str(test_files_path / "images" / "*.*")) + glob.glob(str(test_files_path / "pdf" / "*.pdf"))
+
+        documents = []
+        for i, path in enumerate(image_paths):
+            document = Document(content=f"document number {i}", meta={"file_path": path})
+            if path.endswith(".pdf"):
+                document.meta["page_number"] = 1
+            documents.append(document)
+
+        images_source_info = _extract_image_sources_info(documents=documents, file_path_meta_field="file_path", root_path="")
+        assert len(images_source_info) == len(documents)
+
+        for image_source_info in images_source_info:
+            assert str(image_source_info["path"]) in image_paths
+            assert image_source_info["type"] in ["image", "pdf"]
+            if image_source_info["type"] == "pdf":
+                assert image_source_info.get("page_number") == 1
+            else:
+                assert "page_number" not in image_source_info
+
+    def test_extract_image_source_info_errors(self, test_files_path):
+
+        document = Document(content="test")
+        with pytest.raises(ValueError, match="missing the 'file_path' key"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+        document = Document(content="test", meta={"file_path": "invalid_path"})
+        with pytest.raises(ValueError, match="has an invalid file path"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+        document = Document(content="test", meta={"file_path": str(test_files_path / "docx" / "sample_docx.docx")})
+        with pytest.raises(ValueError, match="has an unsupported MIME type"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+        document = Document(content="test", meta={"file_path": str(test_files_path / "pdf" / "sample_pdf_1.pdf")})
+        with pytest.raises(ValueError, match="missing the 'page_number' key"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+class TestProcessPdfFiles:
+    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_pil_images")
+    def test_process_pdf_files(self, mocked_convert_pdf_to_pil_images, test_files_path):
+
+        mocked_convert_pdf_to_pil_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
+
+        pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
+        pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_documents = [pdf_doc_1, pdf_doc_2]
+
+        result = _process_pdf_files(pdf_pages_info=pdf_documents)
+
+        pdf_bytestream = ByteStream.from_file_path((pdf_path))
+
+        mocked_convert_pdf_to_pil_images.assert_called_once_with(
+            bytestream=pdf_bytestream,
+            page_range=[1, 2],
+            size=None
+        )
+
+        assert len(result) == len(pdf_documents)
+        assert 0 in result and 1 in result
+        assert isinstance(result[0], Image.Image)
+        assert isinstance(result[1], Image.Image)
+
+    def test_process_pdf_files_no_pages_info(self):
+        result = _process_pdf_files(pdf_pages_info=[])
+
+        assert isinstance(result, dict)
+        assert len(result) == 0

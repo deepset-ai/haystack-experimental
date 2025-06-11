@@ -3,14 +3,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import mimetypes
+from collections import defaultdict
 from io import BytesIO
-from typing import List, Optional, Tuple, Union
+from pathlib import Path
+from typing import Dict, List, Literal, NotRequired, Optional, Tuple, TypedDict, Union
 
 from haystack import logging
-from haystack.dataclasses import ByteStream
+from haystack.dataclasses import ByteStream, Document
 from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.dataclasses.image_content import MIME_TO_FORMAT
+from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, MIME_TO_FORMAT
 
 with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
     from pypdfium2 import PdfDocument
@@ -293,3 +296,106 @@ def _convert_pdf_to_images(
     return [
         (page_number, _encode_pil_image_to_base64(image, mime_type="image/jpeg")) for page_number, image in pil_images
     ]
+
+
+class _ImageSourceInfo(TypedDict):
+    path: Path
+    type: Literal["image", "pdf"]
+    page_number: NotRequired[int]  # Only present for PDF documents
+
+
+def _extract_image_sources_info(
+    documents: List[Document], file_path_meta_field: str, root_path: str
+) -> List[_ImageSourceInfo]:
+    """
+    Extracts the image source information from the documents.
+
+    :param documents: List of documents to extract image source information from.
+    :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
+    :param root_path: The root directory path where document files are located.
+
+    :returns:
+        A list of _ImageSourceInfo dictionaries, each containing the path and type of the image.
+        If the image is a PDF, the dictionary also contains the page number.
+    :raises ValueError: If the document is missing the file_path_meta_field key in its metadata, the file path is
+        invalid, the MIME type is not supported, or the page number is missing for a PDF document.
+    """
+    images_source_info: List[_ImageSourceInfo] = []
+    for doc in documents:
+        file_path = doc.meta.get(file_path_meta_field)
+        if file_path is None:
+            raise ValueError(
+                f"Document with ID '{doc.id}' is missing the '{file_path_meta_field}' key in its metadata."
+                f" Please ensure that the documents you are trying to convert have this key set."
+            )
+
+        resolved_file_path = Path(root_path, file_path)
+        if not resolved_file_path.is_file():
+            raise ValueError(
+                f"Document with ID '{doc.id}' has an invalid file path '{resolved_file_path}'. "
+                f"Please ensure that the documents you are trying to convert have valid file paths."
+            )
+
+        mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(resolved_file_path)[0]
+        if mime_type not in IMAGE_MIME_TYPES:
+            raise ValueError(
+                f"Document with file path '{resolved_file_path}' has an unsupported MIME type '{mime_type}'. "
+                f"Please ensure that the documents you are trying to convert are of the supported "
+                f"types: {', '.join(IMAGE_MIME_TYPES)}."
+            )
+
+        # If mimetype is PDF we also need the page number to be able to convert the right page
+        if mime_type == "application/pdf":
+            page_number = doc.meta.get("page_number")
+            if page_number is None:
+                raise ValueError(
+                    f"Document with ID '{doc.id}' comes from the PDF file '{resolved_file_path}' but is missing "
+                    f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
+                    f"convert have this key set."
+                )
+            pdf_info: _ImageSourceInfo = {"path": resolved_file_path, "type": "pdf", "page_number": page_number}
+            images_source_info.append(pdf_info)
+        else:
+            image_info: _ImageSourceInfo = {"path": resolved_file_path, "type": "image"}
+            images_source_info.append(image_info)
+
+    return images_source_info
+
+
+class _PdfPageInfo(TypedDict):
+    doc_idx: int
+    path: Path
+    page_number: int
+
+
+def _process_pdf_files(
+    pdf_pages_info: List[_PdfPageInfo],
+    size: Optional[Tuple[int, int]] = None,
+) -> Dict[int, "Image"]:
+    """
+    Process PDF files and return a mapping of document indices to converted PIL images.
+
+    :param pdf_pages_info: List of _PdfPageInfo dictionaries with doc_idx, path, and page_number.
+    :param size: Optional tuple of width and height to resize the images to.
+    :returns: Dictionary mapping document indices to PIL images.
+    """
+    if not pdf_pages_info:
+        return {}
+
+    pdf_images_by_doc_idx = {}
+    pdf_files_by_path = defaultdict(list)
+
+    for pdf_page_info in pdf_pages_info:
+        pdf_files_by_path[pdf_page_info["path"]].append((pdf_page_info["doc_idx"], pdf_page_info["page_number"]))
+
+    # Open and convert each PDF file once
+    for file_path, doc_page_pairs in pdf_files_by_path.items():
+        page_numbers = [page_num for _, page_num in doc_page_pairs]
+        bytestream = ByteStream.from_file_path(file_path)
+        pdf_images = _convert_pdf_to_pil_images(bytestream=bytestream, page_range=page_numbers, size=size)
+        # Map back to document positions
+        page_to_pil_image = dict(pdf_images)
+        for doc_idx, page_num in doc_page_pairs:
+            pdf_images_by_doc_idx[doc_idx] = page_to_pil_image[page_num]
+
+    return pdf_images_by_doc_idx
