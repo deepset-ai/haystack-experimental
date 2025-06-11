@@ -303,17 +303,17 @@ class Pipeline(PipelineBase):
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
 
                         # we use dict instead of to_dict() because it strips away class types of init params
-                        state_inputs_serialised[component_name]["init_parameters"] = {
+                        init_params = {
                             key: value
                             for key, value in component["instance"].__dict__.items()
                             if not key.startswith("__")
-                        }  # type: ignore[assignment]
+                        }
 
-                        if "_template_string" in state_inputs_serialised[component_name]["init_parameters"]:
-                            state_inputs_serialised[component_name]["init_parameters"]["template"] = (
-                                state_inputs_serialised[component_name]["init_parameters"]["_template_string"]
-                            )
-                            state_inputs_serialised[component_name]["init_parameters"].pop("_template_string")
+                        if "_template_string" in init_params:
+                            init_params["template"] = init_params["_template_string"]
+                            init_params.pop("_template_string")
+
+                        state_inputs_serialised[component_name]["init_parameters"] = init_params  # type: ignore[assignment]
 
                         Pipeline._check_breakpoints(
                             breakpoints=validated_breakpoints,
