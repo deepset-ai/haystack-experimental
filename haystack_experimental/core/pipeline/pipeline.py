@@ -13,7 +13,6 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Uni
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
 from haystack.core.component import Component
-from haystack.core.pipeline.component_checks import is_socket_lazy_variadic
 from haystack.dataclasses import ChatMessage, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
