@@ -252,22 +252,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     )
                     if breakpoint_triggered:
                         state_inputs_serialised = deepcopy(inputs)
-                        # we store the init params for the component with pipeline_breakpoint in debug state
-                        # this is helpful for retaining the state of the component and manual debugging
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
-
-                        # we use dict instead of to_dict() because it strips away class types of init params
-                        init_params = {
-                            key: value
-                            for key, value in component["instance"].__dict__.items()
-                            if not key.startswith("__")
-                        }
-
-                        if "_template_string" in init_params:
-                            init_params["template"] = init_params["_template_string"]
-                            init_params.pop("_template_string")
-
-                        state_inputs_serialised[component_name]["init_parameters"] = init_params  # type: ignore[assignment]
 
                         Pipeline._save_state(
                             inputs=state_inputs_serialised,
@@ -475,10 +460,15 @@ class Pipeline(HaystackPipeline, PipelineBase):
         ordered_component_names: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        If a debug_path is given it saves the JSON state of the pipeline at a given component visit count in a file.
+        Save the pipeline state to a file.
 
-        If debug_path is not given, it returns the JSON state as a dictionary without saving it to a file.
-
+        :param inputs: The current pipeline state inputs.
+        :param component_name: The name of the component that triggered the breakpoint.
+        :param component_visits: The visit count of the component that triggered the breakpoint.
+        :param callback_fun: A function to call with the saved state.
+        :param debug_path: The path to save the state to.
+        :param original_input_data: The original input data.
+        :param ordered_component_names: The ordered component names.
         :raises:
             Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
 
@@ -486,16 +476,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
             The saved state dictionary
         """
         dt = datetime.now()
-
-        # we store a input params passed during init() in the saved state
-        # this is helpful for retaining the state of the component and manual debugging
-        for value in inputs.values():
-            if "init_parameters" not in value:
-                continue
-            init_params = value.pop("init_parameters")
-            for k, v in value.items():
-                if k in init_params and not v:
-                    value[k] = _serialize_component_input(init_params[k])
 
         state = {
             "input_data": _serialize_component_input(original_input_data),  # original input data
