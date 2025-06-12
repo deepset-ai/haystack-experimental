@@ -39,6 +39,7 @@ class Pipeline(HaystackPipeline):
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[Set[Tuple[str, Optional[int]]]] = None,
+        *,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
@@ -150,8 +151,6 @@ class Pipeline(HaystackPipeline):
             logger.warning(
                 "Breakpoints cannot be provided when resuming a pipeline. All breakpoints will be ignored.",
             )
-        self.debug_path = debug_path
-        self.resume_state = resume_state
 
         # make sure breakpoints are valid and have a default visit count
         validated_breakpoints = self._validate_breakpoints(breakpoints) if breakpoints else None
@@ -163,7 +162,7 @@ class Pipeline(HaystackPipeline):
         if include_outputs_from is None:
             include_outputs_from = set()
 
-        if not self.resume_state:
+        if not resume_state:
             # normalize `data`
             data = self._prepare_component_input_data(data)
 
@@ -172,19 +171,21 @@ class Pipeline(HaystackPipeline):
 
             # We create a list of components in the pipeline sorted by name, so that the algorithm runs
             # deterministically and independent of insertion order into the pipeline.
-            self.ordered_component_names = sorted(self.graph.nodes.keys())
+            ordered_component_names = sorted(self.graph.nodes.keys())
 
             # We track component visits to decide if a component can run.
-            component_visits = dict.fromkeys(self.ordered_component_names, 0)
+            component_visits = dict.fromkeys(ordered_component_names, 0)
 
         else:
             # inject the resume state into the graph
-            component_visits, data = self.inject_resume_state_into_graph()
+            component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
+                resume_state=resume_state,
+            )
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
         # We store them here for easy access.
-        cached_receivers = {name: self._find_receivers_from(name) for name in self.ordered_component_names}
+        cached_receivers = {name: self._find_receivers_from(name) for name in ordered_component_names}
 
         pipeline_outputs: Dict[str, Any] = {}
         with tracing.tracer.trace(
@@ -197,7 +198,7 @@ class Pipeline(HaystackPipeline):
             },
         ) as span:
             inputs = self._convert_to_internal_format(pipeline_inputs=data)
-            priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
+            priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
             # check if pipeline is blocked before execution
             self.validate_pipeline(priority_queue)
@@ -233,11 +234,11 @@ class Pipeline(HaystackPipeline):
 
                     # Deserialize the component_inputs if they are passed in resume state
                     # this check will prevent other component_inputs generated at runtime from being deserialized
-                    if self.resume_state and component_name in self.resume_state["pipeline_state"]["inputs"].keys():
+                    if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
                         for key, value in component_inputs.items():
                             component_inputs[key] = deserialize_component_input(value)
 
-                    if validated_breakpoints and not self.resume_state:
+                    if validated_breakpoints and not resume_state:
                         state_inputs_serialised = remove_unserializable_data(deepcopy(inputs))
                         # inject the component_inputs into the state_inputs so we can this component init params in
                         # the JSON state
@@ -248,15 +249,15 @@ class Pipeline(HaystackPipeline):
                             component_name=component_name,
                             component_visits=component_visits,
                             inputs=state_inputs_serialised,
-                            debug_path=self.debug_path,
+                            debug_path=debug_path,
                             original_input_data=data,
-                            ordered_component_names=self.ordered_component_names,
+                            ordered_component_names=ordered_component_names,
                         )
 
                     # the _consume_component_inputs() when applied to the DocumentJoiner inputs wraps 'documents' in an
                     # extra list, so there's a 3 level deep list, we need to flatten it to 2 levels only
                     instance: Component = component["instance"]
-                    if self.resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
+                    if resume_state and isinstance(instance, DocumentJoiner):  # noqa: SIM102
                         if isinstance(component_inputs["documents"], list):  # noqa: SIM102
                             if isinstance(component_inputs["documents"][0], list):  # noqa: SIM102
                                 if isinstance(component_inputs["documents"][0][0], list):  # noqa: SIM102
@@ -283,7 +284,7 @@ class Pipeline(HaystackPipeline):
                     if component_pipeline_outputs:
                         pipeline_outputs[component_name] = deepcopy(component_pipeline_outputs)
                     if self._is_queue_stale(priority_queue):
-                        priority_queue = self._fill_queue(self.ordered_component_names, inputs, component_visits)
+                        priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
             except PipelineBreakpointException as e:
                 # Add the current pipeline results to the exception
@@ -296,28 +297,26 @@ class Pipeline(HaystackPipeline):
                 logger.warning("2. The component did not reach the visit count specified in the breakpoint")
             return pipeline_outputs
 
-    def inject_resume_state_into_graph(
-        self,
-    ) -> Tuple[Dict[str, int], Dict[str, Any]]:
+    def inject_resume_state_into_graph(self, resume_state):
         """
         Loads the resume state from a file and injects it into the pipeline graph.
 
         """
         # We previously check if the resume_state is None but
         # this is needed to prevent a typing error
-        if not self.resume_state:
+        if not resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
 
-        self._validate_pipeline_state(self.resume_state)
-        data = self._prepare_component_input_data(self.resume_state["pipeline_state"]["inputs"])
-        component_visits = self.resume_state["pipeline_state"]["component_visits"]
-        self.ordered_component_names = self.resume_state["pipeline_state"]["ordered_component_names"]
+        self._validate_pipeline_state(resume_state)
+        data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
+        component_visits = resume_state["pipeline_state"]["component_visits"]
+        ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]
         msg = (
-            f"Resuming pipeline from {self.resume_state['breakpoint']['component']} "
-            f"visit count {self.resume_state['breakpoint']['visits']}"
+            f"Resuming pipeline from {resume_state['breakpoint']['component']} "
+            f"visit count {resume_state['breakpoint']['visits']}"
         )
         logger.info(msg)
-        return component_visits, data
+        return component_visits, data, resume_state, ordered_component_names
 
     def _validate_breakpoints(self, breakpoints: Set[Tuple[str, Optional[int]]]) -> Set[Tuple[str, int]]:
         """
