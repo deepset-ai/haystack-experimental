@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from collections import defaultdict
 from copy import copy
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -11,7 +10,6 @@ from haystack.components.embedders.backends.sentence_transformers_backend import
     _SentenceTransformersEmbeddingBackend,
     _SentenceTransformersEmbeddingBackendFactory,
 )
-from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 from haystack.utils.auth import Secret, deserialize_secrets_inplace
 from haystack.utils.device import ComponentDevice

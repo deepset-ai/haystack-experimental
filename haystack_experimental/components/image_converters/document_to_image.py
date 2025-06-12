@@ -2,9 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import mimetypes
-from collections import defaultdict
-from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from haystack import Document, component, logging
@@ -17,11 +14,10 @@ from haystack_experimental.components.image_converters.image_utils import (
     _extract_image_sources_info,
     _PdfPageInfo,
 )
-from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
-from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, ImageContent
+from haystack_experimental.dataclasses.image_content import ImageContent
 
 with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
-    import pypdfium2
+    import pypdfium2  # pylint: disable=unused-import # the library is used but not directly referenced
 
 logger = logging.getLogger(__name__)
 
