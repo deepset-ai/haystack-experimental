@@ -101,13 +101,13 @@ class DocumentTypeRouter:
             for mime, ext in additional_mimetypes.items():
                 mimetypes.add_type(mime, ext)
 
-        self.mime_type_patterns = []
+        self._mime_type_patterns = []
         for mime_type in mime_types:
             try:
                 pattern = re.compile(mime_type)
             except re.error:
                 raise ValueError(f"Invalid regex pattern '{mime_type}'.")
-            self.mime_type_patterns.append(pattern)
+            self._mime_type_patterns.append(pattern)
 
         component.set_output_types(
             self,
@@ -142,7 +142,7 @@ class DocumentTypeRouter:
 
             matched = False
             if mime_type:
-                for pattern in self.mime_type_patterns:
+                for pattern in self._mime_type_patterns:
                     if pattern.fullmatch(mime_type):
                         mime_types[pattern.pattern].append(doc)
                         matched = True
