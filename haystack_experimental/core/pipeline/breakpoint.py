@@ -44,7 +44,7 @@ def _validate_pipeline_state(resume_state: Dict[str, Any], graph: Any) -> None:
     """
     Validates that the resume_state contains valid configuration for the current pipeline.
 
-    Raises a PipelineRuntimeError if any component is missing or if the state structure is invalid.
+    Raises a PipelineInvalidResumeStateError if any component is missing or if the state structure is invalid.
 
     :param resume_state: The saved state to validate.
     """
