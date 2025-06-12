@@ -27,7 +27,7 @@ def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: 
 
     :param pipeline_breakpoint: Tuple of component name and visit count at which the pipeline should stop.
     :returns:
-        Tuple of valid pipeline_breakpoint.
+        Tuple of component name and visit count representing the `pipeline_breakpoint`
     """
 
     if pipeline_breakpoint and pipeline_breakpoint[0] not in graph.nodes:
