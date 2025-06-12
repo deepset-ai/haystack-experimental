@@ -16,7 +16,7 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: Enables text generation using LLMs.
+  excerpt: Routers is a group of components that route queries or Documents to other components that can handle them best.
   category_slug: experiments-api
   title: Routers
   slug: experimental-routers-api
