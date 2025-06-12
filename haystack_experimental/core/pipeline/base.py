@@ -35,7 +35,7 @@ class PipelineBase(HaystackPipelineBase):
             if is_resume:
                 consumed_inputs[socket_name] = socket_inputs[0]
                 continue
-            elif socket_inputs:
+            if socket_inputs:
                 if not socket.is_variadic:
                     # We only care about the first input provided to the socket.
                     consumed_inputs[socket_name] = socket_inputs[0]

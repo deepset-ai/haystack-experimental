@@ -12,8 +12,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
-from haystack.core.component import Component
-
 from haystack.core.pipeline.base import ComponentPriority
 from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.dataclasses import ChatMessage, SparseEmbedding
@@ -23,10 +21,8 @@ from haystack_experimental.core.errors import (
     PipelineBreakpointException,
     PipelineInvalidResumeStateError,
 )
-
-from haystack_experimental.dataclasses import GeneratedAnswer
 from haystack_experimental.core.pipeline.base import PipelineBase
-
+from haystack_experimental.dataclasses import GeneratedAnswer
 
 logger = logging.getLogger(__name__)
 
@@ -228,9 +224,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         component_name, component_visits[component_name]
                     )
 
-                is_resume = bool(
-                    resume_state and resume_state["pipeline_breakpoint"]["component"] == component_name
-                )
+                is_resume = bool(resume_state and resume_state["pipeline_breakpoint"]["component"] == component_name)
                 component_inputs = self._consume_component_inputs(
                     component_name=component_name, component=component, inputs=inputs, is_resume=is_resume
                 )
@@ -292,7 +286,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             results=pipeline_outputs,
                         )
 
-
                 component_outputs = self._run_component(
                     component_name=component_name,
                     component=component,
@@ -311,7 +304,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     include_outputs_from=include_outputs_from,
                 )
 
-                    
                 if component_pipeline_outputs:
                     pipeline_outputs[component_name] = deepcopy(component_pipeline_outputs)
                 if self._is_queue_stale(priority_queue):
@@ -338,8 +330,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
         component_visits = resume_state["pipeline_state"]["component_visits"]
         ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]
         msg = (
-            f"Resuming pipeline from {resume_state['breakpoint']['component']} "
-            f"visit count {resume_state['breakpoint']['visits']}"
+            f"Resuming pipeline from {resume_state['pipeline_breakpoint']['component']} "
+            f"visit count {resume_state['pipeline_breakpoint']['visits']}"
         )
         logger.info(msg)
         return component_visits, data, resume_state, ordered_component_names
