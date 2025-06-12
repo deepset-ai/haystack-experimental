@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from haystack import Answer, Document, ExtractedAnswer, logging
 from haystack.dataclasses import ChatMessage, SparseEmbedding
+from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
 from haystack_experimental.dataclasses import GeneratedAnswer
@@ -18,7 +19,7 @@ from haystack_experimental.dataclasses import GeneratedAnswer
 logger = logging.getLogger(__name__)
 
 
-def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: Any) -> Tuple[str, int]:
+def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: MultiDiGraph) -> Tuple[str, int]:
     """
     Validates the pipeline_breakpoint passed to the pipeline.
 
@@ -40,7 +41,7 @@ def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: 
     return valid_breakpoint
 
 
-def _validate_pipeline_state(resume_state: Dict[str, Any], graph: Any) -> None:
+def _validate_pipeline_state(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
     """
     Validates that the resume_state contains valid configuration for the current pipeline.
 
@@ -83,9 +84,9 @@ def _validate_pipeline_state(resume_state: Dict[str, Any], graph: Any) -> None:
 
 def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
     """
-    Validates the loaded pipeline state.
+    Validates the loaded pipeline resume_state.
 
-    Ensures that the state contains required keys: "input_data", "pipeline_breakpoint", and "pipeline_state".
+    Ensures that the resume_state contains required keys: "input_data", "pipeline_breakpoint", and "pipeline_state".
 
     Raises:
         ValueError: If required keys are missing or the component sets are inconsistent.
@@ -93,12 +94,12 @@ def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
 
     # top-level state has all required keys
     required_top_keys = {"input_data", "pipeline_breakpoint", "pipeline_state"}
-    missing_top = required_top_keys - state.keys()
+    missing_top = required_top_keys - resume_state.keys()
     if missing_top:
         raise ValueError(f"Invalid state file: missing required keys {missing_top}")
 
     # pipeline_state has the necessary keys
-    pipeline_state = state["pipeline_state"]
+    pipeline_state = resume_state["pipeline_state"]
     required_pipeline_keys = {"inputs", "component_visits", "ordered_component_names"}
     missing_pipeline = required_pipeline_keys - pipeline_state.keys()
     if missing_pipeline:
@@ -121,9 +122,9 @@ def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Load a saved pipeline state.
 
-    :param file_path: Path to the state file
+    :param file_path: Path to the resume_state file
     :returns:
-        Dict containing the loaded state
+        Dict containing the loaded resume_state.
     """
 
     file_path = Path(file_path)
@@ -139,7 +140,7 @@ def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
         raise IOError(f"Error reading {file_path}: {str(e)}")
 
     try:
-        _validate_resume_state(state=state)
+        _validate_resume_state(resume_state=state)
     except ValueError as e:
         raise ValueError(f"Invalid pipeline state from {file_path}: {str(e)}")
 
