@@ -81,7 +81,7 @@ def _validate_pipeline_state(resume_state: Dict[str, Any], graph: Any) -> None:
     )
 
 
-def _validate_resume_state(state: Dict[str, Any]) -> None:
+def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
     """
     Validates the loaded pipeline state.
 
