@@ -8,16 +8,21 @@ from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
 from haystack.lazy_imports import LazyImport
 
-from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
 from haystack_experimental.components.image_converters.image_utils import (
     _batch_convert_pdf_pages_to_images,
+    _encode_image_to_base64,
     _extract_image_sources_info,
     _PdfPageInfo,
 )
 from haystack_experimental.dataclasses.image_content import ImageContent
 
+# the following libraries are used in utility functions used during processing
+# but we want to fail at init if they are missing
+with LazyImport("Run 'pip install pillow'") as pillow_import:
+    import PIL  # pylint: disable=unused-import
 with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
-    import pypdfium2  # pylint: disable=unused-import # the library is used but not directly referenced
+    import pypdfium2  # pylint: disable=unused-import
+
 
 logger = logging.getLogger(__name__)
 
@@ -85,14 +90,13 @@ class DocumentToImageContent:
             maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
             when working with models that have resolution constraints or when transmitting images to remote services.
         """
+        pillow_import.check()
+        pypdfium2_import.check()
+
         self.file_path_meta_field = file_path_meta_field
         self.root_path = root_path or ""
         self.detail = detail
         self.size = size
-
-        pypdfium2_import.check()
-        # Initializing the converter will trigger PIL import check.
-        self._file_to_image_converter = ImageFileToImageContent(detail=detail, size=size)
 
     @component.output_types(image_contents=List[ImageContent])
     def run(self, documents: List[Document]) -> Union[Dict[str, List[ImageContent]], Dict[str, List]]:
@@ -128,30 +132,27 @@ class DocumentToImageContent:
         pdf_page_infos: List[_PdfPageInfo] = []
 
         for doc_idx, image_source_info in enumerate(images_source_info):
-            if image_source_info["mime_type"] == "application/pdf":
+            mime_type = image_source_info["mime_type"]
+            path = image_source_info["path"]
+            if mime_type == "application/pdf":
                 # Store PDF documents for later processing
                 page_number = image_source_info.get("page_number")
                 assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
                 pdf_page_info: _PdfPageInfo = {
                     "doc_idx": doc_idx,
-                    "path": image_source_info["path"],
+                    "path": path,
                     "page_number": page_number,
                 }
                 pdf_page_infos.append(pdf_page_info)
             else:
                 # Process images directly
-                image_content = self._file_to_image_converter.run(
-                    sources=[
-                        ByteStream.from_file_path(
-                            filepath=image_source_info["path"],
-                            mime_type=image_source_info["mime_type"],
-                            meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]},
-                        )
-                    ]
-                )["image_contents"][0]
-                if image_content:
-                    image_contents[doc_idx] = image_content
+                bytestream = ByteStream.from_file_path(filepath=path, mime_type=mime_type)
+                _, base64_image = _encode_image_to_base64(bytestream=bytestream, size=self.size)
+                image_contents[doc_idx] = ImageContent(
+                    base64_image=base64_image, mime_type=mime_type, detail=self.detail, meta={"file_path": path}
+                )
 
+        # efficiently convert PDF pages to images: each PDF is opened and processed only once
         pdf_images_by_doc_idx = _batch_convert_pdf_pages_to_images(
             pdf_page_infos=pdf_page_infos, size=self.size, return_base64=True
         )

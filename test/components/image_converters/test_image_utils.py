@@ -82,6 +82,7 @@ class TestDownsizeImage:
         image_array = np.random.rand(1024, 2048, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
         downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
+        print(downsized_image.width, downsized_image.height)
         assert downsized_image.width == 1536
         assert downsized_image.height == 768
 
@@ -197,7 +198,7 @@ class TestExtractImageSourcesInfo:
         with pytest.raises(ValueError, match="missing the 'page_number' key"):
             _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
-class TestProcessPdfFiles:
+class TestBatchConvertPdfPagesToImages:
     @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_pil_images")
     def test_batch_convert_pdf_pages_to_images(self, mocked_convert_pdf_to_pil_images, test_files_path):
 
@@ -208,7 +209,7 @@ class TestProcessPdfFiles:
         pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
         pdf_documents = [pdf_doc_1, pdf_doc_2]
 
-        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents)
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents, return_base64=False)
 
         pdf_bytestream = ByteStream.from_file_path((pdf_path))
 
@@ -222,6 +223,28 @@ class TestProcessPdfFiles:
         assert 0 in result and 1 in result
         assert isinstance(result[0], Image.Image)
         assert isinstance(result[1], Image.Image)
+
+    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_base64_images")
+    def test_batch_convert_pdf_pages_to_images_base64(self, mocked_convert_pdf_to_base64_images, test_files_path):
+
+        mocked_convert_pdf_to_base64_images.return_value = [(1, "base64_image_1"), (2, "base64_image_2")]
+
+        pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
+        pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_documents = [pdf_doc_1, pdf_doc_2]
+
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents, return_base64=True)
+
+        pdf_bytestream = ByteStream.from_file_path((pdf_path))
+
+        mocked_convert_pdf_to_base64_images.assert_called_once_with(
+            bytestream=pdf_bytestream,
+            page_range=[1, 2],
+            size=None
+        )
+
+        assert result == {0: "base64_image_1", 1: "base64_image_2"}
 
     def test_batch_convert_pdf_pages_to_images_no_pages_info(self):
         result = _batch_convert_pdf_pages_to_images(pdf_page_infos=[])
