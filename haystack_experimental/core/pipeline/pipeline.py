@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
 from haystack import logging, tracing
-from haystack.core.errors import PipelineRuntimeError
 from haystack.core.pipeline.base import ComponentPriority
 from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.telemetry import pipeline_running
