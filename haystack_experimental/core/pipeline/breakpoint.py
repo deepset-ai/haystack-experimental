@@ -22,7 +22,7 @@ def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: 
     """
     Validates the pipeline_breakpoint passed to the pipeline.
 
-    Make sure they are all valid components registered in the pipeline,
+    Makes sure the breakpoint contains a valid components registered in the pipeline.
     If the visit is not given, it is assumed to be 0, it will break on the first visit.
 
     :param pipeline_breakpoint: Tuple of component name and visit count at which the pipeline should stop.
