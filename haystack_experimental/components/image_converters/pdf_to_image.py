@@ -11,7 +11,7 @@ from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
 from haystack_experimental.components.image_converters.image_utils import (
-    _convert_pdf_to_images,
+    _convert_pdf_to_base64_images,
     pillow_import,
     pypdfium2_import,
 )
@@ -118,7 +118,7 @@ class PDFToImageContent:
                 logger.warning("Could not read {source}. Skipping it. Error: {error}", source=source, error=e)
                 continue
             try:
-                page_num_and_base64_images = _convert_pdf_to_images(
+                page_num_and_base64_images = _convert_pdf_to_base64_images(
                     bytestream=bytestream,
                     page_range=expanded_page_range,
                     size=resolved_size,

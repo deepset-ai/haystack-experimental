@@ -9,11 +9,19 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
+from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
-from haystack_experimental.components.image_converters.image_utils import _extract_image_sources_info, _PdfPageInfo
+from haystack_experimental.components.image_converters.image_utils import (
+    _batch_convert_pdf_pages_to_images,
+    _extract_image_sources_info,
+    _PdfPageInfo,
+)
 from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
 from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, ImageContent
+
+with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
+    import pypdfium2
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +94,9 @@ class DocumentToImageContent:
         self.detail = detail
         self.size = size
 
-        # Initializing these converters will trigger the lazy import checks.
+        pypdfium2_import.check()
+        # Initializing the converter will trigger PIL import check.
         self._file_to_image_converter = ImageFileToImageContent(detail=detail, size=size)
-        self._pdf_to_image_converter = PDFToImageContent(detail=detail, size=size)
 
     @component.output_types(image_contents=List[ImageContent])
     def run(self, documents: List[Document]) -> Union[Dict[str, List[ImageContent]], Dict[str, List]]:
@@ -119,25 +127,12 @@ class DocumentToImageContent:
             root_path=self.root_path,
         )
 
-        image_contents = []
+        image_contents: List[Optional[ImageContent]] = [None] * len(documents)
 
-        pdf_pages_info: List[_PdfPageInfo] = []
+        pdf_page_infos: List[_PdfPageInfo] = []
 
         for doc_idx, image_source_info in enumerate(images_source_info):
-            if image_source_info["type"] == "image":
-                # Process images directly
-                image_contents.extend(
-                    self._file_to_image_converter.run(
-                        sources=[
-                            ByteStream.from_file_path(
-                                filepath=image_source_info["path"],
-                                mime_type=image_source_info["mime_type"],
-                                meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]},
-                            )
-                        ]
-                    )["image_contents"]
-                )
-            else:
+            if image_source_info["mime_type"] == "application/pdf":
                 # Store PDF documents for later processing
                 page_number = image_source_info.get("page_number")
                 assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
@@ -146,26 +141,31 @@ class DocumentToImageContent:
                     "path": image_source_info["path"],
                     "page_number": page_number,
                 }
-                pdf_pages_info.append(pdf_page_info)
+                pdf_page_infos.append(pdf_page_info)
+            else:
+                # Process images directly
+                image_content = self._file_to_image_converter.run(
+                    sources=[
+                        ByteStream.from_file_path(
+                            filepath=image_source_info["path"],
+                            mime_type=image_source_info["mime_type"],
+                            meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]},
+                        )
+                    ]
+                )["image_contents"][0]
+                if image_content:
+                    image_contents[doc_idx] = image_content
 
-        pdf_files_by_path = defaultdict(list)
-
-        for pdf_page_info in pdf_pages_info:
-            pdf_files_by_path[pdf_page_info["path"]].append((pdf_page_info["doc_idx"], pdf_page_info["page_number"]))
-
-        # Open and convert each PDF file once
-        for file_path, doc_page_pairs in pdf_files_by_path.items():
-            page_numbers = [page_num for _, page_num in doc_page_pairs]
-            meta = {"file_path": documents[doc_idx].meta[self.file_path_meta_field]}
-            # "page_number": page_numbers}
-            bytestream = ByteStream.from_file_path(filepath=file_path, mime_type="application/pdf", meta=meta)
-
-            image_contents.extend(
-                # Possible for _pdf_to_image_converter to return multiple images depending on the page range
-                self._pdf_to_image_converter.run(
-                    sources=[bytestream],
-                    page_range=page_numbers,
-                )["image_contents"]
+        pdf_images_by_doc_idx = _batch_convert_pdf_pages_to_images(
+            pdf_page_infos=pdf_page_infos, size=self.size, return_base64=True
+        )
+        for doc_idx, base64_image in pdf_images_by_doc_idx.items():
+            meta = {
+                "file_path": documents[doc_idx].meta[self.file_path_meta_field],
+                "page_number": pdf_page_infos[doc_idx]["page_number"],
+            }
+            image_contents[doc_idx] = ImageContent(
+                base64_image=base64_image, mime_type="image/jpeg", detail=self.detail, meta=meta
             )
 
         return {"image_contents": image_contents}

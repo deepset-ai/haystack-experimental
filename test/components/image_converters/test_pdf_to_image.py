@@ -7,7 +7,7 @@ from pathlib import Path
 from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.image_converters.image_utils import _convert_pdf_to_images
+from haystack_experimental.components.image_converters.image_utils import _convert_pdf_to_base64_images
 from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
 
 
@@ -45,7 +45,7 @@ class TestPDFToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert (
                 results["image_contents"][0].base64_image
-                == _convert_pdf_to_images(bytestream=byte_stream, size=None, page_range=[1])[0][1]
+                == _convert_pdf_to_base64_images(bytestream=byte_stream, size=None, page_range=[1])[0][1]
         )
         assert results["image_contents"][0].mime_type == "image/jpeg"
         assert results["image_contents"][0].detail is None
@@ -86,7 +86,7 @@ class TestPDFToImageContent:
         # Assertions
         assert len(results["image_contents"]) == 4
         assert results["image_contents"][0].base64_image is not None
-        assert results["image_contents"][0].base64_image == _convert_pdf_to_images(
+        assert results["image_contents"][0].base64_image == _convert_pdf_to_base64_images(
             bytestream=byte_stream, size=None, page_range=[1]
         )[0][1]
         assert results["image_contents"][0].mime_type == "image/jpeg"

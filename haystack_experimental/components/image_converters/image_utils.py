@@ -7,11 +7,12 @@ import mimetypes
 from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Literal, NotRequired, Optional, Tuple, TypedDict, Union
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union, overload
 
 from haystack import logging
 from haystack.dataclasses import ByteStream, Document
 from haystack.lazy_imports import LazyImport
+from typing_extensions import NotRequired
 
 from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, MIME_TO_FORMAT
 
@@ -70,7 +71,7 @@ def _encode_image_to_base64(
     inferred_mime_type = image.get_format_mimetype() or bytestream.mime_type
 
     # Downsize the image
-    downsized_image: "Image" = _resize_image_preserving_aspect_ratio(image, size)
+    downsized_image: "Image" = _resize_pil_image_preserving_aspect_ratio(image, size)
 
     # Convert the image to base64 string
     if not inferred_mime_type:
@@ -114,7 +115,7 @@ def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: s
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def _resize_image_preserving_aspect_ratio(
+def _resize_pil_image_preserving_aspect_ratio(
     image: Union["Image", "ImageFile"],
     size: Tuple[int, int],
 ) -> "Image":
@@ -259,7 +260,7 @@ def _convert_pdf_to_pil_images(
         image: "Image" = pdf_bitmap.to_pil()
         pdf_bitmap.close()
         if size is not None:
-            image = _resize_image_preserving_aspect_ratio(image, size)
+            image = _resize_pil_image_preserving_aspect_ratio(image, size)
 
         all_pdf_images.append((page_number, image))
 
@@ -268,7 +269,7 @@ def _convert_pdf_to_pil_images(
     return all_pdf_images
 
 
-def _convert_pdf_to_images(
+def _convert_pdf_to_base64_images(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
     size: Optional[Tuple[int, int]] = None,
@@ -300,7 +301,6 @@ def _convert_pdf_to_images(
 
 class _ImageSourceInfo(TypedDict):
     path: Path
-    type: Literal["image", "pdf"]
     mime_type: Optional[str]
     page_number: NotRequired[int]  # Only present for PDF documents
 
@@ -345,6 +345,8 @@ def _extract_image_sources_info(
                 f"types: {', '.join(IMAGE_MIME_TYPES)}."
             )
 
+        image_info: _ImageSourceInfo = {"path": resolved_file_path, "mime_type": mime_type}
+
         # If mimetype is PDF we also need the page number to be able to convert the right page
         if mime_type == "application/pdf":
             page_number = doc.meta.get("page_number")
@@ -354,16 +356,9 @@ def _extract_image_sources_info(
                     f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
                     f"convert have this key set."
                 )
-            pdf_info: _ImageSourceInfo = {
-                "type": "pdf",
-                "path": resolved_file_path,
-                "mime_type": mime_type,
-                "page_number": page_number,
-            }
-            images_source_info.append(pdf_info)
-        else:
-            image_info: _ImageSourceInfo = {"type": "image", "path": resolved_file_path, "mime_type": mime_type}
-            images_source_info.append(image_info)
+            image_info["page_number"] = page_number
+
+        images_source_info.append(image_info)
 
     return images_source_info
 
@@ -374,34 +369,59 @@ class _PdfPageInfo(TypedDict):
     page_number: int
 
 
-def _process_pdf_files(
-    pdf_pages_info: List[_PdfPageInfo],
+@overload
+def _batch_convert_pdf_pages_to_images(
+    *,
+    pdf_page_infos: List[_PdfPageInfo],
+    return_base64: Literal[False] = False,
     size: Optional[Tuple[int, int]] = None,
-) -> Dict[int, "Image"]:
-    """
-    Process PDF files and return a mapping of document indices to converted PIL images.
+) -> Dict[int, "Image"]: ...
+@overload
+def _batch_convert_pdf_pages_to_images(
+    *,
+    pdf_page_infos: List[_PdfPageInfo],
+    return_base64: Literal[True],
+    size: Optional[Tuple[int, int]] = None,
+) -> Dict[int, str]: ...
 
-    :param pdf_pages_info: List of _PdfPageInfo dictionaries with doc_idx, path, and page_number.
-    :param size: Optional tuple of width and height to resize the images to.
-    :returns: Dictionary mapping document indices to PIL images.
+
+def _batch_convert_pdf_pages_to_images(
+    *,
+    pdf_page_infos: List[_PdfPageInfo],
+    return_base64: bool = False,
+    size: Optional[Tuple[int, int]] = None,
+) -> Union[Dict[int, str], Dict[int, "Image"]]:
     """
-    if not pdf_pages_info:
+    Converts selected PDF pages to images, returning a mapping from document indices to images (PIL or base64).
+
+    Pages are grouped by file path to ensure each PDF is opened and processed only once for efficiency.
+
+    :param pdf_page_infos: List of _PdfPageInfo dictionaries with doc_idx, path, and page_number.
+    :param size: Optional tuple of width and height to resize the images to.
+    :param return_base64: If True, return base64 encoded images instead of PIL images.
+
+    :returns: Dictionary mapping document indices to images (PIL.Image or base64 string).
+    """
+    if not pdf_page_infos:
         return {}
 
-    pdf_images_by_doc_idx = {}
-    pdf_files_by_path = defaultdict(list)
+    page_infos_by_pdf_path = defaultdict(list)
+    for page_info in pdf_page_infos:
+        page_infos_by_pdf_path[page_info["path"]].append(page_info)
 
-    for pdf_page_info in pdf_pages_info:
-        pdf_files_by_path[pdf_page_info["path"]].append((pdf_page_info["doc_idx"], pdf_page_info["page_number"]))
+    converted_images_by_doc_index = {}
 
-    # Open and convert each PDF file once
-    for file_path, doc_page_pairs in pdf_files_by_path.items():
-        page_numbers = [page_num for _, page_num in doc_page_pairs]
-        bytestream = ByteStream.from_file_path(file_path)
-        pdf_images = _convert_pdf_to_pil_images(bytestream=bytestream, page_range=page_numbers, size=size)
-        # Map back to document positions
-        page_to_pil_image = dict(pdf_images)
-        for doc_idx, page_num in doc_page_pairs:
-            pdf_images_by_doc_idx[doc_idx] = page_to_pil_image[page_num]
+    for pdf_path, page_infos_for_pdf in page_infos_by_pdf_path.items():
+        page_numbers_to_convert = [info["page_number"] for info in page_infos_for_pdf]
+        bytestream = ByteStream.from_file_path(pdf_path)
 
-    return pdf_images_by_doc_idx
+        conversion_function = _convert_pdf_to_base64_images if return_base64 else _convert_pdf_to_pil_images
+        converted_pages = conversion_function(bytestream=bytestream, page_range=page_numbers_to_convert, size=size)
+
+        # Map results back to document indices
+        page_number_to_image = dict(converted_pages)
+        for page_info in page_infos_for_pdf:
+            converted_images_by_doc_index[page_info["doc_idx"]] = page_number_to_image[page_info["page_number"]]
+
+    # mypy is not able to infer that we match the declared return type
+    return converted_images_by_doc_index  # type: ignore[return-value]

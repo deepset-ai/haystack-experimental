@@ -15,13 +15,14 @@ from PIL import Image
 from pytest import LogCaptureFixture
 
 from haystack_experimental.components.image_converters.image_utils import (
-    _convert_pdf_to_images,
+    _convert_pdf_to_base64_images,
     _encode_image_to_base64,
     _encode_pil_image_to_base64,
-    _resize_image_preserving_aspect_ratio,
-    _process_pdf_files,
+    _resize_pil_image_preserving_aspect_ratio,
+    _batch_convert_pdf_pages_to_images,
     _PdfPageInfo,
     _extract_image_sources_info,
+    _resize_pil_image_preserving_aspect_ratio,
 )
 
 
@@ -45,49 +46,49 @@ class TestDownsizeImage:
     def test_downsize_image_low_square(self) -> None:
         image_array = np.random.rand(768, 768, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
         assert downsized_image.width == 512
         assert downsized_image.height == 512
 
     def test_downsize_image_low_portrait(self) -> None:
         image_array = np.random.rand(2048, 1024, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
         assert downsized_image.width == 256
         assert downsized_image.height == 512
 
     def test_downsize_image_low_landscape(self) -> None:
         image_array = np.random.rand(1024, 2048, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
         assert downsized_image.width == 512
         assert downsized_image.height == 256
 
     def test_downsize_image_high_square(self) -> None:
         image_array = np.random.rand(2048, 2048, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
         assert downsized_image.width == 768
         assert downsized_image.height == 768
 
     def test_downsize_image_high_portrait(self) -> None:
         image_array = np.random.rand(2048, 1024, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
         assert downsized_image.width == 768
         assert downsized_image.height == 1536
 
     def test_downsize_image_high_landscape(self) -> None:
         image_array = np.random.rand(1024, 2048, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
         assert downsized_image.width == 1536
         assert downsized_image.height == 768
 
     def test_downsize_image_no_change(self) -> None:
         image_array = np.random.rand(256, 256, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
+        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
         assert downsized_image.width == 256
         assert downsized_image.height == 256
 
@@ -95,24 +96,24 @@ class TestDownsizeImage:
 class TestReadImageFromPdf:
     def test_read_image_from_pdf(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
+        image = _convert_pdf_to_base64_images(bytestream=bytestream, page_range=[1])
         assert image is not None
 
     def test_read_image_from_pdf_with_size(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
+        image = _convert_pdf_to_base64_images(bytestream=bytestream, page_range=[1], size=(100, 100))
         assert image is not None
 
     def test_read_image_from_pdf_invalid_page(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        out = _convert_pdf_to_images(bytestream=bytestream, page_range=[5])
+        out = _convert_pdf_to_base64_images(bytestream=bytestream, page_range=[5])
         assert out == []
         assert "Page 5 is out of range for the PDF file. Skipping it." in caplog.text
 
     def test_read_image_from_pdf_error_reading_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = ByteStream(
             data=b"", mime_type="application/pdf")
-        out = _convert_pdf_to_images(bytestream, [1])
+        out = _convert_pdf_to_base64_images(bytestream, [1])
         assert out == []
         assert "Could not read PDF file" in caplog.text
 
@@ -121,7 +122,7 @@ class TestReadImageFromPdf:
 
         with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument") as mock_pdf_document:
             mock_pdf_document.__len__.return_value = 0
-            out = _convert_pdf_to_images(bytestream, [1])
+            out = _convert_pdf_to_base64_images(bytestream, [1])
 
         assert out == []
         assert "PDF file is empty" in caplog.text
@@ -138,7 +139,7 @@ class TestReadImageFromPdf:
         mock_pdf_document.__getitem__.return_value = mock_page
 
         with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument", return_value=mock_pdf_document):
-            _convert_pdf_to_images(bytestream, [1])
+            _convert_pdf_to_base64_images(bytestream, [1])
 
         assert "Large PDF detected" in caplog.text
 
@@ -172,8 +173,8 @@ class TestExtractImageSourcesInfo:
 
         for image_source_info in images_source_info:
             assert str(image_source_info["path"]) in image_paths
-            assert image_source_info["type"] in ["image", "pdf"]
-            if image_source_info["type"] == "pdf":
+            assert image_source_info["mime_type"] in ["image/jpeg", "image/png", "application/pdf"]
+            if image_source_info["mime_type"] == "application/pdf":
                 assert image_source_info.get("page_number") == 1
             else:
                 assert "page_number" not in image_source_info
@@ -198,7 +199,7 @@ class TestExtractImageSourcesInfo:
 
 class TestProcessPdfFiles:
     @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_pil_images")
-    def test_process_pdf_files(self, mocked_convert_pdf_to_pil_images, test_files_path):
+    def test_batch_convert_pdf_pages_to_images(self, mocked_convert_pdf_to_pil_images, test_files_path):
 
         mocked_convert_pdf_to_pil_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
 
@@ -207,7 +208,7 @@ class TestProcessPdfFiles:
         pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
         pdf_documents = [pdf_doc_1, pdf_doc_2]
 
-        result = _process_pdf_files(pdf_pages_info=pdf_documents)
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents)
 
         pdf_bytestream = ByteStream.from_file_path((pdf_path))
 
@@ -222,8 +223,8 @@ class TestProcessPdfFiles:
         assert isinstance(result[0], Image.Image)
         assert isinstance(result[1], Image.Image)
 
-    def test_process_pdf_files_no_pages_info(self):
-        result = _process_pdf_files(pdf_pages_info=[])
+    def test_batch_convert_pdf_pages_to_images_no_pages_info(self):
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=[])
 
         assert isinstance(result, dict)
         assert len(result) == 0
