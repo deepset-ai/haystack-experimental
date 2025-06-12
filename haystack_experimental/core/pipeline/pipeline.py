@@ -19,6 +19,7 @@ from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
+from haystack_experimental.core.pipeline.base import PipelineBase
 from haystack_experimental.core.errors import (
     PipelineBreakpointException,
     PipelineInvalidResumeStateError,
@@ -27,7 +28,9 @@ from haystack_experimental.core.errors import (
 logger = logging.getLogger(__name__)
 
 
-class Pipeline(HaystackPipeline):
+# We inherit from both HaystackPipeline and PipelineBase to ensure that we have the
+# necessary methods and properties from both classes.
+class Pipeline(HaystackPipeline, PipelineBase):
     """
     Synchronous version of the orchestration engine.
 
