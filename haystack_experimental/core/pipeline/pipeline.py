@@ -10,14 +10,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
 from haystack import logging, tracing
+from haystack.core.errors import PipelineRuntimeError
 from haystack.core.pipeline.base import ComponentPriority
 from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.telemetry import pipeline_running
 
-from haystack_experimental.core.errors import (
-    PipelineBreakpointException,
-    PipelineInvalidResumeStateError,
-)
+from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
 
 from .breakpoint import _deserialize_component_input, _save_state, _validate_breakpoint, _validate_pipeline_state
@@ -147,9 +145,11 @@ class Pipeline(HaystackPipeline, PipelineBase):
         pipeline_running(self)
 
         if pipeline_breakpoint and resume_state:
-            logger.warning(
-                "pipeline_breakpoint will be ignored because it cannot be provided when resuming a pipeline.",
+            msg = (
+                "pipeline_breakpoint and resume_state cannot be provided at the same time. "
+                "The pipeline run will be aborted."
             )
+            raise PipelineRuntimeError(message=msg)
 
         # make sure pipeline_breakpoint is valid and have a default visit count
         validated_breakpoint = _validate_breakpoint(pipeline_breakpoint, self.graph) if pipeline_breakpoint else None
