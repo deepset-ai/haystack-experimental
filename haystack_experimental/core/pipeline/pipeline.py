@@ -149,7 +149,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 "pipeline_breakpoint and resume_state cannot be provided at the same time. "
                 "The pipeline run will be aborted."
             )
-            raise PipelineRuntimeError(message=msg)
+            raise PipelineInvalidResumeStateError(message=msg)
 
         # make sure pipeline_breakpoint is valid and have a default visit count
         validated_breakpoint = _validate_breakpoint(pipeline_breakpoint, self.graph) if pipeline_breakpoint else None
