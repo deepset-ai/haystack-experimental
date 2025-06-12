@@ -994,6 +994,7 @@ class PipelineBase:
             # if we are resuming a component, the inputs are already consumed, so we just return the first input
             if is_resume:
                 consumed_inputs[socket_name] = socket_inputs[0]
+                continue
             elif socket_inputs:
                 if not socket.is_variadic:
                     # We only care about the first input provided to the socket.

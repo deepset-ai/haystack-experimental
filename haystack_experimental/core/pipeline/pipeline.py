@@ -298,7 +298,7 @@ class Pipeline(PipelineBase):
                 # Scenario 2: pipeline_breakpoint is provided to stop the pipeline at
                 # a specific component and visit count
 
-                if validated_breakpoint:
+                if validated_breakpoint is not None:
                     breakpoint_component, visit_count = validated_breakpoint
                     breakpoint_triggered = bool(
                         breakpoint_component == component_name and visit_count == component_visits[component_name]
