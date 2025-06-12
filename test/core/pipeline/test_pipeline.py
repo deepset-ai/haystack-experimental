@@ -8,7 +8,7 @@ import pytest
 
 from haystack.components.joiners import BranchJoiner
 from haystack.core.component import component
-from haystack_experimental.core.errors import PipelineRuntimeError
+from haystack.core.errors import PipelineRuntimeError
 from haystack_experimental.core.pipeline.pipeline import (
     Pipeline,
     _transform_json_structure,
@@ -28,7 +28,7 @@ class TestPipeline:
         pp = Pipeline()
         pp.add_component("wait", waiting_component())
 
-        run_data = [{"wait_for": 1}, {"wait_for": 2}]
+        run_data = [{"wait_for": 0.001}, {"wait_for": 0.002}]
 
         # Use ThreadPoolExecutor to run pipeline calls in parallel
         with ThreadPoolExecutor(max_workers=len(run_data)) as executor:
