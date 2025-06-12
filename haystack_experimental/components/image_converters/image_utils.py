@@ -24,7 +24,7 @@ with LazyImport("Run 'pip install pillow'") as pillow_import:
 logger = logging.getLogger(__name__)
 
 
-def encode_image_to_base64(
+def _encode_image_to_base64(
     bytestream: ByteStream,
     size: Optional[Tuple[int, int]] = None,
 ) -> Tuple[Optional[str], str]:
@@ -67,7 +67,7 @@ def encode_image_to_base64(
     inferred_mime_type = image.get_format_mimetype() or bytestream.mime_type
 
     # Downsize the image
-    downsized_image: "Image" = resize_image_preserving_aspect_ratio(image, size)
+    downsized_image: "Image" = _resize_image_preserving_aspect_ratio(image, size)
 
     # Convert the image to base64 string
     if not inferred_mime_type:
@@ -76,10 +76,10 @@ def encode_image_to_base64(
             "Consider providing a mime_type parameter."
         )
         inferred_mime_type = "image/jpeg"
-    return inferred_mime_type, encode_pil_image_to_base64(downsized_image, mime_type=inferred_mime_type)
+    return inferred_mime_type, _encode_pil_image_to_base64(downsized_image, mime_type=inferred_mime_type)
 
 
-def encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
+def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
     """
     Convert a PIL Image object to a base64-encoded string.
 
@@ -111,7 +111,7 @@ def encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: st
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def resize_image_preserving_aspect_ratio(
+def _resize_image_preserving_aspect_ratio(
     image: Union["Image", "ImageFile"],
     size: Tuple[int, int],
 ) -> "Image":
@@ -169,13 +169,13 @@ def resize_image_preserving_aspect_ratio(
     return resized_image
 
 
-def convert_pdf_to_images(
+def _convert_pdf_to_pil_images(
     bytestream: ByteStream,
     page_range: Optional[List[int]] = None,
     size: Optional[Tuple[int, int]] = None,
-) -> List[Tuple[int, str]]:
+) -> List[Tuple[int, "Image"]]:
     """
-    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
+    Convert a PDF file into a list of PIL Image objects.
 
     Checks PDF dimensions and adjusts size constraints based on aspect ratio.
 
@@ -188,10 +188,11 @@ def convert_pdf_to_images(
     :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
         maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
         when working with models that have resolution constraints or when transmitting images to remote services.
+
     :returns:
-        A list of tuples, each tuple containing the page number and the base64-encoded image string.
+        A list of tuples, each tuple containing the page number and the PIL Image object.
     """
-    # Check the imports
+
     pypdfium2_import.check()
     pillow_import.check()
 
@@ -255,13 +256,40 @@ def convert_pdf_to_images(
         image: "Image" = pdf_bitmap.to_pil()
         pdf_bitmap.close()
         if size is not None:
-            image = resize_image_preserving_aspect_ratio(image, size)
+            image = _resize_image_preserving_aspect_ratio(image, size)
 
-        # We always convert PDF to JPG
-        base64_image = encode_pil_image_to_base64(image, mime_type="image/jpeg")
-
-        all_pdf_images.append((page_number, base64_image))
+        all_pdf_images.append((page_number, image))
 
     pdf.close()
 
     return all_pdf_images
+
+
+def _convert_pdf_to_images(
+    bytestream: ByteStream,
+    page_range: Optional[List[int]] = None,
+    size: Optional[Tuple[int, int]] = None,
+) -> List[Tuple[int, str]]:
+    """
+    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
+
+    Checks PDF dimensions and adjusts size constraints based on aspect ratio.
+
+    :param bytestream: ByteStream object containing the PDF data
+    :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
+        If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
+        will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
+        pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
+        will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
+    :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+        maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+        when working with models that have resolution constraints or when transmitting images to remote services.
+    :returns:
+        A list of tuples, each tuple containing the page number and the base64-encoded image string.
+    """
+
+    pil_images = _convert_pdf_to_pil_images(bytestream, page_range, size)
+
+    return [
+        (page_number, _encode_pil_image_to_base64(image, mime_type="image/jpeg")) for page_number, image in pil_images
+    ]

@@ -58,6 +58,7 @@ extra-dependencies = [
   "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
   "amazon-bedrock-haystack>=3.6.2",                   # Multimodal experiment - AmazonBedrockChatGenerator
   "IPython",                                          # Multimodal experiment - ImageContent.show()
+  "sentence-transformers>=4.1.0",                     # Multimodal experiment - SentenceTransformersDocumentImageEmbedder
 
   # Type check
   "mypy",
