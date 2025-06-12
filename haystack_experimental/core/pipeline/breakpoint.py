@@ -152,7 +152,6 @@ def _save_state(
     inputs: Dict[str, Any],
     component_name: str,
     component_visits: Dict[str, int],
-    callback_fun: Optional[Callable[..., Any]] = None,
     debug_path: Optional[Union[str, Path]] = None,
     original_input_data: Optional[Dict[str, Any]] = None,
     ordered_component_names: Optional[List[str]] = None,
@@ -163,7 +162,6 @@ def _save_state(
     :param inputs: The current pipeline state inputs.
     :param component_name: The name of the component that triggered the breakpoint.
     :param component_visits: The visit count of the component that triggered the breakpoint.
-    :param callback_fun: A function to call with the saved state.
     :param debug_path: The path to save the state to.
     :param original_input_data: The original input data.
     :param ordered_component_names: The ordered component names.
@@ -171,7 +169,14 @@ def _save_state(
         Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
 
     :returns:
-        The saved state dictionary
+        The dictionary containing the state of the pipeline containing the following keys:
+        - input_data: The original input data passed to the pipeline.
+        - timestamp: The timestamp of the breakpoint.
+        - pipeline_breakpoint: The component name and visit count that triggered the breakpoint.
+        - pipeline_state: The state of the pipeline when the breakpoint was triggered containing the following keys:
+            - inputs: The current state of inputs for pipeline components.
+            - component_visits: The visit count of the components when the breakpoint was triggered.
+            - ordered_component_names: The order of components in the pipeline.
     """
     dt = datetime.now()
 
@@ -199,10 +204,6 @@ def _save_state(
         with open(debug_path / file_name, "w") as f_out:
             json.dump(state, f_out, indent=2)
         logger.info(f"Pipeline state saved at: {file_name}")
-
-        # pass the state to some user-defined callback function
-        if callback_fun is not None:
-            callback_fun(state)
 
         return state
 
