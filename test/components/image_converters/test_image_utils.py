@@ -18,11 +18,9 @@ from haystack_experimental.components.image_converters.image_utils import (
     _convert_pdf_to_base64_images,
     _encode_image_to_base64,
     _encode_pil_image_to_base64,
-    _resize_pil_image_preserving_aspect_ratio,
     _batch_convert_pdf_pages_to_images,
     _PdfPageInfo,
     _extract_image_sources_info,
-    _resize_pil_image_preserving_aspect_ratio,
 )
 
 
@@ -43,55 +41,64 @@ class TestToBase64Jpeg:
 
 
 class TestDownsizeImage:
+    """
+    In this test class, we are testing PIL Image.thumbnail() method to ensure that it conforms to our expectations.
+    """
     def test_downsize_image_low_square(self) -> None:
-        image_array = np.random.rand(768, 768, 3) * 255
+        width, height = 768, 768
+        image_array = np.random.rand(height, width, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 512
-        assert downsized_image.height == 512
+        image.thumbnail(size=(512, 512), reducing_gap=None)
+        assert image.width == 512
+        assert image.height == 512
 
     def test_downsize_image_low_portrait(self) -> None:
-        image_array = np.random.rand(2048, 1024, 3) * 255
+        width, height = 1024, 2048
+        image_array = np.random.rand(height, width, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 256
-        assert downsized_image.height == 512
+        image.thumbnail(size=(512, 512), reducing_gap=None)
+        assert image.width == 256
+        assert image.height == 512
 
     def test_downsize_image_low_landscape(self) -> None:
-        image_array = np.random.rand(1024, 2048, 3) * 255
+        width, height = 2048, 1024
+        image_array = np.random.rand(height, width, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 512
-        assert downsized_image.height == 256
+        image.thumbnail(size=(512, 512), reducing_gap=None)
+        assert image.width == 512
+        assert image.height == 256
 
     def test_downsize_image_high_square(self) -> None:
-        image_array = np.random.rand(2048, 2048, 3) * 255
+        width, height = 2048, 2048
+        image_array = np.random.rand(height, width, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
-        assert downsized_image.width == 768
-        assert downsized_image.height == 768
+        image.thumbnail(size=(768, 2_048), reducing_gap=None)
+        assert image.width == 768
+        assert image.height == 768
 
     def test_downsize_image_high_portrait(self) -> None:
-        image_array = np.random.rand(2048, 1024, 3) * 255
+        width, height = 1024, 2048
+        image_array = np.random.rand(height, width, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
-        assert downsized_image.width == 768
-        assert downsized_image.height == 1536
+        image.thumbnail(size=(768, 2_048), reducing_gap=None)
+        assert image.width == 768
+        assert image.height == 1536
 
     def test_downsize_image_high_landscape(self) -> None:
-        image_array = np.random.rand(1024, 2048, 3) * 255
+        width, height = 2048, 1024
+        image_array = np.random.rand(height, width, 3) * 255
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
-        print(downsized_image.width, downsized_image.height)
-        assert downsized_image.width == 1536
-        assert downsized_image.height == 768
+        image.thumbnail(size=(768, 2_048), reducing_gap=None)
+        assert image.width == 768
+        assert image.height == 384
 
     def test_downsize_image_no_change(self) -> None:
-        image_array = np.random.rand(256, 256, 3) * 255
+        width, height = 256, 256
+        image_array = np.random.rand(height, width, 3) * 25
         image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_pil_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 256
-        assert downsized_image.height == 256
+        image.thumbnail(size=(512, 512), reducing_gap=None)
+        assert image.width == 256
+        assert image.height == 256
 
 
 class TestReadImageFromPdf:

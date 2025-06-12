@@ -70,8 +70,11 @@ def _encode_image_to_base64(
     # NOTE: We prefer the format returned by PIL
     inferred_mime_type = image.get_format_mimetype() or bytestream.mime_type
 
-    # Downsize the image
-    downsized_image: "Image" = _resize_pil_image_preserving_aspect_ratio(image, size)
+    # Downsize the image in place
+    if size is not None:
+        # Set reducing_gap=None to disable multi-step shrink; better quality.
+        # https://pillow.readthedocs.io/en/latest/reference/Image.html#PIL.Image.Image.thumbnail
+        image.thumbnail(size=size, reducing_gap=None)
 
     # Convert the image to base64 string
     if not inferred_mime_type:
@@ -80,7 +83,7 @@ def _encode_image_to_base64(
             "Consider providing a mime_type parameter."
         )
         inferred_mime_type = "image/jpeg"
-    return inferred_mime_type, _encode_pil_image_to_base64(downsized_image, mime_type=inferred_mime_type)
+    return inferred_mime_type, _encode_pil_image_to_base64(image=image, mime_type=inferred_mime_type)
 
 
 def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
@@ -113,64 +116,6 @@ def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: s
         form = "JPEG"
     image.save(buffered, format=form)
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-
-def _resize_pil_image_preserving_aspect_ratio(
-    image: Union["Image", "ImageFile"],
-    size: Tuple[int, int],
-) -> "Image":
-    """
-    Resizes the image to fit within the specified dimensions while maintaining the original aspect ratio.
-
-    The image is only resized if its dimensions exceed the given maximum size.
-
-    Downsizing images can be beneficial for both reducing latency and conserving memory. Some models have resolution
-    limitations, so it's advisable to resize images to the maximum supported resolution before passing them to the
-    model. This can improve latency when sending images to remote services and optimize memory usage.
-
-    :param image: A PIL Image or ImageFile object to resize.
-    :param size: Maximum allowed dimensions (width, height).
-    :returns:
-        A resized PIL Image object.
-    """
-    # Check the import
-    pillow_import.check()
-
-    longer_dim = max(image.size)
-    shorter_dim = min(image.size)
-    aspect_ratio = shorter_dim / longer_dim
-
-    if isinstance(size, dict):
-        nearest_aspect_ratio_key = min(size, key=lambda aspect_ratio_key: abs(aspect_ratio - aspect_ratio_key))
-        size = size[nearest_aspect_ratio_key]
-
-    max_longer_dim = max(size)
-    max_shorter_dim = min(size)
-    aspect_ratio_max = max_shorter_dim / max_longer_dim
-
-    if aspect_ratio <= aspect_ratio_max:
-        # If the aspect ratio is less than max, we can resize based on the longer dim
-        new_longer_dim = max_longer_dim
-        new_shorter_dim = int(new_longer_dim * aspect_ratio)
-    else:
-        # If the aspect ratio is larger than max, we have to resize based on the shorter dim
-        new_shorter_dim = max_shorter_dim
-        new_longer_dim = int(new_shorter_dim / aspect_ratio)
-
-    landscape = image.width > image.height
-    if landscape:
-        new_width = new_longer_dim
-        new_height = new_shorter_dim
-    else:
-        new_width = new_shorter_dim
-        new_height = new_longer_dim
-
-    # Don't resize image if it's already within requirements
-    if image.width <= new_width and image.height <= new_height:
-        return image
-
-    resized_image = image.resize((new_width, new_height))
-    return resized_image
 
 
 def _convert_pdf_to_pil_images(
@@ -260,7 +205,9 @@ def _convert_pdf_to_pil_images(
         image: "Image" = pdf_bitmap.to_pil()
         pdf_bitmap.close()
         if size is not None:
-            image = _resize_pil_image_preserving_aspect_ratio(image, size)
+            # Set reducing_gap=None to disable multi-step shrink; better quality.
+            # https://pillow.readthedocs.io/en/latest/reference/Image.html#PIL.Image.Image.thumbnail
+            image.thumbnail(size=size, reducing_gap=None)
 
         all_pdf_images.append((page_number, image))
 
@@ -383,8 +330,6 @@ def _batch_convert_pdf_pages_to_images(
     return_base64: Literal[True],
     size: Optional[Tuple[int, int]] = None,
 ) -> Dict[int, str]: ...
-
-
 def _batch_convert_pdf_pages_to_images(
     *,
     pdf_page_infos: List[_PdfPageInfo],
