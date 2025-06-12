@@ -14,10 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
 from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
-from haystack.core.pipeline.base import (
-    ComponentPriority,
-    PipelineBase
-)
+from haystack.core.pipeline.base import ComponentPriority
 from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
