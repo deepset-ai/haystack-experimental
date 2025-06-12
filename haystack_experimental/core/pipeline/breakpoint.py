@@ -7,7 +7,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from haystack import Answer, Document, ExtractedAnswer, logging
 from haystack.dataclasses import ChatMessage, SparseEmbedding
