@@ -11,7 +11,7 @@ from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
 from haystack_experimental.components.image_converters.image_utils import (
-    _convert_pdf_to_base64_images,
+    _convert_pdf_to_images,
     pillow_import,
     pypdfium2_import,
 )
@@ -118,10 +118,11 @@ class PDFToImageContent:
                 logger.warning("Could not read {source}. Skipping it. Error: {error}", source=source, error=e)
                 continue
             try:
-                page_num_and_base64_images = _convert_pdf_to_base64_images(
+                page_num_and_base64_images = _convert_pdf_to_images(
                     bytestream=bytestream,
                     page_range=expanded_page_range,
                     size=resolved_size,
+                    return_base64=True,
                 )
             except Exception as e:
                 logger.warning(
@@ -135,6 +136,8 @@ class PDFToImageContent:
 
             for page_number, image in page_num_and_base64_images:
                 per_page_metadata = {**merged_metadata, "page_number": page_number}
+                # we already know that image is a string because we set return_base64=True but mypy doesn't know that
+                assert isinstance(image, str)
                 image_contents.append(
                     ImageContent(
                         base64_image=image, mime_type="image/jpeg", meta=per_page_metadata, detail=resolved_detail

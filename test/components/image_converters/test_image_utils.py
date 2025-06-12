@@ -15,7 +15,7 @@ from PIL import Image
 from pytest import LogCaptureFixture
 
 from haystack_experimental.components.image_converters.image_utils import (
-    _convert_pdf_to_base64_images,
+    _convert_pdf_to_images,
     _encode_image_to_base64,
     _encode_pil_image_to_base64,
     _batch_convert_pdf_pages_to_images,
@@ -101,41 +101,41 @@ class TestDownsizeImage:
         assert image.height == 256
 
 
-class TestReadImageFromPdf:
-    def test_read_image_from_pdf(self) -> None:
+class TestConvertPdfToImages:
+    def test_convert_pdf_to_images(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_base64_images(bytestream=bytestream, page_range=[1])
+        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
         assert image is not None
 
-    def test_read_image_from_pdf_with_size(self) -> None:
+    def test_convert_pdf_to_images_with_size(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_base64_images(bytestream=bytestream, page_range=[1], size=(100, 100))
+        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
         assert image is not None
 
-    def test_read_image_from_pdf_invalid_page(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_invalid_page(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        out = _convert_pdf_to_base64_images(bytestream=bytestream, page_range=[5])
+        out = _convert_pdf_to_images(bytestream=bytestream, page_range=[5])
         assert out == []
         assert "Page 5 is out of range for the PDF file. Skipping it." in caplog.text
 
-    def test_read_image_from_pdf_error_reading_file(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_error_reading_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = ByteStream(
             data=b"", mime_type="application/pdf")
-        out = _convert_pdf_to_base64_images(bytestream, [1])
+        out = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
         assert out == []
         assert "Could not read PDF file" in caplog.text
 
-    def test_read_image_from_pdf_empty_file(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_empty_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
 
         with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument") as mock_pdf_document:
             mock_pdf_document.__len__.return_value = 0
-            out = _convert_pdf_to_base64_images(bytestream, [1])
+            out = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
 
         assert out == []
         assert "PDF file is empty" in caplog.text
 
-    def test_scale_if_large_pdf(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_scale_if_large_pdf(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
 
         caplog.set_level(logging.INFO)
@@ -147,18 +147,18 @@ class TestReadImageFromPdf:
         mock_pdf_document.__getitem__.return_value = mock_page
 
         with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument", return_value=mock_pdf_document):
-            _convert_pdf_to_base64_images(bytestream, [1])
+            _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
 
         assert "Large PDF detected" in caplog.text
 
 
-class TestOpenImageToBase64:
-    def test_open_image_to_base64(self) -> None:
+class TestEncodeImageToBase64:
+    def test_encode_image_to_base64(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = _encode_image_to_base64(bytestream=bytestream)
         assert base64_str is not None
 
-    def test_open_image_to_base64_downsize(self) -> None:
+    def test_encode_image_to_base64_downsize(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = _encode_image_to_base64(bytestream=bytestream, size=(128, 128))
         assert base64_str is not None
@@ -206,10 +206,10 @@ class TestExtractImageSourcesInfo:
             _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
 class TestBatchConvertPdfPagesToImages:
-    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_pil_images")
-    def test_batch_convert_pdf_pages_to_images(self, mocked_convert_pdf_to_pil_images, test_files_path):
+    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_images")
+    def test_batch_convert_pdf_pages_to_images(self, mocked_convert_pdf_to_images, test_files_path):
 
-        mocked_convert_pdf_to_pil_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
+        mocked_convert_pdf_to_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
 
         pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
         pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
@@ -220,10 +220,11 @@ class TestBatchConvertPdfPagesToImages:
 
         pdf_bytestream = ByteStream.from_file_path((pdf_path))
 
-        mocked_convert_pdf_to_pil_images.assert_called_once_with(
+        mocked_convert_pdf_to_images.assert_called_once_with(
             bytestream=pdf_bytestream,
             page_range=[1, 2],
-            size=None
+            size=None,
+            return_base64=False
         )
 
         assert len(result) == len(pdf_documents)
@@ -231,10 +232,10 @@ class TestBatchConvertPdfPagesToImages:
         assert isinstance(result[0], Image.Image)
         assert isinstance(result[1], Image.Image)
 
-    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_base64_images")
-    def test_batch_convert_pdf_pages_to_images_base64(self, mocked_convert_pdf_to_base64_images, test_files_path):
+    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_images")
+    def test_batch_convert_pdf_pages_to_images_base64(self, mocked_convert_pdf_to_images, test_files_path):
 
-        mocked_convert_pdf_to_base64_images.return_value = [(1, "base64_image_1"), (2, "base64_image_2")]
+        mocked_convert_pdf_to_images.return_value = [(1, "base64_image_1"), (2, "base64_image_2")]
 
         pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
         pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
@@ -245,10 +246,11 @@ class TestBatchConvertPdfPagesToImages:
 
         pdf_bytestream = ByteStream.from_file_path((pdf_path))
 
-        mocked_convert_pdf_to_base64_images.assert_called_once_with(
+        mocked_convert_pdf_to_images.assert_called_once_with(
             bytestream=pdf_bytestream,
             page_range=[1, 2],
-            size=None
+            size=None,
+            return_base64=True
         )
 
         assert result == {0: "base64_image_1", 1: "base64_image_2"}

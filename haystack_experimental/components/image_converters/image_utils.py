@@ -7,7 +7,7 @@ import mimetypes
 from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union, overload
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 from haystack import logging
 from haystack.dataclasses import ByteStream, Document
@@ -118,17 +118,20 @@ def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: s
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def _convert_pdf_to_pil_images(
+def _convert_pdf_to_images(
+    *,
     bytestream: ByteStream,
+    return_base64: Union[bool, Literal[False], Literal[True]] = False,
     page_range: Optional[List[int]] = None,
     size: Optional[Tuple[int, int]] = None,
-) -> List[Tuple[int, "Image"]]:
+) -> Union[List[Tuple[int, "Image"]], List[Tuple[int, str]]]:
     """
-    Convert a PDF file into a list of PIL Image objects.
+    Convert a PDF file into a list of PIL Image objects or base64-encoded images.
 
     Checks PDF dimensions and adjusts size constraints based on aspect ratio.
 
     :param bytestream: ByteStream object containing the PDF data
+    :param return_base64: If True, return base64-encoded images instead of PIL images.
     :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
         If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
         will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
@@ -139,7 +142,7 @@ def _convert_pdf_to_pil_images(
         when working with models that have resolution constraints or when transmitting images to remote services.
 
     :returns:
-        A list of tuples, each tuple containing the page number and the PIL Image object.
+        A list of tuples, each tuple containing the page number and the PIL Image object or base64-encoded image string.
     """
 
     pypdfium2_import.check()
@@ -213,37 +216,13 @@ def _convert_pdf_to_pil_images(
 
     pdf.close()
 
+    if return_base64:
+        return [
+            (page_number, _encode_pil_image_to_base64(image, mime_type="image/jpeg"))
+            for page_number, image in all_pdf_images
+        ]
+
     return all_pdf_images
-
-
-def _convert_pdf_to_base64_images(
-    bytestream: ByteStream,
-    page_range: Optional[List[int]] = None,
-    size: Optional[Tuple[int, int]] = None,
-) -> List[Tuple[int, str]]:
-    """
-    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
-
-    Checks PDF dimensions and adjusts size constraints based on aspect ratio.
-
-    :param bytestream: ByteStream object containing the PDF data
-    :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
-        If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
-        will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
-        pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
-        will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
-    :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
-        maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
-        when working with models that have resolution constraints or when transmitting images to remote services.
-    :returns:
-        A list of tuples, each tuple containing the page number and the base64-encoded image string.
-    """
-
-    pil_images = _convert_pdf_to_pil_images(bytestream, page_range, size)
-
-    return [
-        (page_number, _encode_pil_image_to_base64(image, mime_type="image/jpeg")) for page_number, image in pil_images
-    ]
 
 
 class _ImageSourceInfo(TypedDict):
@@ -316,20 +295,6 @@ class _PdfPageInfo(TypedDict):
     page_number: int
 
 
-@overload
-def _batch_convert_pdf_pages_to_images(
-    *,
-    pdf_page_infos: List[_PdfPageInfo],
-    return_base64: Literal[False] = False,
-    size: Optional[Tuple[int, int]] = None,
-) -> Dict[int, "Image"]: ...
-@overload
-def _batch_convert_pdf_pages_to_images(
-    *,
-    pdf_page_infos: List[_PdfPageInfo],
-    return_base64: Literal[True],
-    size: Optional[Tuple[int, int]] = None,
-) -> Dict[int, str]: ...
 def _batch_convert_pdf_pages_to_images(
     *,
     pdf_page_infos: List[_PdfPageInfo],
@@ -360,8 +325,9 @@ def _batch_convert_pdf_pages_to_images(
         page_numbers_to_convert = [info["page_number"] for info in page_infos_for_pdf]
         bytestream = ByteStream.from_file_path(pdf_path)
 
-        conversion_function = _convert_pdf_to_base64_images if return_base64 else _convert_pdf_to_pil_images
-        converted_pages = conversion_function(bytestream=bytestream, page_range=page_numbers_to_convert, size=size)
+        converted_pages = _convert_pdf_to_images(
+            bytestream=bytestream, return_base64=return_base64, page_range=page_numbers_to_convert, size=size
+        )
 
         # Map results back to document indices
         page_number_to_image = dict(converted_pages)
