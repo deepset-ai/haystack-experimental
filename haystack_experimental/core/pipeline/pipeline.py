@@ -9,19 +9,16 @@ import json
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from haystack import Answer, Document, ExtractedAnswer, logging, tracing
 from haystack.components.joiners import DocumentJoiner
 from haystack.core.component import Component
-from haystack.core.errors import PipelineRuntimeError
 from haystack.core.pipeline.base import (
-    _COMPONENT_INPUT,
-    _COMPONENT_OUTPUT,
-    _COMPONENT_VISITS,
     ComponentPriority,
     PipelineBase
 )
+from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.dataclasses import ChatMessage, GeneratedAnswer, SparseEmbedding
 from haystack.telemetry import pipeline_running
 
@@ -33,60 +30,12 @@ from haystack_experimental.core.errors import (
 logger = logging.getLogger(__name__)
 
 
-class Pipeline(PipelineBase):
+class Pipeline(HaystackPipeline):
     """
     Synchronous version of the orchestration engine.
 
     Orchestrates component execution according to the execution graph, one after the other.
     """
-
-    @staticmethod
-    def _run_component(
-        component_name: str,
-        component: Dict[str, Any],
-        inputs: Dict[str, Any],
-        component_visits: Dict[str, int],
-        parent_span: Optional[tracing.Span] = None,
-    ) -> Dict[str, Any]:
-        """
-        Runs a Component with the given inputs.
-
-        :param component_name: Name of the Component.
-        :param component: Component with component metadata.
-        :param inputs: Inputs for the Component.
-        :param component_visits: Current state of component visits.
-        :param parent_span: The parent span to use for the newly created span.
-                            This is to allow tracing to be correctly linked to the pipeline run.
-
-        :raises:
-            PipelineRuntimeError: If Component doesn't return a dictionary.
-
-        :returns:
-            The output of the Component.
-        """
-        instance: Component = component["instance"]
-
-        with PipelineBase._create_component_span(
-            component_name=component_name, instance=instance, inputs=inputs, parent_span=parent_span
-        ) as span:
-            # We deepcopy the inputs otherwise we might lose that information
-            # when we delete them in case they're sent to other Components
-            span.set_content_tag(_COMPONENT_INPUT, deepcopy(inputs))
-            logger.info("Running component {component_name}", component_name=component_name)
-
-            try:
-                component_output = instance.run(**inputs)
-            except Exception as error:
-                raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
-            component_visits[component_name] += 1
-
-            if not isinstance(component_output, Mapping):
-                raise PipelineRuntimeError.from_invalid_output(component_name, instance.__class__, component_output)
-
-            span.set_tag(_COMPONENT_VISITS, component_visits[component_name])
-            span.set_content_tag(_COMPONENT_OUTPUT, component_output)
-
-            return cast(Dict[Any, Any], component_output)
 
     def run(  # noqa: PLR0915, PLR0912
         self,
