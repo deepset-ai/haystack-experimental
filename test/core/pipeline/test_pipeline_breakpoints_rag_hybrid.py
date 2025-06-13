@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from haystack.components.builders.answer_builder import AnswerBuilder
+from haystack_experimental.components.builders.answer_builder import AnswerBuilder
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder
 from haystack.components.generators import OpenAIGenerator
@@ -208,7 +208,7 @@ class TestPipelineBreakpoints:
         \nQuestion: {{question}}
         \nAnswer:
         """
-        pipeline = Pipeline()
+        pipeline = Pipeline(connection_type_validation=False)
         pipeline.add_component(instance=InMemoryBM25Retriever(document_store=document_store), name="bm25_retriever")
 
         # Use the mocked embedder instead of creating a new one
@@ -274,7 +274,7 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = hybrid_rag_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+            _ = hybrid_rag_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 
