@@ -13,6 +13,7 @@ from test.tracing.utils import SpyingTracer
 
 from haystack.testing.test_utils import set_all_seeds
 from haystack import tracing, component
+from haystack_experimental.core.pipeline.breakpoint import load_state
 
 set_all_seeds(0)
 
@@ -75,7 +76,7 @@ def load_and_resume_pipeline_state(pipeline, output_directory: Path, component: 
         f_name = Path(full_path).name
         if str(f_name).startswith(component):
             file_found = True
-            resume_state = pipeline.load_state(full_path)
+            resume_state = load_state(full_path)
             return pipeline.run(data=data, resume_state=resume_state)
 
     if not file_found:

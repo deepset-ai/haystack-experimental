@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from haystack.components.builders.answer_builder import AnswerBuilder
+from haystack_experimental.components.builders.answer_builder import AnswerBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import AnswerJoiner
 from haystack.core.pipeline import Pipeline
@@ -66,7 +66,7 @@ class TestPipelineBreakpoints:
         Creates a pipeline with mocked OpenAI components.
         """
         # Create the pipeline with mocked components
-        pipeline = Pipeline()
+        pipeline = Pipeline(connection_type_validation=False)
         pipeline.add_component("gpt-4o", mock_openai_chat_generator("gpt-4o"))
         pipeline.add_component("gpt-3", mock_openai_chat_generator("gpt-3.5-turbo"))
         pipeline.add_component("answer_builder_a", AnswerBuilder())
@@ -109,7 +109,7 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = answer_join_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+            _ = answer_join_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 
