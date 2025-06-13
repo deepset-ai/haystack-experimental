@@ -2,27 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple
 
 from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
-from haystack.lazy_imports import LazyImport
 
 from haystack_experimental.components.image_converters.image_utils import (
     _batch_convert_pdf_pages_to_images,
     _encode_image_to_base64,
     _extract_image_sources_info,
-    _PdfPageInfo,
+    _PDFPageInfo,
+    pillow_import,
+    pypdfium2_import,
 )
 from haystack_experimental.dataclasses.image_content import ImageContent
-
-# the following libraries are used in utility functions used during processing
-# but we want to fail at init if they are missing
-with LazyImport("Run 'pip install pillow'") as pillow_import:
-    import PIL  # pylint: disable=unused-import
-with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
-    import pypdfium2  # pylint: disable=unused-import
-
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +91,8 @@ class DocumentToImageContent:
         self.detail = detail
         self.size = size
 
-    @component.output_types(image_contents=List[ImageContent])
-    def run(self, documents: List[Document]) -> Union[Dict[str, List[ImageContent]], Dict[str, List]]:
+    @component.output_types(image_contents=List[Optional[ImageContent]])
+    def run(self, documents: List[Document]) -> Dict[str, List[Optional[ImageContent]]]:
         """
         Convert documents with image or PDF sources into ImageContent objects.
 
@@ -129,7 +122,7 @@ class DocumentToImageContent:
 
         image_contents: List[Optional[ImageContent]] = [None] * len(documents)
 
-        pdf_page_infos: List[_PdfPageInfo] = []
+        pdf_page_infos: List[_PDFPageInfo] = []
 
         for doc_idx, image_source_info in enumerate(images_source_info):
             mime_type = image_source_info["mime_type"]
@@ -138,7 +131,7 @@ class DocumentToImageContent:
                 # Store PDF documents for later processing
                 page_number = image_source_info.get("page_number")
                 assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
-                pdf_page_info: _PdfPageInfo = {
+                pdf_page_info: _PDFPageInfo = {
                     "doc_idx": doc_idx,
                     "path": path,
                     "page_number": page_number,
@@ -165,6 +158,15 @@ class DocumentToImageContent:
             assert isinstance(base64_pdf_image, str)
             image_contents[doc_idx] = ImageContent(
                 base64_image=base64_pdf_image, mime_type="image/jpeg", detail=self.detail, meta=meta
+            )
+
+        none_image_contents_doc_ids = [
+            documents[doc_idx].id for doc_idx, image_content in enumerate(image_contents) if image_content is None
+        ]
+        if none_image_contents_doc_ids:
+            logger.warning(
+                "Conversion failed for some documents. Their output will be None. "
+                f"Document IDs: {none_image_contents_doc_ids}"
             )
 
         return {"image_contents": image_contents}

@@ -19,7 +19,7 @@ from haystack_experimental.components.image_converters.image_utils import (
     _encode_image_to_base64,
     _encode_pil_image_to_base64,
     _batch_convert_pdf_pages_to_images,
-    _PdfPageInfo,
+    _PDFPageInfo,
     _extract_image_sources_info,
 )
 
@@ -40,77 +40,21 @@ class TestToBase64Jpeg:
         )
 
 
-class TestDownsizeImage:
-    """
-    In this test class, we are testing PIL Image.thumbnail() method to ensure that it conforms to our expectations.
-    """
-    def test_downsize_image_low_square(self) -> None:
-        width, height = 768, 768
-        image_array = np.random.rand(height, width, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(512, 512), reducing_gap=None)
-        assert image.width == 512
-        assert image.height == 512
-
-    def test_downsize_image_low_portrait(self) -> None:
-        width, height = 1024, 2048
-        image_array = np.random.rand(height, width, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(512, 512), reducing_gap=None)
-        assert image.width == 256
-        assert image.height == 512
-
-    def test_downsize_image_low_landscape(self) -> None:
-        width, height = 2048, 1024
-        image_array = np.random.rand(height, width, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(512, 512), reducing_gap=None)
-        assert image.width == 512
-        assert image.height == 256
-
-    def test_downsize_image_high_square(self) -> None:
-        width, height = 2048, 2048
-        image_array = np.random.rand(height, width, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(768, 2_048), reducing_gap=None)
-        assert image.width == 768
-        assert image.height == 768
-
-    def test_downsize_image_high_portrait(self) -> None:
-        width, height = 1024, 2048
-        image_array = np.random.rand(height, width, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(768, 2_048), reducing_gap=None)
-        assert image.width == 768
-        assert image.height == 1536
-
-    def test_downsize_image_high_landscape(self) -> None:
-        width, height = 2048, 1024
-        image_array = np.random.rand(height, width, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(768, 2_048), reducing_gap=None)
-        assert image.width == 768
-        assert image.height == 384
-
-    def test_downsize_image_no_change(self) -> None:
-        width, height = 256, 256
-        image_array = np.random.rand(height, width, 3) * 25
-        image = Image.fromarray(image_array.astype("uint8"))
-        image.thumbnail(size=(512, 512), reducing_gap=None)
-        assert image.width == 256
-        assert image.height == 256
-
-
 class TestConvertPdfToImages:
     def test_convert_pdf_to_images(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
-        assert image is not None
+        output = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
+        assert output is not None
 
     def test_convert_pdf_to_images_with_size(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
-        assert image is not None
+        pages_images = _convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
+
+        assert len(pages_images) == 1
+        assert pages_images[0][0] == 1
+        print(pages_images[0][1].width, pages_images[0][1].height)
+        assert pages_images[0][1].width <= 100
+        assert pages_images[0][1].height <= 100
 
     def test_convert_pdf_to_images_invalid_page(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
@@ -212,8 +156,8 @@ class TestBatchConvertPdfPagesToImages:
         mocked_convert_pdf_to_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
 
         pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
-        pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
-        pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_doc_1: _PDFPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PDFPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
         pdf_documents = [pdf_doc_1, pdf_doc_2]
 
         result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents, return_base64=False)
@@ -238,8 +182,8 @@ class TestBatchConvertPdfPagesToImages:
         mocked_convert_pdf_to_images.return_value = [(1, "base64_image_1"), (2, "base64_image_2")]
 
         pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
-        pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
-        pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_doc_1: _PDFPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PDFPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
         pdf_documents = [pdf_doc_1, pdf_doc_2]
 
         result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents, return_base64=True)

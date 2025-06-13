@@ -14,7 +14,7 @@ from PIL import Image
 from haystack import Document
 from haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder import (
     SentenceTransformersDocumentImageEmbedder,
-    _PdfPageInfo,
+    _PDFPageInfo,
 )
 from haystack.utils.device import ComponentDevice
 from haystack.utils.auth import Secret
@@ -299,6 +299,32 @@ class TestSentenceTransformersDocumentImageEmbedder:
             config_kwargs=None,
             backend="openvino",
         )
+
+    @patch(
+        f"{IMPORT_PATH}._extract_image_sources_info"
+    )
+    @patch(
+        f"{IMPORT_PATH}._batch_convert_pdf_pages_to_images"
+    )
+    @patch("PIL.Image.open")
+    def test_run_none_images(self, mocked_pil_open, mocked_batch_convert_pdf_pages_to_images, mocked_extract_image_sources_info):
+        embedder = SentenceTransformersDocumentImageEmbedder(model="model")
+        embedder._embedding_backend = MagicMock()
+
+        mocked_extract_image_sources_info.return_value = [
+            {"path": "doc1.pdf", "mime_type": "application/pdf", "page_number": 999},  # Page 999 doesn't exist
+            {"path": "image1.jpg", "mime_type": "image/jpeg"},
+        ]
+        mocked_batch_convert_pdf_pages_to_images.return_value = {}  # Empty dict because page was skipped
+        mocked_pil_open.return_value = Image.new('RGB', (100, 100))
+
+        documents = [
+            Document(content="PDF 1", meta={"file_path": "doc1.pdf", "page_number": 999}),
+            Document(content="Image 1", meta={"file_path": "image1.jpg"}),
+        ]
+
+        with pytest.raises(RuntimeError, match="Conversion failed for some documents."):
+            embedder.run(documents=documents)
 
     @pytest.mark.integration
     @pytest.mark.skipif(sys.platform == "darwin",

@@ -7,7 +7,7 @@ import mimetypes
 from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import Dict, List, Optional, Tuple, TypedDict, Union
 
 from haystack import logging
 from haystack.dataclasses import ByteStream, Document
@@ -121,7 +121,7 @@ def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: s
 def _convert_pdf_to_images(
     *,
     bytestream: ByteStream,
-    return_base64: Union[bool, Literal[False], Literal[True]] = False,
+    return_base64: bool = False,
     page_range: Optional[List[int]] = None,
     size: Optional[Tuple[int, int]] = None,
 ) -> Union[List[Tuple[int, "Image"]], List[Tuple[int, str]]]:
@@ -289,7 +289,7 @@ def _extract_image_sources_info(
     return images_source_info
 
 
-class _PdfPageInfo(TypedDict):
+class _PDFPageInfo(TypedDict):
     doc_idx: int
     path: Path
     page_number: int
@@ -297,7 +297,7 @@ class _PdfPageInfo(TypedDict):
 
 def _batch_convert_pdf_pages_to_images(
     *,
-    pdf_page_infos: List[_PdfPageInfo],
+    pdf_page_infos: List[_PDFPageInfo],
     return_base64: bool = False,
     size: Optional[Tuple[int, int]] = None,
 ) -> Union[Dict[int, str], Dict[int, "Image"]]:
@@ -306,7 +306,7 @@ def _batch_convert_pdf_pages_to_images(
 
     Pages are grouped by file path to ensure each PDF is opened and processed only once for efficiency.
 
-    :param pdf_page_infos: List of _PdfPageInfo dictionaries with doc_idx, path, and page_number.
+    :param pdf_page_infos: List of _PDFPageInfo dictionaries with doc_idx, path, and page_number.
     :param size: Optional tuple of width and height to resize the images to.
     :param return_base64: If True, return base64 encoded images instead of PIL images.
 

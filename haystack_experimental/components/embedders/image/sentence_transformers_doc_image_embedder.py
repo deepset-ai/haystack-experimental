@@ -18,7 +18,7 @@ from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kw
 from haystack_experimental.components.image_converters.image_utils import (
     _batch_convert_pdf_pages_to_images,
     _extract_image_sources_info,
-    _PdfPageInfo,
+    _PDFPageInfo,
 )
 
 with LazyImport("Run 'pip install pillow'") as pillow_import:
@@ -212,14 +212,14 @@ class SentenceTransformersDocumentImageEmbedder:
         )
 
         images_to_embed: List = [None] * len(documents)
-        pdf_page_infos: List[_PdfPageInfo] = []
+        pdf_page_infos: List[_PDFPageInfo] = []
 
         for doc_idx, image_source_info in enumerate(images_source_info):
             if image_source_info["mime_type"] == "application/pdf":
                 # Store PDF documents for later processing
                 page_number = image_source_info.get("page_number")
                 assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
-                pdf_page_info: _PdfPageInfo = {
+                pdf_page_info: _PDFPageInfo = {
                     "doc_idx": doc_idx,
                     "path": image_source_info["path"],
                     "page_number": page_number,
@@ -233,6 +233,10 @@ class SentenceTransformersDocumentImageEmbedder:
         pdf_images_by_doc_idx = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_page_infos, return_base64=False)
         for doc_idx, pil_image in pdf_images_by_doc_idx.items():
             images_to_embed[doc_idx] = pil_image
+
+        none_images_doc_ids = [documents[doc_idx].id for doc_idx, image in enumerate(images_to_embed) if image is None]
+        if none_images_doc_ids:
+            raise RuntimeError(f"Conversion failed for some documents. Document IDs: {none_images_doc_ids}.")
 
         embeddings = self._embedding_backend.embed(
             # TODO: when moving this component to Haystack, adjust the signature of the embedding backend embed method
