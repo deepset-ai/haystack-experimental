@@ -52,7 +52,6 @@ class TestConvertPdfToImages:
 
         assert len(pages_images) == 1
         assert pages_images[0][0] == 1
-        print(pages_images[0][1].width, pages_images[0][1].height)
         assert pages_images[0][1].width <= 100
         assert pages_images[0][1].height <= 100
 
