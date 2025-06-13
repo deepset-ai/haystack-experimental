@@ -16,6 +16,7 @@ from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from haystack_experimental.core.pipeline.breakpoint import load_state
 from unittest.mock import patch
 
 # Define the component input parameters
@@ -200,7 +201,7 @@ class TestPipelineBreakpointsLoops:
         }
 
         try:
-            _ = validation_loop_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+            _ = validation_loop_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
         except PipelineBreakpointException:
             pass
 
@@ -210,7 +211,7 @@ class TestPipelineBreakpointsLoops:
             f_name = Path(full_path).name
             if str(f_name).startswith(component):
                 file_found = True
-                resume_state = Pipeline.load_state(full_path)
+                resume_state = load_state(full_path)
                 result = validation_loop_pipeline.run(data={}, resume_state=resume_state)
                 # Verify the result contains valid output
                 if "output_validator" in result and "valid_replies" in result["output_validator"]:

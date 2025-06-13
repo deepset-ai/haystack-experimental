@@ -49,7 +49,7 @@ class TestPipelineBreakpoints:
         data = {"prompt_builder_1": {"query": string_1}, "prompt_builder_2": {"query": string_2}}
 
         try:
-            _ = string_joiner_pipeline.run(data, breakpoints={(component, 0)}, debug_path=str(output_directory))
+            _ = string_joiner_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 
