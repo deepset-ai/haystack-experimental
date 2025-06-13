@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+from unittest.mock import patch
+from PIL import Image
 from haystack import Document
+from haystack.dataclasses import ByteStream
 from haystack.core.serialization import component_from_dict, component_to_dict
 
 from haystack_experimental.components.image_converters.document_to_image import DocumentToImageContent
@@ -91,3 +94,35 @@ class TestDocumentToImageContent:
         ]
         with pytest.raises(ValueError, match="has an unsupported MIME type"):
             _ = converter.run(documents=documents)
+
+    @patch(
+        "haystack_experimental.components.image_converters.document_to_image._extract_image_sources_info"
+    )
+    @patch(
+        "haystack_experimental.components.image_converters.document_to_image._batch_convert_pdf_pages_to_images"
+    )
+    @patch("PIL.Image.open")
+    @patch("haystack_experimental.components.image_converters.document_to_image.ByteStream")
+    def test_run_none_images(self, mocked_byte_stream, mocked_pil_open, mocked_batch_convert_pdf_pages_to_images, mocked_extract_image_sources_info, caplog):
+        converter = DocumentToImageContent()
+
+        mocked_extract_image_sources_info.return_value = [
+            {"path": "doc1.pdf", "mime_type": "application/pdf", "page_number": 999},  # Page 999 doesn't exist
+            {"path": "image1.jpg", "mime_type": "image/jpeg"},
+        ]
+        mocked_batch_convert_pdf_pages_to_images.return_value = {}  # Empty dict because page was skipped
+        mocked_pil_open.return_value = Image.new('RGB', (100, 100))
+        mocked_byte_stream.from_file_path.return_value = ByteStream(b"")
+
+        documents = [
+            Document(content="PDF 1", meta={"file_path": "doc1.pdf", "page_number": 999}),
+            Document(content="Image 1", meta={"file_path": "image1.jpg"}),
+        ]
+
+        image_contents = converter.run(documents=documents)["image_contents"]
+
+        assert caplog.records[-1].levelname == "WARNING"
+        assert "Conversion failed for some documents." in caplog.records[-1].message
+
+        assert image_contents[0] is None
+        assert image_contents[1] is not None

@@ -122,6 +122,7 @@ class PDFToImageContent:
                     bytestream=bytestream,
                     page_range=expanded_page_range,
                     size=resolved_size,
+                    return_base64=True,
                 )
             except Exception as e:
                 logger.warning(
@@ -135,6 +136,8 @@ class PDFToImageContent:
 
             for page_number, image in page_num_and_base64_images:
                 per_page_metadata = {**merged_metadata, "page_number": page_number}
+                # we already know that image is a string because we set return_base64=True but mypy doesn't know that
+                assert isinstance(image, str)
                 image_contents.append(
                     ImageContent(
                         base64_image=image, mime_type="image/jpeg", meta=per_page_metadata, detail=resolved_detail

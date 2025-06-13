@@ -7,8 +7,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import glob
+import pytest
 from haystack.components.converters.utils import get_bytestream_from_source
-from haystack.dataclasses import ByteStream
+from haystack.dataclasses import ByteStream, Document
 from PIL import Image
 from pytest import LogCaptureFixture
 
@@ -16,7 +18,9 @@ from haystack_experimental.components.image_converters.image_utils import (
     _convert_pdf_to_images,
     _encode_image_to_base64,
     _encode_pil_image_to_base64,
-    _resize_image_preserving_aspect_ratio,
+    _batch_convert_pdf_pages_to_images,
+    _PDFPageInfo,
+    _extract_image_sources_info,
 )
 
 
@@ -36,92 +40,45 @@ class TestToBase64Jpeg:
         )
 
 
-class TestDownsizeImage:
-    def test_downsize_image_low_square(self) -> None:
-        image_array = np.random.rand(768, 768, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 512
-        assert downsized_image.height == 512
-
-    def test_downsize_image_low_portrait(self) -> None:
-        image_array = np.random.rand(2048, 1024, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 256
-        assert downsized_image.height == 512
-
-    def test_downsize_image_low_landscape(self) -> None:
-        image_array = np.random.rand(1024, 2048, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 512
-        assert downsized_image.height == 256
-
-    def test_downsize_image_high_square(self) -> None:
-        image_array = np.random.rand(2048, 2048, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
-        assert downsized_image.width == 768
-        assert downsized_image.height == 768
-
-    def test_downsize_image_high_portrait(self) -> None:
-        image_array = np.random.rand(2048, 1024, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
-        assert downsized_image.width == 768
-        assert downsized_image.height == 1536
-
-    def test_downsize_image_high_landscape(self) -> None:
-        image_array = np.random.rand(1024, 2048, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(768, 2_048))
-        assert downsized_image.width == 1536
-        assert downsized_image.height == 768
-
-    def test_downsize_image_no_change(self) -> None:
-        image_array = np.random.rand(256, 256, 3) * 255
-        image = Image.fromarray(image_array.astype("uint8"))
-        downsized_image = _resize_image_preserving_aspect_ratio(image=image, size=(512, 512))
-        assert downsized_image.width == 256
-        assert downsized_image.height == 256
-
-
-class TestReadImageFromPdf:
-    def test_read_image_from_pdf(self) -> None:
+class TestConvertPdfToImages:
+    def test_convert_pdf_to_images(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
-        assert image is not None
+        output = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
+        assert output is not None
 
-    def test_read_image_from_pdf_with_size(self) -> None:
+    def test_convert_pdf_to_images_with_size(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
-        image = _convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
-        assert image is not None
+        pages_images = _convert_pdf_to_images(bytestream=bytestream, page_range=[1], size=(100, 100))
 
-    def test_read_image_from_pdf_invalid_page(self, caplog: LogCaptureFixture) -> None:
+        assert len(pages_images) == 1
+        assert pages_images[0][0] == 1
+        assert pages_images[0][1].width <= 100
+        assert pages_images[0][1].height <= 100
+
+    def test_convert_pdf_to_images_invalid_page(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
         out = _convert_pdf_to_images(bytestream=bytestream, page_range=[5])
         assert out == []
         assert "Page 5 is out of range for the PDF file. Skipping it." in caplog.text
 
-    def test_read_image_from_pdf_error_reading_file(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_error_reading_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = ByteStream(
             data=b"", mime_type="application/pdf")
-        out = _convert_pdf_to_images(bytestream, [1])
+        out = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
         assert out == []
         assert "Could not read PDF file" in caplog.text
 
-    def test_read_image_from_pdf_empty_file(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_empty_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
 
         with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument") as mock_pdf_document:
             mock_pdf_document.__len__.return_value = 0
-            out = _convert_pdf_to_images(bytestream, [1])
+            out = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
 
         assert out == []
         assert "PDF file is empty" in caplog.text
 
-    def test_scale_if_large_pdf(self, caplog: LogCaptureFixture) -> None:
+    def test_convert_pdf_to_images_scale_if_large_pdf(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
 
         caplog.set_level(logging.INFO)
@@ -133,18 +90,116 @@ class TestReadImageFromPdf:
         mock_pdf_document.__getitem__.return_value = mock_page
 
         with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument", return_value=mock_pdf_document):
-            _convert_pdf_to_images(bytestream, [1])
+            _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
 
         assert "Large PDF detected" in caplog.text
 
 
-class TestOpenImageToBase64:
-    def test_open_image_to_base64(self) -> None:
+class TestEncodeImageToBase64:
+    def test_encode_image_to_base64(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = _encode_image_to_base64(bytestream=bytestream)
         assert base64_str is not None
 
-    def test_open_image_to_base64_downsize(self) -> None:
+    def test_encode_image_to_base64_downsize(self) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/images/haystack-logo.png"))
         base64_str = _encode_image_to_base64(bytestream=bytestream, size=(128, 128))
         assert base64_str is not None
+
+
+class TestExtractImageSourcesInfo:
+    def test_extract_image_source_info(self, test_files_path):
+
+        image_paths = glob.glob(str(test_files_path / "images" / "*.*")) + glob.glob(str(test_files_path / "pdf" / "*.pdf"))
+
+        documents = []
+        for i, path in enumerate(image_paths):
+            document = Document(content=f"document number {i}", meta={"file_path": path})
+            if path.endswith(".pdf"):
+                document.meta["page_number"] = 1
+            documents.append(document)
+
+        images_source_info = _extract_image_sources_info(documents=documents, file_path_meta_field="file_path", root_path="")
+        assert len(images_source_info) == len(documents)
+
+        for image_source_info in images_source_info:
+            assert str(image_source_info["path"]) in image_paths
+            assert image_source_info["mime_type"] in ["image/jpeg", "image/png", "application/pdf"]
+            if image_source_info["mime_type"] == "application/pdf":
+                assert image_source_info.get("page_number") == 1
+            else:
+                assert "page_number" not in image_source_info
+
+    def test_extract_image_source_info_errors(self, test_files_path):
+
+        document = Document(content="test")
+        with pytest.raises(ValueError, match="missing the 'file_path' key"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+        document = Document(content="test", meta={"file_path": "invalid_path"})
+        with pytest.raises(ValueError, match="has an invalid file path"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+        document = Document(content="test", meta={"file_path": str(test_files_path / "docx" / "sample_docx.docx")})
+        with pytest.raises(ValueError, match="has an unsupported MIME type"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+        document = Document(content="test", meta={"file_path": str(test_files_path / "pdf" / "sample_pdf_1.pdf")})
+        with pytest.raises(ValueError, match="missing the 'page_number' key"):
+            _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
+
+class TestBatchConvertPdfPagesToImages:
+    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_images")
+    def test_batch_convert_pdf_pages_to_images(self, mocked_convert_pdf_to_images, test_files_path):
+
+        mocked_convert_pdf_to_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
+
+        pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
+        pdf_doc_1: _PDFPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PDFPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_documents = [pdf_doc_1, pdf_doc_2]
+
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents, return_base64=False)
+
+        pdf_bytestream = ByteStream.from_file_path((pdf_path))
+
+        mocked_convert_pdf_to_images.assert_called_once_with(
+            bytestream=pdf_bytestream,
+            page_range=[1, 2],
+            size=None,
+            return_base64=False
+        )
+
+        assert len(result) == len(pdf_documents)
+        assert 0 in result and 1 in result
+        assert isinstance(result[0], Image.Image)
+        assert isinstance(result[1], Image.Image)
+
+    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_images")
+    def test_batch_convert_pdf_pages_to_images_base64(self, mocked_convert_pdf_to_images, test_files_path):
+
+        mocked_convert_pdf_to_images.return_value = [(1, "base64_image_1"), (2, "base64_image_2")]
+
+        pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
+        pdf_doc_1: _PDFPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
+        pdf_doc_2: _PDFPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
+        pdf_documents = [pdf_doc_1, pdf_doc_2]
+
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=pdf_documents, return_base64=True)
+
+        pdf_bytestream = ByteStream.from_file_path((pdf_path))
+
+        mocked_convert_pdf_to_images.assert_called_once_with(
+            bytestream=pdf_bytestream,
+            page_range=[1, 2],
+            size=None,
+            return_base64=True
+        )
+
+        assert result == {0: "base64_image_1", 1: "base64_image_2"}
+
+    def test_batch_convert_pdf_pages_to_images_no_pages_info(self):
+        result = _batch_convert_pdf_pages_to_images(pdf_page_infos=[])
+
+        assert isinstance(result, dict)
+        assert len(result) == 0
