@@ -145,7 +145,7 @@ class DocumentToImageContent:
                     base64_image=base64_image,
                     mime_type=mime_type,
                     detail=self.detail,
-                    meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]}
+                    meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]},
                 )
 
         # efficiently convert PDF pages to images: each PDF is opened and processed only once
