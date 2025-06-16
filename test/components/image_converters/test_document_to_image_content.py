@@ -78,12 +78,16 @@ class TestDocumentToImageContent:
         image_doc = Document(content="test", meta={"file_path": "apple.jpg"})
         results = converter.run(documents=[image_doc])
         assert len(results["image_contents"]) == 1
+        assert results["image_contents"][0].meta == {"file_path": "apple.jpg"}
 
     def test_run_with_pdf_documents(self) -> None:
         converter = DocumentToImageContent()
         pdf_doc = Document(content="test", meta={"file_path": "test/test_files/pdf/sample_pdf_1.pdf", "page_number": 1})
         results = converter.run(documents=[pdf_doc])
         assert len(results["image_contents"]) == 1
+        assert results["image_contents"][0].meta == {
+            "file_path": "test/test_files/pdf/sample_pdf_1.pdf", "page_number": 1
+        }
 
     def test_run_with_mixed_document_types(self) -> None:
         converter = DocumentToImageContent(root_path="test/test_files")

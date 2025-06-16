@@ -142,7 +142,10 @@ class DocumentToImageContent:
                 bytestream = ByteStream.from_file_path(filepath=path, mime_type=mime_type)
                 _, base64_image = _encode_image_to_base64(bytestream=bytestream, size=self.size)
                 image_contents[doc_idx] = ImageContent(
-                    base64_image=base64_image, mime_type=mime_type, detail=self.detail, meta={"file_path": path}
+                    base64_image=base64_image,
+                    mime_type=mime_type,
+                    detail=self.detail,
+                    meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]}
                 )
 
         # efficiently convert PDF pages to images: each PDF is opened and processed only once
