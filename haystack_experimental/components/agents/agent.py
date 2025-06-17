@@ -269,7 +269,6 @@ class Agent:
 
         # resume state if provided
         if resume_state:
-
             component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
             state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
             state = State(schema=self.state_schema, data=state_data)
