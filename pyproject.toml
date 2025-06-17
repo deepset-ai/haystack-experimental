@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
   "haystack-ai",
   "filetype",  # for mime type detection in ImageContent
+  "docstring-parser",       # ComponentTool"
 ]
 
 [project.urls]
