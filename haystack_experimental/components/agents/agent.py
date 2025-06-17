@@ -225,7 +225,7 @@ class Agent:
             },
         )
 
-    def run(  # noqa: PLR0915
+    def run(  # noqa: PLR0915 #pylint: disable=too-many-positional-arguments
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -422,7 +422,7 @@ class Agent:
             result.update({"last_message": all_messages[-1]})
         return result
 
-    async def run_async(  # noqa: PLR0915
+    async def run_async(  # noqa: PLR0915 #pylint: disable=too-many-positional-arguments
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
