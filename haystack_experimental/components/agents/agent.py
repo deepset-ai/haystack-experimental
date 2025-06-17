@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
-
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-
 
 from haystack import component, default_from_dict, default_to_dict, logging, tracing
 from haystack.components.generators.chat.types import ChatGenerator
@@ -20,8 +19,6 @@ from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_stre
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
-
-from pathlib import Path
 
 from haystack_experimental.core.errors import AgentBreakpointException
 from haystack_experimental.core.pipeline.breakpoint import _save_state
@@ -228,7 +225,7 @@ class Agent:
             },
         )
 
-    def run(
+    def run(    # noqa: PLR0915
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -283,7 +280,7 @@ class Agent:
             # Extract state data from pipeline state
             state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
             state = State(schema=self.state_schema, data=state_data)
-            
+
             # Extract and deserialize messages from pipeline state
             raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
             # Convert raw message dictionaries to ChatMessage objects
@@ -366,10 +363,13 @@ class Agent:
                     component_name, visit_count, tool_name = agent_breakpoint
                     visit_count = visit_count or 0
                     # ToDo: check if tool_name is valid, i.e.: part of the tools provided to the agent
-                    if component_visits[component_name] == visit_count:
-                        # only break if the tool being called matches or if no tool name is specified
-                        if tool_name is None or any(msg.tool_call and msg.tool_call.tool_name == tool_name for msg in llm_messages):
-                            state_inputs = deepcopy({"messages": llm_messages, "state": state, "streaming_callback": streaming_callback})
+                    # only break if the tool being called matches or if no tool name is specified
+                    if component_visits[component_name] == visit_count and tool_name is None or any(
+                                msg.tool_call and msg.tool_call.tool_name == tool_name for msg in llm_messages
+                        ):
+                            state_inputs = deepcopy(
+                                {"messages": llm_messages, "state": state, "streaming_callback": streaming_callback}
+                            )
                             _save_state(
                                 inputs=state_inputs,
                                 component_name=component_name,
@@ -426,7 +426,7 @@ class Agent:
             result.update({"last_message": all_messages[-1]})
         return result
 
-    async def run_async(
+    async def run_async(    # noqa: PLR0915
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -485,7 +485,7 @@ class Agent:
             # Extract state data from pipeline state
             state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
             state = State(schema=self.state_schema, data=state_data)
-            
+
             # Extract and deserialize messages from pipeline state
             raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
             # Convert raw message dictionaries to ChatMessage objects
@@ -567,10 +567,12 @@ class Agent:
                 if agent_breakpoint and agent_breakpoint[0] == "tool_invoker":
                     component_name, visit_count, tool_name = agent_breakpoint
                     visit_count = visit_count or 0
-                    if component_visits[component_name] == visit_count:
-                        # If tool_name is specified, only break if the tool being called matches
-                        if tool_name is None or any(msg.tool_call and msg.tool_call.tool_name == tool_name for msg in llm_messages):
-                            state_inputs = deepcopy({"messages": llm_messages, "state": state, "streaming_callback": streaming_callback})
+                    if component_visits[component_name] == visit_count and tool_name is None or any(
+                                msg.tool_call and msg.tool_call.tool_name == tool_name for msg in llm_messages
+                        ):
+                            state_inputs = deepcopy(
+                                {"messages": llm_messages, "state": state, "streaming_callback": streaming_callback}
+                            )
                             _save_state(
                                 inputs=state_inputs,
                                 component_name=component_name,
