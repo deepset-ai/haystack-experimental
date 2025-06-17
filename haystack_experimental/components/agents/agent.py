@@ -273,13 +273,14 @@ class Agent:
             state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
             state = State(schema=self.state_schema, data=state_data)
 
-            # Extract and deserialize messages from pipeline state
+            # deserialize messages from pipeline state
             raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
-            # Convert raw message dictionaries to ChatMessage objects
+
+            # convert raw message dictionaries to ChatMessage objects and populate the state
             messages = [ChatMessage.from_dict(msg) if isinstance(msg, dict) else msg for msg in raw_messages]
             state.set("messages", messages)
         else:
-            # Initialize new state if not resuming
+            # initialize new state if not resuming
             state = State(schema=self.state_schema, data=kwargs)
             state.set("messages", messages)
             component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)

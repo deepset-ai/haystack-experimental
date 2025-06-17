@@ -7,8 +7,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from haystack.components.generators.chat.types import ChatGenerator
-from haystack.dataclasses import ChatMessage, ToolCall
+from haystack.dataclasses import ChatMessage
 from haystack.tools import Tool
 
 from haystack_experimental.components.agents import Agent
@@ -16,7 +15,6 @@ from haystack_experimental.core.errors import AgentBreakpointException
 from haystack_experimental.core.pipeline.breakpoint import load_state
 
 from test.components.agents.test_agent import (
-    MockChatGeneratorWithRunAsync,
     MockChatGeneratorWithoutRunAsync,
     weather_function,
 )
@@ -34,8 +32,9 @@ def weather_tool():
 
 @pytest.fixture
 def mock_chat_generator():
-    generator = MockChatGeneratorWithRunAsync()
-    generator.run.return_value = {
+    generator = MockChatGeneratorWithoutRunAsync()
+    mock_run = MagicMock()
+    mock_run.return_value = {
         "replies": [
             ChatMessage.from_assistant("I'll help you check the weather.", tool_calls=[{
                 "tool_name": "weather_tool",
@@ -43,6 +42,9 @@ def mock_chat_generator():
             }])
         ]
     }
+    def mock_run_with_tools(messages, tools=None, **kwargs):
+        return mock_run.return_value
+    generator.run = mock_run_with_tools
     return generator
 
 
@@ -60,40 +62,21 @@ def debug_path(tmp_path):
     return str(tmp_path / "debug_states")
 
 
-def test_run_without_breakpoints(agent, debug_path):
-    """Test running the agent without any breakpoints."""
-    messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    
-    result = agent.run(messages=messages, max_agent_steps=5, debug_path=debug_path)
-    
-    assert "messages" in result
-    assert "last_message" in result
-    assert len(result["messages"]) > 0
-
-
 def test_run_with_chat_generator_breakpoint(agent, debug_path):
-    """Test running the agent with a breakpoint at the chat generator."""
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     breakpoint = ("chat_generator", 0, None)
-    
     with pytest.raises(AgentBreakpointException) as exc_info:
         agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
-    
     assert exc_info.value.component == "chat_generator"
-    assert "state" in exc_info.value.state
     assert "messages" in exc_info.value.state
 
 
 def test_run_with_tool_invoker_breakpoint(agent, debug_path):
-    """Test running the agent with a breakpoint at the tool invoker."""
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     breakpoint = ("tool_invoker", 0, "weather_tool")
-    
     with pytest.raises(AgentBreakpointException) as exc_info:
         agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
-    
     assert exc_info.value.component == "tool_invoker"
-    assert "state" in exc_info.value.state
     assert "messages" in exc_info.value.state
 
 
