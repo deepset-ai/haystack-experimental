@@ -259,14 +259,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             original_input_data=data,
                             ordered_component_names=ordered_component_names,
                         )
-                        logger.info(
-                            "Breaking at component {component_name} at visit count {component_visits}",
-                            component_name=component_name,
-                            component_visits=component_visits[component_name],
-                        )
                         msg = (
-                            f"Breaking at component {component_name} at visit count "
-                            f"{component_visits[component_name]}"
+                            f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
                         )
                         raise PipelineBreakpointException(
                             message=msg,
@@ -303,7 +297,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     "Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
                     "1. The provided component is not a part of the pipeline execution path.\n"
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint",
-                    pipeline_breakpoint=pipeline_breakpoint
+                    pipeline_breakpoint=pipeline_breakpoint,
                 )
             return pipeline_outputs
 
@@ -323,7 +317,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]
         logger.info(
             "Resuming pipeline from {component} with visit count {visits}",
-            component=resume_state['pipeline_breakpoint']['component'],
-            visits=resume_state['pipeline_breakpoint']['visits'],
+            component=resume_state["pipeline_breakpoint"]["component"],
+            visits=resume_state["pipeline_breakpoint"]["visits"],
         )
         return component_visits, data, resume_state, ordered_component_names
