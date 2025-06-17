@@ -241,7 +241,6 @@ class Agent:
             If a list of dictionaries is provided, each dictionary will be converted to a ChatMessage object.
         :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
             The same callback can be configured to emit tool results when a tool is called.
-
         :param agent_breakpoint: Tuple of (component_name, visit_count, tool_name) at which the agent should break.
             component_name can be "chat_generator" or "tool_invoker".
             visit_count is optional and defaults to 0.
@@ -268,14 +267,10 @@ class Agent:
             )
             raise ValueError(msg)
 
-        # Handle resume state if provided
+        # resume state if provided
         if resume_state:
-            # Extract component visits from pipeline state
-            component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
-            # Initialize with default values if not present in resume state
-            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0) | component_visits
 
-            # Extract state data from pipeline state
+            component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
             state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
             state = State(schema=self.state_schema, data=state_data)
 
@@ -301,7 +296,6 @@ class Agent:
 
         state = State(schema=self.state_schema, data=kwargs)
         state.set("messages", messages)
-        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=False
