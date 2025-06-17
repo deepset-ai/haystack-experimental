@@ -267,6 +267,28 @@ class Agent:
             )
             raise ValueError(msg)
 
+        # Handle resume state if provided
+        if resume_state:
+            # Extract component visits from pipeline state
+            component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
+            # Initialize with default values if not present in resume state
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0) | component_visits
+
+            # Extract state data from pipeline state
+            state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
+            state = State(schema=self.state_schema, data=state_data)
+            
+            # Extract and deserialize messages from pipeline state
+            raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
+            # Convert raw message dictionaries to ChatMessage objects
+            messages = [ChatMessage.from_dict(msg) if isinstance(msg, dict) else msg for msg in raw_messages]
+            state.set("messages", messages)
+        else:
+            # Initialize new state if not resuming
+            state = State(schema=self.state_schema, data=kwargs)
+            state.set("messages", messages)
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
+
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
 
@@ -275,10 +297,6 @@ class Agent:
                 "All messages provided to the Agent component are system messages. This is not recommended as the "
                 "Agent will not perform any actions specific to user input. Consider adding user messages to the input."
             )
-
-        state = State(schema=self.state_schema, data=kwargs)
-        state.set("messages", messages)
-        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=False
@@ -441,6 +459,28 @@ class Agent:
             )
             raise ValueError(message=msg)
 
+        # Handle resume state if provided
+        if resume_state:
+            # Extract component visits from pipeline state
+            component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
+            # Initialize with default values if not present in resume state
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0) | component_visits
+
+            # Extract state data from pipeline state
+            state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
+            state = State(schema=self.state_schema, data=state_data)
+            
+            # Extract and deserialize messages from pipeline state
+            raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
+            # Convert raw message dictionaries to ChatMessage objects
+            messages = [ChatMessage.from_dict(msg) if isinstance(msg, dict) else msg for msg in raw_messages]
+            state.set("messages", messages)
+        else:
+            # Initialize new state if not resuming
+            state = State(schema=self.state_schema, data=kwargs)
+            state.set("messages", messages)
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
+
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
 
@@ -449,10 +489,6 @@ class Agent:
                 "All messages provided to the Agent component are system messages. This is not recommended as the "
                 "Agent will not perform any actions specific to user input. Consider adding user messages to the input."
             )
-
-        state = State(schema=self.state_schema, data=kwargs)
-        state.set("messages", messages)
-        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=True

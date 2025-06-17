@@ -170,7 +170,7 @@ class State:
         return serialized
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: Dict[str, Any]) -> "State":
         """
         Convert a dictionary back to a State object.
         """
