@@ -27,8 +27,10 @@ classifiers = [
 ]
 
 dependencies = [
+  # "haystack-ai @ git+https://github.com/deepset-ai/haystack.git@main",
   "haystack-ai",
   "filetype",  # for mime type detection in ImageContent
+  "docstring-parser",       # ComponentTool"
 ]
 
 [project.urls]

@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
+
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
+
 
 from haystack import component, default_from_dict, default_to_dict, logging, tracing
 from haystack.components.generators.chat.types import ChatGenerator
@@ -18,6 +20,7 @@ from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_stre
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
+
 from pathlib import Path
 
 from haystack_experimental.core.errors import AgentBreakpointException
@@ -241,6 +244,7 @@ class Agent:
             If a list of dictionaries is provided, each dictionary will be converted to a ChatMessage object.
         :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
             The same callback can be configured to emit tool results when a tool is called.
+
         :param agent_breakpoint: Tuple of (component_name, visit_count, tool_name) at which the agent should break.
             component_name can be "chat_generator" or "tool_invoker".
             visit_count is optional and defaults to 0.
@@ -256,9 +260,11 @@ class Agent:
             - Any additional keys defined in the `state_schema`.
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
         :raises AgentBreakpointException: If an agent breakpoint is triggered.
+
         """
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
+
 
         if agent_breakpoint and resume_state:
             msg = (
@@ -298,6 +304,11 @@ class Agent:
                 "Agent will not perform any actions specific to user input. Consider adding user messages to the input."
             )
 
+
+        state = State(schema=self.state_schema, data=kwargs)
+        state.set("messages", messages)
+        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
+
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=False
         )
@@ -332,6 +343,7 @@ class Agent:
                             state=state_inputs,
                             results=state.data,
                         )
+
 
                 # 1. Call the ChatGenerator
                 result = Pipeline._run_component(
@@ -376,6 +388,7 @@ class Agent:
                                 state=state_inputs,
                                 results=state.data,
                             )
+
 
                 # 3. Call the ToolInvoker
                 # We only send the messages from the LLM to the tool invoker
@@ -433,12 +446,14 @@ class Agent:
         :param streaming_callback: An asynchronous callback that will be invoked when a response
         is streamed from the LLM. The same callback can be configured to emit tool results
         when a tool is called.
+
         :param agent_breakpoint: Tuple of (component_name, visit_count, tool_name) at which the agent should break.
             component_name can be "chat_generator" or "tool_invoker".
             visit_count is optional and defaults to 0.
             tool_name is optional and only used when component_name is "tool_invoker".
         :param resume_state: A dictionary containing the state of a previously saved agent execution.
         :param debug_path: Path to the directory where the agent state should be saved.
+
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -448,6 +463,7 @@ class Agent:
             - Any additional keys defined in the `state_schema`.
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
         :raises AgentBreakpointException: If an agent breakpoint is triggered.
+
         """
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run_async()'.")
@@ -490,6 +506,11 @@ class Agent:
                 "Agent will not perform any actions specific to user input. Consider adding user messages to the input."
             )
 
+        state = State(schema=self.state_schema, data=kwargs)
+        state.set("messages", messages)
+        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
+
+
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=True
         )
@@ -501,6 +522,7 @@ class Agent:
             )
             counter = 0
             while counter < self.max_agent_steps:
+
                 # Check for breakpoint before ChatGenerator
                 if agent_breakpoint and agent_breakpoint[0] == "chat_generator":
                     component_name, visit_count, _ = agent_breakpoint
