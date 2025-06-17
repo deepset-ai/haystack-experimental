@@ -468,7 +468,7 @@ class Agent:
             msg = (
                 "agent_breakpoint and resume_state cannot be provided at the same time. The agent run will be aborted."
             )
-            raise ValueError(message=msg)
+            raise ValueError(msg)
 
         # Handle resume state if provided
         if resume_state:
