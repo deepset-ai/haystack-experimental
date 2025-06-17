@@ -296,7 +296,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     f"Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
                     "1. The provided component is not a part of the pipeline execution path.\n"
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint"
-               )
+                )
             return pipeline_outputs
 
     def inject_resume_state_into_graph(self, resume_state):
