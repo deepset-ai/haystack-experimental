@@ -9,7 +9,7 @@ from typing import Optional, Set, Union
 @dataclass
 class Breakpoint:
     """
-    A dataclass to hold a breakpoint for a component.    
+    A dataclass to hold a breakpoint for a component.
     """
     component_name: str
     visit_count: int
@@ -73,11 +73,11 @@ class AgentBreakpoint:
             breakpoints = set()
         self.breakpoints = breakpoints
 
-    def add_breakpoint(self, breakpoint: Union[Breakpoint,ToolBreakpoint]):
+    def add_breakpoint(self, break_point: Union[Breakpoint,ToolBreakpoint]):
         """
         Adds a breakpoint to the set of breakpoints.
         """
-        self.breakpoints.add(breakpoint)
+        self.breakpoints.add(break_point)
 
     def remove_breakpoint(self, breakpoint: Union[Breakpoint,ToolBreakpoint]):
         """
