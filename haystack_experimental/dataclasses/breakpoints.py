@@ -80,13 +80,13 @@ class AgentBreakpoint:
             breakpoints = set()
         self.breakpoints = breakpoints
 
-    def add_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]):
+    def add_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
         """
         Adds a breakpoint to the set of breakpoints.
         """
         self.breakpoints.add(break_point)
 
-    def remove_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]):
+    def remove_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
         """
         Removes a breakpoint from the set of breakpoints.
         """
