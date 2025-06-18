@@ -71,7 +71,6 @@ def test_run_with_chat_generator_breakpoint(agent, debug_path):
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
 
-
 def test_run_with_tool_invoker_breakpoint(monkeypatch, weather_tool, debug_path):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
     generator = OpenAIChatGenerator()
@@ -92,7 +91,6 @@ def test_run_with_tool_invoker_breakpoint(monkeypatch, weather_tool, debug_path)
 
     assert exc_info.value.component == "tool_invoker"
     assert "messages" in exc_info.value.state
-
 
 def test_resume_from_chat_generator(agent, debug_path):
     """Test resuming the agent from a saved state."""
@@ -125,11 +123,8 @@ def test_resume_from_chat_generator(agent, debug_path):
     assert "last_message" in result
     assert len(result["messages"]) > 0
 
-
-
 def test_resume_from_tool_invoker(agent, debug_path):
     pass
-
 
 def test_invalid_combination_breakpoint_and_resume_state(monkeypatch, weather_tool, debug_path):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
