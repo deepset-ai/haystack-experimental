@@ -7,7 +7,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from haystack.dataclasses import ChatMessage
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.tools import Tool
 
 from haystack_experimental.components.agents import Agent
@@ -64,30 +65,43 @@ def debug_path(tmp_path):
 
 def test_run_with_chat_generator_breakpoint(agent, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoint = ("chat_generator", 0, None)
+    breakpoints = {("chat_generator", 0, None)}
     with pytest.raises(AgentBreakpointException) as exc_info:
-        agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
+        agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
 
 
-def test_run_with_tool_invoker_breakpoint(agent, debug_path):
+def test_run_with_tool_invoker_breakpoint(monkeypatch, weather_tool, debug_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    generator = OpenAIChatGenerator()
+    mock_messages = [
+        ChatMessage.from_assistant("First response"),
+        ChatMessage.from_assistant(
+            tool_calls=[ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})]
+        ),
+    ]
+    agent = Agent(chat_generator=generator, tools=[weather_tool], max_agent_steps=1)
+    agent.warm_up()
+    # Patch agent.chat_generator.run to return mock_messages
+    agent.chat_generator.run = MagicMock(return_value={"replies": mock_messages})
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoint = ("tool_invoker", 0, "weather_tool")
+    breakpoints = {("tool_invoker", 0, "weather_tool")}
     with pytest.raises(AgentBreakpointException) as exc_info:
-        agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
+        agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+
     assert exc_info.value.component == "tool_invoker"
     assert "messages" in exc_info.value.state
 
 
-def test_resume_from_saved_state(agent, debug_path):
+def test_resume_from_chat_generator(agent, debug_path):
     """Test resuming the agent from a saved state."""
     # First run to create a state file
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoint = ("chat_generator", 0, None)
+    breakpoints = {("chat_generator", 0, None)}
     
     try:
-        agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
+        agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
     except AgentBreakpointException:
         pass
     
@@ -95,46 +109,81 @@ def test_resume_from_saved_state(agent, debug_path):
     state_files = list(Path(debug_path).glob("chat_generator_*.json"))
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
-    
+
     # Load the state and resume
     resume_state = load_state(latest_state_file)
+
+    from pprint import pprint
+    pprint(resume_state)
+
     result = agent.run(
         messages=[ChatMessage.from_user("Continue from where we left off.")],
         resume_state=resume_state
     )
-    
+
     assert "messages" in result
     assert "last_message" in result
     assert len(result["messages"]) > 0
 
 
-def test_invalid_breakpoint_combination(agent):
-    """Test that providing both breakpoint and resume_state raises an error."""
+
+def test_resume_from_tool_invoker(agent, debug_path):
+    pass
+
+
+def test_invalid_combination_breakpoint_and_resume_state(monkeypatch, weather_tool, debug_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    generator = OpenAIChatGenerator()
+    mock_messages = [
+        ChatMessage.from_assistant("First response"),
+        ChatMessage.from_assistant(
+            tool_calls=[ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})]
+        ),
+    ]
+    agent = Agent(chat_generator=generator, tools=[weather_tool], max_agent_steps=1)
+    agent.warm_up()
+    agent.chat_generator.run = MagicMock(return_value={"replies": mock_messages})
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoint = ("chat_generator", 0, None)
-    resume_state = {"some": "state"}
-    
+
+    breakpoints = {("tool_invoker", 0, "weather_tool")}
     with pytest.raises(ValueError, match="agent_breakpoint and resume_state cannot be provided at the same time"):
-        agent.run(
-            messages=messages,
-            agent_breakpoint=breakpoint,
-            resume_state=resume_state
-        )
+        agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path, resume_state={"some": "state"})
 
-
-def test_breakpoint_with_invalid_component(agent, debug_path):
-    """Test that providing an invalid component name in breakpoint raises an error."""
+def test_breakpoint_with_invalid_component(monkeypatch, weather_tool, debug_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    generator = OpenAIChatGenerator()
+    mock_messages = [
+        ChatMessage.from_assistant("First response"),
+        ChatMessage.from_assistant(
+            tool_calls=[ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})]
+        ),
+    ]
+    agent = Agent(chat_generator=generator, tools=[weather_tool], max_agent_steps=1)
+    agent.warm_up()
+    agent.chat_generator.run = MagicMock(return_value={"replies": mock_messages})
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoint = ("invalid_component", 0, None)
-    
-    with pytest.raises(ValueError):
-        agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
 
+    breakpoints = {("invalid_breakpoint", 0, "weather_tool")}
+    with pytest.raises(ValueError, match="Breakpoint 'invalid_breakpoint' is not a valid component."):
+        agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
 
-def test_breakpoint_with_invalid_tool_name(agent, debug_path):
-    """Test that providing an invalid tool name in breakpoint raises an error."""
+def test_breakpoint_with_invalid_tool_name(monkeypatch, weather_tool, debug_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    generator = OpenAIChatGenerator()
+    mock_messages = [
+        ChatMessage.from_assistant("First response"),
+        ChatMessage.from_assistant(
+            tool_calls=[ToolCall(tool_name="weather_tool", arguments={"location": "Berlin"})]
+        ),
+    ]
+    agent = Agent(chat_generator=generator, tools=[weather_tool], max_agent_steps=1)
+    agent.warm_up()
+
+    # Patch agent.chat_generator.run to return mock_messages
+    agent.chat_generator.run = MagicMock(return_value={"replies": mock_messages})
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoint = ("tool_invoker", 0, "invalid_tool")
-    
-    with pytest.raises(ValueError):
-        agent.run(messages=messages, agent_breakpoint=breakpoint, debug_path=debug_path)
+    breakpoints = {("tool_invoker", 0, "invalid_tool")}
+
+    with pytest.raises(ValueError, match="Tool 'invalid_tool' is not available in the agent's tools"):
+        agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+
