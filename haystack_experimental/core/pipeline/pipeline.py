@@ -16,8 +16,9 @@ from haystack.telemetry import pipeline_running
 
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
+from haystack_experimental.utils.base_serialization import _deserialize_value_with_schema
 
-from .breakpoint import _deserialize_component_input, _save_state, _validate_breakpoint, _validate_pipeline_state
+from .breakpoint import _save_state, _validate_breakpoint, _validate_pipeline_state
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
                 resume_state=resume_state,
             )
+            data = _deserialize_value_with_schema(resume_state["pipeline_state"]["inputs"])
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -237,7 +239,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 # this check will prevent other component_inputs generated at runtime from being deserialized
                 if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
                     for key, value in component_inputs.items():
-                        component_inputs[key] = _deserialize_component_input(value)
+                        component_inputs[key] = _deserialize_value_with_schema(value)
 
                 # Scenario 2: pipeline_breakpoint is provided to stop the pipeline at
                 # a specific component and visit count
@@ -307,7 +309,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
         if not resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
 
-        _validate_pipeline_state(resume_state, graph=self.graph)
         data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
         component_visits = resume_state["pipeline_state"]["component_visits"]
         ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]

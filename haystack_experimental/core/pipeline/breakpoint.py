@@ -14,7 +14,7 @@ from haystack.dataclasses import ChatMessage, SparseEmbedding
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
-from haystack_experimental.dataclasses import GeneratedAnswer
+from haystack_experimental.utils.base_serialization import _deserialize_value_with_schema, _serialize_value_with_schema
 
 logger = logging.getLogger(__name__)
 
@@ -212,50 +212,11 @@ def _save_state(
         raise
 
 
-def _deserialize_component_input(value: Any) -> Any:  # noqa: PLR0911
+def deserialize_component_input(value):  # noqa: PLR0911
     """
-    Tries to deserialize any type of input that can be passed to as input to a pipeline component.
-
-    For primitive values, it returns the value as is, but for complex types, it tries to deserialize them.
+    Deserializes a component input.
     """
-
-    # None or primitive types are returned as is
-    if not value or isinstance(value, (str, int, float, bool)):
-        return value
-
-    # list of primitive types are returned as is
-    if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
-        return value
-
-    if isinstance(value, list):
-        # list of lists are called recursively
-        if all(isinstance(i, list) for i in value):
-            return [_deserialize_component_input(i) for i in value]
-        # list of dicts are called recursively
-        if all(isinstance(i, dict) for i in value):
-            return [_deserialize_component_input(i) for i in value]
-
-    # Define the mapping of types to their deserialization functions
-    _type_deserializers = {
-        "Answer": Answer.from_dict,
-        "ChatMessage": ChatMessage.from_dict,
-        "Document": Document.from_dict,
-        "ExtractedAnswer": ExtractedAnswer.from_dict,
-        "GeneratedAnswer": GeneratedAnswer.from_dict,
-        "SparseEmbedding": SparseEmbedding.from_dict,
-    }
-
-    # check if the dictionary has a "_type" key and if it's a known type
-    if isinstance(value, dict):
-        if "_type" in value:
-            type_name = value.pop("_type")
-            if type_name in _type_deserializers:
-                return _type_deserializers[type_name](value)
-
-        # If not a known type, recursively deserialize each item in the dictionary
-        return {k: _deserialize_component_input(v) for k, v in value.items()}
-
-    return value
+    return _deserialize_value_with_schema(value)
 
 
 def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any:
@@ -296,24 +257,6 @@ def _serialize_component_input(value: Any) -> Any:
     :returns: The serialized value that can be saved to a file.
     """
     value = _transform_json_structure(value)
-    if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
-        serialized_value = value.to_dict()
-        serialized_value["_type"] = value.__class__.__name__
-        return serialized_value
+    serialized_value = _serialize_value_with_schema(value)
 
-    # this is a hack to serialize inputs that don't have a to_dict
-    elif hasattr(value, "__dict__"):
-        return {
-            "_type": value.__class__.__name__,
-            "attributes": value.__dict__,
-        }
-
-    # recursively serialize all inputs in a dict
-    elif isinstance(value, dict):
-        return {k: _serialize_component_input(v) for k, v in value.items()}
-
-    # recursively serialize all inputs in lists or tuples
-    elif isinstance(value, list):
-        return [_serialize_component_input(item) for item in value]
-
-    return value
+    return serialized_value
