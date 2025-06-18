@@ -310,14 +310,6 @@ class Agent:
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
 
-        print("\n\n")
-        print("messages:            ", messages)
-        print("streaming_callback:  ", streaming_callback)
-        print("agent_breakpoints:   ", agent_breakpoints)
-        print("resume_state:        ", resume_state)
-        print("debug_path:          ", debug_path)
-        print("\n\n")
-
         if agent_breakpoints and resume_state:
             msg = (
                 "agent_breakpoint and resume_state cannot be provided at the same time. The agent run will be aborted."
