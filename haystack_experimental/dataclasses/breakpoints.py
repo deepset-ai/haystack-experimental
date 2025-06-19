@@ -13,7 +13,7 @@ class Breakpoint:
     """
 
     component_name: str
-    visit_count: int
+    visit_count: int = 0
 
     def __hash__(self):
         return hash((self.component_name, self.visit_count))
@@ -40,6 +40,7 @@ class ToolBreakpoint(Breakpoint):
     """
 
     tool_name: Optional[str] = None
+    visit_count: int = 0
 
     def __hash__(self):
         return hash((self.component_name, self.visit_count, self.tool_name))
