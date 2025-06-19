@@ -61,7 +61,6 @@ def debug_path(tmp_path):
 
 @pytest.fixture
 def mock_agent_with_tool_calls(monkeypatch, weather_tool):
-    """Fixture that creates an agent with mocked tool call responses."""
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
     generator = OpenAIChatGenerator()
     mock_messages = [
@@ -93,8 +92,6 @@ def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls, debug_path
     assert "messages" in exc_info.value.state
 
 def test_resume_from_chat_generator(agent, debug_path):
-    """Test resuming the agent from a saved state."""
-    # First run to create a state file
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     breakpoints = {("chat_generator", 0, None)}
     
@@ -102,15 +99,12 @@ def test_resume_from_chat_generator(agent, debug_path):
         agent.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
     except AgentBreakpointException:
         pass
-    
-    # Find the most recent state file
+
     state_files = list(Path(debug_path).glob("chat_generator_*.json"))
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
 
-    # Load the state and resume
     resume_state = load_state(latest_state_file)
-
     result = agent.run(
         messages=[ChatMessage.from_user("Continue from where we left off.")],
         resume_state=resume_state
@@ -121,8 +115,6 @@ def test_resume_from_chat_generator(agent, debug_path):
     assert len(result["messages"]) > 0
 
 def test_resume_from_tool_invoker(mock_agent_with_tool_calls, debug_path):
-    """Test resuming the agent from a tool invoker breakpoint state."""
-    # First run to create a state file at tool invoker breakpoint
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     breakpoints = {("tool_invoker", 0, "weather_tool")}
     
@@ -130,13 +122,11 @@ def test_resume_from_tool_invoker(mock_agent_with_tool_calls, debug_path):
         mock_agent_with_tool_calls.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
     except AgentBreakpointException:
         pass
-    
-    # Find the most recent tool invoker state file
+
     state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
 
-    # Load the state and resume
     resume_state = load_state(latest_state_file)
 
     result = mock_agent_with_tool_calls.run(
