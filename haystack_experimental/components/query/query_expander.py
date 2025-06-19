@@ -146,7 +146,7 @@ class QueryExpander:
             generator_result = self.generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
 
             if not generator_result.get("replies") or len(generator_result["replies"]) == 0:
-                logger.warning(f"Generator returned no replies for query: '{query}'")
+                logger.warning("Generator returned no replies for query: %s", query)
                 return {"queries": [query] if self.include_original_query else []}
 
             expanded_text = generator_result["replies"][0].text.strip()
@@ -163,7 +163,7 @@ class QueryExpander:
 
         except Exception as e:
             # Fallback: return original query to maintain pipeline functionality
-            logger.error(f"Failed to expand query '{query}': {str(e)}")
+            logger.error("Failed to expand query %s: %s", query, str(e))
             return {"queries": [query] if self.include_original_query else []}
 
     def _parse_expanded_queries(self, generator_response: str) -> List[str]:
