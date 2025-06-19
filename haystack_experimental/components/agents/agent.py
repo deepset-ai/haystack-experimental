@@ -322,7 +322,7 @@ class Agent:
 
         # validate breakpoints
         if agent_breakpoints:
-            agent_breakpoints = self._validate_breakpoints(agent_breakpoints)
+            agent_breakpoints = self._validate_breakpoints(agent_breakpoints)  # type: ignore[assignment]
 
         # resume state if provided
         if resume_state:
@@ -534,7 +534,7 @@ class Agent:
 
         # validate breakpoints
         if agent_breakpoints:
-            agent_breakpoints = self._validate_breakpoints(agent_breakpoints)
+            agent_breakpoints = self._validate_breakpoints(agent_breakpoints)  # type: ignore[assignment]
 
         # Handle resume state if provided
         if resume_state:
