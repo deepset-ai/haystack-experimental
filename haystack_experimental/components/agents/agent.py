@@ -580,6 +580,7 @@ class Agent:
                 _deepcopy_with_exceptions({"messages": messages, "streaming_callback": streaming_callback, **kwargs}),
             )
             counter = 0
+
             while counter < self.max_agent_steps:
                 # Check for breakpoint before ChatGenerator
                 if agent_breakpoints:
