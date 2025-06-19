@@ -5,7 +5,7 @@
 import inspect
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, Set
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging, tracing
 from haystack.components.generators.chat.types import ChatGenerator
@@ -225,7 +225,9 @@ class Agent:
             },
         )
 
-    def _validate_breakpoints(self, breakpoints: Set[Tuple[str, Optional[int], Optional[str]]]) -> Set[Tuple[str, int, Optional[str]]]:
+    def _validate_breakpoints(
+        self, breakpoints: Set[Tuple[str, Optional[int], Optional[str]]]
+    ) -> Set[Tuple[str, int, Optional[str]]]:
         """
         Validates the breakpoints passed to the agent.
 
@@ -260,20 +262,22 @@ class Agent:
             # Validate tool_name if provided
             if tool_name is not None:
                 if component_name != "tool_invoker":
-                    raise ValueError(f"Tool name can only be specified for 'tool_invoker' breakpoints, got '{component_name}'")
+                    raise ValueError(
+                        f"Tool name can only be specified for 'tool_invoker' breakpoints, got '{component_name}'"
+                    )
                 if not any(tool.name == tool_name for tool in self.tools):
                     raise ValueError(f"Tool '{tool_name}' is not available in the agent's tools")
 
             valid_breakpoint: Tuple[str, int, Optional[str]] = (
                 component_name,
                 0 if visit_count is None else visit_count,
-                tool_name
+                tool_name,
             )
             processed_breakpoints.add(valid_breakpoint)
 
         return processed_breakpoints
 
-    def run(  # noqa: PLR0915 #pylint: disable=too-many-positional-arguments
+    def run(  # noqa: PLR0915, PLR0912 #pylint: disable=too-many-positional-arguments
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -409,9 +413,9 @@ class Agent:
 
                 # check for breakpoint before ToolInvoker
                 if agent_breakpoints:
-                    for breakpoint in agent_breakpoints:
-                        if breakpoint[0].startswith("tool_invoker"):
-                            component_name, visit_count, tool_name = breakpoint
+                    for break_point in agent_breakpoints:
+                        if break_point[0].startswith("tool_invoker"):
+                            component_name, visit_count, tool_name = break_point
                             visit_count = visit_count or 0
                             # check if tool_name is valid
                             if tool_name and tool_name not in [tool.name for tool in self.tools]:
@@ -480,7 +484,7 @@ class Agent:
             result.update({"last_message": all_messages[-1]})
         return result
 
-    async def run_async(  # noqa: PLR0915 #pylint: disable=too-many-positional-arguments
+    async def run_async(  # noqa: PLR0915, PLR0912 #pylint: disable=too-many-positional-arguments
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -621,9 +625,9 @@ class Agent:
 
                 # Check for breakpoint before ToolInvoker
                 if agent_breakpoints:
-                    for breakpoint in agent_breakpoints:
-                        if breakpoint[0].startswith("tool_invoker"):
-                            component_name, visit_count, tool_name = breakpoint
+                    for break_point in agent_breakpoints:
+                        if break_point[0].startswith("tool_invoker"):
+                            component_name, visit_count, tool_name = break_point
                             visit_count = visit_count or 0
                             # check if tool_name is valid
                             if tool_name and tool_name not in [tool.name for tool in self.tools]:
