@@ -30,7 +30,6 @@ def weather_tool():
         function=weather_function,
     )
 
-
 @pytest.fixture
 def mock_chat_generator():
     generator = MockChatGeneratorWithoutRunAsync()
@@ -48,7 +47,6 @@ def mock_chat_generator():
     generator.run = mock_run_with_tools
     return generator
 
-
 @pytest.fixture
 def agent(mock_chat_generator, weather_tool):
     return Agent(
@@ -57,11 +55,9 @@ def agent(mock_chat_generator, weather_tool):
         system_prompt="You are a helpful assistant that can use tools to help users.",
     )
 
-
 @pytest.fixture
 def debug_path(tmp_path):
     return str(tmp_path / "debug_states")
-
 
 @pytest.fixture
 def mock_agent_with_tool_calls(monkeypatch, weather_tool):
@@ -78,7 +74,6 @@ def mock_agent_with_tool_calls(monkeypatch, weather_tool):
     agent.warm_up()
     agent.chat_generator.run = MagicMock(return_value={"replies": mock_messages})
     return agent
-
 
 def test_run_with_chat_generator_breakpoint(agent, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
@@ -116,9 +111,6 @@ def test_resume_from_chat_generator(agent, debug_path):
     # Load the state and resume
     resume_state = load_state(latest_state_file)
 
-    from pprint import pprint
-    pprint(resume_state)
-
     result = agent.run(
         messages=[ChatMessage.from_user("Continue from where we left off.")],
         resume_state=resume_state
@@ -128,8 +120,33 @@ def test_resume_from_chat_generator(agent, debug_path):
     assert "last_message" in result
     assert len(result["messages"]) > 0
 
-def test_resume_from_tool_invoker(agent, debug_path):
-    pass
+def test_resume_from_tool_invoker(mock_agent_with_tool_calls, debug_path):
+    """Test resuming the agent from a tool invoker breakpoint state."""
+    # First run to create a state file at tool invoker breakpoint
+    messages = [ChatMessage.from_user("What's the weather in Berlin?")]
+    breakpoints = {("tool_invoker", 0, "weather_tool")}
+    
+    try:
+        mock_agent_with_tool_calls.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+    except AgentBreakpointException:
+        pass
+    
+    # Find the most recent tool invoker state file
+    state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
+    assert len(state_files) > 0
+    latest_state_file = str(max(state_files, key=os.path.getctime))
+
+    # Load the state and resume
+    resume_state = load_state(latest_state_file)
+
+    result = mock_agent_with_tool_calls.run(
+        messages=[ChatMessage.from_user("Continue from where we left off.")],
+        resume_state=resume_state
+    )
+
+    assert "messages" in result
+    assert "last_message" in result
+    assert len(result["messages"]) > 0
 
 def test_invalid_combination_breakpoint_and_resume_state(mock_agent_with_tool_calls, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
