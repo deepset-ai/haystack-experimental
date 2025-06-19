@@ -277,8 +277,8 @@ class Agent:
 
         return processed_breakpoints
 
+    @staticmethod
     def _check_chat_generator_breakpoint(  # pylint: disable=too-many-positional-arguments
-        self,
         agent_breakpoints: Set[Tuple[str, int, Optional[str]]],
         component_visits: Dict[str, int],
         messages: List[ChatMessage],
@@ -478,7 +478,7 @@ class Agent:
             counter = 0
             while counter < self.max_agent_steps:
                 # check for breakpoint before ChatGenerator
-                self._check_chat_generator_breakpoint(
+                Agent._check_chat_generator_breakpoint(
                     agent_breakpoints,  # type: ignore[arg-type]
                     component_visits,
                     messages,
