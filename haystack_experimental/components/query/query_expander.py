@@ -77,6 +77,7 @@ class QueryExpander:
 
     def __init__(
         self,
+        *,
         generator: Optional[Union[Component, OpenAIChatGenerator]] = None,
         prompt_template: Optional[str] = None,
         n_expansions: int = 4,
