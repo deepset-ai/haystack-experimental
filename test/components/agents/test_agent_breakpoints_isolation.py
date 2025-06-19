@@ -158,4 +158,3 @@ def test_breakpoint_with_invalid_tool_name(mock_agent_with_tool_calls, debug_pat
 
     with pytest.raises(ValueError, match="Tool 'invalid_tool' is not available in the agent's tools"):
         mock_agent_with_tool_calls.run(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
-
