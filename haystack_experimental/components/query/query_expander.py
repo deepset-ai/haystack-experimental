@@ -118,10 +118,7 @@ class QueryExpander:
     ) -> Dict[str, List[str]]:
         """
         Expand the input query into multiple semantically similar queries.
-
-        This method follows the approach described in the Haystack blog on query expansion,
-        generating alternative queries to improve retrieval recall, especially for
-        keyword-based search systems.
+        The language of the original query is preserved in the expanded queries.
 
         :param query: The original query to expand.
         :param n_expansions: Number of additional queries to generate (not including the original).

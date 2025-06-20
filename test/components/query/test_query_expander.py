@@ -168,21 +168,19 @@ class TestQueryExpanderIntegration:
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
     )
-    def test_real_openai_query_expansion(self):
+    def test_query_expansion(self):
         expander = QueryExpander(n_expansions=3)
         result = expander.run("renewable energy sources")
 
         assert len(result["queries"]) == 4
-        assert "renewable energy sources" in result["queries"]
-
-        # Queries should be non-empty
         assert all(len(q.strip()) > 0 for q in result["queries"])
+        assert "renewable energy sources" in result["queries"]
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
         reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
     )
-    def test_real_openai_different_domains(self):
+    def test_different_domains(self):
         test_queries = [
             "machine learning algorithms",
             "climate change effects",
