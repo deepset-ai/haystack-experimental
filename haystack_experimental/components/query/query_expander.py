@@ -109,7 +109,7 @@ class QueryExpander:
         if chat_generator is None:
             self.chat_generator: ChatGenerator = OpenAIChatGenerator(
                 model="gpt-4o-mini",
-                generation_kwargs=generation_kwargs or {"temperature": 0.7},
+                generation_kwargs=generation_kwargs or {"temperature": 0.7, "response_format": {"type": "json_object"}, "seed": 42},
             )
         else:
             self.chat_generator = chat_generator
@@ -163,6 +163,7 @@ class QueryExpander:
         :return: Dictionary with "queries" key containing the list of expanded queries.
             If include_original_query=True, the original query will be included in addition
             to the n_expansions alternative queries.
+        :raises ValueError: If n_expansions is not positive (less than or equal to 0).
         """
         if not query.strip():
             logger.warning("Empty query provided to QueryExpander")
