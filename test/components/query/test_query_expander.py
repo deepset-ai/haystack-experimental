@@ -154,7 +154,7 @@ class TestQueryExpander:
         mock_generator.run.return_value = {
             "replies": [ChatMessage.from_assistant('["test1", "test2"]')]
         }
-        expander.generator = mock_generator
+        expander.chat_generator = mock_generator
 
         result = expander.run("test")
         assert "queries" in result
