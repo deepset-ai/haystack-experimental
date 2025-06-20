@@ -115,7 +115,7 @@ class QueryExpander:
             self.chat_generator = chat_generator
 
         self.prompt_template = prompt_template or DEFAULT_PROMPT_TEMPLATE
-        self.prompt_builder = PromptBuilder(template=self.prompt_template)
+        self._prompt_builder = PromptBuilder(template=self.prompt_template)
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -175,7 +175,7 @@ class QueryExpander:
             raise ValueError("n_expansions must be positive")
 
         try:
-            prompt_result = self.prompt_builder.run(query=query.strip(), n_expansions=expansion_count)
+            prompt_result = self._prompt_builder.run(query=query.strip(), n_expansions=expansion_count)
 
             generator_result = self.chat_generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
 
