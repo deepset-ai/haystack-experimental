@@ -6,10 +6,13 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+from haystack import default_from_dict, default_to_dict
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.core.component import Component, component
+from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses.chat_message import ChatMessage
+from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +81,7 @@ class QueryExpander:
     def __init__(
         self,
         *,
-        generator: Optional[Union[Component, OpenAIChatGenerator]] = None,
+        chat_generator: Optional[Union[Component, OpenAIChatGenerator]] = None,
         prompt_template: Optional[str] = None,
         n_expansions: int = 4,
         include_original_query: bool = True,
@@ -99,16 +102,44 @@ class QueryExpander:
         self.n_expansions = n_expansions
         self.include_original_query = include_original_query
 
-        if generator is None:
-            self.generator: Union[Component, OpenAIChatGenerator] = OpenAIChatGenerator(
+        if chat_generator is None:
+            self.chat_generator: Union[Component, OpenAIChatGenerator] = OpenAIChatGenerator(
                 model="gpt-4o-mini",
                 generation_kwargs=generation_kwargs or {"temperature": 0.7},
             )
         else:
-            self.generator = generator
+            self.chat_generator = chat_generator
 
         self.prompt_template = prompt_template or DEFAULT_PROMPT_TEMPLATE
         self.prompt_builder = PromptBuilder(template=self.prompt_template)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the component to a dictionary.
+
+        :return: Dictionary with serialized data.
+        """
+        return default_to_dict(
+            self,
+            chat_generator=component_to_dict(self.chat_generator, name="chat_generator"),
+            prompt_template=self.prompt_template,
+            n_expansions=self.n_expansions,
+            include_original_query=self.include_original_query,
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "QueryExpander":
+        """
+        Deserializes the component from a dictionary.
+
+        :param data: Dictionary with serialized data.
+        :return: Deserialized component.
+        """
+        init_params = data.get("init_parameters", {})
+
+        deserialize_chatgenerator_inplace(init_params, key="chat_generator")
+
+        return default_from_dict(cls, data)
 
     @component.output_types(queries=List[str])
     def run(
@@ -118,6 +149,7 @@ class QueryExpander:
     ) -> Dict[str, List[str]]:
         """
         Expand the input query into multiple semantically similar queries.
+
         The language of the original query is preserved in the expanded queries.
 
         :param query: The original query to expand.
@@ -140,7 +172,7 @@ class QueryExpander:
         try:
             prompt_result = self.prompt_builder.run(query=query.strip(), n_expansions=expansion_count)
 
-            generator_result = self.generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
+            generator_result = self.chat_generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
 
             if not generator_result.get("replies") or len(generator_result["replies"]) == 0:
                 logger.warning("Generator returned no replies for query: %s", query)

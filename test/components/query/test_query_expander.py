@@ -7,9 +7,9 @@ import os
 
 import pytest
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack.dataclasses.chat_message import ChatMessage, ChatRole
+from haystack.dataclasses.chat_message import ChatMessage
 
-from haystack_experimental.components.query.query_expander import QueryExpander
+from haystack_experimental.components.query.query_expander import QueryExpander, DEFAULT_PROMPT_TEMPLATE
 
 
 class TestQueryExpander:
@@ -18,16 +18,16 @@ class TestQueryExpander:
 
         assert expander.n_expansions == 4
         assert expander.include_original_query is True
-        assert isinstance(expander.generator, OpenAIChatGenerator)
-        assert expander.generator.model == "gpt-4o-mini"
+        assert isinstance(expander.chat_generator, OpenAIChatGenerator)
+        assert expander.chat_generator.model == "gpt-4o-mini"
         assert expander.prompt_builder is not None
 
     def test_init_custom_generator(self):
         mock_generator = Mock()
-        expander = QueryExpander(generator=mock_generator, n_expansions=3)
+        expander = QueryExpander(chat_generator=mock_generator, n_expansions=3)
 
         assert expander.n_expansions == 3
-        assert expander.generator is mock_generator
+        assert expander.chat_generator is mock_generator
 
     def test_init_custom_prompt_template(self):
         custom_template = (
@@ -47,7 +47,7 @@ class TestQueryExpander:
             ]
         }
 
-        expander = QueryExpander(generator=mock_generator, n_expansions=3)
+        expander = QueryExpander(chat_generator=mock_generator, n_expansions=3)
         result = expander.run("original query")
 
         assert result["queries"] == [
@@ -64,7 +64,7 @@ class TestQueryExpander:
             "replies": [ChatMessage.from_assistant('["alt1", "alt2"]')]
         }
 
-        expander = QueryExpander(generator=mock_generator, include_original_query=False)
+        expander = QueryExpander(chat_generator=mock_generator, include_original_query=False)
         result = expander.run("original")
 
         assert result["queries"] == ["alt1", "alt2"]
@@ -85,7 +85,7 @@ class TestQueryExpander:
         mock_generator = Mock()
         mock_generator.run.return_value = {"replies": []}
 
-        expander = QueryExpander(generator=mock_generator)
+        expander = QueryExpander(chat_generator=mock_generator)
         result = expander.run("test query")
 
         assert result["queries"] == ["test query"]
@@ -94,7 +94,7 @@ class TestQueryExpander:
         mock_generator = Mock()
         mock_generator.run.side_effect = Exception("Generator error")
 
-        expander = QueryExpander(generator=mock_generator)
+        expander = QueryExpander(chat_generator=mock_generator)
         result = expander.run("test query")
 
         assert result["queries"] == ["test query"]
@@ -105,7 +105,7 @@ class TestQueryExpander:
             "replies": [ChatMessage.from_assistant("invalid json response")]
         }
 
-        expander = QueryExpander(generator=mock_generator)
+        expander = QueryExpander(chat_generator=mock_generator)
         result = expander.run("test query")
 
         assert result["queries"] == ["test query"]
@@ -113,7 +113,7 @@ class TestQueryExpander:
     def test_run_zero_expansions_with_original(self):
         mock_generator = Mock()
 
-        expander = QueryExpander(generator=mock_generator, n_expansions=4)  # Default is 4
+        expander = QueryExpander(chat_generator=mock_generator, n_expansions=4)  # Default is 4
         result = expander.run("test query", n_expansions=0)
 
         # Should return only the original query, not call generator
@@ -123,7 +123,7 @@ class TestQueryExpander:
     def test_run_zero_expansions_without_original(self):
         mock_generator = Mock()
 
-        expander = QueryExpander(generator=mock_generator, include_original_query=False)
+        expander = QueryExpander(chat_generator=mock_generator, include_original_query=False)
         result = expander.run("test query", n_expansions=0)
 
         assert result["queries"] == []
@@ -161,6 +161,85 @@ class TestQueryExpander:
         assert isinstance(result["queries"], list)
         assert all(isinstance(q, str) for q in result["queries"])
 
+    def test_to_dict(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+        generator = OpenAIChatGenerator()
+        expander = QueryExpander(chat_generator=generator, n_expansions=2, include_original_query=False)
+
+        serialized_query_expander = expander.to_dict()
+
+        assert serialized_query_expander == {
+            "type": "haystack_experimental.components.query.query_expander.QueryExpander",
+            "init_parameters": {
+                "chat_generator": {
+                    "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
+                    "init_parameters": {
+                        "model": "gpt-4o-mini",
+                        "streaming_callback": None,
+                        "api_base_url": None,
+                        "organization": None,
+                        "generation_kwargs": {},
+                        "api_key": {
+                            "type": "env_var",
+                            "env_vars": [
+                                "OPENAI_API_KEY"
+                            ],
+                            "strict": True
+                        },
+                        "timeout": None,
+                        "max_retries": None,
+                        "tools": None,
+                        "tools_strict": False,
+                        "http_client_kwargs": None
+                    }
+                },
+                "prompt_template": DEFAULT_PROMPT_TEMPLATE,
+                "n_expansions": 2,
+                "include_original_query": False
+            }
+        }
+
+    def test_from_dict(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+
+        data = {
+            "type": "haystack_experimental.components.query.query_expander.QueryExpander",
+            "init_parameters": {
+                "chat_generator": {
+                    "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
+                    "init_parameters": {
+                        "model": "gpt-4o-mini",
+                        "streaming_callback": None,
+                        "api_base_url": None,
+                        "organization": None,
+                        "generation_kwargs": {},
+                        "api_key": {
+                            "type": "env_var",
+                            "env_vars": [
+                                "OPENAI_API_KEY"
+                            ],
+                            "strict": True
+                        },
+                        "timeout": None,
+                        "max_retries": None,
+                        "tools": None,
+                        "tools_strict": False,
+                        "http_client_kwargs": None
+                    }
+                },
+                "prompt_template": DEFAULT_PROMPT_TEMPLATE,
+                "n_expansions": 2,
+                "include_original_query": False
+            }
+        }
+
+        expander = QueryExpander.from_dict(data)
+
+        assert expander.n_expansions == 2
+        assert expander.include_original_query == False
+        assert expander.prompt_template == DEFAULT_PROMPT_TEMPLATE
+        assert isinstance(expander.chat_generator, OpenAIChatGenerator)
+        assert expander.chat_generator.model == "gpt-4o-mini"
 
 @pytest.mark.integration
 class TestQueryExpanderIntegration:
