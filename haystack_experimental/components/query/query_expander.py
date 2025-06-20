@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import logging
 from typing import Any, Dict, List, Optional
 
-from haystack import default_from_dict, default_to_dict
+from haystack import default_from_dict, default_to_dict, logging
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.components.generators.chat.types import ChatGenerator
@@ -180,7 +179,7 @@ class QueryExpander:
             generator_result = self.chat_generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
 
             if not generator_result.get("replies") or len(generator_result["replies"]) == 0:
-                logger.warning("Generator returned no replies for query: %s", query)
+                logger.warning("Generator returned no replies for query: {query}", query=query)
                 return {"queries": [query] if self.include_original_query else []}
 
             expanded_text = generator_result["replies"][0].text.strip()
@@ -201,7 +200,7 @@ class QueryExpander:
 
         except Exception as e:
             # Fallback: return original query to maintain pipeline functionality
-            logger.error("Failed to expand query %s: %s", query, str(e))
+            logger.error("Failed to expand query {query}: {error}", query=query, error=str(e))
             return {"queries": [query] if self.include_original_query else []}
 
     def _parse_expanded_queries(self, generator_response: str) -> List[str]:
@@ -218,7 +217,10 @@ class QueryExpander:
             parsed = json.loads(generator_response)
 
             if not isinstance(parsed, list):
-                logger.warning("Generator response is not a JSON array: %s", generator_response[:100])
+                logger.warning(
+                    "Generator response is not a JSON array: {response}",
+                    response=generator_response[:100],
+                )
                 return []
 
             queries = []
@@ -226,10 +228,17 @@ class QueryExpander:
                 if isinstance(item, str) and item.strip():
                     queries.append(item.strip())
                 else:
-                    logger.warning("Skipping non-string or empty query in response: %s", item)
+                    logger.warning(
+                        "Skipping non-string or empty query in response: {item}",
+                        item=item,
+                    )
 
             return queries
 
         except json.JSONDecodeError as e:
-            logger.warning("Failed to parse JSON response: %s. Response: %s", str(e), generator_response[:100])
+            logger.warning(
+                "Failed to parse JSON response: {error}. Response: {response}",
+                error=str(e),
+                response=generator_response[:100],
+            )
             return []
