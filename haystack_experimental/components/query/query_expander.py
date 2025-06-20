@@ -85,7 +85,6 @@ class QueryExpander:
         prompt_template: Optional[str] = None,
         n_expansions: int = 4,
         include_original_query: bool = True,
-        generation_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the QueryExpander component.
@@ -94,20 +93,17 @@ class QueryExpander:
         :param prompt_template: Custom PromptBuilder template for query expansion.
         :param n_expansions: Number of alternative queries to generate (default: 4).
         :param include_original_query: Whether to include the original query in the output.
-        :param generation_kwargs: Additional generation kwargs to pass to the generator.
         """
         if n_expansions <= 0:
             raise ValueError("n_expansions must be positive")
 
         self.n_expansions = n_expansions
         self.include_original_query = include_original_query
-        self.generation_kwargs = generation_kwargs
 
         if chat_generator is None:
             self.chat_generator: ChatGenerator = OpenAIChatGenerator(
                 model="gpt-4o-mini",
-                generation_kwargs=generation_kwargs
-                or {
+                generation_kwargs={
                     "temperature": 0.7,
                     "response_format": {
                         "type": "json_schema",
@@ -142,7 +138,6 @@ class QueryExpander:
             prompt_template=self.prompt_template,
             n_expansions=self.n_expansions,
             include_original_query=self.include_original_query,
-            generation_kwargs=self.generation_kwargs,
         )
 
     @classmethod
