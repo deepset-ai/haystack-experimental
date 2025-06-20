@@ -27,13 +27,13 @@ Follow the structure shown below in examples to generate expanded queries.
 
 Examples:
 1.  Query: "climate change effects"
-    ["impact of climate change", "consequences of global warming", "effects of environmental changes"]
+    {"queries": ["impact of climate change", "consequences of global warming", "effects of environmental changes"]}
 
 2.  Query: "machine learning algorithms"
-    ["neural networks", "clustering techniques", "supervised learning methods", "deep learning models"]
+    {"queries": ["neural networks", "clustering techniques", "supervised learning methods", "deep learning models"]}
 
 3.  Query: "open source NLP frameworks"
-    ["natural language processing tools", "free nlp libraries", "open-source language processing platforms"]
+    {"queries": ["natural language processing tools", "free nlp libraries", "open-source NLP platforms"]}
 
 Guidelines:
 - Generate queries that use different words and phrasings
@@ -46,8 +46,8 @@ Guidelines:
 Your Task:
 Query: "{{ query }}"
 
-You *must* respond only with a compact, inline JSON array of strings, no other text.
-Example: ["query1","query2","query3"]"""
+You *must* respond with a JSON object containing a "queries" array with the expanded queries.
+Example: {"queries": ["query1", "query2", "query3"]}"""
 
 
 @component
@@ -109,7 +109,18 @@ class QueryExpander:
                 generation_kwargs=generation_kwargs
                 or {
                     "temperature": 0.7,
-                    "response_format": {"type": "json_object"},
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "query_expansion",
+                            "schema": {
+                                "type": "object",
+                                "properties": {"queries": {"type": "array", "items": {"type": "string"}}},
+                                "required": ["queries"],
+                                "additionalProperties": False,
+                            },
+                        },
+                    },
                     "seed": 42,
                 },
             )
@@ -219,15 +230,15 @@ class QueryExpander:
         try:
             parsed = json.loads(generator_response)
 
-            if not isinstance(parsed, list):
+            if not isinstance(parsed, dict) or "queries" not in parsed:
                 logger.warning(
-                    "Generator response is not a JSON array: {response}",
+                    "Generator response is not a JSON object containing a 'queries' array: {response}",
                     response=generator_response[:100],
                 )
                 return []
 
             queries = []
-            for item in parsed:
+            for item in parsed["queries"]:
                 if isinstance(item, str) and item.strip():
                     queries.append(item.strip())
                 else:

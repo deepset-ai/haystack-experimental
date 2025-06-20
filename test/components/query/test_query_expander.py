@@ -60,7 +60,7 @@ class TestQueryExpander:
         mock_generator.run.return_value = {
             "replies": [
                 ChatMessage.from_assistant(
-                    '["alternative query 1", "alternative query 2", "alternative query 3"]'
+                    '{"queries": ["alternative query 1", "alternative query 2", "alternative query 3"]}'
                 )
             ]
         }
@@ -79,7 +79,7 @@ class TestQueryExpander:
     def test_run_without_including_original(self):
         mock_generator = Mock()
         mock_generator.run.return_value = {
-            "replies": [ChatMessage.from_assistant('["alt1", "alt2"]')]
+            "replies": [ChatMessage.from_assistant('{"queries": ["alt1", "alt2"]}')]
         }
 
         expander = QueryExpander(chat_generator=mock_generator, include_original_query=False)
@@ -130,7 +130,7 @@ class TestQueryExpander:
 
     def test_parse_expanded_queries_valid_json(self):
         expander = QueryExpander()
-        queries = expander._parse_expanded_queries('["query1", "query2", "query3"]')
+        queries = expander._parse_expanded_queries('{"queries": ["query1", "query2", "query3"]}')
 
         assert queries == ["query1", "query2", "query3"]
 
@@ -154,14 +154,14 @@ class TestQueryExpander:
 
     def test_parse_expanded_queries_mixed_types(self):
         expander = QueryExpander()
-        queries = expander._parse_expanded_queries('["valid query", 123, "", "another valid"]')
+        queries = expander._parse_expanded_queries('{"queries": ["valid query", 123, "", "another valid"]}')
 
         assert queries == ["valid query", "another valid"]
 
     def test_run_query_deduplication(self):
         mock_generator = Mock()
         mock_generator.run.return_value = {
-            "replies": [ChatMessage.from_assistant('["original query", "alt1", "alt2"]')]
+            "replies": [ChatMessage.from_assistant('{"queries": ["original query", "alt1", "alt2"]}')]
         }
 
         expander = QueryExpander(chat_generator=mock_generator, include_original_query=True)
@@ -176,7 +176,7 @@ class TestQueryExpander:
 
         mock_generator = Mock()
         mock_generator.run.return_value = {
-            "replies": [ChatMessage.from_assistant('["test1", "test2"]')]
+            "replies": [ChatMessage.from_assistant('{"queries": ["test1", "test2"]}')]
         }
         expander.chat_generator = mock_generator
 
