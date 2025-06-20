@@ -10,7 +10,7 @@ from haystack import default_from_dict, default_to_dict
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.core.component import Component, component
-from haystack.core.serialization import component_from_dict, component_to_dict
+from haystack.core.serialization import component_to_dict
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
