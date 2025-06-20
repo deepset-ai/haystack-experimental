@@ -62,7 +62,7 @@ class QueryExpander:
     from haystack_experimental.components.query import QueryExpander
 
     expander = QueryExpander(
-        generator=OpenAIChatGenerator(model="gpt-4o-mini"),
+        chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
         n_expansions=3
     )
 
@@ -90,7 +90,7 @@ class QueryExpander:
         """
         Initialize the QueryExpander component.
 
-        :param generator: The chat generator component to use for query expansion.
+        :param chat_generator: The chat generator component to use for query expansion.
             If None, defaults to OpenAIChatGenerator with `gpt-4o-mini`.
         :param prompt_template: Custom PromptBuilder template for query expansion.
             If None, uses DEFAULT_PROMPT_TEMPLATE.
@@ -99,6 +99,9 @@ class QueryExpander:
             in the output (default: `True`).
         :param generation_kwargs: Additional generation kwargs to pass to the generator.
         """
+        if n_expansions <= 0:
+            raise ValueError("n_expansions must be positive")
+
         self.n_expansions = n_expansions
         self.include_original_query = include_original_query
 
@@ -165,9 +168,8 @@ class QueryExpander:
 
         expansion_count = n_expansions if n_expansions is not None else self.n_expansions
 
-        # Optimize for zero expansions - no need to call generator
-        if expansion_count == 0:
-            return {"queries": [query] if self.include_original_query else []}
+        if expansion_count <= 0:
+            raise ValueError("n_expansions must be positive")
 
         try:
             prompt_result = self.prompt_builder.run(query=query.strip(), n_expansions=expansion_count)
@@ -185,8 +187,12 @@ class QueryExpander:
             if len(expanded_queries) > expansion_count:
                 expanded_queries = expanded_queries[:expansion_count]
 
-            if self.include_original_query and query not in expanded_queries:
-                expanded_queries.append(query)
+            # Add original query if requested and not already present
+            if self.include_original_query:
+                # Use a set to avoid duplicates, then convert back to list to preserve order
+                query_set = set(expanded_queries)
+                if query not in query_set:
+                    expanded_queries.append(query)
 
             return {"queries": expanded_queries}
 
@@ -206,6 +212,21 @@ class QueryExpander:
             return []
 
         try:
-            return json.loads(generator_response)
-        except json.JSONDecodeError:
+            parsed = json.loads(generator_response)
+
+            if not isinstance(parsed, list):
+                logger.warning("Generator response is not a JSON array: %s", generator_response[:100])
+                return []
+
+            queries = []
+            for item in parsed:
+                if isinstance(item, str) and item.strip():
+                    queries.append(item.strip())
+                else:
+                    logger.warning("Skipping non-string or empty query in response: %s", item)
+
+            return queries
+
+        except json.JSONDecodeError as e:
+            logger.warning("Failed to parse JSON response: %s. Response: %s", str(e), generator_response[:100])
             return []

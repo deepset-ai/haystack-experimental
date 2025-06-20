@@ -29,6 +29,10 @@ class TestQueryExpander:
         assert expander.n_expansions == 3
         assert expander.chat_generator is mock_generator
 
+    def test_init_negative_expansions_raises_error(self):
+        with pytest.raises(ValueError, match="n_expansions must be positive"):
+            QueryExpander(n_expansions=-1)
+
     def test_init_custom_prompt_template(self):
         custom_template = (
             "Custom template: {{ query }} with {{ n_expansions }} expansions"
@@ -36,6 +40,11 @@ class TestQueryExpander:
         expander = QueryExpander(prompt_template=custom_template)
 
         assert expander.prompt_template == custom_template
+
+    def test_run_negative_expansions_raises_error(self):
+        expander = QueryExpander()
+        with pytest.raises(ValueError, match="n_expansions must be positive"):
+            expander.run("test query", n_expansions=-1)
 
     def test_run_successful_expansion(self):
         mock_generator = Mock()
@@ -110,25 +119,6 @@ class TestQueryExpander:
 
         assert result["queries"] == ["test query"]
 
-    def test_run_zero_expansions_with_original(self):
-        mock_generator = Mock()
-
-        expander = QueryExpander(chat_generator=mock_generator, n_expansions=4)  # Default is 4
-        result = expander.run("test query", n_expansions=0)
-
-        # Should return only the original query, not call generator
-        assert result["queries"] == ["test query"]
-        mock_generator.run.assert_not_called()
-
-    def test_run_zero_expansions_without_original(self):
-        mock_generator = Mock()
-
-        expander = QueryExpander(chat_generator=mock_generator, include_original_query=False)
-        result = expander.run("test query", n_expansions=0)
-
-        assert result["queries"] == []
-        mock_generator.run.assert_not_called()
-
     def test_parse_expanded_queries_valid_json(self):
         expander = QueryExpander()
         queries = expander._parse_expanded_queries('["query1", "query2", "query3"]')
@@ -146,6 +136,31 @@ class TestQueryExpander:
         queries = expander._parse_expanded_queries("")
 
         assert queries == []
+
+    def test_parse_expanded_queries_non_list_json(self):
+        expander = QueryExpander()
+        queries = expander._parse_expanded_queries('{"not": "a list"}')
+
+        assert queries == []
+
+    def test_parse_expanded_queries_mixed_types(self):
+        expander = QueryExpander()
+        queries = expander._parse_expanded_queries('["valid query", 123, "", "another valid"]')
+
+        assert queries == ["valid query", "another valid"]
+
+    def test_run_query_deduplication(self):
+        mock_generator = Mock()
+        mock_generator.run.return_value = {
+            "replies": [ChatMessage.from_assistant('["original query", "alt1", "alt2"]')]
+        }
+
+        expander = QueryExpander(chat_generator=mock_generator, include_original_query=True)
+        result = expander.run("original query")
+
+        # Should not have duplicates
+        assert result["queries"] == ["original query", "alt1", "alt2"]
+        assert len(result["queries"]) == 3
 
     def test_component_output_types(self):
         expander = QueryExpander()
