@@ -69,12 +69,12 @@ class QueryExpander:
     result = expander.run(query="green energy sources")
     print(result["queries"])
     # Output: ['alternative query 1', 'alternative query 2', 'alternative query 3', 'green energy sources']
-    # Note: 3 additional queries + 1 original = 4 total queries
+    # Note: Up to 3 additional queries + 1 original query (if include_original_query=True)
 
-    # To get exactly 3 total queries:
-    expander = QueryExpander(n_expansions=2, include_original_query=True)
+    # To control total number of queries:
+    expander = QueryExpander(n_expansions=2, include_original_query=True)  # Up to 3 total
     # or
-    expander = QueryExpander(n_expansions=3, include_original_query=False)
+    expander = QueryExpander(n_expansions=3, include_original_query=False)  # Exactly 3 total
     ```
     """
 
@@ -104,6 +104,7 @@ class QueryExpander:
 
         self.n_expansions = n_expansions
         self.include_original_query = include_original_query
+        self.generation_kwargs = generation_kwargs
 
         if chat_generator is None:
             self.chat_generator: Union[Component, OpenAIChatGenerator] = OpenAIChatGenerator(
@@ -128,6 +129,7 @@ class QueryExpander:
             prompt_template=self.prompt_template,
             n_expansions=self.n_expansions,
             include_original_query=self.include_original_query,
+            generation_kwargs=self.generation_kwargs,
         )
 
     @classmethod
@@ -187,11 +189,11 @@ class QueryExpander:
             if len(expanded_queries) > expansion_count:
                 expanded_queries = expanded_queries[:expansion_count]
 
-            # Add original query if requested and not already present
+            # Add original query if requested and remove duplicates
             if self.include_original_query:
-                # Use a set to avoid duplicates, then convert back to list to preserve order
-                query_set = set(expanded_queries)
-                if query not in query_set:
+                expanded_queries_lower = [q.lower() for q in expanded_queries]
+
+                if query.lower() not in expanded_queries_lower:
                     expanded_queries.append(query)
 
             return {"queries": expanded_queries}

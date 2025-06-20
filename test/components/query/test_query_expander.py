@@ -41,6 +41,15 @@ class TestQueryExpander:
 
         assert expander.prompt_template == custom_template
 
+    def test_init_with_generation_kwargs(self):
+        custom_kwargs = {"temperature": 0.5, "max_tokens": 100}
+        expander = QueryExpander(generation_kwargs=custom_kwargs)
+
+        assert expander.generation_kwargs == custom_kwargs
+        # Verify it's passed to the default chat generator (which should be OpenAIChatGenerator)
+        assert isinstance(expander.chat_generator, OpenAIChatGenerator)
+        assert expander.chat_generator.generation_kwargs == custom_kwargs
+
     def test_run_negative_expansions_raises_error(self):
         expander = QueryExpander()
         with pytest.raises(ValueError, match="n_expansions must be positive"):
@@ -177,7 +186,7 @@ class TestQueryExpander:
         assert all(isinstance(q, str) for q in result["queries"])
 
     def test_to_dict(self, monkeypatch):
-        monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         generator = OpenAIChatGenerator()
         expander = QueryExpander(chat_generator=generator, n_expansions=2, include_original_query=False)
 
@@ -210,12 +219,13 @@ class TestQueryExpander:
                 },
                 "prompt_template": DEFAULT_PROMPT_TEMPLATE,
                 "n_expansions": 2,
-                "include_original_query": False
+                "include_original_query": False,
+                "generation_kwargs": None
             }
         }
 
     def test_from_dict(self, monkeypatch):
-        monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
 
         data = {
             "type": "haystack_experimental.components.query.query_expander.QueryExpander",
@@ -244,7 +254,8 @@ class TestQueryExpander:
                 },
                 "prompt_template": DEFAULT_PROMPT_TEMPLATE,
                 "n_expansions": 2,
-                "include_original_query": False
+                "include_original_query": False,
+                "generation_kwargs": None
             }
         }
 
