@@ -106,7 +106,12 @@ class QueryExpander:
         if chat_generator is None:
             self.chat_generator: ChatGenerator = OpenAIChatGenerator(
                 model="gpt-4o-mini",
-                generation_kwargs=generation_kwargs or {"temperature": 0.7, "response_format": {"type": "json_object"}, "seed": 42},
+                generation_kwargs=generation_kwargs
+                or {
+                    "temperature": 0.7,
+                    "response_format": {"type": "json_object"},
+                    "seed": 42,
+                },
             )
         else:
             self.chat_generator = chat_generator
