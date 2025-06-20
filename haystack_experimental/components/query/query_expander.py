@@ -91,12 +91,9 @@ class QueryExpander:
         Initialize the QueryExpander component.
 
         :param chat_generator: The chat generator component to use for query expansion.
-            If None, defaults to OpenAIChatGenerator with `gpt-4o-mini`.
         :param prompt_template: Custom PromptBuilder template for query expansion.
-            If None, uses DEFAULT_PROMPT_TEMPLATE.
         :param n_expansions: Number of alternative queries to generate (default: 4).
-        :param include_original_query: Whether to include the original query
-            in the output (default: `True`).
+        :param include_original_query: Whether to include the original query in the output.
         :param generation_kwargs: Additional generation kwargs to pass to the generator.
         """
         if n_expansions <= 0:
