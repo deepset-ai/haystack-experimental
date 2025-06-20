@@ -4,12 +4,13 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from haystack import default_from_dict, default_to_dict
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack.core.component import Component, component
+from haystack.components.generators.chat.types import ChatGenerator
+from haystack.core.component import component
 from haystack.core.serialization import component_to_dict
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
@@ -81,7 +82,7 @@ class QueryExpander:
     def __init__(
         self,
         *,
-        chat_generator: Optional[Union[Component, OpenAIChatGenerator]] = None,
+        chat_generator: Optional[ChatGenerator] = None,
         prompt_template: Optional[str] = None,
         n_expansions: int = 4,
         include_original_query: bool = True,
@@ -107,7 +108,7 @@ class QueryExpander:
         self.generation_kwargs = generation_kwargs
 
         if chat_generator is None:
-            self.chat_generator: Union[Component, OpenAIChatGenerator] = OpenAIChatGenerator(
+            self.chat_generator: ChatGenerator = OpenAIChatGenerator(
                 model="gpt-4o-mini",
                 generation_kwargs=generation_kwargs or {"temperature": 0.7},
             )
