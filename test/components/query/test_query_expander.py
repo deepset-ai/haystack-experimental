@@ -9,7 +9,10 @@ import pytest
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.dataclasses.chat_message import ChatMessage
 
-from haystack_experimental.components.query.query_expander import QueryExpander, DEFAULT_PROMPT_TEMPLATE
+from haystack_experimental.components.query.query_expander import (
+    QueryExpander,
+    DEFAULT_PROMPT_TEMPLATE,
+)
 
 
 class TestQueryExpander:
@@ -73,7 +76,9 @@ class TestQueryExpander:
             "replies": [ChatMessage.from_assistant('{"queries": ["alt1", "alt2"]}')]
         }
 
-        expander = QueryExpander(chat_generator=mock_generator, include_original_query=False)
+        expander = QueryExpander(
+            chat_generator=mock_generator, include_original_query=False
+        )
         result = expander.run("original")
 
         assert result["queries"] == ["alt1", "alt2"]
@@ -121,7 +126,9 @@ class TestQueryExpander:
 
     def test_parse_expanded_queries_valid_json(self):
         expander = QueryExpander()
-        queries = expander._parse_expanded_queries('{"queries": ["query1", "query2", "query3"]}')
+        queries = expander._parse_expanded_queries(
+            '{"queries": ["query1", "query2", "query3"]}'
+        )
 
         assert queries == ["query1", "query2", "query3"]
 
@@ -145,22 +152,60 @@ class TestQueryExpander:
 
     def test_parse_expanded_queries_mixed_types(self):
         expander = QueryExpander()
-        queries = expander._parse_expanded_queries('{"queries": ["valid query", 123, "", "another valid"]}')
+        queries = expander._parse_expanded_queries(
+            '{"queries": ["valid query", 123, "", "another valid"]}'
+        )
 
         assert queries == ["valid query", "another valid"]
 
     def test_run_query_deduplication(self):
         mock_generator = Mock()
         mock_generator.run.return_value = {
-            "replies": [ChatMessage.from_assistant('{"queries": ["original query", "alt1", "alt2"]}')]
+            "replies": [
+                ChatMessage.from_assistant(
+                    '{"queries": ["original query", "alt1", "alt2"]}'
+                )
+            ]
         }
 
-        expander = QueryExpander(chat_generator=mock_generator, include_original_query=True)
+        expander = QueryExpander(
+            chat_generator=mock_generator, include_original_query=True
+        )
         result = expander.run("original query")
 
         # Should not have duplicates
         assert result["queries"] == ["original query", "alt1", "alt2"]
         assert len(result["queries"]) == 3
+
+    def test_run_with_custom_template(self):
+        custom_template = """
+        Create {{ n_expansions }} alternative search queries for: {{ query }}
+        Return as JSON: {"queries": ["query1", "query2"]}
+        """
+
+        mock_generator = Mock()
+        mock_generator.run.return_value = {
+            "replies": [
+                ChatMessage.from_assistant(
+                    '{"queries": ["custom alt 1", "custom alt 2"]}'
+                )
+            ]
+        }
+
+        expander = QueryExpander(
+            chat_generator=mock_generator,
+            prompt_template=custom_template,
+            n_expansions=2,
+            include_original_query=False,
+        )
+        result = expander.run("test query")
+
+        assert result["queries"] == ["custom alt 1", "custom alt 2"]
+
+        mock_generator.run.assert_called_once()
+        call_args = mock_generator.run.call_args[1]["messages"][0].text
+        assert "Create 2 alternative search queries for: test query" in call_args
+        assert "Return as JSON" in call_args
 
     def test_component_output_types(self):
         expander = QueryExpander()
@@ -179,7 +224,9 @@ class TestQueryExpander:
     def test_to_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         generator = OpenAIChatGenerator()
-        expander = QueryExpander(chat_generator=generator, n_expansions=2, include_original_query=False)
+        expander = QueryExpander(
+            chat_generator=generator, n_expansions=2, include_original_query=False
+        )
 
         serialized_query_expander = expander.to_dict()
 
@@ -196,22 +243,20 @@ class TestQueryExpander:
                         "generation_kwargs": {},
                         "api_key": {
                             "type": "env_var",
-                            "env_vars": [
-                                "OPENAI_API_KEY"
-                            ],
-                            "strict": True
+                            "env_vars": ["OPENAI_API_KEY"],
+                            "strict": True,
                         },
                         "timeout": None,
                         "max_retries": None,
                         "tools": None,
                         "tools_strict": False,
-                        "http_client_kwargs": None
-                    }
+                        "http_client_kwargs": None,
+                    },
                 },
                 "prompt_template": DEFAULT_PROMPT_TEMPLATE,
                 "n_expansions": 2,
                 "include_original_query": False,
-            }
+            },
         }
 
     def test_from_dict(self, monkeypatch):
@@ -230,22 +275,20 @@ class TestQueryExpander:
                         "generation_kwargs": {},
                         "api_key": {
                             "type": "env_var",
-                            "env_vars": [
-                                "OPENAI_API_KEY"
-                            ],
-                            "strict": True
+                            "env_vars": ["OPENAI_API_KEY"],
+                            "strict": True,
                         },
                         "timeout": None,
                         "max_retries": None,
                         "tools": None,
                         "tools_strict": False,
-                        "http_client_kwargs": None
-                    }
+                        "http_client_kwargs": None,
+                    },
                 },
                 "prompt_template": DEFAULT_PROMPT_TEMPLATE,
                 "n_expansions": 2,
                 "include_original_query": False,
-            }
+            },
         }
 
         expander = QueryExpander.from_dict(data)
@@ -255,6 +298,7 @@ class TestQueryExpander:
         assert expander.prompt_template == DEFAULT_PROMPT_TEMPLATE
         assert isinstance(expander.chat_generator, OpenAIChatGenerator)
         assert expander.chat_generator.model == "gpt-4o-mini"
+
 
 @pytest.mark.integration
 class TestQueryExpanderIntegration:

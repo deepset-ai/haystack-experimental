@@ -125,7 +125,10 @@ class QueryExpander:
             self.chat_generator = chat_generator
 
         self.prompt_template = prompt_template or DEFAULT_PROMPT_TEMPLATE
-        self._prompt_builder = PromptBuilder(template=self.prompt_template)
+        self._prompt_builder = PromptBuilder(
+            template=self.prompt_template,
+            required_variables=["n_expansions", "query"],
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -213,7 +216,8 @@ class QueryExpander:
             logger.error("Failed to expand query {query}: {error}", query=query, error=str(e))
             return {"queries": [query] if self.include_original_query else []}
 
-    def _parse_expanded_queries(self, generator_response: str) -> List[str]:
+    @staticmethod
+    def _parse_expanded_queries(generator_response: str) -> List[str]:
         """
         Parse the generator response to extract individual expanded queries.
 
