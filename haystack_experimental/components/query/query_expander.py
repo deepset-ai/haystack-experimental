@@ -62,7 +62,7 @@ class QueryExpander:
     from haystack_experimental.components.query import QueryExpander
 
     expander = QueryExpander(
-        chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
+        chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"),
         n_expansions=3
     )
 
@@ -90,7 +90,7 @@ class QueryExpander:
         Initialize the QueryExpander component.
 
         :param chat_generator: The chat generator component to use for query expansion.
-            If None, a default OpenAIChatGenerator with gpt-4o-mini model is used.
+            If None, a default OpenAIChatGenerator with gpt-4.1-mini model is used.
         :param prompt_template: Custom PromptBuilder template for query expansion.
         :param n_expansions: Number of alternative queries to generate (default: 4).
         :param include_original_query: Whether to include the original query in the output.
@@ -103,7 +103,7 @@ class QueryExpander:
 
         if chat_generator is None:
             self.chat_generator: ChatGenerator = OpenAIChatGenerator(
-                model="gpt-4o-mini",
+                model="gpt-4.1-mini",
                 generation_kwargs={
                     "temperature": 0.7,
                     "response_format": {
@@ -182,13 +182,11 @@ class QueryExpander:
             return {"queries": [query] if self.include_original_query else []}
 
         expansion_count = n_expansions if n_expansions is not None else self.n_expansions
-
         if expansion_count <= 0:
             raise ValueError("n_expansions must be positive")
 
         try:
             prompt_result = self._prompt_builder.run(query=query.strip(), n_expansions=expansion_count)
-
             generator_result = self.chat_generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
 
             if not generator_result.get("replies") or len(generator_result["replies"]) == 0:
@@ -200,12 +198,17 @@ class QueryExpander:
 
             # Limit the number of expanded queries to the requested amount
             if len(expanded_queries) > expansion_count:
+                logger.warning(
+                    "Generated {generated_count} queries but only {requested_count} were requested. "
+                    "Truncating to the first {requested_count} queries. ",
+                    generated_count=len(expanded_queries),
+                    requested_count=expansion_count,
+                )
                 expanded_queries = expanded_queries[:expansion_count]
 
             # Add original query if requested and remove duplicates
             if self.include_original_query:
                 expanded_queries_lower = [q.lower() for q in expanded_queries]
-
                 if query.lower() not in expanded_queries_lower:
                     expanded_queries.append(query)
 
@@ -229,7 +232,6 @@ class QueryExpander:
 
         try:
             parsed = json.loads(generator_response)
-
             if not isinstance(parsed, dict) or "queries" not in parsed:
                 logger.warning(
                     "Generator response is not a JSON object containing a 'queries' array: {response}",

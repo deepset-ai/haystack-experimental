@@ -22,7 +22,7 @@ class TestQueryExpander:
         assert expander.n_expansions == 4
         assert expander.include_original_query is True
         assert isinstance(expander.chat_generator, OpenAIChatGenerator)
-        assert expander.chat_generator.model == "gpt-4o-mini"
+        assert expander.chat_generator.model == "gpt-4.1-mini"
         assert expander._prompt_builder is not None
 
     def test_init_custom_generator(self):
@@ -223,7 +223,7 @@ class TestQueryExpander:
 
     def test_to_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
-        generator = OpenAIChatGenerator()
+        generator = OpenAIChatGenerator(model="gpt-4.1-mini")
         expander = QueryExpander(
             chat_generator=generator, n_expansions=2, include_original_query=False
         )
@@ -236,7 +236,7 @@ class TestQueryExpander:
                 "chat_generator": {
                     "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
                     "init_parameters": {
-                        "model": "gpt-4o-mini",
+                        "model": "gpt-4.1-mini",
                         "streaming_callback": None,
                         "api_base_url": None,
                         "organization": None,
@@ -268,7 +268,7 @@ class TestQueryExpander:
                 "chat_generator": {
                     "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
                     "init_parameters": {
-                        "model": "gpt-4o-mini",
+                        "model": "gpt-4.1-mini",
                         "streaming_callback": None,
                         "api_base_url": None,
                         "organization": None,
@@ -297,7 +297,7 @@ class TestQueryExpander:
         assert expander.include_original_query == False
         assert expander.prompt_template == DEFAULT_PROMPT_TEMPLATE
         assert isinstance(expander.chat_generator, OpenAIChatGenerator)
-        assert expander.chat_generator.model == "gpt-4o-mini"
+        assert expander.chat_generator.model == "gpt-4.1-mini"
 
 
 @pytest.mark.integration
