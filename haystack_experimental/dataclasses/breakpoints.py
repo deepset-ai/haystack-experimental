@@ -86,7 +86,7 @@ class AgentBreakpoint:
 
         if not breakpoints:
             raise ValueError("Breakpoints must be provided.")
-        
+
         for breakpoint in breakpoints:
             if isinstance(breakpoint, Breakpoint):
                 self.generator_breakpoints.add(breakpoint)
@@ -94,7 +94,7 @@ class AgentBreakpoint:
                 self.tool_breakpoints.add(breakpoint)
             else:
                 raise ValueError("Breakpoints must be either Breakpoint or ToolBreakpoint.")
-        
+
     def add_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
         """
         Adds a breakpoint to the set of breakpoints.
