@@ -47,7 +47,7 @@ class ToolBreakpoint(Breakpoint):
     def __eq__(self, other):
         if not isinstance(other, ToolBreakpoint):
             return False
-        return super().__eq__(other)
+        return super().__eq__(other) and self.tool_name == other.tool_name
 
     def __str__(self):
         if self.tool_name:
@@ -85,6 +85,9 @@ class AgentBreakpoint:
 
         if not breakpoints:
             raise ValueError("Breakpoints must be provided.")
+
+        self.tool_breakpoints = set()
+        self.generator_breakpoints = set()
 
         for break_point in breakpoints:
             if isinstance(break_point, Breakpoint):
