@@ -40,7 +40,6 @@ class ToolBreakpoint(Breakpoint):
     """
 
     tool_name: Optional[str] = None
-    visit_count: int = 0
 
     def __hash__(self):
         return hash((self.component_name, self.visit_count, self.tool_name))
@@ -74,21 +73,54 @@ class AgentBreakpoint:
     It holds a set of breakpoints for the components in the Agent.
     """
 
-    breakpoints: Set[Union[Breakpoint, ToolBreakpoint]]
+    generator_breakpoints: Set[Breakpoint]
+    tool_breakpoints: Set[ToolBreakpoint]
 
     def __init__(self, breakpoints: Set[Union[Breakpoint, ToolBreakpoint]]):
-        if breakpoints is None:
-            breakpoints = set()
-        self.breakpoints = breakpoints
 
+        if any(isinstance(bp, Breakpoint) and bp.component_name != "chat_generator" for bp in breakpoints):
+            raise ValueError("All Breakpoints must have component_name 'chat_generator'.")
+
+        if any(isinstance(bp, ToolBreakpoint) and bp.component_name != "tool_invoker" for bp in breakpoints):
+            raise ValueError("All ToolBreakpoints must have component_name 'tool_invoker'.")
+
+        if not breakpoints:
+            raise ValueError("Breakpoints must be provided.")
+        
+        for breakpoint in breakpoints:
+            if isinstance(breakpoint, Breakpoint):
+                self.generator_breakpoints.add(breakpoint)
+            elif isinstance(breakpoint, ToolBreakpoint):
+                self.tool_breakpoints.add(breakpoint)
+            else:
+                raise ValueError("Breakpoints must be either Breakpoint or ToolBreakpoint.")
+        
     def add_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
         """
         Adds a breakpoint to the set of breakpoints.
         """
-        self.breakpoints.add(break_point)
+
+        if isinstance(break_point, Breakpoint):
+            if break_point in self.generator_breakpoints:
+                raise ValueError(f"Breakpoint {break_point} already exists in generator breakpoints.")
+            self.generator_breakpoints.add(break_point)
+
+        if isinstance(break_point, ToolBreakpoint):
+            if break_point in self.tool_breakpoints:
+                raise ValueError(f"Breakpoint {break_point} already exists in tool breakpoints.")
+            self.tool_breakpoints.add(break_point)
 
     def remove_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
         """
         Removes a breakpoint from the set of breakpoints.
         """
-        self.breakpoints.remove(break_point)
+
+        if isinstance(break_point, Breakpoint):
+            if break_point not in self.generator_breakpoints:
+                raise ValueError(f"Breakpoint {break_point} does not exist in generator breakpoints.")
+            self.generator_breakpoints.remove(break_point)
+
+        if isinstance(break_point, ToolBreakpoint):
+            if break_point not in self.tool_breakpoints:
+                raise ValueError(f"Breakpoint {break_point} does not exist in tool breakpoints.")
+            self.tool_breakpoints.remove(break_point)
