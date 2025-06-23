@@ -202,7 +202,7 @@ class QueryExpander:
             generator_result = self.chat_generator.run(messages=[ChatMessage.from_user(prompt_result["prompt"])])
 
             if not generator_result.get("replies") or len(generator_result["replies"]) == 0:
-                logger.warning("Generator returned no replies for query: {query}", query=query)
+                logger.warning("ChatGenerator returned no replies for query: {query}", query=query)
                 return {"queries": [query] if self.include_original_query else []}
 
             expanded_text = generator_result["replies"][0].text.strip()
