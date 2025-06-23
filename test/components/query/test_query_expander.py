@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from unittest.mock import Mock
 import os
 
@@ -220,6 +221,19 @@ class TestQueryExpander:
         assert "queries" in result
         assert isinstance(result["queries"], list)
         assert all(isinstance(q, str) for q in result["queries"])
+
+    @pytest.mark.parametrize("variable", ["query", "n_expansions"])
+    def test_prompt_template_missing_variable(self, caplog, variable):
+        if variable == "query":
+            template_missing_variable = "Generate {{ n_expansions }} expansions"
+        else:
+            template_missing_variable = "Generate expansions for {{ query }}"
+
+        with caplog.at_level(logging.WARNING):
+            QueryExpander(prompt_template=template_missing_variable)
+
+        assert f"The prompt template does not contain the '{variable}' variable" in caplog.text
+        assert "This may cause issues during execution" in caplog.text
 
     def test_to_dict(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")

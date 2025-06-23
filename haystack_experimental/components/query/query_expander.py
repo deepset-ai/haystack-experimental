@@ -125,6 +125,18 @@ class QueryExpander:
             self.chat_generator = chat_generator
 
         self.prompt_template = prompt_template or DEFAULT_PROMPT_TEMPLATE
+
+        # Check if required variables are present in the template
+        if "query" not in self.prompt_template:
+            logger.warning(
+                "The prompt template does not contain the 'query' variable. This may cause issues during execution."
+            )
+        if "n_expansions" not in self.prompt_template:
+            logger.warning(
+                "The prompt template does not contain the 'n_expansions' variable. "
+                "This may cause issues during execution."
+            )
+
         self._prompt_builder = PromptBuilder(
             template=self.prompt_template,
             required_variables=["n_expansions", "query"],
