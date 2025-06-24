@@ -91,7 +91,7 @@ class QueryExpander:
 
         :param chat_generator: The chat generator component to use for query expansion.
             If None, a default OpenAIChatGenerator with gpt-4.1-mini model is used.
-        :param prompt_template: Custom PromptBuilder template for query expansion.
+        :param prompt_template: Custom [PromptBuilder](https://docs.haystack.deepset.ai/docs/promptbuilder) template for query expansion.
         :param n_expansions: Number of alternative queries to generate (default: 4).
         :param include_original_query: Whether to include the original query in the output.
         """
