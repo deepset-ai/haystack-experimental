@@ -7,7 +7,7 @@
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from typing import Any, Dict, Optional, Set, Tuple, Union, List
 
 from haystack import logging, tracing
 from haystack.core.pipeline.base import ComponentPriority
@@ -18,6 +18,7 @@ from haystack_experimental.core.errors import PipelineBreakpointException, Pipel
 from haystack_experimental.core.pipeline.base import PipelineBase
 
 from .breakpoint import _deserialize_component_input, _save_state, _validate_breakpoint, _validate_pipeline_state
+from ...dataclasses.breakpoints import Breakpoint, AgentBreakpoint
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         self,
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
-        pipeline_breakpoint: Optional[Tuple[str, Optional[int]]] = None,
+        breakpoints: Optional[List[Union[Breakpoint, AgentBreakpoint]]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
@@ -114,9 +115,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
             invoked multiple times (in a loop), only the last-produced
             output is included.
 
-        :param pipeline_breakpoint:
-            Tuple of component name and visit count at which the pipeline should break execution.
-            If the visit count is not given, it is assumed to be 0, it will break on the first visit.
+        :param breakpoints:
+            A set of breakpoints that can be used to debug the pipeline execution.
 
         :param resume_state:
             A dictionary containing the state of a previously saved pipeline execution.
@@ -143,15 +143,15 @@ class Pipeline(HaystackPipeline, PipelineBase):
         """
         pipeline_running(self)
 
-        if pipeline_breakpoint and resume_state:
+        if breakpoints and resume_state:
             msg = (
                 "pipeline_breakpoint and resume_state cannot be provided at the same time. "
                 "The pipeline run will be aborted."
             )
             raise PipelineInvalidResumeStateError(message=msg)
 
-        # make sure pipeline_breakpoint is valid and have a default visit count
-        validated_breakpoint = _validate_breakpoint(pipeline_breakpoint, self.graph) if pipeline_breakpoint else None
+        # make sure all breakpoints are valid, i.e. reference components in the pipeline
+        _validate_breakpoint(breakpoints, self.graph) if breakpoints else None
 
         # TODO: Remove this warmup once we can check reliably whether a component has been warmed up or not
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
@@ -239,11 +239,16 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     for key, value in component_inputs.items():
                         component_inputs[key] = _deserialize_component_input(value)
 
-                # Scenario 2: pipeline_breakpoint is provided to stop the pipeline at
-                # a specific component and visit count
+                # Scenario 2: breakpoints are provided to stop the pipeline at a specific component and visit count
+                # ToDo: although we can have multiple Breakpoints, we only support one breakpoint at a time, the
+                #       first one in the lists
+                if breakpoints is not None:
+                    for breakpoint in breakpoints:
+                        if isinstance(breakpoint, Breakpoint):
+                            breakpoint_component = breakpoint.component_name
+                            visit_count = breakpoint.visit_count
+                            break
 
-                if validated_breakpoint is not None:
-                    breakpoint_component, visit_count = validated_breakpoint
                     breakpoint_triggered = bool(
                         breakpoint_component == component_name and visit_count == component_visits[component_name]
                     )
@@ -292,12 +297,12 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 if self._is_queue_stale(priority_queue):
                     priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
-            if pipeline_breakpoint:
+            if breakpoints:
                 logger.warning(
                     "Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
                     "1. The provided component is not a part of the pipeline execution path.\n"
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint",
-                    pipeline_breakpoint=pipeline_breakpoint,
+                    pipeline_breakpoint=breakpoints,
                 )
             return pipeline_outputs
 

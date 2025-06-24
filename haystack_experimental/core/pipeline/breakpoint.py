@@ -7,7 +7,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Set
 
 from haystack import Answer, Document, ExtractedAnswer, logging
 from haystack.dataclasses import ChatMessage, SparseEmbedding
@@ -15,31 +15,34 @@ from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
 from haystack_experimental.dataclasses import GeneratedAnswer
+from haystack_experimental.dataclasses.breakpoints import Breakpoint, AgentBreakpoint
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: MultiDiGraph) -> Tuple[str, int]:
+def _validate_breakpoint(
+    breakpoints: List[Union[Breakpoint, AgentBreakpoint]],
+    graph: MultiDiGraph
+) -> None:
     """
-    Validates the pipeline_breakpoint passed to the pipeline.
+    Validates the breakpoints passed to the pipeline.
 
     Makes sure the breakpoint contains a valid components registered in the pipeline.
-    If the visit is not given, it is assumed to be 0, it will break on the first visit.
 
-    :param pipeline_breakpoint: Tuple of component name and visit count at which the pipeline should stop.
+    :param breakpoints: a list of breakpoints to validate, can be Breakpoint or AgentBreakpoint
     :returns:
         Tuple of component name and visit count representing the `pipeline_breakpoint`
     """
 
-    if pipeline_breakpoint and pipeline_breakpoint[0] not in graph.nodes:
-        raise ValueError(f"pipeline_breakpoint {pipeline_breakpoint} is not a registered component in the pipeline")
-    valid_breakpoint: Tuple[str, int] = (
-        (pipeline_breakpoint[0], 0 if pipeline_breakpoint[1] is None else pipeline_breakpoint[1])
-        if pipeline_breakpoint
-        else None
-    )
-    return valid_breakpoint
+    # all breakpoints must refer to a valid component in the pipeline
+    for break_point in breakpoints:
+        if isinstance(break_point, Breakpoint):
+            if break_point.component_name not in graph.nodes:
+                raise ValueError(
+                    f"pipeline_breakpoint {break_point} is not a registered component in the pipeline"
+                )
 
+    # ToDo: if there are any AgentBreakpoint check if the pipeline has an Agent component
 
 def _validate_pipeline_state(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
     """
