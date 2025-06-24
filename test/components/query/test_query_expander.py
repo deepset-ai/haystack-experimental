@@ -21,14 +21,12 @@ def mock_chat_generator():
     mock_generator = Mock(spec=OpenAIChatGenerator)
     return mock_generator
 
+
 @pytest.fixture
 def mock_chat_generator_with_warm_up():
     mock_generator = Mock(spec=OpenAIChatGenerator)
     mock_generator.warm_up = lambda: None
     return mock_generator
-
-
-
 
 
 class TestQueryExpander:
