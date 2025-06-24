@@ -189,9 +189,11 @@ class QueryExpander:
             to the n_expansions alternative queries.
         :raises ValueError: If n_expansions is not positive (less than or equal to 0).
         """
+        response = {"queries": [query] if self.include_original_query else []}
+
         if not query.strip():
             logger.warning("Empty query provided to QueryExpander")
-            return {"queries": [query] if self.include_original_query else []}
+            return response
 
         expansion_count = n_expansions if n_expansions is not None else self.n_expansions
         if expansion_count <= 0:
@@ -203,7 +205,7 @@ class QueryExpander:
 
             if not generator_result.get("replies") or len(generator_result["replies"]) == 0:
                 logger.warning("ChatGenerator returned no replies for query: {query}", query=query)
-                return {"queries": [query] if self.include_original_query else []}
+                return response
 
             expanded_text = generator_result["replies"][0].text.strip()
             expanded_queries = self._parse_expanded_queries(expanded_text)
@@ -224,12 +226,13 @@ class QueryExpander:
                 if query.lower() not in expanded_queries_lower:
                     expanded_queries.append(query)
 
-            return {"queries": expanded_queries}
+            response["queries"] = expanded_queries
+            return response
 
         except Exception as e:
             # Fallback: return original query to maintain pipeline functionality
             logger.error("Failed to expand query {query}: {error}", query=query, error=str(e))
-            return {"queries": [query] if self.include_original_query else []}
+            return response
 
     @staticmethod
     def _parse_expanded_queries(generator_response: str) -> List[str]:
