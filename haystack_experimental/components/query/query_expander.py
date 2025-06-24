@@ -55,6 +55,12 @@ class QueryExpander:
     """
     A component that returns a list of semantically similar queries to improve retrieval recall in RAG systems.
 
+    The component uses a chat generator to expand queries. The chat generator is expected to return a JSON response
+    with the following structure:
+    ```json
+    {"queries": ["expanded query 1", "expanded query 2", "expanded query 3"]}
+    ```
+
     Usage example:
 
     ```python
@@ -91,7 +97,10 @@ class QueryExpander:
 
         :param chat_generator: The chat generator component to use for query expansion.
             If None, a default OpenAIChatGenerator with gpt-4.1-mini model is used.
-        :param prompt_template: Custom [PromptBuilder](https://docs.haystack.deepset.ai/docs/promptbuilder) template for query expansion.
+        :param prompt_template: Custom [PromptBuilder](https://docs.haystack.deepset.ai/docs/promptbuilder)
+            template for query expansion. The template should instruct the LLM to return a JSON response with the
+            structure: {"queries": ["query1", "query2", "query3"]}. The template should include 'query' and
+            'n_expansions' variables.
         :param n_expansions: Number of alternative queries to generate (default: 4).
         :param include_original_query: Whether to include the original query in the output.
         """
