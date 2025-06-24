@@ -1,20 +1,50 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from typing import Optional, Set
 
 import os
 import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.tools import Tool
 
 from haystack_experimental.components.agents import Agent
 from haystack_experimental.core.errors import AgentBreakpointException
 from haystack_experimental.core.pipeline.breakpoint import load_state
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
 
-from test.components.agents.test_agent import MockChatGeneratorWithRunAsync, weather_function
+from test.components.agents.test_agent import (
+    MockChatGeneratorWithRunAsync,
+    weather_function,
+)
+
+
+def create_chat_generator_breakpoint(visit_count: int = 0) -> Breakpoint:
+    return Breakpoint(component_name="chat_generator", visit_count=visit_count)
+
+
+def create_tool_breakpoint(tool_name: Optional[str] = None, visit_count: int = 0) -> ToolBreakpoint:
+    return ToolBreakpoint(component_name="tool_invoker", visit_count=visit_count, tool_name=tool_name)
+
+
+def create_agent_breakpoint(
+    chat_generator_breakpoints: Optional[Set[Breakpoint]] = None,
+    tool_breakpoints: Optional[Set[ToolBreakpoint]] = None,
+) -> AgentBreakpoint:
+    breakpoints = set()
+    if chat_generator_breakpoints:
+        breakpoints.update(chat_generator_breakpoints)
+    if tool_breakpoints:
+        breakpoints.update(tool_breakpoints)
+
+    if not chat_generator_breakpoints and not tool_breakpoints:
+        raise ValueError("At least one breakpoint must be provided.")
+
+    return AgentBreakpoint(breakpoints)
 
 
 @pytest.fixture
@@ -78,9 +108,10 @@ def mock_agent_with_tool_calls(monkeypatch, weather_tool):
 @pytest.mark.asyncio
 async def test_run_async_with_chat_generator_breakpoint(agent, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("chat_generator", 0, None)}
+    chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
+    agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
     with pytest.raises(AgentBreakpointException) as exc_info:
-        await agent.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+        await agent.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
 
@@ -88,9 +119,10 @@ async def test_run_async_with_chat_generator_breakpoint(agent, debug_path):
 @pytest.mark.asyncio
 async def test_run_async_with_tool_invoker_breakpoint(mock_agent_with_tool_calls, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("tool_invoker", 0, "weather_tool")}
+    tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
+    agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
     with pytest.raises(AgentBreakpointException) as exc_info:
-        await mock_agent_with_tool_calls.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+        await mock_agent_with_tool_calls.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
 
     assert exc_info.value.component == "tool_invoker"
     assert "messages" in exc_info.value.state
@@ -99,10 +131,11 @@ async def test_run_async_with_tool_invoker_breakpoint(mock_agent_with_tool_calls
 @pytest.mark.asyncio
 async def test_resume_from_chat_generator_async(agent, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("chat_generator", 0, None)}
+    chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
+    agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
     
     try:
-        await agent.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+        await agent.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
     except AgentBreakpointException:
         pass
 
@@ -124,10 +157,11 @@ async def test_resume_from_chat_generator_async(agent, debug_path):
 @pytest.mark.asyncio
 async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("tool_invoker", 0, "weather_tool")}
+    tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
+    agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
     
     try:
-        await mock_agent_with_tool_calls.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+        await mock_agent_with_tool_calls.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
     except AgentBreakpointException:
         pass
 
@@ -150,11 +184,12 @@ async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls, debug_
 @pytest.mark.asyncio
 async def test_invalid_combination_breakpoint_and_resume_state_async(mock_agent_with_tool_calls, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("tool_invoker", 0, "weather_tool")}
+    tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
+    agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
     with pytest.raises(ValueError, match="agent_breakpoint and resume_state cannot be provided at the same time"):
         await mock_agent_with_tool_calls.run_async(
             messages=messages, 
-            agent_breakpoints=breakpoints, 
+            agent_breakpoints=agent_breakpoint, 
             debug_path=debug_path, 
             resume_state={"some": "state"}
         )
@@ -162,29 +197,18 @@ async def test_invalid_combination_breakpoint_and_resume_state_async(mock_agent_
 
 @pytest.mark.asyncio
 async def test_breakpoint_with_invalid_component_async(mock_agent_with_tool_calls, debug_path):
-    messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("invalid_breakpoint", 0, "weather_tool")}
-    with pytest.raises(ValueError, match="Breakpoint 'invalid_breakpoint' is not a valid component."):
-        await mock_agent_with_tool_calls.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
+    invalid_bp = Breakpoint(component_name="invalid_breakpoint", visit_count=0)
+    with pytest.raises(ValueError, match="All Breakpoints must have component_name 'chat_generator'."):
+        AgentBreakpoint({invalid_bp})
 
 
 @pytest.mark.asyncio
 async def test_breakpoint_with_invalid_tool_name_async(mock_agent_with_tool_calls, debug_path):
-    messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {("tool_invoker", 0, "invalid_tool")}
+    tool_breakpoint = create_tool_breakpoint(tool_name="invalid_tool", visit_count=0)
     with pytest.raises(ValueError, match="Tool 'invalid_tool' is not available in the agent's tools"):
-        await mock_agent_with_tool_calls.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
-
-
-@pytest.mark.asyncio
-async def test_run_async_with_multiple_breakpoints(agent, debug_path):
-    messages = [ChatMessage.from_user("What's the weather in Berlin?")]
-    breakpoints = {
-        ("chat_generator", 0, None),
-        ("tool_invoker", 0, "weather_tool")
-    }
-    with pytest.raises(AgentBreakpointException) as exc_info:
-        await agent.run_async(messages=messages, agent_breakpoints=breakpoints, debug_path=debug_path)
-
-    # break is at the first breakpoint (chat_generator)
-    assert exc_info.value.component == "chat_generator"
+        agent_breakpoints = create_agent_breakpoint(tool_breakpoints={tool_breakpoint})
+        await mock_agent_with_tool_calls.run_async(
+            messages=[ChatMessage.from_user("What's the weather in Berlin?")],
+            agent_breakpoints=agent_breakpoints,
+            debug_path=debug_path
+        )
