@@ -77,11 +77,9 @@ class AgentBreakpoint:
     tool_breakpoints: Set[ToolBreakpoint]
 
     def __init__(self, breakpoints: Set[Union[Breakpoint, ToolBreakpoint]]):
-        if any(isinstance(bp, Breakpoint) and bp.component_name != "chat_generator" for bp in breakpoints):
-            raise ValueError("All Breakpoints must have component_name 'chat_generator'.")
-
-        if any(isinstance(bp, ToolBreakpoint) and bp.component_name != "tool_invoker" for bp in breakpoints):
-            raise ValueError("All ToolBreakpoints must have component_name 'tool_invoker'.")
+        for break_point in breakpoints:
+            if not isinstance(break_point, ToolBreakpoint) and break_point.component_name != "chat_generator":
+                raise ValueError("All Breakpoints must have component_name 'chat_generator'.")
 
         if not breakpoints:
             raise ValueError("Breakpoints must be provided.")
@@ -90,10 +88,10 @@ class AgentBreakpoint:
         self.generator_breakpoints = set()
 
         for break_point in breakpoints:
-            if isinstance(break_point, Breakpoint):
-                self.generator_breakpoints.add(break_point)
-            elif isinstance(break_point, ToolBreakpoint):
+            if isinstance(break_point, ToolBreakpoint):
                 self.tool_breakpoints.add(break_point)
+            elif isinstance(break_point, Breakpoint) and not isinstance(break_point, ToolBreakpoint):
+                self.generator_breakpoints.add(break_point)
             else:
                 raise ValueError("Breakpoints must be either Breakpoint or ToolBreakpoint.")
 
