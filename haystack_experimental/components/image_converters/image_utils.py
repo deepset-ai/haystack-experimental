@@ -3,14 +3,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import mimetypes
+from collections import defaultdict
 from io import BytesIO
-from typing import List, Optional, Tuple, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, TypedDict, Union
 
 from haystack import logging
-from haystack.dataclasses import ByteStream
+from haystack.dataclasses import ByteStream, Document
 from haystack.lazy_imports import LazyImport
+from typing_extensions import NotRequired
 
-from haystack_experimental.dataclasses.image_content import MIME_TO_FORMAT
+from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, MIME_TO_FORMAT
 
 with LazyImport("Run 'pip install pypdfium2'") as pypdfium2_import:
     from pypdfium2 import PdfDocument
@@ -66,8 +70,11 @@ def _encode_image_to_base64(
     # NOTE: We prefer the format returned by PIL
     inferred_mime_type = image.get_format_mimetype() or bytestream.mime_type
 
-    # Downsize the image
-    downsized_image: "Image" = _resize_image_preserving_aspect_ratio(image, size)
+    # Downsize the image in place
+    if size is not None:
+        # Set reducing_gap=None to disable multi-step shrink; better quality.
+        # https://pillow.readthedocs.io/en/latest/reference/Image.html#PIL.Image.Image.thumbnail
+        image.thumbnail(size=size, reducing_gap=None)
 
     # Convert the image to base64 string
     if not inferred_mime_type:
@@ -76,7 +83,7 @@ def _encode_image_to_base64(
             "Consider providing a mime_type parameter."
         )
         inferred_mime_type = "image/jpeg"
-    return inferred_mime_type, _encode_pil_image_to_base64(downsized_image, mime_type=inferred_mime_type)
+    return inferred_mime_type, _encode_pil_image_to_base64(image=image, mime_type=inferred_mime_type)
 
 
 def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: str = "image/jpeg") -> str:
@@ -111,75 +118,20 @@ def _encode_pil_image_to_base64(image: Union["Image", "ImageFile"], mime_type: s
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def _resize_image_preserving_aspect_ratio(
-    image: Union["Image", "ImageFile"],
-    size: Tuple[int, int],
-) -> "Image":
-    """
-    Resizes the image to fit within the specified dimensions while maintaining the original aspect ratio.
-
-    The image is only resized if its dimensions exceed the given maximum size.
-
-    Downsizing images can be beneficial for both reducing latency and conserving memory. Some models have resolution
-    limitations, so it's advisable to resize images to the maximum supported resolution before passing them to the
-    model. This can improve latency when sending images to remote services and optimize memory usage.
-
-    :param image: A PIL Image or ImageFile object to resize.
-    :param size: Maximum allowed dimensions (width, height).
-    :returns:
-        A resized PIL Image object.
-    """
-    # Check the import
-    pillow_import.check()
-
-    longer_dim = max(image.size)
-    shorter_dim = min(image.size)
-    aspect_ratio = shorter_dim / longer_dim
-
-    if isinstance(size, dict):
-        nearest_aspect_ratio_key = min(size, key=lambda aspect_ratio_key: abs(aspect_ratio - aspect_ratio_key))
-        size = size[nearest_aspect_ratio_key]
-
-    max_longer_dim = max(size)
-    max_shorter_dim = min(size)
-    aspect_ratio_max = max_shorter_dim / max_longer_dim
-
-    if aspect_ratio <= aspect_ratio_max:
-        # If the aspect ratio is less than max, we can resize based on the longer dim
-        new_longer_dim = max_longer_dim
-        new_shorter_dim = int(new_longer_dim * aspect_ratio)
-    else:
-        # If the aspect ratio is larger than max, we have to resize based on the shorter dim
-        new_shorter_dim = max_shorter_dim
-        new_longer_dim = int(new_shorter_dim / aspect_ratio)
-
-    landscape = image.width > image.height
-    if landscape:
-        new_width = new_longer_dim
-        new_height = new_shorter_dim
-    else:
-        new_width = new_shorter_dim
-        new_height = new_longer_dim
-
-    # Don't resize image if it's already within requirements
-    if image.width <= new_width and image.height <= new_height:
-        return image
-
-    resized_image = image.resize((new_width, new_height))
-    return resized_image
-
-
-def _convert_pdf_to_pil_images(
+def _convert_pdf_to_images(
+    *,
     bytestream: ByteStream,
+    return_base64: bool = False,
     page_range: Optional[List[int]] = None,
     size: Optional[Tuple[int, int]] = None,
-) -> List[Tuple[int, "Image"]]:
+) -> Union[List[Tuple[int, "Image"]], List[Tuple[int, str]]]:
     """
-    Convert a PDF file into a list of PIL Image objects.
+    Convert a PDF file into a list of PIL Image objects or base64-encoded images.
 
     Checks PDF dimensions and adjusts size constraints based on aspect ratio.
 
     :param bytestream: ByteStream object containing the PDF data
+    :param return_base64: If True, return base64-encoded images instead of PIL images.
     :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
         If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
         will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
@@ -190,7 +142,7 @@ def _convert_pdf_to_pil_images(
         when working with models that have resolution constraints or when transmitting images to remote services.
 
     :returns:
-        A list of tuples, each tuple containing the page number and the PIL Image object.
+        A list of tuples, each tuple containing the page number and the PIL Image object or base64-encoded image string.
     """
 
     pypdfium2_import.check()
@@ -256,40 +208,131 @@ def _convert_pdf_to_pil_images(
         image: "Image" = pdf_bitmap.to_pil()
         pdf_bitmap.close()
         if size is not None:
-            image = _resize_image_preserving_aspect_ratio(image, size)
+            # Set reducing_gap=None to disable multi-step shrink; better quality.
+            # https://pillow.readthedocs.io/en/latest/reference/Image.html#PIL.Image.Image.thumbnail
+            image.thumbnail(size=size, reducing_gap=None)
 
         all_pdf_images.append((page_number, image))
 
     pdf.close()
 
+    if return_base64:
+        return [
+            (page_number, _encode_pil_image_to_base64(image, mime_type="image/jpeg"))
+            for page_number, image in all_pdf_images
+        ]
+
     return all_pdf_images
 
 
-def _convert_pdf_to_images(
-    bytestream: ByteStream,
-    page_range: Optional[List[int]] = None,
-    size: Optional[Tuple[int, int]] = None,
-) -> List[Tuple[int, str]]:
+class _ImageSourceInfo(TypedDict):
+    path: Path
+    mime_type: Optional[str]
+    page_number: NotRequired[int]  # Only present for PDF documents
+
+
+def _extract_image_sources_info(
+    documents: List[Document], file_path_meta_field: str, root_path: str
+) -> List[_ImageSourceInfo]:
     """
-    Convert PDF file into a list of base64 encoded images with the mime type "image/jpeg".
+    Extracts the image source information from the documents.
 
-    Checks PDF dimensions and adjusts size constraints based on aspect ratio.
+    :param documents: List of documents to extract image source information from.
+    :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
+    :param root_path: The root directory path where document files are located.
 
-    :param bytestream: ByteStream object containing the PDF data
-    :param page_range: List of page numbers and/or page ranges to convert to images. Page numbers start at 1.
-        If None, all pages in the PDF will be converted. Pages outside the valid range (1 to number of pages)
-        will be skipped with a warning. For example, page_range=[1, 3] will convert only the first and third
-        pages of the document. It also accepts printable range strings, e.g.:  ['1-3', '5', '8', '10-12']
-        will convert pages 1, 2, 3, 5, 8, 10, 11, 12.
-    :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
-        maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
-        when working with models that have resolution constraints or when transmitting images to remote services.
     :returns:
-        A list of tuples, each tuple containing the page number and the base64-encoded image string.
+        A list of _ImageSourceInfo dictionaries, each containing the path and type of the image.
+        If the image is a PDF, the dictionary also contains the page number.
+    :raises ValueError: If the document is missing the file_path_meta_field key in its metadata, the file path is
+        invalid, the MIME type is not supported, or the page number is missing for a PDF document.
     """
+    images_source_info: List[_ImageSourceInfo] = []
+    for doc in documents:
+        file_path = doc.meta.get(file_path_meta_field)
+        if file_path is None:
+            raise ValueError(
+                f"Document with ID '{doc.id}' is missing the '{file_path_meta_field}' key in its metadata."
+                f" Please ensure that the documents you are trying to convert have this key set."
+            )
 
-    pil_images = _convert_pdf_to_pil_images(bytestream, page_range, size)
+        resolved_file_path = Path(root_path, file_path)
+        if not resolved_file_path.is_file():
+            raise ValueError(
+                f"Document with ID '{doc.id}' has an invalid file path '{resolved_file_path}'. "
+                f"Please ensure that the documents you are trying to convert have valid file paths."
+            )
 
-    return [
-        (page_number, _encode_pil_image_to_base64(image, mime_type="image/jpeg")) for page_number, image in pil_images
-    ]
+        mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(resolved_file_path)[0]
+        if mime_type not in IMAGE_MIME_TYPES:
+            raise ValueError(
+                f"Document with file path '{resolved_file_path}' has an unsupported MIME type '{mime_type}'. "
+                f"Please ensure that the documents you are trying to convert are of the supported "
+                f"types: {', '.join(IMAGE_MIME_TYPES)}."
+            )
+
+        image_info: _ImageSourceInfo = {"path": resolved_file_path, "mime_type": mime_type}
+
+        # If mimetype is PDF we also need the page number to be able to convert the right page
+        if mime_type == "application/pdf":
+            page_number = doc.meta.get("page_number")
+            if page_number is None:
+                raise ValueError(
+                    f"Document with ID '{doc.id}' comes from the PDF file '{resolved_file_path}' but is missing "
+                    f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
+                    f"convert have this key set."
+                )
+            image_info["page_number"] = page_number
+
+        images_source_info.append(image_info)
+
+    return images_source_info
+
+
+class _PDFPageInfo(TypedDict):
+    doc_idx: int
+    path: Path
+    page_number: int
+
+
+def _batch_convert_pdf_pages_to_images(
+    *,
+    pdf_page_infos: List[_PDFPageInfo],
+    return_base64: bool = False,
+    size: Optional[Tuple[int, int]] = None,
+) -> Union[Dict[int, str], Dict[int, "Image"]]:
+    """
+    Converts selected PDF pages to images, returning a mapping from document indices to images (PIL or base64).
+
+    Pages are grouped by file path to ensure each PDF is opened and processed only once for efficiency.
+
+    :param pdf_page_infos: List of _PDFPageInfo dictionaries with doc_idx, path, and page_number.
+    :param size: Optional tuple of width and height to resize the images to.
+    :param return_base64: If True, return base64 encoded images instead of PIL images.
+
+    :returns: Dictionary mapping document indices to images (PIL.Image or base64 string).
+    """
+    if not pdf_page_infos:
+        return {}
+
+    page_infos_by_pdf_path = defaultdict(list)
+    for page_info in pdf_page_infos:
+        page_infos_by_pdf_path[page_info["path"]].append(page_info)
+
+    converted_images_by_doc_index = {}
+
+    for pdf_path, page_infos_for_pdf in page_infos_by_pdf_path.items():
+        page_numbers_to_convert = [info["page_number"] for info in page_infos_for_pdf]
+        bytestream = ByteStream.from_file_path(pdf_path)
+
+        converted_pages = _convert_pdf_to_images(
+            bytestream=bytestream, return_base64=return_base64, page_range=page_numbers_to_convert, size=size
+        )
+
+        # Map results back to document indices
+        page_number_to_image = dict(converted_pages)
+        for page_info in page_infos_for_pdf:
+            converted_images_by_doc_index[page_info["doc_idx"]] = page_number_to_image[page_info["page_number"]]
+
+    # mypy is not able to infer that we match the declared return type
+    return converted_images_by_doc_index  # type: ignore[return-value]

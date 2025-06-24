@@ -45,7 +45,7 @@ class TestPDFToImageContent:
         assert results["image_contents"][0].base64_image is not None
         assert (
                 results["image_contents"][0].base64_image
-                == _convert_pdf_to_images(bytestream=byte_stream, size=None, page_range=[1])[0][1]
+                == _convert_pdf_to_images(bytestream=byte_stream, size=None, page_range=[1], return_base64=True)[0][1]
         )
         assert results["image_contents"][0].mime_type == "image/jpeg"
         assert results["image_contents"][0].detail is None
@@ -87,7 +87,7 @@ class TestPDFToImageContent:
         assert len(results["image_contents"]) == 4
         assert results["image_contents"][0].base64_image is not None
         assert results["image_contents"][0].base64_image == _convert_pdf_to_images(
-            bytestream=byte_stream, size=None, page_range=[1]
+            bytestream=byte_stream, size=None, page_range=[1], return_base64=True
         )[0][1]
         assert results["image_contents"][0].mime_type == "image/jpeg"
         assert results["image_contents"][0].detail is None

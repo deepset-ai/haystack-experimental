@@ -18,7 +18,7 @@ from haystack_experimental.core.errors import PipelineBreakpointException, Pipel
 from haystack_experimental.core.pipeline.base import PipelineBase
 from haystack_experimental.utils.base_serialization import _deserialize_value_with_schema
 
-from .breakpoint import _save_state, _validate_breakpoint, _validate_pipeline_state
+from .breakpoint import _save_state, _validate_breakpoint
 
 logger = logging.getLogger(__name__)
 
@@ -261,8 +261,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             original_input_data=data,
                             ordered_component_names=ordered_component_names,
                         )
-                        msg = f"Breaking at component {component_name} visit count {component_visits[component_name]}"
-                        logger.info(msg)
+
+                        msg = (
+                            f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
+                        )
                         raise PipelineBreakpointException(
                             message=msg,
                             component=component_name,
@@ -294,9 +296,13 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
             if pipeline_breakpoint:
-                logger.warning(f"Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:")
-                logger.warning("1. The provided component is not a part of the pipeline execution path.")
-                logger.warning("2. The component did not reach the visit count specified in the pipeline_breakpoint")
+                logger.warning(
+                    "Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
+                    "1. The provided component is not a part of the pipeline execution path.\n"
+                    "2. The component did not reach the visit count specified in the pipeline_breakpoint",
+                    pipeline_breakpoint=pipeline_breakpoint,
+                )
+
             return pipeline_outputs
 
     def inject_resume_state_into_graph(self, resume_state):
@@ -317,4 +323,5 @@ class Pipeline(HaystackPipeline, PipelineBase):
             f"visit count {resume_state['pipeline_breakpoint']['visits']}"
         )
         logger.info(msg)
+
         return component_visits, data, resume_state, ordered_component_names

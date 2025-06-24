@@ -243,7 +243,8 @@ ignore = [
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM115",  # open-file-with-context-handler
   "SIM118",  # in-dict-keys
-  "PLR0913", # too-many-arguments
+  "PLR0913", # too-many-arguments,
+  "PLC0415", # import-outside-top-level,
 ]
 
 [tool.ruff.lint.pylint]

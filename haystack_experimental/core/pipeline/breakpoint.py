@@ -9,8 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from haystack import Answer, Document, ExtractedAnswer, logging
-from haystack.dataclasses import ChatMessage, SparseEmbedding
+from haystack import logging
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
@@ -257,6 +256,7 @@ def _serialize_component_input(value: Any) -> Any:
     :returns: The serialized value that can be saved to a file.
     """
     value = _transform_json_structure(value)
+
     serialized_value = _serialize_value_with_schema(value)
 
     return serialized_value

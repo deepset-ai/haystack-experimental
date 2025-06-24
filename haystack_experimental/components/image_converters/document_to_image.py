@@ -2,16 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import mimetypes
-from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple
 
 from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
-from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
-from haystack_experimental.dataclasses.image_content import IMAGE_MIME_TYPES, ImageContent
+from haystack_experimental.components.image_converters.image_utils import (
+    _batch_convert_pdf_pages_to_images,
+    _encode_image_to_base64,
+    _extract_image_sources_info,
+    _PDFPageInfo,
+    pillow_import,
+    pypdfium2_import,
+)
+from haystack_experimental.dataclasses.image_content import ImageContent
 
 logger = logging.getLogger(__name__)
 
@@ -79,17 +83,16 @@ class DocumentToImageContent:
             maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
             when working with models that have resolution constraints or when transmitting images to remote services.
         """
+        pillow_import.check()
+        pypdfium2_import.check()
+
         self.file_path_meta_field = file_path_meta_field
         self.root_path = root_path or ""
         self.detail = detail
         self.size = size
 
-        # Initializing these converters will trigger the lazy import checks.
-        self._file_to_image_converter = ImageFileToImageContent(detail=detail, size=size)
-        self._pdf_to_image_converter = PDFToImageContent(detail=detail, size=size)
-
-    @component.output_types(image_contents=List[ImageContent])
-    def run(self, documents: List[Document]) -> Union[Dict[str, List[ImageContent]], Dict[str, List]]:
+    @component.output_types(image_contents=List[Optional[ImageContent]])
+    def run(self, documents: List[Document]) -> Dict[str, List[Optional[ImageContent]]]:
         """
         Convert documents with image or PDF sources into ImageContent objects.
 
@@ -111,63 +114,62 @@ class DocumentToImageContent:
         if not documents:
             return {"image_contents": []}
 
-        image_contents = []
-        for doc in documents:
-            file_path = doc.meta.get(self.file_path_meta_field)
-            if file_path is None:
-                raise ValueError(
-                    f"Document with ID '{doc.id}' is missing the '{self.file_path_meta_field}' key in its metadata."
-                    f" Please ensure that the documents you are trying to convert have this key set."
-                )
+        images_source_info = _extract_image_sources_info(
+            documents=documents,
+            file_path_meta_field=self.file_path_meta_field,
+            root_path=self.root_path,
+        )
 
-            resolved_file_path = Path(self.root_path, file_path)
-            if not resolved_file_path.is_file():
-                raise ValueError(
-                    f"Document with ID '{doc.id}' has an invalid file path '{resolved_file_path}'. "
-                    f"Please ensure that the documents you are trying to convert have valid file paths."
-                )
+        image_contents: List[Optional[ImageContent]] = [None] * len(documents)
 
-            mime_type = doc.meta.get("mime_type") or mimetypes.guess_type(resolved_file_path)[0]
-            if mime_type not in IMAGE_MIME_TYPES:
-                raise ValueError(
-                    f"Document with file path '{resolved_file_path}' has an unsupported MIME type '{mime_type}'. "
-                    f"Please ensure that the documents you are trying to convert are of the supported "
-                    f"types: {', '.join(IMAGE_MIME_TYPES)}."
-                )
+        pdf_page_infos: List[_PDFPageInfo] = []
 
-            # If mimetype is PDF we also need the page number to be able to convert the right page
+        for doc_idx, image_source_info in enumerate(images_source_info):
+            mime_type = image_source_info["mime_type"]
+            path = image_source_info["path"]
             if mime_type == "application/pdf":
-                page_number = doc.meta.get("page_number")
-                if page_number is None:
-                    raise ValueError(
-                        f"Document with ID '{doc.id}' comes from the PDF file '{resolved_file_path}' but is missing "
-                        f"the 'page_number' key in its metadata. Please ensure that PDF documents you are trying to "
-                        f"convert have this key set."
-                    )
-                image_contents.extend(
-                    # Possible for _pdf_to_image_converter to return multiple images depending on the page range
-                    self._pdf_to_image_converter.run(
-                        sources=[
-                            ByteStream.from_file_path(
-                                filepath=resolved_file_path,
-                                mime_type="application/pdf",
-                                meta={"page_number": doc.meta["page_number"], "file_path": doc.meta["file_path"]},
-                            )
-                        ],
-                        page_range=[doc.meta["page_number"]],
-                    )["image_contents"]
-                )
+                # Store PDF documents for later processing
+                page_number = image_source_info.get("page_number")
+                assert page_number is not None  # checked in _extract_image_sources_info but mypy doesn't know that
+                pdf_page_info: _PDFPageInfo = {
+                    "doc_idx": doc_idx,
+                    "path": path,
+                    "page_number": page_number,
+                }
+                pdf_page_infos.append(pdf_page_info)
             else:
-                image_contents.extend(
-                    self._file_to_image_converter.run(
-                        sources=[
-                            ByteStream.from_file_path(
-                                filepath=resolved_file_path,
-                                mime_type=mime_type,
-                                meta={"file_path": doc.meta["file_path"]},
-                            )
-                        ]
-                    )["image_contents"]
+                # Process images directly
+                bytestream = ByteStream.from_file_path(filepath=path, mime_type=mime_type)
+                _, base64_image = _encode_image_to_base64(bytestream=bytestream, size=self.size)
+                image_contents[doc_idx] = ImageContent(
+                    base64_image=base64_image,
+                    mime_type=mime_type,
+                    detail=self.detail,
+                    meta={"file_path": documents[doc_idx].meta[self.file_path_meta_field]},
                 )
+
+        # efficiently convert PDF pages to images: each PDF is opened and processed only once
+        pdf_images_by_doc_idx = _batch_convert_pdf_pages_to_images(
+            pdf_page_infos=pdf_page_infos, size=self.size, return_base64=True
+        )
+        for doc_idx, base64_pdf_image in pdf_images_by_doc_idx.items():
+            meta = {
+                "file_path": documents[doc_idx].meta[self.file_path_meta_field],
+                "page_number": pdf_page_infos[doc_idx]["page_number"],
+            }
+            # we know that base64_pdf_image is a string because we set return_base64=True but mypy doesn't know that
+            assert isinstance(base64_pdf_image, str)
+            image_contents[doc_idx] = ImageContent(
+                base64_image=base64_pdf_image, mime_type="image/jpeg", detail=self.detail, meta=meta
+            )
+
+        none_image_contents_doc_ids = [
+            documents[doc_idx].id for doc_idx, image_content in enumerate(image_contents) if image_content is None
+        ]
+        if none_image_contents_doc_ids:
+            logger.warning(
+                "Conversion failed for some documents. Their output will be None. "
+                f"Document IDs: {none_image_contents_doc_ids}"
+            )
 
         return {"image_contents": image_contents}

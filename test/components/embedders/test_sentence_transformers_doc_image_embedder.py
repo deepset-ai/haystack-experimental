@@ -14,7 +14,7 @@ from PIL import Image
 from haystack import Document
 from haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder import (
     SentenceTransformersDocumentImageEmbedder,
-    _PdfPageInfo,
+    _PDFPageInfo,
 )
 from haystack.utils.device import ComponentDevice
 from haystack.utils.auth import Secret
@@ -300,80 +300,31 @@ class TestSentenceTransformersDocumentImageEmbedder:
             backend="openvino",
         )
 
-    def test_extract_image_source_info(self, test_files_path):
+    @patch(
+        f"{IMPORT_PATH}._extract_image_sources_info"
+    )
+    @patch(
+        f"{IMPORT_PATH}._batch_convert_pdf_pages_to_images"
+    )
+    @patch("PIL.Image.open")
+    def test_run_none_images(self, mocked_pil_open, mocked_batch_convert_pdf_pages_to_images, mocked_extract_image_sources_info):
         embedder = SentenceTransformersDocumentImageEmbedder(model="model")
+        embedder._embedding_backend = MagicMock()
 
-        image_paths = glob.glob(str(test_files_path / "images" / "*.*")) + glob.glob(str(test_files_path / "pdf" / "*.pdf"))
+        mocked_extract_image_sources_info.return_value = [
+            {"path": "doc1.pdf", "mime_type": "application/pdf", "page_number": 999},  # Page 999 doesn't exist
+            {"path": "image1.jpg", "mime_type": "image/jpeg"},
+        ]
+        mocked_batch_convert_pdf_pages_to_images.return_value = {}  # Empty dict because page was skipped
+        mocked_pil_open.return_value = Image.new('RGB', (100, 100))
 
-        documents = []
-        for i, path in enumerate(image_paths):
-            document = Document(content=f"document number {i}", meta={"file_path": path})
-            if path.endswith(".pdf"):
-                document.meta["page_number"] = 1
-            documents.append(document)
+        documents = [
+            Document(content="PDF 1", meta={"file_path": "doc1.pdf", "page_number": 999}),
+            Document(content="Image 1", meta={"file_path": "image1.jpg"}),
+        ]
 
-        images_source_info = embedder._extract_image_sources_info(documents=documents, file_path_meta_field="file_path", root_path="")
-        assert len(images_source_info) == len(documents)
-        for path_info in images_source_info:
-            assert str(path_info["path"]) in image_paths
-            assert path_info["type"] in ["image", "pdf"]
-            if path_info["type"] == "pdf":
-                assert path_info.get("page_number") == 1
-            else:
-                assert "page_number" not in path_info
-
-    def test_extract_image_source_info_errors(self, test_files_path):
-        embedder = SentenceTransformersDocumentImageEmbedder(model="model", file_path_meta_field="file_path")
-
-        document = Document(content="test")
-        with pytest.raises(ValueError, match="missing the 'file_path' key"):
-            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
-
-        document = Document(content="test", meta={"file_path": "invalid_path"})
-        with pytest.raises(ValueError, match="has an invalid file path"):
-            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
-
-        document = Document(content="test", meta={"file_path": str(test_files_path / "docx" / "sample_docx.docx")})
-        with pytest.raises(ValueError, match="has an unsupported MIME type"):
-            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
-
-        document = Document(content="test", meta={"file_path": str(test_files_path / "pdf" / "sample_pdf_1.pdf")})
-        with pytest.raises(ValueError, match="missing the 'page_number' key"):
-            embedder._extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
-
-
-    @patch(f"{IMPORT_PATH}._convert_pdf_to_pil_images")
-    def test_process_pdf_files(self, mocked_convert_pdf_to_pil_images, test_files_path):
-        embedder = SentenceTransformersDocumentImageEmbedder(model="model")
-
-        mocked_convert_pdf_to_pil_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
-
-        pdf_path = test_files_path / "pdf" / "sample_pdf_1.pdf"
-        pdf_doc_1: _PdfPageInfo = {"doc_idx": 0, "path": pdf_path, "page_number": 1}
-        pdf_doc_2: _PdfPageInfo = {"doc_idx": 1, "path": pdf_path, "page_number": 2}
-        pdf_documents = [pdf_doc_1, pdf_doc_2]
-
-        result = embedder._process_pdf_files(pdf_pages_info=pdf_documents)
-
-        pdf_bytestream = ByteStream.from_file_path((pdf_path))
-
-        mocked_convert_pdf_to_pil_images.assert_called_once_with(
-            bytestream=pdf_bytestream,
-            page_range=[1, 2],
-            size=None
-        )
-
-        assert len(result) == len(pdf_documents)
-        assert 0 in result and 1 in result
-        assert isinstance(result[0], Image.Image)
-        assert isinstance(result[1], Image.Image)
-
-    def test_process_pdf_files_no_pages_info(self):
-        embedder = SentenceTransformersDocumentImageEmbedder(model="model")
-        result = embedder._process_pdf_files(pdf_pages_info=[])
-
-        assert isinstance(result, dict)
-        assert len(result) == 0
+        with pytest.raises(RuntimeError, match="Conversion failed for some documents."):
+            embedder.run(documents=documents)
 
     @pytest.mark.integration
     @pytest.mark.skipif(sys.platform == "darwin",
