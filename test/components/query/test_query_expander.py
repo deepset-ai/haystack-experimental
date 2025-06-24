@@ -16,6 +16,21 @@ from haystack_experimental.components.query.query_expander import (
 )
 
 
+@pytest.fixture
+def mock_chat_generator():
+    mock_generator = Mock(spec=OpenAIChatGenerator)
+    return mock_generator
+
+@pytest.fixture
+def mock_chat_generator_with_warm_up():
+    mock_generator = Mock(spec=OpenAIChatGenerator)
+    mock_generator.warm_up = lambda: None
+    return mock_generator
+
+
+
+
+
 class TestQueryExpander:
     def test_init_default_generator(self):
         expander = QueryExpander()
@@ -26,12 +41,30 @@ class TestQueryExpander:
         assert expander.chat_generator.model == "gpt-4.1-mini"
         assert expander._prompt_builder is not None
 
-    def test_init_custom_generator(self):
-        mock_generator = Mock()
-        expander = QueryExpander(chat_generator=mock_generator, n_expansions=3)
+    def test_init_custom_generator(self, mock_chat_generator):
+        expander = QueryExpander(chat_generator=mock_chat_generator, n_expansions=3)
 
         assert expander.n_expansions == 3
-        assert expander.chat_generator is mock_generator
+        assert expander.chat_generator is mock_chat_generator
+
+    def test_run_not_warmed_up_raises_error(self, mock_chat_generator_with_warm_up):
+        expander = QueryExpander(chat_generator=mock_chat_generator_with_warm_up)
+
+        with pytest.raises(
+            RuntimeError,
+            match="The component is not warmed up. Please call the `warm_up` method first.",
+        ):
+            expander.run("test query")
+
+    def test_run_warm_up(self, mock_chat_generator_with_warm_up):
+        expander = QueryExpander(chat_generator=mock_chat_generator_with_warm_up)
+        mock_chat_generator_with_warm_up.run.return_value = {"queries": ["test query"]}
+
+        expander.warm_up()
+        expander.run("test query")
+
+        assert expander._is_warmed_up is True
+        assert expander.run("test query") == {"queries": ["test query"]}
 
     def test_init_negative_expansions_raises_error(self):
         with pytest.raises(ValueError, match="n_expansions must be positive"):
@@ -50,9 +83,8 @@ class TestQueryExpander:
         with pytest.raises(ValueError, match="n_expansions must be positive"):
             expander.run("test query", n_expansions=-1)
 
-    def test_run_successful_expansion(self):
-        mock_generator = Mock()
-        mock_generator.run.return_value = {
+    def test_run_successful_expansion(self, mock_chat_generator):
+        mock_chat_generator.run.return_value = {
             "replies": [
                 ChatMessage.from_assistant(
                     '{"queries": ["alternative query 1", "alternative query 2", "alternative query 3"]}'
@@ -60,7 +92,7 @@ class TestQueryExpander:
             ]
         }
 
-        expander = QueryExpander(chat_generator=mock_generator, n_expansions=3)
+        expander = QueryExpander(chat_generator=mock_chat_generator, n_expansions=3)
         result = expander.run("original query")
 
         assert result["queries"] == [
@@ -69,16 +101,15 @@ class TestQueryExpander:
             "alternative query 3",
             "original query",
         ]
-        mock_generator.run.assert_called_once()
+        mock_chat_generator.run.assert_called_once()
 
-    def test_run_without_including_original(self):
-        mock_generator = Mock()
-        mock_generator.run.return_value = {
+    def test_run_without_including_original(self, mock_chat_generator):
+        mock_chat_generator.run.return_value = {
             "replies": [ChatMessage.from_assistant('{"queries": ["alt1", "alt2"]}')]
         }
 
         expander = QueryExpander(
-            chat_generator=mock_generator, include_original_query=False
+            chat_generator=mock_chat_generator, include_original_query=False
         )
         result = expander.run("original")
 
@@ -96,31 +127,28 @@ class TestQueryExpander:
 
         assert result["queries"] == []
 
-    def test_run_generator_no_replies(self):
-        mock_generator = Mock()
-        mock_generator.run.return_value = {"replies": []}
+    def test_run_generator_no_replies(self, mock_chat_generator):
+        mock_chat_generator.run.return_value = {"replies": []}
 
-        expander = QueryExpander(chat_generator=mock_generator)
+        expander = QueryExpander(chat_generator=mock_chat_generator)
         result = expander.run("test query")
 
         assert result["queries"] == ["test query"]
 
-    def test_run_generator_exception(self):
-        mock_generator = Mock()
-        mock_generator.run.side_effect = Exception("Generator error")
+    def test_run_generator_exception(self, mock_chat_generator):
+        mock_chat_generator.run.side_effect = Exception("Generator error")
 
-        expander = QueryExpander(chat_generator=mock_generator)
+        expander = QueryExpander(chat_generator=mock_chat_generator)
         result = expander.run("test query")
 
         assert result["queries"] == ["test query"]
 
-    def test_run_invalid_json_response(self):
-        mock_generator = Mock()
-        mock_generator.run.return_value = {
+    def test_run_invalid_json_response(self, mock_chat_generator):
+        mock_chat_generator.run.return_value = {
             "replies": [ChatMessage.from_assistant("invalid json response")]
         }
 
-        expander = QueryExpander(chat_generator=mock_generator)
+        expander = QueryExpander(chat_generator=mock_chat_generator)
         result = expander.run("test query")
 
         assert result["queries"] == ["test query"]
@@ -159,9 +187,8 @@ class TestQueryExpander:
 
         assert queries == ["valid query", "another valid"]
 
-    def test_run_query_deduplication(self):
-        mock_generator = Mock()
-        mock_generator.run.return_value = {
+    def test_run_query_deduplication(self, mock_chat_generator):
+        mock_chat_generator.run.return_value = {
             "replies": [
                 ChatMessage.from_assistant(
                     '{"queries": ["original query", "alt1", "alt2"]}'
@@ -170,7 +197,7 @@ class TestQueryExpander:
         }
 
         expander = QueryExpander(
-            chat_generator=mock_generator, include_original_query=True
+            chat_generator=mock_chat_generator, include_original_query=True
         )
         result = expander.run("original query")
 
@@ -178,14 +205,13 @@ class TestQueryExpander:
         assert result["queries"] == ["original query", "alt1", "alt2"]
         assert len(result["queries"]) == 3
 
-    def test_run_with_custom_template(self):
+    def test_run_with_custom_template(self, mock_chat_generator):
         custom_template = """
         Create {{ n_expansions }} alternative search queries for: {{ query }}
         Return as JSON: {"queries": ["query1", "query2"]}
         """
 
-        mock_generator = Mock()
-        mock_generator.run.return_value = {
+        mock_chat_generator.run.return_value = {
             "replies": [
                 ChatMessage.from_assistant(
                     '{"queries": ["custom alt 1", "custom alt 2"]}'
@@ -194,7 +220,7 @@ class TestQueryExpander:
         }
 
         expander = QueryExpander(
-            chat_generator=mock_generator,
+            chat_generator=mock_chat_generator,
             prompt_template=custom_template,
             n_expansions=2,
             include_original_query=False,
@@ -203,19 +229,18 @@ class TestQueryExpander:
 
         assert result["queries"] == ["custom alt 1", "custom alt 2"]
 
-        mock_generator.run.assert_called_once()
-        call_args = mock_generator.run.call_args[1]["messages"][0].text
+        mock_chat_generator.run.assert_called_once()
+        call_args = mock_chat_generator.run.call_args[1]["messages"][0].text
         assert "Create 2 alternative search queries for: test query" in call_args
         assert "Return as JSON" in call_args
 
-    def test_component_output_types(self):
+    def test_component_output_types(self, mock_chat_generator):
         expander = QueryExpander()
 
-        mock_generator = Mock()
-        mock_generator.run.return_value = {
+        mock_chat_generator.run.return_value = {
             "replies": [ChatMessage.from_assistant('{"queries": ["test1", "test2"]}')]
         }
-        expander.chat_generator = mock_generator
+        expander.chat_generator = mock_chat_generator
 
         result = expander.run("test")
         assert "queries" in result
@@ -232,7 +257,10 @@ class TestQueryExpander:
         with caplog.at_level(logging.WARNING):
             QueryExpander(prompt_template=template_missing_variable)
 
-        assert f"The prompt template does not contain the '{variable}' variable" in caplog.text
+        assert (
+            f"The prompt template does not contain the '{variable}' variable"
+            in caplog.text
+        )
         assert "This may cause issues during execution" in caplog.text
 
     def test_to_dict(self, monkeypatch):

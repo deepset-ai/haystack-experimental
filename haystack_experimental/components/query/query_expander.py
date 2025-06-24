@@ -133,6 +133,8 @@ class QueryExpander:
         else:
             self.chat_generator = chat_generator
 
+        self._is_warmed_up = False
+        self._supports_warm_up = hasattr(self.chat_generator, "warm_up")
         self.prompt_template = prompt_template or DEFAULT_PROMPT_TEMPLATE
 
         # Check if required variables are present in the template
@@ -197,7 +199,12 @@ class QueryExpander:
             If include_original_query=True, the original query will be included in addition
             to the n_expansions alternative queries.
         :raises ValueError: If n_expansions is not positive (less than or equal to 0).
+        :raises RuntimeError: If the component is not warmed up and the chat generator does not support warm up.
         """
+
+        if not self._is_warmed_up and self._supports_warm_up:
+            raise RuntimeError("The component is not warmed up. Please call the `warm_up` method first.")
+
         response = {"queries": [query] if self.include_original_query else []}
 
         if not query.strip():
@@ -242,6 +249,14 @@ class QueryExpander:
             # Fallback: return original query to maintain pipeline functionality
             logger.error("Failed to expand query {query}: {error}", query=query, error=str(e))
             return response
+
+    def warm_up(self):
+        """
+        Warm up the underlying LLM if it supports it.
+        """
+        if not self._is_warmed_up and self._supports_warm_up:
+            self.chat_generator.warm_up()  # type: ignore[attr-defined]
+            self._is_warmed_up = True
 
     @staticmethod
     def _parse_expanded_queries(generator_response: str) -> List[str]:
