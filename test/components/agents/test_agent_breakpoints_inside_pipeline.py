@@ -2,20 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional, List, Dict
+
 from haystack import component
 from haystack.components.agents import Agent
 from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
 from haystack.components.converters.html import HTMLToDocument
-from haystack.components.fetchers.link_content import LinkContentFetcher
 from haystack.components.generators.chat import OpenAIChatGenerator
-from haystack.components.generators.chat.types import ChatGenerator
 from haystack.dataclasses import ByteStream
 from haystack.dataclasses import ChatMessage, Document, ToolCall
 from haystack.document_stores.in_memory import InMemoryDocumentStore
-from haystack.tools import Toolset
-from haystack.tools import tool, Tool
-from typing import Optional, List, Dict
-
+from haystack.tools import tool
 from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.dataclasses.breakpoints import Breakpoint, ToolBreakpoint
 
@@ -173,8 +170,7 @@ def test_breakpoints_agent_in_pipeline():
 
     agent_output = extraction_agent.run(
         data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-        breakpoints={converter_breakpoint, }
+        breakpoints=[converter_breakpoint]
     )
-
 
     print(agent_output["database_agent"]["messages"][-1].text)
