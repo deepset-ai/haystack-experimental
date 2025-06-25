@@ -7,8 +7,8 @@ from pathlib import Path
 from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.image_converters.image_utils import _convert_pdf_to_images
-from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
+from haystack_experimental.components.converters.image.image_utils import _convert_pdf_to_images
+from haystack_experimental.components.converters.image.pdf_to_image import PDFToImageContent
 
 
 class TestPDFToImageContent:
@@ -16,20 +16,20 @@ class TestPDFToImageContent:
         converter = PDFToImageContent()
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"detail": None, "size": None, "page_range": None},
-            "type": "haystack_experimental.components.image_converters.pdf_to_image.PDFToImageContent",
+            "type": "haystack_experimental.components.converters.image.pdf_to_image.PDFToImageContent",
         }
 
     def test_to_dict_not_defaults(self) -> None:
         converter = PDFToImageContent(detail="low", size=(128, 128), page_range=[1])
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"detail": "low", "size": (128, 128), "page_range": [1]},
-            "type": "haystack_experimental.components.image_converters.pdf_to_image.PDFToImageContent",
+            "type": "haystack_experimental.components.converters.image.pdf_to_image.PDFToImageContent",
         }
 
     def test_from_dict(self) -> None:
         data = {
             "init_parameters": {"detail": "auto", "size": None, "page_range": [1]},
-            "type": "haystack_experimental.components.image_converters.pdf_to_image.PDFToImageContent",
+            "type": "haystack_experimental.components.converters.image.pdf_to_image.PDFToImageContent",
         }
         converter = component_from_dict(PDFToImageContent, data, "name")
         assert component_to_dict(converter, "converter") == data
