@@ -166,13 +166,15 @@ def _save_state(
             - ordered_component_names: The order of components in the pipeline.
     """
     dt = datetime.now()
+    transformed_original_input_data = _transform_json_structure(original_input_data)
+    transformed_inputs = _transform_json_structure(inputs)
 
     state = {
-        "input_data": _serialize_component_input(original_input_data),  # original input data
+        "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),
         "pipeline_breakpoint": {"component": component_name, "visits": component_visits[component_name]},
         "pipeline_state": {
-            "inputs": _serialize_component_input(inputs),  # current pipeline state inputs
+            "inputs": _serialize_value_with_schema(transformed_inputs),  # current pipeline state inputs
             "component_visits": component_visits,
             "ordered_component_names": ordered_component_names,
         },
@@ -227,17 +229,3 @@ def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> An
 
     # For other data types, just return the value as is.
     return data
-
-
-def _serialize_component_input(value: Any) -> Any:
-    """
-    Serializes, so it can be saved to a file, any type of input to a pipeline component.
-
-    :param value: The value to serialize.
-    :returns: The serialized value that can be saved to a file.
-    """
-    value = _transform_json_structure(value)
-
-    serialized_value = _serialize_value_with_schema(value)
-
-    return serialized_value
