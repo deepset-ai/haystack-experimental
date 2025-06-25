@@ -3,6 +3,7 @@ loaders:
     search_path: [../../../]
     modules:
       [
+        "haystack_experimental.components.converters.image.document_to_image",
         "haystack_experimental.components.converters.image.file_to_image",
         "haystack_experimental.components.converters.image.pdf_to_image"
       ]
