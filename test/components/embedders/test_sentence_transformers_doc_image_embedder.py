@@ -14,11 +14,9 @@ from PIL import Image
 from haystack import Document
 from haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder import (
     SentenceTransformersDocumentImageEmbedder,
-    _PDFPageInfo,
 )
 from haystack.utils.device import ComponentDevice
 from haystack.utils.auth import Secret
-from haystack.dataclasses.byte_stream import ByteStream
 
 IMPORT_PATH = "haystack_experimental.components.embedders.image.sentence_transformers_doc_image_embedder"
 

@@ -165,7 +165,7 @@ class ImageContent:
             An ImageContent object.
         """
         # to avoid a circular import
-        from haystack_experimental.components.image_converters import ImageFileToImageContent
+        from haystack_experimental.components.converters.image import ImageFileToImageContent
 
         converter = ImageFileToImageContent(size=size, detail=detail)
         result = converter.run(sources=[file_path], meta=[meta] if meta else None)
@@ -210,7 +210,7 @@ class ImageContent:
             An ImageContent object.
         """
         # to avoid a circular import
-        from haystack_experimental.components.image_converters import ImageFileToImageContent
+        from haystack_experimental.components.converters.image import ImageFileToImageContent
 
         fetcher = LinkContentFetcher(raise_on_failure=True, retry_attempts=retry_attempts, timeout=timeout)
         bytestream = fetcher.run(urls=[url])["streams"][0]
