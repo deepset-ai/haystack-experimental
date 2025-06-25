@@ -11,11 +11,11 @@ from haystack.dataclasses import Document
 @component
 class DocumentLengthRouter:
     """
-    Categorizes documents by length based on their content and routes them to the appropriate output.
+    Categorizes documents based on the length of the `content` field and routes them to the appropriate output.
 
     A common use case for DocumentLengthRouter is handling documents obtained from PDFs that contain non-text
     content, such as scanned pages or images. This component can detect empty or low-content documents and route them to
-    components that perform OCR, generate captions or compute image embeddings.
+    components that perform OCR, generate captions, or compute image embeddings.
 
     ### Usage example
 
@@ -48,9 +48,9 @@ class DocumentLengthRouter:
         Initialize the DocumentLengthRouter component.
 
         :param threshold:
-            The threshold for the length of the document content. Documents where the content is None or the length of
-            the content is less than or equal to the threshold will be routed to the short_documents output. Otherwise,
-            the document will be routed to the long_documents output.
+            The threshold for the length of the document `content` field. Documents where `content` is None or whose
+            length is less than or equal to the threshold will be routed to the `short_documents` output.
+            Otherwise, they will be routed to the `long_documents` output.
         """
         self.threshold = threshold
 
@@ -60,15 +60,15 @@ class DocumentLengthRouter:
     )
     def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
-        Categorize input documents into groups based on their length.
+        Categorize input documents into groups based on the length of the `content` field.
 
         :param documents:
             A list of documents to be categorized.
 
         :returns: A dictionary with the following keys:
-            - `short_documents`: A list of documents where content is None or the length of the content is less than or
+            - `short_documents`: A list of documents where `content` is None or the length of `content` is less than or
                equal to the threshold.
-            - `long_documents`: A list of documents where the length of the content is greater than the threshold.
+            - `long_documents`: A list of documents where the length of `content` is greater than the threshold.
         """
         short_documents = []
         long_documents = []
