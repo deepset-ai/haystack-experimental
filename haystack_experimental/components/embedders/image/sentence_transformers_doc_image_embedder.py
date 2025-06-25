@@ -15,7 +15,7 @@ from haystack.utils.auth import Secret, deserialize_secrets_inplace
 from haystack.utils.device import ComponentDevice
 from haystack.utils.hf import deserialize_hf_model_kwargs, serialize_hf_model_kwargs
 
-from haystack_experimental.components.image_converters.image_utils import (
+from haystack_experimental.components.converters.image.image_utils import (
     _batch_convert_pdf_pages_to_images,
     _extract_image_sources_info,
     _PDFPageInfo,
