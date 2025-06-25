@@ -2,21 +2,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import tempfile
+from pathlib import Path
 from typing import Optional, List, Dict
 
 from haystack import component
 from haystack.components.agents import Agent
 from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
-from haystack.components.converters.html import HTMLToDocument
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ByteStream
 from haystack.dataclasses import ChatMessage, Document, ToolCall
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.tools import tool
+from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline import Pipeline
-from haystack_experimental.dataclasses.breakpoints import Breakpoint, ToolBreakpoint
+from haystack_experimental.core.pipeline.breakpoint import load_state
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
 
-document_store = InMemoryDocumentStore() # create a document store or an SQL database
+document_store = InMemoryDocumentStore()
 
 @component
 class MockLinkContentFetcher:
@@ -61,18 +65,49 @@ class MockLinkContentFetcher:
         
         return {"streams": [bytestream]}
 
+@component
+class MockHTMLToDocument:
+
+    @component.output_types(documents=List[Document])
+    def run(self, sources: List[ByteStream]) -> Dict[str, List[Document]]:
+        """Mock HTML to Document converter that extracts text content from HTML ByteStreams."""
+        
+        documents = []
+        for source in sources:
+            # Extract the HTML content from the ByteStream
+            html_content = source.data.decode('utf-8')
+            
+            # Simple text extraction - remove HTML tags and extract meaningful content
+            # This is a simplified version that extracts the main content
+            import re
+            
+            # Remove HTML tags
+            text_content = re.sub(r'<[^>]+>', ' ', html_content)
+            # Remove extra whitespace
+            text_content = re.sub(r'\s+', ' ', text_content).strip()
+            
+            # Create a Document with the extracted text
+            document = Document(
+                content=text_content,
+                meta={
+                    "url": source.meta.get("url", "unknown"),
+                    "mime_type": source.mime_type,
+                    "source_type": "html"
+                }
+            )
+            documents.append(document)
+        
+        return {"documents": documents}
+
 @tool
 def add_database_tool(name: str, surname: str, job_title: Optional[str], other: Optional[str]):
-    """Use this tool to add names to the database with information about them"""
     document_store.write_documents(
         [Document(content=name + " " + surname + " " + (job_title or ""), meta={"other":other})]
     )
-    return
 
 def create_agent():
-    # Create a real OpenAIChatGenerator and mock its run method
+    
     generator = OpenAIChatGenerator()
-
     call_count = 0
     def mock_run(messages, tools=None, **kwargs):
         nonlocal call_count
@@ -142,7 +177,7 @@ def create_agent():
 
     extraction_agent = Pipeline()
     extraction_agent.add_component("fetcher", MockLinkContentFetcher())
-    extraction_agent.add_component("converter", HTMLToDocument())
+    extraction_agent.add_component("converter", MockHTMLToDocument())
     extraction_agent.add_component("builder", ChatPromptBuilder(
         template=[ChatMessage.from_user("""
         {% for doc in docs %}
@@ -151,7 +186,6 @@ def create_agent():
         """)],
         required_variables=["docs"]
     ))
-
     extraction_agent.add_component("database_agent", database_assistant)
     extraction_agent.connect("fetcher.streams", "converter.sources")
     extraction_agent.connect("converter.documents", "builder.docs")
@@ -159,18 +193,68 @@ def create_agent():
 
     return extraction_agent
 
+def test_simple_pipeline_breakpoint_and_resume():
+        
+    extraction_agent = create_agent()
+        
+    with tempfile.TemporaryDirectory() as debug_path:
+                
+        converter_breakpoint = Breakpoint("fetcher", 0)
+        
+        # Run pipeline with breakpoint - should raise PipelineBreakpointException
+        try:
+            extraction_agent.run(
+                data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
+                breakpoints=[converter_breakpoint],
+                debug_path=debug_path
+            )
+        except PipelineBreakpointException as e:
+            
+            assert e.component == "fetcher"
+            assert "state" in e.__dict__
+            
+            # Find the saved state file
+            state_files = list(Path(debug_path).glob("fetcher_*.json"))
+            assert len(state_files) > 0
+            
+            # Load the latest state file
+            latest_state_file = str(max(state_files, key=os.path.getctime))
+            resume_state = load_state(latest_state_file)
+            
+            # Resume the pipeline from the saved state
+            result = extraction_agent.run(data={}, resume_state=resume_state)
+            
+            # Verify the pipeline completed successfully
+            assert "database_agent" in result
+            assert "messages" in result["database_agent"]
+            assert len(result["database_agent"]["messages"]) > 0
+            
+            # Verify the final message contains the expected summary
+            final_message = result["database_agent"]["messages"][-1].text
+            assert "Malte Pietsch" in final_message
+            assert "Milos Rusic" in final_message
+            assert "Chief Executive Officer" in final_message
+            assert "Chief Technology Officer" in final_message
+            
+            print("Pipeline breakpoint and resume test completed successfully!")
+            print(f"Final message: {final_message}")
+        else:
+            # If no exception was raised, the test should fail
+            assert False, "Expected PipelineBreakpointException was not raised"
+
 def test_breakpoints_agent_in_pipeline():
 
     extraction_agent = create_agent()
 
     # define breakpoints
-    converter_breakpoint = Breakpoint("converter", 0)
+    converter_breakpoint = Breakpoint("fetcher", 0)
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
+    agent_breakpoints = AgentBreakpoint(breakpoints={agent_generator_breakpoint, agent_tool_breakpoint})
 
     agent_output = extraction_agent.run(
         data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-        breakpoints=[converter_breakpoint]
+        breakpoints=[converter_breakpoint, agent_breakpoints]
     )
 
     print(agent_output["database_agent"]["messages"][-1].text)
