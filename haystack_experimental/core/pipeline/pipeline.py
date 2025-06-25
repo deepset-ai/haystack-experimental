@@ -18,7 +18,7 @@ from haystack.utils import _deserialize_value_with_schema
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
 
-from .breakpoint import _save_state, _validate_breakpoint
+from .breakpoint import _save_state, _validate_breakpoint, _validate_components_against_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +314,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
         # this is needed to prevent a typing error
         if not resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
+        # check if the resume state is valid for the current pipeline
+        _validate_components_against_pipeline(resume_state, self.graph)
 
         data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
         component_visits = resume_state["pipeline_state"]["component_visits"]
