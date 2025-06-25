@@ -3,8 +3,9 @@ loaders:
     search_path: [../../../]
     modules:
       [
-        "haystack_experimental.components.image_converters.file_to_image",
-        "haystack_experimental.components.image_converters.pdf_to_image"
+        "haystack_experimental.components.converters.image.document_to_image",
+        "haystack_experimental.components.converters.image.file_to_image",
+        "haystack_experimental.components.converters.image.pdf_to_image"
       ]
     ignore_when_discovered: ["__init__"]
 processors:
@@ -17,10 +18,10 @@ processors:
   - type: crossref
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
-  excerpt: Various image conversion components.
+  excerpt: Various conversion components.
   category_slug: experiments-api
-  title: Image Converters
-  slug: experimental-image-converters-api
+  title: Converters
+  slug: experimental-converters-api
   order: 22
   markdown:
     descriptive_class_title: false
@@ -28,4 +29,4 @@ renderer:
     descriptive_module_title: true
     add_method_class_prefix: true
     add_member_class_prefix: false
-    filename: experimental_image_converters_api.md
+    filename: experimental_converters_api.md

@@ -9,7 +9,7 @@ from haystack import Document
 from haystack.dataclasses import ByteStream
 from haystack.core.serialization import component_from_dict, component_to_dict
 
-from haystack_experimental.components.image_converters.document_to_image import DocumentToImageContent
+from haystack_experimental.components.converters.image.document_to_image import DocumentToImageContent
 
 
 class TestDocumentToImageContent:
@@ -17,7 +17,7 @@ class TestDocumentToImageContent:
         converter = DocumentToImageContent()
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"file_path_meta_field": "file_path", "root_path": "", "detail": None, "size": None},
-            "type": "haystack_experimental.components.image_converters.document_to_image.DocumentToImageContent",
+            "type": "haystack_experimental.components.converters.image.document_to_image.DocumentToImageContent",
         }
 
     def test_to_dict_not_defaults(self) -> None:
@@ -28,7 +28,7 @@ class TestDocumentToImageContent:
             "init_parameters": {
                 "file_path_meta_field": "image_path", "root_path": "/data", "detail": "high", "size": (800, 600)
             },
-            "type": "haystack_experimental.components.image_converters.document_to_image.DocumentToImageContent",
+            "type": "haystack_experimental.components.converters.image.document_to_image.DocumentToImageContent",
         }
 
     def test_from_dict(self) -> None:
@@ -36,7 +36,7 @@ class TestDocumentToImageContent:
             "init_parameters": {
                 "file_path_meta_field": "image_path", "root_path": "/test", "detail": "auto", "size": (512, 512)
             },
-            "type": "haystack_experimental.components.image_converters.document_to_image.DocumentToImageContent",
+            "type": "haystack_experimental.components.converters.image.document_to_image.DocumentToImageContent",
         }
         converter = component_from_dict(DocumentToImageContent, data, "name")
         assert component_to_dict(converter, "converter") == data
@@ -100,13 +100,13 @@ class TestDocumentToImageContent:
             _ = converter.run(documents=documents)
 
     @patch(
-        "haystack_experimental.components.image_converters.document_to_image._extract_image_sources_info"
+        "haystack_experimental.components.converters.image.document_to_image._extract_image_sources_info"
     )
     @patch(
-        "haystack_experimental.components.image_converters.document_to_image._batch_convert_pdf_pages_to_images"
+        "haystack_experimental.components.converters.image.document_to_image._batch_convert_pdf_pages_to_images"
     )
     @patch("PIL.Image.open")
-    @patch("haystack_experimental.components.image_converters.document_to_image.ByteStream")
+    @patch("haystack_experimental.components.converters.image.document_to_image.ByteStream")
     def test_run_none_images(self, mocked_byte_stream, mocked_pil_open, mocked_batch_convert_pdf_pages_to_images, mocked_extract_image_sources_info, caplog):
         converter = DocumentToImageContent()
 

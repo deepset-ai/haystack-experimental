@@ -7,7 +7,7 @@ from typing import Dict, List, Literal, Optional, Tuple
 from haystack import Document, component, logging
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.image_converters.image_utils import (
+from haystack_experimental.components.converters.image.image_utils import (
     _batch_convert_pdf_pages_to_images,
     _encode_image_to_base64,
     _extract_image_sources_info,
