@@ -17,20 +17,20 @@ class TestImageFileToImageContent:
         converter = ImageFileToImageContent()
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"detail": None, "size": None},
-            "type": "haystack_experimental.components.image_converters.file_to_image.ImageFileToImageContent",
+            "type": "haystack_experimental.components.converters.image.file_to_image.ImageFileToImageContent",
         }
 
     def test_to_dict_not_defaults(self) -> None:
         converter = ImageFileToImageContent(detail="low", size=(128, 128))
         assert component_to_dict(converter, "converter") == {
             "init_parameters": {"detail": "low", "size": (128, 128)},
-            "type": "haystack_experimental.components.image_converters.file_to_image.ImageFileToImageContent",
+            "type": "haystack_experimental.components.converters.image.file_to_image.ImageFileToImageContent",
         }
 
     def test_from_dict(self) -> None:
         data = {
             "init_parameters": {"detail": "auto", "size": None},
-            "type": "haystack_experimental.components.image_converters.file_to_image.ImageFileToImageContent",
+            "type": "haystack_experimental.components.converters.image.file_to_image.ImageFileToImageContent",
         }
         converter = component_from_dict(ImageFileToImageContent, data, "name")
         assert component_to_dict(converter, "converter") == data

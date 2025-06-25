@@ -71,7 +71,7 @@ class TestConvertPdfToImages:
     def test_convert_pdf_to_images_empty_file(self, caplog: LogCaptureFixture) -> None:
         bytestream = get_bytestream_from_source(Path("test/test_files/pdf/sample_pdf_1.pdf"))
 
-        with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument") as mock_pdf_document:
+        with patch("haystack_experimental.components.converters.image.image_utils.PdfDocument") as mock_pdf_document:
             mock_pdf_document.__len__.return_value = 0
             out = _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
 
@@ -89,7 +89,7 @@ class TestConvertPdfToImages:
         mock_page.get_mediabox.return_value = (0, 0, 1e6, 1e6)
         mock_pdf_document.__getitem__.return_value = mock_page
 
-        with patch("haystack_experimental.components.image_converters.image_utils.PdfDocument", return_value=mock_pdf_document):
+        with patch("haystack_experimental.components.converters.image.image_utils.PdfDocument", return_value=mock_pdf_document):
             _convert_pdf_to_images(bytestream=bytestream, page_range=[1])
 
         assert "Large PDF detected" in caplog.text
@@ -149,7 +149,7 @@ class TestExtractImageSourcesInfo:
             _extract_image_sources_info(documents=[document], file_path_meta_field="file_path", root_path="")
 
 class TestBatchConvertPdfPagesToImages:
-    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_images")
+    @patch("haystack_experimental.components.converters.image.image_utils._convert_pdf_to_images")
     def test_batch_convert_pdf_pages_to_images(self, mocked_convert_pdf_to_images, test_files_path):
 
         mocked_convert_pdf_to_images.return_value = [(1, Image.new("RGB", (100, 100))), (2, Image.new("RGB", (100, 100)))]
@@ -175,7 +175,7 @@ class TestBatchConvertPdfPagesToImages:
         assert isinstance(result[0], Image.Image)
         assert isinstance(result[1], Image.Image)
 
-    @patch("haystack_experimental.components.image_converters.image_utils._convert_pdf_to_images")
+    @patch("haystack_experimental.components.converters.image.image_utils._convert_pdf_to_images")
     def test_batch_convert_pdf_pages_to_images_base64(self, mocked_convert_pdf_to_images, test_files_path):
 
         mocked_convert_pdf_to_images.return_value = [(1, "base64_image_1"), (2, "base64_image_2")]
