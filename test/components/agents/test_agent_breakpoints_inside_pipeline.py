@@ -8,13 +8,15 @@ from pathlib import Path
 from typing import Optional, List, Dict
 
 from haystack import component
-from haystack.components.agents import Agent
+
 from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ByteStream
 from haystack.dataclasses import ChatMessage, Document, ToolCall
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.tools import tool
+
+from haystack_experimental.components.agents import Agent
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.core.pipeline.breakpoint import load_state
@@ -105,7 +107,7 @@ def add_database_tool(name: str, surname: str, job_title: Optional[str], other: 
         [Document(content=name + " " + surname + " " + (job_title or ""), meta={"other":other})]
     )
 
-def create_agent():
+def create_pipeline():
     
     generator = OpenAIChatGenerator()
     call_count = 0
@@ -187,15 +189,16 @@ def create_agent():
         required_variables=["docs"]
     ))
     extraction_agent.add_component("database_agent", database_assistant)
+
     extraction_agent.connect("fetcher.streams", "converter.sources")
     extraction_agent.connect("converter.documents", "builder.docs")
     extraction_agent.connect("builder", "database_agent")
 
     return extraction_agent
 
-def test_simple_pipeline_breakpoint_and_resume():
+def test_pipeline_breakpoint_and_resume():
         
-    extraction_agent = create_agent()
+    extraction_agent = create_pipeline()
         
     with tempfile.TemporaryDirectory() as debug_path:
                 
@@ -242,19 +245,17 @@ def test_simple_pipeline_breakpoint_and_resume():
             # If no exception was raised, the test should fail
             assert False, "Expected PipelineBreakpointException was not raised"
 
-def test_breakpoints_agent_in_pipeline():
+def test_agent_breakpoints_in_pipeline_agent():
 
-    extraction_agent = create_agent()
+    pipeline_with_agent = create_pipeline()
 
-    # define breakpoints
-    converter_breakpoint = Breakpoint("fetcher", 0)
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
     agent_breakpoints = AgentBreakpoint(breakpoints={agent_generator_breakpoint, agent_tool_breakpoint})
 
-    agent_output = extraction_agent.run(
+    agent_output = pipeline_with_agent.run(
         data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-        breakpoints=[converter_breakpoint, agent_breakpoints]
+        breakpoints=[agent_breakpoints]
     )
 
     print(agent_output["database_agent"]["messages"][-1].text)

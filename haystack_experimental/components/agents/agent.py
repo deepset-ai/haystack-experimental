@@ -397,6 +397,10 @@ class Agent:
             )
             raise ValueError(msg)
 
+        print("\n\n\n\n")
+        print("inside run method of Agent component")
+        print("\n\n\n\n")
+
         # validate breakpoints
         if agent_breakpoints:
             agent_breakpoints = self._validate_breakpoints(agent_breakpoints)

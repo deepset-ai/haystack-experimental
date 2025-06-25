@@ -243,16 +243,44 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 # Scenario 2: breakpoints are provided to stop the pipeline at a specific component and visit count
                 # ToDo: although we can have multiple Breakpoints, we only support one breakpoint at a time, the
                 #       first one in the lists
+
+                print("\n\n\n")
+                print(f"Running component {component_name} with inputs {component_inputs}")
+                print(f"Breakpoints: {breakpoints}")
+                print("\n\n\n")
+
                 if breakpoints is not None:
+                    agent_breakpoint = False
+                    breakpoint_component = None
+                    visit_count = None
                     for break_point in breakpoints:
                         if isinstance(break_point, Breakpoint):
                             breakpoint_component = break_point.component_name
                             visit_count = break_point.visit_count
                             break
 
-                    breakpoint_triggered = bool(
-                        breakpoint_component == component_name and visit_count == component_visits[component_name]
-                    )
+                        if isinstance(break_point, AgentBreakpoint):                            
+                            component_instance = component["instance"]
+                            component_class_name = component_instance.__class__.__name__
+                            # if the current component is an agent pass breakpoints to the agent
+                            if component_class_name == "Agent":
+                                component_inputs["agent_breakpoints"] = break_point
+                                agent_breakpoint = True
+
+                                print("\n\n")
+                                print("Agent Breakpoint")
+                                print(f"Component: {component_name}")
+                                print(f"Inputs:")
+                                for k, v in component_inputs.items():
+                                    print(f"{k}: {v}")
+                                print("\n\n")
+
+                                break
+
+                    if not agent_breakpoint:
+                        breakpoint_triggered = bool(
+                            breakpoint_component == component_name and visit_count == component_visits[component_name]
+                        )
                     if breakpoint_triggered:
                         state_inputs_serialised = deepcopy(inputs)
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
@@ -274,6 +302,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             state=state_inputs_serialised,
                             results=pipeline_outputs,
                         )
+
+                print(f"Running component {component_name} with inputs {component_inputs}")
 
                 component_outputs = self._run_component(
                     component_name=component_name,
