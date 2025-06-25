@@ -314,7 +314,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         # this is needed to prevent a typing error
         if not resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
-        # check if the resume state is valid for the current pipeline
+        # check if the resume_state is valid for the current pipeline
         _validate_components_against_pipeline(resume_state, self.graph)
 
         data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
