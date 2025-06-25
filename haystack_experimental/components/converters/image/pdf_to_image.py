@@ -10,7 +10,7 @@ from haystack.components.converters.utils import get_bytestream_from_source, nor
 from haystack.dataclasses import ByteStream
 from haystack.utils import expand_page_range
 
-from haystack_experimental.components.image_converters.image_utils import (
+from haystack_experimental.components.converters.image.image_utils import (
     _convert_pdf_to_images,
     pillow_import,
     pypdfium2_import,
