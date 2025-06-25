@@ -17,6 +17,7 @@ from haystack.utils.auth import Secret
 
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from haystack_experimental.dataclasses.breakpoints import Breakpoint
 from test.conftest import load_and_resume_pipeline_state
 from unittest.mock import patch
 
@@ -246,14 +247,14 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "bm25_retriever",
-        "query_embedder",
-        "embedding_retriever",
-        "doc_joiner",
-        "ranker",
-        "prompt_builder",
-        "llm",
-        "answer_builder"
+        Breakpoint("bm25_retriever", 0),
+        Breakpoint("query_embedder", 0),
+        Breakpoint("embedding_retriever", 0),
+        Breakpoint("doc_joiner", 0),
+        Breakpoint("ranker", 0),
+        Breakpoint("prompt_builder", 0),
+        Breakpoint("llm", 0),
+        Breakpoint("answer_builder", 0),
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
@@ -274,9 +275,9 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = hybrid_rag_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
+            _ = hybrid_rag_pipeline.run(data, breakpoints=[component, 0], debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 
-        result = load_and_resume_pipeline_state(hybrid_rag_pipeline, output_directory, component, data)
+        result = load_and_resume_pipeline_state(hybrid_rag_pipeline, output_directory, component.component_name, data)
         assert result['answer_builder']

@@ -7,7 +7,7 @@
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple, Union, List
+from typing import Any, Dict, List, Optional, Set, Union
 
 from haystack import logging, tracing
 from haystack.core.pipeline.base import ComponentPriority
@@ -17,8 +17,8 @@ from haystack.telemetry import pipeline_running
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
 
+from ...dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 from .breakpoint import _deserialize_component_input, _save_state, _validate_breakpoint, _validate_pipeline_state
-from ...dataclasses.breakpoints import Breakpoint, AgentBreakpoint
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
             raise PipelineInvalidResumeStateError(message=msg)
 
         # make sure all breakpoints are valid, i.e. reference components in the pipeline
-        _validate_breakpoint(breakpoints, self.graph) if breakpoints else None
+        if breakpoints:
+            _validate_breakpoint(breakpoints, self.graph)
 
         # TODO: Remove this warmup once we can check reliably whether a component has been warmed up or not
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
@@ -165,7 +166,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             data = self._prepare_component_input_data(data)
 
             # Raise ValueError if input is malformed in some way
-            self._validate_input(data)
+            self.validate_input(data)
 
             # We create a list of components in the pipeline sorted by name, so that the algorithm runs
             # deterministically and independent of insertion order into the pipeline.
@@ -243,10 +244,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 # ToDo: although we can have multiple Breakpoints, we only support one breakpoint at a time, the
                 #       first one in the lists
                 if breakpoints is not None:
-                    for breakpoint in breakpoints:
-                        if isinstance(breakpoint, Breakpoint):
-                            breakpoint_component = breakpoint.component_name
-                            visit_count = breakpoint.visit_count
+                    for break_point in breakpoints:
+                        if isinstance(break_point, Breakpoint):
+                            breakpoint_component = break_point.component_name
+                            visit_count = break_point.visit_count
                             break
 
                     breakpoint_triggered = bool(

@@ -7,7 +7,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, Set
+from typing import Any, Dict, List, Optional, Union
 
 from haystack import Answer, Document, ExtractedAnswer, logging
 from haystack.dataclasses import ChatMessage, SparseEmbedding
@@ -15,15 +15,12 @@ from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
 from haystack_experimental.dataclasses import GeneratedAnswer
-from haystack_experimental.dataclasses.breakpoints import Breakpoint, AgentBreakpoint
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_breakpoint(
-    breakpoints: List[Union[Breakpoint, AgentBreakpoint]],
-    graph: MultiDiGraph
-) -> None:
+def _validate_breakpoint(breakpoints: List[Union[Breakpoint, AgentBreakpoint]], graph: MultiDiGraph) -> None:
     """
     Validates the breakpoints passed to the pipeline.
 
@@ -36,13 +33,11 @@ def _validate_breakpoint(
 
     # all breakpoints must refer to a valid component in the pipeline
     for break_point in breakpoints:
-        if isinstance(break_point, Breakpoint):
-            if break_point.component_name not in graph.nodes:
-                raise ValueError(
-                    f"pipeline_breakpoint {break_point} is not a registered component in the pipeline"
-                )
+        if isinstance(break_point, Breakpoint) and break_point.component_name not in graph.nodes:
+            raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
 
     # ToDo: if there are any AgentBreakpoint check if the pipeline has an Agent component
+
 
 def _validate_pipeline_state(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
     """

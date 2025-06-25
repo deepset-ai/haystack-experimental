@@ -16,6 +16,10 @@ from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.core.pipeline.breakpoint import load_state
 from unittest.mock import patch
 
+from haystack_experimental.dataclasses.breakpoints import Breakpoint
+from test.conftest import load_and_resume_pipeline_state
+
+
 class TestPipelineBreakpoints:
 
     @pytest.fixture
@@ -92,10 +96,10 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "joiner",
-        "fc_llm",
-        "validator",
-        "adapter",
+        Breakpoint("joiner", 0),
+        Breakpoint("fc_llm", 0),
+        Breakpoint("validator", 0),
+        Breakpoint("adapter", 0),
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
@@ -107,20 +111,9 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = branch_joiner_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
+            _ = branch_joiner_pipeline.run(data, breakpoints=[component], debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 
-        all_files = list(output_directory.glob("*"))
-        file_found = False
-        for full_path in all_files:
-            f_name = Path(full_path).name
-            if str(f_name).startswith(component):
-                file_found = True
-                resume_state = load_state(full_path)
-                result = branch_joiner_pipeline.run(data, resume_state=resume_state)
-                assert result['validator']
-                break
-        if not file_found:
-            msg = f"No files found for {component} in {output_directory}."
-            raise ValueError(msg)
+        result = load_and_resume_pipeline_state(branch_joiner_pipeline, output_directory, component.component_name, data)
+        assert result['validator'], "The result should be valid according to the schema."

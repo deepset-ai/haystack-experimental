@@ -7,6 +7,7 @@ from haystack.components.joiners import StringJoiner
 from haystack.dataclasses import ChatMessage
 from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from haystack_experimental.dataclasses.breakpoints import Breakpoint
 from test.conftest import load_and_resume_pipeline_state
 
 
@@ -35,11 +36,11 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "prompt_builder_1",
-        "prompt_builder_2",
-        "adapter_1",
-        "adapter_2",
-        "string_joiner"
+        Breakpoint("prompt_builder_1", 0),
+        Breakpoint("prompt_builder_2", 0),
+        Breakpoint("adapter_1", 0),
+        Breakpoint("adapter_2", 0),
+        Breakpoint("string_joiner", 0)
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
@@ -49,9 +50,9 @@ class TestPipelineBreakpoints:
         data = {"prompt_builder_1": {"query": string_1}, "prompt_builder_2": {"query": string_2}}
 
         try:
-            _ = string_joiner_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
+            _ = string_joiner_pipeline.run(data, breakpoints=[component], debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 
-        result = load_and_resume_pipeline_state(string_joiner_pipeline, output_directory, component, data)
+        result = load_and_resume_pipeline_state(string_joiner_pipeline, output_directory, component.component_name, data)
         assert result['string_joiner']
