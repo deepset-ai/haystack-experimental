@@ -7,8 +7,8 @@ from pathlib import Path
 from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.image_converters.image_utils import _convert_pdf_to_images
-from haystack_experimental.components.image_converters.pdf_to_image import PDFToImageContent
+from haystack_experimental.components.converters.image.image_utils import _convert_pdf_to_images
+from haystack_experimental.components.converters.image.pdf_to_image import PDFToImageContent
 
 
 class TestPDFToImageContent:

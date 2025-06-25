@@ -14,7 +14,7 @@ _import_structure = {
 }
 
 if TYPE_CHECKING:
-    from .document_to_image import DocumentToImageContent
+    from haystack_experimental.components.converters.image.document_to_image import DocumentToImageContent
     from .file_to_image import ImageFileToImageContent
     from .pdf_to_image import PDFToImageContent
 else:

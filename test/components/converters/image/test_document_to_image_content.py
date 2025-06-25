@@ -9,7 +9,7 @@ from haystack import Document
 from haystack.dataclasses import ByteStream
 from haystack.core.serialization import component_from_dict, component_to_dict
 
-from haystack_experimental.components.image_converters.document_to_image import DocumentToImageContent
+from haystack_experimental.components.converters.image.document_to_image import DocumentToImageContent
 
 
 class TestDocumentToImageContent:

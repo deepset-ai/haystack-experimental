@@ -14,7 +14,7 @@ from haystack.dataclasses import ByteStream, Document
 from PIL import Image
 from pytest import LogCaptureFixture
 
-from haystack_experimental.components.image_converters.image_utils import (
+from haystack_experimental.components.converters.image.image_utils import (
     _convert_pdf_to_images,
     _encode_image_to_base64,
     _encode_pil_image_to_base64,

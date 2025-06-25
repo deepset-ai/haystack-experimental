@@ -8,8 +8,8 @@ import pytest
 from haystack.core.serialization import component_from_dict, component_to_dict
 from haystack.dataclasses import ByteStream
 
-from haystack_experimental.components.image_converters.file_to_image import ImageFileToImageContent
-from haystack_experimental.components.image_converters.image_utils import _encode_image_to_base64
+from haystack_experimental.components.converters.image.file_to_image import ImageFileToImageContent
+from haystack_experimental.components.converters.image.image_utils import _encode_image_to_base64
 
 
 class TestImageFileToImageContent:
