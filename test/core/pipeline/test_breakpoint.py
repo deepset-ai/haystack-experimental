@@ -7,8 +7,7 @@ import pytest
 
 from haystack.components.joiners import BranchJoiner
 from haystack_experimental.core.pipeline.pipeline import Pipeline
-from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, _serialize_value_with_schema, _deserialize_value_with_schema, load_state, _validate_breakpoint, _validate_resume_state
-from haystack.dataclasses import ChatMessage
+from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, load_state, _validate_breakpoint, _validate_resume_state
 
 
 class TestBreakpoint:

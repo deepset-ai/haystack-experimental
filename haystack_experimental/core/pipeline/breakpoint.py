@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from haystack import logging
+from haystack.utils import _serialize_value_with_schema
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
-from haystack_experimental.utils.base_serialization import _deserialize_value_with_schema, _serialize_value_with_schema
 
 logger = logging.getLogger(__name__)
 
@@ -209,13 +209,6 @@ def _save_state(
     except Exception as e:
         logger.error(f"Failed to save pipeline state: {str(e)}")
         raise
-
-
-def deserialize_component_input(value):  # noqa: PLR0911
-    """
-    Deserializes a component input.
-    """
-    return _deserialize_value_with_schema(value)
 
 
 def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any:

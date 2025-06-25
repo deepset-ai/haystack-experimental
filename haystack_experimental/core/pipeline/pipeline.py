@@ -13,10 +13,10 @@ from haystack import logging, tracing
 from haystack.core.pipeline.base import ComponentPriority
 from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.telemetry import pipeline_running
+from haystack.utils import _deserialize_value_with_schema
 
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
-from haystack_experimental.utils.base_serialization import _deserialize_value_with_schema
 
 from .breakpoint import _save_state, _validate_breakpoint
 
@@ -166,7 +166,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             data = self._prepare_component_input_data(data)
 
             # Raise ValueError if input is malformed in some way
-            self._validate_input(data)
+            self.validate_input(data)
 
             # We create a list of components in the pipeline sorted by name, so that the algorithm runs
             # deterministically and independent of insertion order into the pipeline.
