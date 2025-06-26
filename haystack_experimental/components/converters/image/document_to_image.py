@@ -149,13 +149,16 @@ class DocumentToImageContent:
                 )
 
         # efficiently convert PDF pages to images: each PDF is opened and processed only once
+        pdf_page_infos_by_doc_idx: Dict[int, _PDFPageInfo] = {
+            pdf_page_info["doc_idx"]: pdf_page_info for pdf_page_info in pdf_page_infos
+        }
         pdf_images_by_doc_idx = _batch_convert_pdf_pages_to_images(
             pdf_page_infos=pdf_page_infos, size=self.size, return_base64=True
         )
         for doc_idx, base64_pdf_image in pdf_images_by_doc_idx.items():
             meta = {
                 "file_path": documents[doc_idx].meta[self.file_path_meta_field],
-                "page_number": pdf_page_infos[doc_idx]["page_number"],
+                "page_number": pdf_page_infos_by_doc_idx[doc_idx]["page_number"],
             }
             # we know that base64_pdf_image is a string because we set return_base64=True but mypy doesn't know that
             assert isinstance(base64_pdf_image, str)
