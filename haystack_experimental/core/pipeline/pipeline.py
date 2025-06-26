@@ -257,13 +257,20 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             break
 
                         if isinstance(break_point, AgentBreakpoint):
+
+                            print("Agent Breakpoint Detected")
+                            print("break_point:", break_point)
+
                             component_instance = component["instance"]
                             component_class_name = component_instance.__class__.__name__
                             # if the current component is an agent pass breakpoints to the agent
                             if component_class_name == "Agent":
-                                component_inputs["agent_breakpoints"] = break_point
+                                component_inputs["breakpoints"] = break_point
                                 component_inputs["debug_path"] = debug_path
                                 component_inputs["break_on_first"] = break_on_first
+
+                                print("component_inputs:", component_inputs)
+
                                 agent_breakpoint = True
                                 break
 
@@ -271,10 +278,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         breakpoint_triggered = bool(
                             breakpoint_component == component_name and visit_count == component_visits[component_name]
                         )
+
                     if breakpoint_triggered:
                         state_inputs_serialised = deepcopy(inputs)
                         state_inputs_serialised[component_name] = deepcopy(component_inputs)
-
                         _save_state(
                             inputs=state_inputs_serialised,
                             component_name=str(component_name),
@@ -286,6 +293,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         msg = (
                             f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
                         )
+
                         if break_on_first:
                             raise PipelineBreakpointException(
                                 message=msg,
@@ -293,6 +301,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                                 state=state_inputs_serialised,
                                 results=pipeline_outputs,
                             )
+
                 component_outputs = self._run_component(
                     component_name=component_name,
                     component=component,
