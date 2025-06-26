@@ -240,11 +240,8 @@ def test_pipeline_breakpoint_and_resume():
             assert "Milos Rusic" in final_message
             assert "Chief Executive Officer" in final_message
             assert "Chief Technology Officer" in final_message
-            
-            print("Pipeline breakpoint and resume test completed successfully!")
-            print(f"Final message: {final_message}")
+
         else:
-            # If no exception was raised, the test should fail
             assert False, "Expected PipelineBreakpointException was not raised"
 
 def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
