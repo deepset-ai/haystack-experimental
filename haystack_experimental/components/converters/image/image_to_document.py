@@ -38,6 +38,7 @@ class ImageFileToDocument:
     @component.output_types(documents=List[Document])
     def run(
         self,
+        *,
         sources: List[Union[str, Path, ByteStream]],
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
     ) -> Dict[str, List[Document]]:
