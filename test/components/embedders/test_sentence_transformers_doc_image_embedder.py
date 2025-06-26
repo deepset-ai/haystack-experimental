@@ -80,6 +80,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
                 "token": {"env_vars": ["HF_API_TOKEN", "HF_TOKEN"], "strict": False, "type": "env_var"},
                 "batch_size": 32,
                 "progress_bar": True,
+                "normalize_embeddings": False,
                 "trust_remote_code": False,
                 "local_files_only": False,
                 "model_kwargs": {"torch_dtype": "torch.float32"},
@@ -100,6 +101,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
             "token": {"env_vars": ["ENV_VAR"], "strict": False, "type": "env_var"},
             "batch_size": 64,
             "progress_bar": False,
+            "normalize_embeddings": True,
             "trust_remote_code": True,
             "local_files_only": True,
             "model_kwargs": {"torch_dtype": "torch.float32"},
@@ -120,6 +122,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
         assert component.token == Secret.from_env_var("ENV_VAR", strict=False)
         assert component.batch_size == 64
         assert component.progress_bar is False
+        assert component.normalize_embeddings is True
         assert component.trust_remote_code
         assert component.local_files_only
         assert component.model_kwargs == {"torch_dtype": torch.float32}
@@ -137,6 +140,7 @@ class TestSentenceTransformersDocumentImageEmbedder:
             "token": {"env_vars": ["ENV_VAR"], "strict": False, "type": "env_var"},
             "batch_size": 64,
             "progress_bar": False,
+            "normalize_embeddings": False,
             "trust_remote_code": True,
             "local_files_only": False,
             "precision": "float32",
