@@ -16,12 +16,18 @@ logger = logging.getLogger(__name__)
 @component
 class ImageFileToDocument:
     """
-    Converts image files to Document objects.
+    Converts image file references into empty Document objects with associated metadata.
+
+    This component is useful in pipelines where image file paths need to be wrapped in `Document` objects to be
+    processed by downstream components such as the `SentenceTransformersImageDocumentEmbedder`.
+
+    It does **not** extract any content from the image files, instead it creates `Document` objects with `None` as
+    their content and attaches metadata such as file path and any user-provided values.
     """
 
     def __init__(self, *, store_full_path: bool = False):
         """
-        Create the ImageFileToDocument component.
+        Initialize the ImageFileToDocument component.
 
         :param store_full_path:
             If True, the full path of the file is stored in the metadata of the document.
@@ -36,7 +42,11 @@ class ImageFileToDocument:
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
     ) -> Dict[str, List[Document]]:
         """
-        Converts Image files to Document objects.
+        Convert image files into empty Document objects with metadata.
+
+        This method accepts image file references (as file paths or ByteStreams) and creates `Document` objects
+        without content. These documents are enriched with metadata derived from the input source and optional
+        user-provided metadata.
 
         :param sources:
             List of file paths or ByteStream objects to convert.
@@ -48,9 +58,10 @@ class ImageFileToDocument:
             For ByteStream objects, their `meta` is added to the output documents.
 
         :returns:
-            A dictionary with the following keys:
-            - `documents`: A list of converted documents.
+            A dictionary containing:
+            - `documents`: A list of `Document` objects with empty content and associated metadata.
         """
+
         documents = []
         meta_list = normalize_metadata(meta, sources_count=len(sources))
 
