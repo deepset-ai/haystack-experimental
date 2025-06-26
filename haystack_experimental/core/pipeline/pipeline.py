@@ -37,6 +37,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
         breakpoints: Optional[List[Union[Breakpoint, AgentBreakpoint]]] = None,
+        break_on_first: Optional[bool] = False,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
@@ -117,6 +118,9 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
         :param breakpoints:
             A set of breakpoints that can be used to debug the pipeline execution.
+
+        :param break_on_first:
+            If `True`, the pipeline will stop at the first breakpoint.
 
         :param resume_state:
             A dictionary containing the state of a previously saved pipeline execution.
@@ -241,14 +245,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         component_inputs[key] = _deserialize_component_input(value)
 
                 # Scenario 2: breakpoints are provided to stop the pipeline at a specific component and visit count
-                # ToDo: although we can have multiple Breakpoints, we only support one breakpoint at a time, the
-                #       first one in the lists
-
-                print("\n\n\n")
-                print(f"Running component {component_name} with inputs {component_inputs}")
-                print(f"Breakpoints: {breakpoints}")
-                print("\n\n\n")
-
+                breakpoint_triggered = False
                 if breakpoints is not None:
                     agent_breakpoint = False
                     breakpoint_component = None
@@ -259,22 +256,15 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             visit_count = break_point.visit_count
                             break
 
-                        if isinstance(break_point, AgentBreakpoint):                            
+                        if isinstance(break_point, AgentBreakpoint):
                             component_instance = component["instance"]
                             component_class_name = component_instance.__class__.__name__
                             # if the current component is an agent pass breakpoints to the agent
                             if component_class_name == "Agent":
                                 component_inputs["agent_breakpoints"] = break_point
+                                component_inputs["debug_path"] = debug_path
+                                component_inputs["break_on_first"] = break_on_first
                                 agent_breakpoint = True
-
-                                print("\n\n")
-                                print("Agent Breakpoint")
-                                print(f"Component: {component_name}")
-                                print(f"Inputs:")
-                                for k, v in component_inputs.items():
-                                    print(f"{k}: {v}")
-                                print("\n\n")
-
                                 break
 
                     if not agent_breakpoint:
@@ -296,15 +286,13 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         msg = (
                             f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
                         )
-                        raise PipelineBreakpointException(
-                            message=msg,
-                            component=component_name,
-                            state=state_inputs_serialised,
-                            results=pipeline_outputs,
-                        )
-
-                print(f"Running component {component_name} with inputs {component_inputs}")
-
+                        if break_on_first:
+                            raise PipelineBreakpointException(
+                                message=msg,
+                                component=component_name,
+                                state=state_inputs_serialised,
+                                results=pipeline_outputs,
+                            )
                 component_outputs = self._run_component(
                     component_name=component_name,
                     component=component,
@@ -330,7 +318,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
             if breakpoints:
                 logger.warning(
-                    "Given pipeline_breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
+                    "The given breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
                     "1. The provided component is not a part of the pipeline execution path.\n"
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint",
                     pipeline_breakpoint=breakpoints,

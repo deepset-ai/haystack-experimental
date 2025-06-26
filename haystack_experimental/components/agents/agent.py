@@ -164,8 +164,6 @@ class Agent:
         """
         available_tool_names = {tool.name for tool in self.tools}
         for tool_breakpoint in agent_breakpoint.tool_breakpoints:
-            print(f"Validating tool breakpoint: {tool_breakpoint}")
-
             if tool_breakpoint.tool_name is not None and tool_breakpoint.tool_name not in available_tool_names:
                 raise ValueError(f"Tool '{tool_breakpoint.tool_name}' is not available in the agent's tools")
 
@@ -248,6 +246,7 @@ class Agent:
     @staticmethod
     def _check_chat_generator_breakpoint(  # pylint: disable=too-many-positional-arguments
         agent_breakpoint: Optional[AgentBreakpoint],
+        break_on_first: bool,
         component_visits: Dict[str, int],
         messages: List[ChatMessage],
         generator_inputs: Dict[str, Any],
@@ -284,16 +283,18 @@ class Agent:
                         f"{component_visits[break_point.component_name]}"
                     )
                     logger.info(msg)
-                    raise AgentBreakpointException(
-                        message=msg,
-                        component=break_point.component_name,
-                        state=state_inputs,
-                        results=state.data,
-                    )
+                    if break_on_first:
+                        raise AgentBreakpointException(
+                            message=msg,
+                            component=break_point.component_name,
+                            state=state_inputs,
+                            results=state.data,
+                        )
 
+    @staticmethod
     def _check_tool_invoker_breakpoint(  # pylint: disable=too-many-positional-arguments
-        self,
         agent_breakpoint: Optional[AgentBreakpoint],
+        break_on_first: bool,
         component_visits: Dict[str, int],
         llm_messages: List[ChatMessage],
         state: State,
@@ -350,18 +351,21 @@ class Agent:
                         if tool_breakpoint.tool_name:
                             msg += f" for tool {tool_breakpoint.tool_name}"
                         logger.info(msg)
-                        raise AgentBreakpointException(
-                            message=msg,
-                            component=tool_breakpoint.component_name,
-                            state=state_inputs,
-                            results=state.data,
-                        )
+
+                        if break_on_first:
+                            raise AgentBreakpointException(
+                                message=msg,
+                                component=tool_breakpoint.component_name,
+                                state=state_inputs,
+                                results=state.data,
+                            )
 
     def run(  # noqa: PLR0915, PLR0912 #pylint: disable=too-many-positional-arguments
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
-        agent_breakpoints: Optional[AgentBreakpoint] = None,
+        breakpoints: Optional[AgentBreakpoint] = None,
+        break_on_first: bool = True,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
         **kwargs: Any,
@@ -373,8 +377,9 @@ class Agent:
             If a list of dictionaries is provided, each dictionary will be converted to a ChatMessage object.
         :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
             The same callback can be configured to emit tool results when a tool is called.
-        :param agent_breakpoints: AgentBreakpoint object containing breakpoints for the agent components.
+        :param breakpoints: AgentBreakpoint object containing breakpoints for the agent components.
             Can include Breakpoint objects for "chat_generator" and ToolBreakpoint objects for "tool_invoker".
+        :param break_on_first: If True, the agent will stop at the first breakpoint encountered.
         :param resume_state: A dictionary containing the state of a previously saved agent execution.
         :param debug_path: Path to the directory where the agent state should be saved.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
@@ -391,19 +396,15 @@ class Agent:
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
 
-        if agent_breakpoints and resume_state:
+        if breakpoints and resume_state:
             msg = (
                 "agent_breakpoint and resume_state cannot be provided at the same time. The agent run will be aborted."
             )
             raise ValueError(msg)
 
-        print("\n\n\n\n")
-        print("inside run method of Agent component")
-        print("\n\n\n\n")
-
         # validate breakpoints
-        if agent_breakpoints:
-            agent_breakpoints = self._validate_breakpoints(agent_breakpoints)
+        if breakpoints:
+            breakpoints = self._validate_breakpoints(breakpoints)
 
         # resume state if provided
         if resume_state:
@@ -449,7 +450,8 @@ class Agent:
             while counter < self.max_agent_steps:
                 # check for breakpoint before ChatGenerator
                 Agent._check_chat_generator_breakpoint(
-                    agent_breakpoints,
+                    breakpoints,
+                    break_on_first,
                     component_visits,
                     messages,
                     generator_inputs,
@@ -475,8 +477,9 @@ class Agent:
                     break
 
                 # check for breakpoint before ToolInvoker
-                self._check_tool_invoker_breakpoint(
-                    agent_breakpoints,
+                Agent._check_tool_invoker_breakpoint(
+                    breakpoints,
+                    break_on_first,
                     component_visits,
                     llm_messages,
                     state,
@@ -526,7 +529,8 @@ class Agent:
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
-        agent_breakpoints: Optional[AgentBreakpoint] = None,
+        breakpoints: Optional[AgentBreakpoint] = None,
+        break_on_first: bool = True,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
         **kwargs: Any,
@@ -543,8 +547,9 @@ class Agent:
         is streamed from the LLM. The same callback can be configured to emit tool results
         when a tool is called.
 
-        :param agent_breakpoints: AgentBreakpoint object containing breakpoints for the agent components.
+        :param breakpoints: AgentBreakpoint object containing breakpoints for the agent components.
             Can include Breakpoint objects for "chat_generator" and ToolBreakpoint objects for "tool_invoker".
+        :param break_on_first: If True, the agent will stop at the first breakpoint encountered.
         :param resume_state: A dictionary containing the state of a previously saved agent execution.
         :param debug_path: Path to the directory where the agent state should be saved.
 
@@ -562,15 +567,15 @@ class Agent:
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run_async()'.")
 
-        if agent_breakpoints and resume_state:
+        if breakpoints and resume_state:
             msg = (
                 "agent_breakpoint and resume_state cannot be provided at the same time. The agent run will be aborted."
             )
             raise ValueError(msg)
 
         # validate breakpoints
-        if agent_breakpoints:
-            agent_breakpoints = self._validate_breakpoints(agent_breakpoints)
+        if breakpoints:
+            breakpoints = self._validate_breakpoints(breakpoints)
 
         # Handle resume state if provided
         if resume_state:
@@ -620,7 +625,8 @@ class Agent:
             while counter < self.max_agent_steps:
                 # Check for breakpoint before ChatGenerator
                 Agent._check_chat_generator_breakpoint(
-                    agent_breakpoints,
+                    breakpoints,
+                    break_on_first,
                     component_visits,
                     messages,
                     generator_inputs,
@@ -647,8 +653,9 @@ class Agent:
                     break
 
                 # Check for breakpoint before ToolInvoker
-                self._check_tool_invoker_breakpoint(
-                    agent_breakpoints,
+                Agent._check_tool_invoker_breakpoint(
+                    breakpoints,
+                    break_on_first,
                     component_visits,
                     llm_messages,
                     state,

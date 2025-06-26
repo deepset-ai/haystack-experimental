@@ -26,9 +26,7 @@ def _validate_breakpoint(breakpoints: List[Union[Breakpoint, AgentBreakpoint]], 
 
     Makes sure the breakpoint contains a valid components registered in the pipeline.
 
-    :param breakpoints: a list of breakpoints to validate, can be Breakpoint or AgentBreakpoint
-    :returns:
-        Tuple of component name and visit count representing the `pipeline_breakpoint`
+    :param breakpoints: a breakpoint to validate, can be Breakpoint or AgentBreakpoint
     """
 
     # all breakpoints must refer to a valid component in the pipeline

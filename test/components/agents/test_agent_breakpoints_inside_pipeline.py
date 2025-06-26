@@ -255,7 +255,9 @@ def test_agent_breakpoints_in_pipeline_agent():
 
     agent_output = pipeline_with_agent.run(
         data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-        breakpoints=[agent_breakpoints]
+        breakpoints=[agent_breakpoints],
+        debug_path="agent_breakpoint_debug",
+        break_on_first=False,
     )
 
     print(agent_output["database_agent"]["messages"][-1].text)
