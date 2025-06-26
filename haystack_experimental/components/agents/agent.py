@@ -267,10 +267,6 @@ class Agent:
         :raises AgentBreakpointException: If a breakpoint is triggered
         """
 
-        print("Checking chat generator breakpoint...")  # Debugging line
-
-        print(agent_breakpoint)
-
         if agent_breakpoint and agent_breakpoint.generator_breakpoints:
             for break_point in agent_breakpoint.generator_breakpoints:
                 if component_visits[break_point.component_name] == break_point.visit_count:
@@ -321,10 +317,6 @@ class Agent:
         :param kwargs: Additional keyword arguments
         :raises AgentBreakpointException: If a breakpoint is triggered
         """
-
-        print("Checking tool invoker breakpoint...")  # Debugging line
-
-        print(agent_breakpoint)
 
         if agent_breakpoint and agent_breakpoint.tool_breakpoints:
             for tool_breakpoint in agent_breakpoint.tool_breakpoints:
@@ -415,10 +407,6 @@ class Agent:
         # validate breakpoints
         if breakpoints:
             breakpoints = self._validate_breakpoints(breakpoints)
-
-        print("\nBreakpoints provided to Agent:")  # Debugging line
-        print(breakpoints)
-        print("\n\n")
 
         # resume state if provided
         if resume_state:

@@ -170,7 +170,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             data = self._prepare_component_input_data(data)
 
             # Raise ValueError if input is malformed in some way
-            self.validate_input(data)
+            self._validate_input(data)
 
             # We create a list of components in the pipeline sorted by name, so that the algorithm runs
             # deterministically and independent of insertion order into the pipeline.
@@ -257,10 +257,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             break
 
                         if isinstance(break_point, AgentBreakpoint):
-
-                            print("Agent Breakpoint Detected")
-                            print("break_point:", break_point)
-
                             component_instance = component["instance"]
                             component_class_name = component_instance.__class__.__name__
                             # if the current component is an agent pass breakpoints to the agent
@@ -268,9 +264,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                                 component_inputs["breakpoints"] = break_point
                                 component_inputs["debug_path"] = debug_path
                                 component_inputs["break_on_first"] = break_on_first
-
-                                print("component_inputs:", component_inputs)
-
                                 agent_breakpoint = True
                                 break
 

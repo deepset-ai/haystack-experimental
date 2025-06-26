@@ -245,19 +245,42 @@ def test_pipeline_breakpoint_and_resume():
             # If no exception was raised, the test should fail
             assert False, "Expected PipelineBreakpointException was not raised"
 
-def test_agent_breakpoints_in_pipeline_agent():
+def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
 
     pipeline_with_agent = create_pipeline()
-
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
     agent_breakpoints = AgentBreakpoint(breakpoints={agent_generator_breakpoint, agent_tool_breakpoint})
 
-    agent_output = pipeline_with_agent.run(
-        data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-        breakpoints=[agent_breakpoints],
-        debug_path="agent_breakpoint_debug",
-        break_on_first=False,
-    )
+    with tempfile.TemporaryDirectory() as debug_path:
+        agent_output = pipeline_with_agent.run(
+            data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
+            breakpoints=[agent_breakpoints],
+            debug_path=debug_path,
+            break_on_first=False,
+        )
 
-    print(agent_output["database_agent"]["messages"][-1].text)
+        # Verify that state files were generated for both breakpoints
+        chat_generator_state_files = list(Path(debug_path).glob("chat_generator_*.json"))
+        tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
+        
+        # Assert that at least one state file was created for each breakpoint
+        assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
+        assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
+        
+        # Verify the pipeline completed successfully
+        assert "database_agent" in agent_output
+        assert "messages" in agent_output["database_agent"]
+        assert len(agent_output["database_agent"]["messages"]) > 0
+        
+        # Verify the final message contains the expected summary
+        final_message = agent_output["database_agent"]["messages"][-1].text
+        assert "Malte Pietsch" in final_message
+        assert "Milos Rusic" in final_message
+        assert "Chief Executive Officer" in final_message
+        assert "Chief Technology Officer" in final_message
+        
+        print("Agent breakpoints in pipeline test completed successfully!")
+        print(f"Generated {len(chat_generator_state_files)} chat_generator state files")
+        print(f"Generated {len(tool_invoker_state_files)} tool_invoker state files")
+        print(f"Final message: {final_message}")
