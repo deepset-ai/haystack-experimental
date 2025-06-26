@@ -170,7 +170,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             data = self._prepare_component_input_data(data)
 
             # Raise ValueError if input is malformed in some way
-            self._validate_input(data)
+            self.validate_input(data)
 
             # We create a list of components in the pipeline sorted by name, so that the algorithm runs
             # deterministically and independent of insertion order into the pipeline.
