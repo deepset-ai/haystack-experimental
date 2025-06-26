@@ -3,6 +3,7 @@ loaders:
     search_path: [../../../]
     modules:
       [
+        "haystack_experimental.components.routers.document_length_router",
         "haystack_experimental.components.routers.document_type_router",
       ]
     ignore_when_discovered: ["__init__"]
