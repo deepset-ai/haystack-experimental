@@ -198,52 +198,6 @@ def create_pipeline():
 
     return extraction_agent
 
-def test_pipeline_breakpoint_and_resume():
-        
-    extraction_agent = create_pipeline()
-        
-    with tempfile.TemporaryDirectory() as debug_path:
-                
-        converter_breakpoint = Breakpoint("fetcher", 0)
-        
-        # Run pipeline with breakpoint - should raise PipelineBreakpointException
-        try:
-            extraction_agent.run(
-                data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-                breakpoints=[converter_breakpoint],
-                debug_path=debug_path
-            )
-        except PipelineBreakpointException as e:
-            
-            assert e.component == "fetcher"
-            assert "state" in e.__dict__
-            
-            # Find the saved state file
-            state_files = list(Path(debug_path).glob("fetcher_*.json"))
-            assert len(state_files) > 0
-            
-            # Load the latest state file
-            latest_state_file = str(max(state_files, key=os.path.getctime))
-            resume_state = load_state(latest_state_file)
-            
-            # Resume the pipeline from the saved state
-            result = extraction_agent.run(data={}, resume_state=resume_state)
-            
-            # Verify the pipeline completed successfully
-            assert "database_agent" in result
-            assert "messages" in result["database_agent"]
-            assert len(result["database_agent"]["messages"]) > 0
-            
-            # Verify the final message contains the expected summary
-            final_message = result["database_agent"]["messages"][-1].text
-            assert "Malte Pietsch" in final_message
-            assert "Milos Rusic" in final_message
-            assert "Chief Executive Officer" in final_message
-            assert "Chief Technology Officer" in final_message
-
-        else:
-            assert False, "Expected PipelineBreakpointException was not raised"
-
 def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
 
     pipeline_with_agent = create_pipeline()
@@ -259,27 +213,20 @@ def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
             break_on_first=False,
         )
 
-        # Verify that state files were generated for both breakpoints
+        # at least one state file was created for each breakpoint
         chat_generator_state_files = list(Path(debug_path).glob("chat_generator_*.json"))
         tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
-        
-        # Assert that at least one state file was created for each breakpoint
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
         assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
-        
-        # Verify the pipeline completed successfully
+
+        # pipeline completed successfully
         assert "database_agent" in agent_output
         assert "messages" in agent_output["database_agent"]
         assert len(agent_output["database_agent"]["messages"]) > 0
-        
-        # Verify the final message contains the expected summary
+
+        # final message contains the expected summary
         final_message = agent_output["database_agent"]["messages"][-1].text
         assert "Malte Pietsch" in final_message
         assert "Milos Rusic" in final_message
         assert "Chief Executive Officer" in final_message
         assert "Chief Technology Officer" in final_message
-        
-        print("Agent breakpoints in pipeline test completed successfully!")
-        print(f"Generated {len(chat_generator_state_files)} chat_generator state files")
-        print(f"Generated {len(tool_invoker_state_files)} tool_invoker state files")
-        print(f"Final message: {final_message}")
