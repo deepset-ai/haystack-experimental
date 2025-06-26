@@ -2,13 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import tempfile
 from pathlib import Path
 from typing import Optional, List, Dict
 
 from haystack import component
-
 from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ByteStream
@@ -17,9 +15,7 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.tools import tool
 
 from haystack_experimental.components.agents import Agent
-from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline import Pipeline
-from haystack_experimental.core.pipeline.breakpoint import load_state
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
 
 document_store = InMemoryDocumentStore()

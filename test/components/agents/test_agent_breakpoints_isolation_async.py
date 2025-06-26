@@ -8,7 +8,7 @@ from pathlib import Path
 
 from haystack.dataclasses import ChatMessage
 
-from haystack_experimental.core.errors import AgentBreakpointException
+from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.breakpoint import load_state
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 
@@ -28,7 +28,7 @@ async def test_run_async_with_chat_generator_breakpoint(agent_async, debug_path)
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
-    with pytest.raises(AgentBreakpointException) as exc_info:
+    with pytest.raises(PipelineBreakpointException) as exc_info:
         await agent_async.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
@@ -39,7 +39,7 @@ async def test_run_async_with_tool_invoker_breakpoint(mock_agent_with_tool_calls
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
     agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
-    with pytest.raises(AgentBreakpointException) as exc_info:
+    with pytest.raises(PipelineBreakpointException) as exc_info:
         await mock_agent_with_tool_calls_async.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
 
     assert exc_info.value.component == "tool_invoker"
@@ -54,7 +54,7 @@ async def test_resume_from_chat_generator_async(agent_async, debug_path):
     
     try:
         await agent_async.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
-    except AgentBreakpointException:
+    except PipelineBreakpointException:
         pass
 
     state_files = list(Path(debug_path).glob("chat_generator_*.json"))
@@ -80,7 +80,7 @@ async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls_async, 
     
     try:
         await mock_agent_with_tool_calls_async.run_async(messages=messages, agent_breakpoints=agent_breakpoint, debug_path=debug_path)
-    except AgentBreakpointException:
+    except PipelineBreakpointException:
         pass
 
     state_files = list(Path(debug_path).glob("tool_invoker_*.json"))

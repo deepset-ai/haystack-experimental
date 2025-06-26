@@ -20,7 +20,7 @@ from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, 
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
-from haystack_experimental.core.errors import AgentBreakpointException
+from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.breakpoint import _save_state
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint
 
@@ -285,7 +285,7 @@ class Agent:
                     )
                     logger.info(msg)
                     if break_on_first:
-                        raise AgentBreakpointException(
+                        raise PipelineBreakpointException(
                             message=msg,
                             component=break_point.component_name,
                             state=state_inputs,
@@ -355,7 +355,7 @@ class Agent:
                         logger.info(msg)
 
                         if break_on_first:
-                            raise AgentBreakpointException(
+                            raise PipelineBreakpointException(
                                 message=msg,
                                 component=tool_breakpoint.component_name,
                                 state=state_inputs,

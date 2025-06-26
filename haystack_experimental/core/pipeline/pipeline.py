@@ -318,7 +318,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 if self._is_queue_stale(priority_queue):
                     priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
-            if breakpoints:
+            if breakpoints and not agent_breakpoint:
                 logger.warning(
                     "The given breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
                     "1. The provided component is not a part of the pipeline execution path.\n"

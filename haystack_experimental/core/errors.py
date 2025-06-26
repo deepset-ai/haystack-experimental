@@ -30,21 +30,3 @@ class PipelineInvalidResumeStateError(Exception):
 
     def __init__(self, message: str):
         super().__init__(message)
-
-
-class AgentBreakpointException(Exception):
-    """
-    Exception raised when an agent breakpoint is triggered.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        component: Optional[str] = None,
-        state: Optional[Dict[str, Any]] = None,
-        results: Optional[Dict[str, Any]] = None,
-    ):
-        super().__init__(message)
-        self.component = component
-        self.state = state
-        self.results = results

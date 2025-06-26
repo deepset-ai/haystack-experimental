@@ -8,7 +8,7 @@ from pathlib import Path
 
 from haystack.dataclasses import ChatMessage
 
-from haystack_experimental.core.errors import AgentBreakpointException
+from haystack_experimental.core.errors import PipelineBreakpointException
 from haystack_experimental.core.pipeline.breakpoint import load_state
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 
@@ -27,7 +27,7 @@ def test_run_with_chat_generator_breakpoint(agent_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
-    with pytest.raises(AgentBreakpointException) as exc_info:
+    with pytest.raises(PipelineBreakpointException) as exc_info:
         agent_sync.run(messages=messages, breakpoints=agent_breakpoint, debug_path=debug_path)
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
@@ -37,7 +37,7 @@ def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls_sync, debug
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
     agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
-    with pytest.raises(AgentBreakpointException) as exc_info:
+    with pytest.raises(PipelineBreakpointException) as exc_info:
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
             breakpoints=agent_breakpoint,
@@ -55,7 +55,7 @@ def test_resume_from_chat_generator(agent_sync, debug_path):
     
     try:
         agent_sync.run(messages=messages, breakpoints=agent_breakpoint, debug_path=debug_path)
-    except AgentBreakpointException:
+    except PipelineBreakpointException:
         pass
 
     state_files = list(Path(debug_path).glob("chat_generator_*.json"))
@@ -84,7 +84,7 @@ def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
             breakpoints=agent_breakpoint,
             debug_path=debug_path
         )
-    except AgentBreakpointException:
+    except PipelineBreakpointException:
         pass
 
     state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
