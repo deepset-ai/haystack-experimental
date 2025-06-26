@@ -40,6 +40,22 @@ class TestDocumentLengthRouter:
         assert result["short_documents"][0] == docs[0]
         assert result["long_documents"][0] == docs[1]
 
+    def test_run_with_negative_threshold(self):
+        docs = [
+            Document(content=None),
+            Document(content="Short"),
+            Document(content="Long document "*20),
+        ]
+        router = DocumentLengthRouter(threshold=-1)
+        result = router.run(documents=docs)
+
+        assert len(result["short_documents"]) == 1
+        assert len(result["long_documents"]) == 2
+        assert result["short_documents"][0] == docs[0]
+        assert result["long_documents"][0] == docs[1]
+        assert result["long_documents"][1] == docs[2]
+
+
     def test_to_dict(self):
         router = DocumentLengthRouter(
             threshold=10

@@ -48,9 +48,10 @@ class DocumentLengthRouter:
         Initialize the DocumentLengthRouter component.
 
         :param threshold:
-            The threshold for the length of the document `content` field. Documents where `content` is None or whose
-            length is less than or equal to the threshold will be routed to the `short_documents` output.
-            Otherwise, they will be routed to the `long_documents` output.
+            The threshold for the number of characters in the document `content` field. Documents where `content` is
+            None or whose character count is less than or equal to the threshold will be routed to the `short_documents`
+            output. Otherwise, they will be routed to the `long_documents` output.
+            To route only documents with None content to `short_documents`, set the threshold to a negative number.
         """
         self.threshold = threshold
 
