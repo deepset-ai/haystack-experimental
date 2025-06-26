@@ -34,7 +34,7 @@ class ImageFileToDocument:
         self,
         sources: List[Union[str, Path, ByteStream]],
         meta: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
-    ):
+    ) -> Dict[str, List[Document]]:
         """
         Converts Image files to Document objects.
 
