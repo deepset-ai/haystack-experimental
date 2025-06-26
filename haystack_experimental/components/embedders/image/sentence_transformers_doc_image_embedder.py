@@ -45,6 +45,7 @@ class SentenceTransformersDocumentImageEmbedder:
         token: Optional[Secret] = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
         batch_size: int = 32,
         progress_bar: bool = True,
+        normalize_embeddings: bool = False,
         trust_remote_code: bool = False,
         local_files_only: bool = False,
         model_kwargs: Optional[Dict[str, Any]] = None,
@@ -73,6 +74,8 @@ class SentenceTransformersDocumentImageEmbedder:
             Number of documents to embed at once.
         :param progress_bar:
             If `True`, shows a progress bar when embedding documents.
+        :param normalize_embeddings:
+            If `True`, the embeddings are normalized using L2 normalization, so that each embedding has a norm of 1.
         :param trust_remote_code:
             If `False`, allows only Hugging Face verified model architectures.
             If `True`, allows custom models and scripts.
@@ -109,6 +112,7 @@ class SentenceTransformersDocumentImageEmbedder:
         self.token = token
         self.batch_size = batch_size
         self.progress_bar = progress_bar
+        self.normalize_embeddings = normalize_embeddings
         self.trust_remote_code = trust_remote_code
         self.local_files_only = local_files_only
         self.model_kwargs = model_kwargs
@@ -135,6 +139,7 @@ class SentenceTransformersDocumentImageEmbedder:
             token=self.token.to_dict() if self.token else None,
             batch_size=self.batch_size,
             progress_bar=self.progress_bar,
+            normalize_embeddings=self.normalize_embeddings,
             trust_remote_code=self.trust_remote_code,
             local_files_only=self.local_files_only,
             model_kwargs=self.model_kwargs,
@@ -244,6 +249,7 @@ class SentenceTransformersDocumentImageEmbedder:
             images_to_embed,  # type: ignore[arg-type]
             batch_size=self.batch_size,
             show_progress_bar=self.progress_bar,
+            normalize_embeddings=self.normalize_embeddings,
             precision=self.precision,
             **(self.encode_kwargs if self.encode_kwargs else {}),
         )
