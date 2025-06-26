@@ -127,7 +127,8 @@ def create_pipeline():
                                     "name": "Malte",
                                     "surname": "Pietsch", 
                                     "job_title": "Chief Executive Officer",
-                                    "other": "CEO and co-founder of Deepset with extensive experience in machine learning and natural language processing"
+                                    "other": "CEO and co-founder of Deepset with extensive experience in machine "
+                                             "learning and natural language processing"
                                 }
                             ),
                             ToolCall(
@@ -136,7 +137,8 @@ def create_pipeline():
                                     "name": "Milos",
                                     "surname": "Rusic",
                                     "job_title": "Chief Technology Officer", 
-                                    "other": "CTO and co-founder of Deepset specializing in building scalable AI systems and NLP projects"
+                                    "other": "CTO and co-founder of Deepset specializing in building scalable "
+                                             "AI systems and NLP projects"
                                 }
                             )
                         ]
