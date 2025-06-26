@@ -727,12 +727,12 @@ class TestAgent:
         result = agent.run([])
         assert result["messages"] == []
 
-    # def test_run_only_system_prompt(self, caplog):
-    #     chat_generator = MockChatGeneratorWithoutRunAsync()
-    #     agent = Agent(chat_generator=chat_generator, tools=[], system_prompt="This is a system prompt.")
-    #     agent.warm_up()
-    #     _ = agent.run([])
-    #     assert "All messages provided to the Agent component are system messages." in caplog.text
+    def test_run_only_system_prompt(self, caplog):
+        chat_generator = MockChatGeneratorWithoutRunAsync()
+        agent = Agent(chat_generator=chat_generator, tools=[], system_prompt="This is a system prompt.")
+        agent.warm_up()
+        _ = agent.run([])
+        assert "All messages provided to the Agent component are system messages." in caplog.text
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
