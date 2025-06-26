@@ -366,6 +366,7 @@ class Agent:
         self,
         messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
         breakpoints: Optional[AgentBreakpoint] = None,
         break_on_first: bool = True,
         resume_state: Optional[Dict[str, Any]] = None,
