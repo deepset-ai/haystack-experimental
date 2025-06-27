@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from typing import Any, Dict, List, Optional, Union
@@ -11,9 +10,9 @@ from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
-from haystack.components.builders import PromptBuilder
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.serialization import component_to_dict
+from haystack.dataclasses import TextContent
 from haystack.utils import deserialize_chatgenerator_inplace
 
 from haystack_experimental.dataclasses import ImageContent
@@ -100,8 +99,6 @@ class LLMDocumentContentExtractor:
             )
         self.raise_on_failure = raise_on_failure
         self.max_workers = max_workers
-
-        self._prompt_builder = PromptBuilder(template=prompt)
         self._chat_generator = chat_generator
 
     def warm_up(self):
@@ -140,33 +137,14 @@ class LLMDocumentContentExtractor:
         deserialize_chatgenerator_inplace(data["init_parameters"], key="chat_generator")
         return default_from_dict(cls, data)
 
-    def _extract_metadata(self, llm_answer: str) -> Dict[str, Any]:
-        try:
-            parsed_metadata = json.loads(llm_answer)
-        except json.JSONDecodeError as e:
-            logger.warning(
-                "Response from the LLM is not valid JSON. Skipping metadata extraction. Received output: {response}",
-                response=llm_answer,
-            )
-            if self.raise_on_failure:
-                raise e
-            return {"error": "Response is not valid JSON. Received JSONDecodeError: " + str(e)}
-
-        return parsed_metadata
-
     def _prepare_prompts(self, documents: List[Document]) -> List[Union[ChatMessage, None]]:
         all_prompts: List[Union[ChatMessage, None]] = []
         for document in documents:
-            if not document.content:
-                logger.warning("Document {doc_id} has no content. Skipping metadata extraction.", doc_id=document.id)
-                all_prompts.append(None)
-                continue
-            prompt_with_doc = self._prompt_builder.run(template=self.prompt)
+            text_content = TextContent(text=self.prompt)
             # TODO Add the normal checks and handle PDFs differently etc.
             image_content = ImageContent.from_file_path(document.meta["file_path"])
-            message = ChatMessage.from_user(content_parts=[prompt_with_doc["prompt"], image_content])
+            message = ChatMessage.from_user(content_parts=[text_content, image_content])
             all_prompts.append(message)
-
         return all_prompts
 
     def _run_on_thread(self, prompt: Optional[ChatMessage]) -> Dict[str, Any]:
@@ -202,7 +180,7 @@ class LLMDocumentContentExtractor:
             "content_extraction_error" and "content_extraction_response" in their metadata. These documents can be
             re-run with the extractor to extract a textual representation of their content.
         """
-        if len(documents) == 0:
+        if not documents:
             logger.warning("No documents provided. Skipping content extraction.")
             return {"documents": [], "failed_documents": []}
 
@@ -222,26 +200,15 @@ class LLMDocumentContentExtractor:
                     "content_extraction_error": result["error"],
                     "content_extraction_response": None,
                 }
-                # We set id to an empty string to retrigger new id creation
-                failed_documents.append(replace(document, meta=new_meta, id=""))
+                failed_documents.append(replace(document, meta=new_meta))
                 continue
 
-            parsed_metadata = self._extract_metadata(result["replies"][0].text)
-            if "error" in parsed_metadata:
-                new_meta = {
-                    **document.meta,
-                    "content_extraction_error": parsed_metadata["error"],
-                    "content_extraction_response": result["replies"][0],
-                }
-                # We set id to an empty string to retrigger new id creation
-                failed_documents.append(replace(document, meta=new_meta, id=""))
-                continue
-
-            new_meta = {**document.meta, **parsed_metadata}
-            # Remove metadata_extraction_error and metadata_extraction_response if present from previous runs
+            # Remove content_extraction_error and content_extraction_response if present from previous runs
+            new_meta = {**document.meta}
             new_meta.pop("content_extraction_error", None)
             new_meta.pop("content_extraction_response", None)
-            # We set id to an empty string to retrigger new id creation
-            successful_documents.append(replace(document, meta=new_meta, id=""))
+
+            extracted_content = result["replies"][0].text
+            successful_documents.append(replace(document, content=extracted_content, meta=new_meta))
 
         return {"documents": successful_documents, "failed_documents": failed_documents}
