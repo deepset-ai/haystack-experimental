@@ -159,7 +159,7 @@ async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls, debug_
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
     agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
-    
+
     try:
         await mock_agent_with_tool_calls.run_async(messages=messages, breakpoints=agent_breakpoint, debug_path=debug_path)
     except PipelineBreakpointException:
@@ -179,7 +179,6 @@ async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls, debug_
     assert "messages" in result
     assert "last_message" in result
     assert len(result["messages"]) > 0
-
 
 @pytest.mark.asyncio
 async def test_invalid_combination_breakpoint_and_resume_state_async(mock_agent_with_tool_calls, debug_path):
