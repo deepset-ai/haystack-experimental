@@ -4,7 +4,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.types import ChatGenerator
@@ -14,7 +14,8 @@ from haystack.utils import deserialize_chatgenerator_inplace
 from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
-from haystack_experimental.dataclasses import ImageContent
+from haystack_experimental.components.converters.image.document_to_image import DocumentToImageContent
+from haystack_experimental.components.converters.image.image_utils import pillow_import, pypdfium2_import
 from haystack_experimental.dataclasses.chat_message import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -72,21 +73,36 @@ class LLMDocumentContentExtractor:
         *,
         chat_generator: ChatGenerator,
         prompt: str = DEFAULT_PROMPT_TEMPLATE,
+        file_path_meta_field: str = "file_path",
+        root_path: Optional[str] = None,
+        detail: Optional[Literal["auto", "high", "low"]] = None,
         raise_on_failure: bool = False,
         max_workers: int = 3,
     ):
         """
         Initialize the LLMDocumentContentExtractor component.
 
+        :param chat_generator: A ChatGenerator instance which represents the LLM. In order for the component to work,
+            the LLM should be configured to return a plain text response.
         :param prompt: The prompt to be used for the LLM.
-        :param chat_generator: a ChatGenerator instance which represents the LLM. In order for the component to work,
-            the LLM should be configured to return a JSON object. For example, when using the OpenAIChatGenerator, you
-            should pass `{"response_format": {"type": "json_object"}}` in the `generation_kwargs`.
+        :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
+        :param root_path: The root directory path where document files are located. If provided, file paths in
+            document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
+        :param detail: Optional detail level of the image (only supported by OpenAI). Can be "auto", "high", or "low".
+            This will be passed to chat_generator when processing the images.
         :param raise_on_failure: Whether to raise an error on failure during the execution of the Generator or
             validation of the JSON output.
         :param max_workers: The maximum number of workers to use in the thread pool executor.
         """
+        # Needed for DocumentToImageContent component
+        pillow_import.check()
+        pypdfium2_import.check()
+
+        self._chat_generator = chat_generator
         self.prompt = prompt
+        self.file_path_meta_field = file_path_meta_field
+        self.root_path = root_path or ""
+        self.detail = detail
         # Ensure the prompt does not contain any variables.
         ast = SandboxedEnvironment().parse(prompt)
         template_variables = meta.find_undeclared_variables(ast)
@@ -98,7 +114,11 @@ class LLMDocumentContentExtractor:
             )
         self.raise_on_failure = raise_on_failure
         self.max_workers = max_workers
-        self._chat_generator = chat_generator
+        self._document_to_image_content = DocumentToImageContent(
+            file_path_meta_field=file_path_meta_field,
+            root_path=root_path,
+            detail=detail,
+        )
 
     def warm_up(self):
         """
@@ -117,8 +137,11 @@ class LLMDocumentContentExtractor:
 
         return default_to_dict(
             self,
-            prompt=self.prompt,
             chat_generator=component_to_dict(obj=self._chat_generator, name="chat_generator"),
+            prompt=self.prompt,
+            file_path_meta_field=self.file_path_meta_field,
+            root_path=self.root_path,
+            detail=self.detail,
             raise_on_failure=self.raise_on_failure,
             max_workers=self.max_workers,
         )
@@ -135,16 +158,6 @@ class LLMDocumentContentExtractor:
         """
         deserialize_chatgenerator_inplace(data["init_parameters"], key="chat_generator")
         return default_from_dict(cls, data)
-
-    def _prepare_prompts(self, documents: List[Document]) -> List[Union[ChatMessage, None]]:
-        all_prompts: List[Union[ChatMessage, None]] = []
-        for document in documents:
-            text_content = TextContent(text=self.prompt)
-            # TODO Add the normal checks and handle PDFs differently etc.
-            image_content = ImageContent.from_file_path(document.meta["file_path"])
-            message = ChatMessage.from_user(content_parts=[text_content, image_content])
-            all_prompts.append(message)
-        return all_prompts
 
     def _run_on_thread(self, prompt: Optional[ChatMessage]) -> Dict[str, Any]:
         # If prompt is None, return an error dictionary
@@ -180,11 +193,19 @@ class LLMDocumentContentExtractor:
             re-run with the extractor to extract a textual representation of their content.
         """
         if not documents:
-            logger.warning("No documents provided. Skipping content extraction.")
             return {"documents": [], "failed_documents": []}
 
         # Create ChatMessage prompts for each document
-        all_prompts = self._prepare_prompts(documents=documents)
+        image_contents = self._document_to_image_content.run(documents=documents)["image_contents"]
+        all_prompts: List[Union[ChatMessage, None]] = []
+        for image_content in image_contents:
+            if image_content is None:
+                # If the image content is None, it means the document could not be converted to an image.
+                # We skip this document.
+                all_prompts.append(None)
+                continue
+            message = ChatMessage.from_user(content_parts=[TextContent(text=self.prompt), image_content])
+            all_prompts.append(message)
 
         # Run the LLM on each prompt
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
