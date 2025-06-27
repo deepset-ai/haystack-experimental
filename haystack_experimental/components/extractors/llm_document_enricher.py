@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import copy
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -14,76 +13,95 @@ from jinja2.sandbox import SandboxedEnvironment
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators.chat.types import ChatGenerator
-from haystack.components.preprocessors import DocumentSplitter
 from haystack.core.serialization import component_to_dict
-from haystack.dataclasses import ChatMessage
-from haystack.utils import deserialize_chatgenerator_inplace, expand_page_range
+from haystack.utils import deserialize_chatgenerator_inplace
+
+from haystack_experimental.dataclasses import ImageContent
+from haystack_experimental.dataclasses.chat_message import ChatMessage
 
 logger = logging.getLogger(__name__)
 
 
-# Input ByteStream or Document?
-# Could see this component coming after a FileTypeRouter where we directly pipe image formats directly to this component
-# However, for PDFs would probably want to pipe in Documents since those will come from:
-#   FileTypeRouter.pdfs --> PDFConverter --> DocumentLengthRouter --> LLMDocumentEnricher
-@component
-class LLMDocumentEnricher:
-    """
-    Extracts structured information
+DEFAULT_PROMPT_TEMPLATE = """
+You are part of an information extraction pipeline that extracts the content of image-based documents.
 
-    The metadata is extracted by providing a prompt to an LLM that generates the metadata.
+Extract the content from the provided image.
+You need to extract the content exactly.
+Format everything as markdown.
+Make sure to retain the reading order of the document.
+
+**Visual Elements**
+Do not extract figures, drawings, maps, graphs or any other visual elements.
+Instead, add a caption that describes briefly what you see in the visual element.
+You must describe each visual element. If you only see a visual element without other content, you must describe this 
+visual element.
+Enclose each image caption with [img-caption][/img-caption]
+
+**Tables**
+Make sure to format the table in markdown.
+Add a short caption below the table that describes the table's content.
+Enclose each table caption with [table-caption][/table-caption].
+The caption must be placed below the extracted table.
+
+**Forms**
+Reproduce checkbox selections with markdown.
+
+Go ahead and extract!
+
+Document:"""
+
+
+@component
+class LLMDocumentContentExtractor:
+    """
+    Extracts the content of image-based documents using an LLM (Large Language Model).
 
     This component expects as input a list of documents and a prompt. The prompt should have a variable called
     `document` that will point to a single document in the list of documents. So to access the content of the document,
     you can use `{{ document.content }}` in the prompt.
 
-    The component will run the LLM on each document in the list and extract metadata from the document. The metadata
-    will be added to the document's metadata field. If the LLM fails to extract metadata from a document, the document
-    will be added to the `failed_documents` list. The failed documents will have the keys `metadata_extraction_error` and
-    `metadata_extraction_response` in their metadata. These documents can be re-run with another extractor to
-    extract metadata by using the `metadata_extraction_response` and `metadata_extraction_error` in the prompt.
+    The component will run the LLM on each document in the list and extract the content from the document using the
+    vision-enabled ChatGenerator.
+
+    If the LLM fails to extract content of a document, the document will be added to the `failed_documents` list.
+    The failed documents will have the keys `content_extraction_error` and `content_extraction_response` in their
+    metadata. These documents can be re-run with another extractor to extract metadata by using the
+    `content_extraction_response` and `content_extraction_error` in the prompt.
     """
 
     def __init__(
         self,
-        prompt: str,
+        *,
         chat_generator: ChatGenerator,
-        expected_keys: Optional[List[str]] = None,
-        page_range: Optional[List[Union[str, int]]] = None,
+        prompt: str = DEFAULT_PROMPT_TEMPLATE,
         raise_on_failure: bool = False,
         max_workers: int = 3,
     ):
         """
-        Initializes the LLMMetadataExtractor.
+        Initialize the LLMDocumentContentExtractor component.
 
         :param prompt: The prompt to be used for the LLM.
         :param chat_generator: a ChatGenerator instance which represents the LLM. In order for the component to work,
             the LLM should be configured to return a JSON object. For example, when using the OpenAIChatGenerator, you
             should pass `{"response_format": {"type": "json_object"}}` in the `generation_kwargs`.
-        :param expected_keys: The keys expected in the JSON output from the LLM.
-        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
-            metadata from the first and third pages of each document. It also accepts printable range strings, e.g.:
-            ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,11, 12.
-            If None, metadata will be extracted from the entire document for each document in the documents list.
-            This parameter is optional and can be overridden in the `run` method.
         :param raise_on_failure: Whether to raise an error on failure during the execution of the Generator or
             validation of the JSON output.
         :param max_workers: The maximum number of workers to use in the thread pool executor.
         """
         self.prompt = prompt
+        # Ensure the prompt does not contain any variables.
         ast = SandboxedEnvironment().parse(prompt)
         template_variables = meta.find_undeclared_variables(ast)
         variables = list(template_variables)
-        if len(variables) > 1 or variables[0] != "document":
+        if len(variables) != 0:
             raise ValueError(
-                f"Prompt must have exactly one variable called 'document'. Found {','.join(variables)} in the prompt."
+                f"The prompt must not have any variables only instructions on how to extract the content of the "
+                f"image-based document. Found {','.join(variables)} in the prompt."
             )
-        self.builder = PromptBuilder(prompt, required_variables=variables)
         self.raise_on_failure = raise_on_failure
-        self.expected_keys = expected_keys or []
-        self.splitter = DocumentSplitter(split_by="page", split_length=1)
-        self.expanded_range = expand_page_range(page_range) if page_range else None
         self.max_workers = max_workers
+
+        self._prompt_builder = PromptBuilder(template=prompt)
         self._chat_generator = chat_generator
 
     def warm_up(self):
@@ -105,14 +123,12 @@ class LLMDocumentEnricher:
             self,
             prompt=self.prompt,
             chat_generator=component_to_dict(obj=self._chat_generator, name="chat_generator"),
-            expected_keys=self.expected_keys,
-            page_range=self.expanded_range,
             raise_on_failure=self.raise_on_failure,
             max_workers=self.max_workers,
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LLMMetadataExtractor":
+    def from_dict(cls, data: Dict[str, Any]) -> "LLMDocumentContentExtractor":
         """
         Deserializes the component from a dictionary.
 
@@ -121,13 +137,10 @@ class LLMDocumentEnricher:
         :returns:
             An instance of the component.
         """
-
         deserialize_chatgenerator_inplace(data["init_parameters"], key="chat_generator")
         return default_from_dict(cls, data)
 
     def _extract_metadata(self, llm_answer: str) -> Dict[str, Any]:
-        parsed_metadata: Dict[str, Any] = {}
-
         try:
             parsed_metadata = json.loads(llm_answer)
         except json.JSONDecodeError as e:
@@ -139,41 +152,19 @@ class LLMDocumentEnricher:
                 raise e
             return {"error": "Response is not valid JSON. Received JSONDecodeError: " + str(e)}
 
-        if not all(key in parsed_metadata for key in self.expected_keys):
-            logger.warning(
-                "Expected response from LLM to be a JSON with keys {expected_keys}, got {parsed_json}. "
-                "Continuing extraction with received output.",
-                expected_keys=self.expected_keys,
-                parsed_json=parsed_metadata,
-            )
-
         return parsed_metadata
 
-    def _prepare_prompts(
-        self, documents: List[Document], expanded_range: Optional[List[int]] = None
-    ) -> List[Union[ChatMessage, None]]:
+    def _prepare_prompts(self, documents: List[Document]) -> List[Union[ChatMessage, None]]:
         all_prompts: List[Union[ChatMessage, None]] = []
         for document in documents:
             if not document.content:
                 logger.warning("Document {doc_id} has no content. Skipping metadata extraction.", doc_id=document.id)
                 all_prompts.append(None)
                 continue
-
-            if expanded_range:
-                doc_copy = copy.deepcopy(document)
-                pages = self.splitter.run(documents=[doc_copy])
-                content = ""
-                for idx, page in enumerate(pages["documents"]):
-                    if idx + 1 in expanded_range:
-                        content += page.content
-                doc_copy.content = content
-            else:
-                doc_copy = document
-
-            prompt_with_doc = self.builder.run(template=self.prompt, template_variables={"document": doc_copy})
-
-            # build a ChatMessage with the prompt
-            message = ChatMessage.from_user(prompt_with_doc["prompt"])
+            prompt_with_doc = self._prompt_builder.run(template=self.prompt)
+            # TODO Add the normal checks and handle PDFs differently etc.
+            image_content = ImageContent.from_file_path(document.meta["file_path"])
+            message = ChatMessage.from_user(content_parts=[prompt_with_doc["prompt"], image_content])
             all_prompts.append(message)
 
         return all_prompts
@@ -197,40 +188,26 @@ class LLMDocumentEnricher:
         return result
 
     @component.output_types(documents=List[Document], failed_documents=List[Document])
-    def run(self, documents: List[Document], page_range: Optional[List[Union[str, int]]] = None):
+    def run(self, documents: List[Document]):
         """
-        Extract metadata from documents using a Large Language Model.
+        Extract text content from image-based documents using a Large Language Model.
 
-        If `page_range` is provided, the metadata will be extracted from the specified range of pages. This component
-        will split the documents into pages and extract metadata from the specified range of pages. The metadata will be
-        extracted from the entire document if `page_range` is not provided.
+        The original documents will be returned updated with the extracted text content.
 
-        The original documents will be returned  updated with the extracted metadata.
-
-        :param documents: List of documents to extract metadata from.
-        :param page_range: A range of pages to extract metadata from. For example, page_range=['1', '3'] will extract
-                           metadata from the first and third pages of each document. It also accepts printable range
-                           strings, e.g.: ['1-3', '5', '8', '10-12'] will extract metadata from pages 1, 2, 3, 5, 8, 10,
-                           11, 12.
-                           If None, metadata will be extracted from the entire document for each document in the
-                           documents list.
+        :param documents: List of documents to extract content from.
         :returns:
             A dictionary with the keys:
             - "documents": A list of documents that were successfully updated with the extracted metadata.
             - "failed_documents": A list of documents that failed to extract metadata. These documents will have
-            "metadata_extraction_error" and "metadata_extraction_response" in their metadata. These documents can be
-            re-run with the extractor to extract metadata.
+            "content_extraction_error" and "content_extraction_response" in their metadata. These documents can be
+            re-run with the extractor to extract a textual representation of their content.
         """
         if len(documents) == 0:
-            logger.warning("No documents provided. Skipping metadata extraction.")
+            logger.warning("No documents provided. Skipping content extraction.")
             return {"documents": [], "failed_documents": []}
 
-        expanded_range = self.expanded_range
-        if page_range:
-            expanded_range = expand_page_range(page_range)
-
         # Create ChatMessage prompts for each document
-        all_prompts = self._prepare_prompts(documents=documents, expanded_range=expanded_range)
+        all_prompts = self._prepare_prompts(documents=documents)
 
         # Run the LLM on each prompt
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -242,8 +219,8 @@ class LLMDocumentEnricher:
             if "error" in result:
                 new_meta = {
                     **document.meta,
-                    "metadata_extraction_error": result["error"],
-                    "metadata_extraction_response": None,
+                    "content_extraction_error": result["error"],
+                    "content_extraction_response": None,
                 }
                 # We set id to an empty string to retrigger new id creation
                 failed_documents.append(replace(document, meta=new_meta, id=""))
@@ -253,8 +230,8 @@ class LLMDocumentEnricher:
             if "error" in parsed_metadata:
                 new_meta = {
                     **document.meta,
-                    "metadata_extraction_error": parsed_metadata["error"],
-                    "metadata_extraction_response": result["replies"][0],
+                    "content_extraction_error": parsed_metadata["error"],
+                    "content_extraction_response": result["replies"][0],
                 }
                 # We set id to an empty string to retrigger new id creation
                 failed_documents.append(replace(document, meta=new_meta, id=""))
@@ -262,8 +239,8 @@ class LLMDocumentEnricher:
 
             new_meta = {**document.meta, **parsed_metadata}
             # Remove metadata_extraction_error and metadata_extraction_response if present from previous runs
-            new_meta.pop("metadata_extraction_error", None)
-            new_meta.pop("metadata_extraction_response", None)
+            new_meta.pop("content_extraction_error", None)
+            new_meta.pop("content_extraction_response", None)
             # We set id to an empty string to retrigger new id creation
             successful_documents.append(replace(document, meta=new_meta, id=""))
 
