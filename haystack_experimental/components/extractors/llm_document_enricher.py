@@ -6,14 +6,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from typing import Any, Dict, List, Optional, Union
 
-from jinja2 import meta
-from jinja2.sandbox import SandboxedEnvironment
-
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.serialization import component_to_dict
 from haystack.dataclasses import TextContent
 from haystack.utils import deserialize_chatgenerator_inplace
+from jinja2 import meta
+from jinja2.sandbox import SandboxedEnvironment
 
 from haystack_experimental.dataclasses import ImageContent
 from haystack_experimental.dataclasses.chat_message import ChatMessage
@@ -32,8 +31,8 @@ Make sure to retain the reading order of the document.
 **Visual Elements**
 Do not extract figures, drawings, maps, graphs or any other visual elements.
 Instead, add a caption that describes briefly what you see in the visual element.
-You must describe each visual element. If you only see a visual element without other content, you must describe this 
-visual element.
+You must describe each visual element.
+If you only see a visual element without other content, you must describe this visual element.
 Enclose each image caption with [img-caption][/img-caption]
 
 **Tables**
@@ -166,7 +165,7 @@ class LLMDocumentContentExtractor:
         return result
 
     @component.output_types(documents=List[Document], failed_documents=List[Document])
-    def run(self, documents: List[Document]):
+    def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
         Extract text content from image-based documents using a Large Language Model.
 
