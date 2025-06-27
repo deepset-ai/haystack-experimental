@@ -202,6 +202,7 @@ class LLMDocumentContentExtractor:
             if image_content is None:
                 # If the image content is None, it means the document could not be converted to an image.
                 # We skip this document.
+                # We don't log a warning here since it is already logged in the DocumentToImageContent component.
                 all_prompts.append(None)
                 continue
             message = ChatMessage.from_user(content_parts=[TextContent(text=self.prompt), image_content])
