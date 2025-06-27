@@ -19,6 +19,9 @@ from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.core.pipeline.breakpoint import load_state
 from unittest.mock import patch
 
+from haystack_experimental.dataclasses.breakpoints import Breakpoint
+
+
 # Define the component input parameters
 @component
 class OutputValidator:
@@ -183,9 +186,9 @@ class TestPipelineBreakpointsLoops:
         return {"schema": json_schema, "passage": passage}
 
     components = [
-        "prompt_builder",
-        "llm",
-        "output_validator"
+        Breakpoint("prompt_builder", 0),
+        Breakpoint("llm", 0),
+        Breakpoint("output_validator", 0)
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
@@ -201,7 +204,7 @@ class TestPipelineBreakpointsLoops:
         }
 
         try:
-            _ = validation_loop_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
+            _ = validation_loop_pipeline.run(data, breakpoints=[component], debug_path=str(output_directory))
         except PipelineBreakpointException:
             pass
 
@@ -209,7 +212,7 @@ class TestPipelineBreakpointsLoops:
         file_found = False
         for full_path in all_files:
             f_name = Path(full_path).name
-            if str(f_name).startswith(component):
+            if str(f_name).startswith(component.component_name):
                 file_found = True
                 resume_state = load_state(full_path)
                 result = validation_loop_pipeline.run(data={}, resume_state=resume_state)
