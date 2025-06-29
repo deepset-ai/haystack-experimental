@@ -75,6 +75,11 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
             f"are not part of the current pipeline."
         )
 
+    logger.info(
+        f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
+        f"(visit {resume_state['pipeline_breakpoint']['visits']})"
+    )
+
 
 def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
     """
