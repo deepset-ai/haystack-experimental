@@ -30,7 +30,8 @@ def mock_chat_generator_with_warm_up():
 
 
 class TestQueryExpander:
-    def test_init_default_generator(self):
+    def test_init_default_generator(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
 
         assert expander.n_expansions == 4
@@ -68,7 +69,8 @@ class TestQueryExpander:
         with pytest.raises(ValueError, match="n_expansions must be positive"):
             QueryExpander(n_expansions=-1)
 
-    def test_init_custom_prompt_template(self):
+    def test_init_custom_prompt_template(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         custom_template = (
             "Custom template: {{ query }} with {{ n_expansions }} expansions"
         )
@@ -76,7 +78,8 @@ class TestQueryExpander:
 
         assert expander.prompt_template == custom_template
 
-    def test_run_negative_expansions_raises_error(self):
+    def test_run_negative_expansions_raises_error(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         with pytest.raises(ValueError, match="n_expansions must be positive"):
             expander.run("test query", n_expansions=-1)
@@ -113,13 +116,15 @@ class TestQueryExpander:
 
         assert result["queries"] == ["alt1", "alt2"]
 
-    def test_run_empty_query(self):
+    def test_run_empty_query(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         result = expander.run("")
 
         assert result["queries"] == [""]
 
-    def test_run_empty_query_no_original(self):
+    def test_run_empty_query_no_original(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander(include_original_query=False)
         result = expander.run("   ")
 
@@ -151,7 +156,8 @@ class TestQueryExpander:
 
         assert result["queries"] == ["test query"]
 
-    def test_parse_expanded_queries_valid_json(self):
+    def test_parse_expanded_queries_valid_json(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         queries = expander._parse_expanded_queries(
             '{"queries": ["query1", "query2", "query3"]}'
@@ -159,25 +165,29 @@ class TestQueryExpander:
 
         assert queries == ["query1", "query2", "query3"]
 
-    def test_parse_expanded_queries_invalid_json(self):
+    def test_parse_expanded_queries_invalid_json(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         queries = expander._parse_expanded_queries("not json")
 
         assert queries == []
 
-    def test_parse_expanded_queries_empty_string(self):
+    def test_parse_expanded_queries_empty_string(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         queries = expander._parse_expanded_queries("")
 
         assert queries == []
 
-    def test_parse_expanded_queries_non_list_json(self):
+    def test_parse_expanded_queries_non_list_json(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         queries = expander._parse_expanded_queries('{"not": "a list"}')
 
         assert queries == []
 
-    def test_parse_expanded_queries_mixed_types(self):
+    def test_parse_expanded_queries_mixed_types(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
         queries = expander._parse_expanded_queries(
             '{"queries": ["valid query", 123, "", "another valid"]}'
@@ -232,7 +242,8 @@ class TestQueryExpander:
         assert "Create 2 alternative search queries for: test query" in call_args
         assert "Return as JSON" in call_args
 
-    def test_component_output_types(self, mock_chat_generator):
+    def test_component_output_types(self, mock_chat_generator, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         expander = QueryExpander()
 
         mock_chat_generator.run.return_value = {
@@ -246,7 +257,8 @@ class TestQueryExpander:
         assert all(isinstance(q, str) for q in result["queries"])
 
     @pytest.mark.parametrize("variable", ["query", "n_expansions"])
-    def test_prompt_template_missing_variable(self, caplog, variable):
+    def test_prompt_template_missing_variable(self, caplog, variable, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key-12345")
         if variable == "query":
             template_missing_variable = "Generate {{ n_expansions }} expansions"
         else:
