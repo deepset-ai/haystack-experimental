@@ -52,20 +52,28 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
     pipeline_state = resume_state["pipeline_state"]
     valid_components = set(graph.nodes.keys())
 
-    # Check if the resume_state has valid components for the target pipeline
-    invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
-    invalid_input_components = set(resume_state["input_data"]["serialized_data"].keys()) - valid_components
-    invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
-
-    if invalid_ordered_components or invalid_input_components or invalid_component_visits:
+    # Check if the ordered_component_names are valid components in the pipeline
+    missing_ordered = set(pipeline_state["ordered_component_names"]) - valid_components
+    if missing_ordered:
         raise PipelineInvalidResumeStateError(
-            "Invalid resume state: Some components in the resume state are not part of the current pipeline."
+            f"Invalid resume state: components {missing_ordered} in 'ordered_component_names' "
+            f"are not part of the current pipeline."
         )
 
-    logger.info(
-        f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
-        f"(visit {resume_state['pipeline_breakpoint']['visits']})"
-    )
+    # Check if the input_data is valid components in the pipeline
+    missing_input = set(resume_state["input_data"].keys()) - valid_components
+    if missing_input:
+        raise PipelineInvalidResumeStateError(
+            f"Invalid resume state: components {missing_input} in 'input_data' are not part of the current pipeline."
+        )
+
+    # Validate 'component_visits'
+    missing_visits = set(pipeline_state["component_visits"].keys()) - valid_components
+    if missing_visits:
+        raise PipelineInvalidResumeStateError(
+            f"Invalid resume state: components {missing_visits} in 'component_visits' "
+            f"are not part of the current pipeline."
+        )
 
 
 def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
@@ -109,7 +117,7 @@ def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Load a saved pipeline state.
 
-    :param file_path: Path to the resume_state file
+    :param file_path: Path to the resume_state file.
     :returns:
         Dict containing the loaded resume_state.
     """

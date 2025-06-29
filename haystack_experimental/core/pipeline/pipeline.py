@@ -320,10 +320,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
         data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
         component_visits = resume_state["pipeline_state"]["component_visits"]
         ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]
-        msg = (
-            f"Resuming pipeline from {resume_state['pipeline_breakpoint']['component']} "
-            f"visit count {resume_state['pipeline_breakpoint']['visits']}"
+        logger.info(
+            "Resuming pipeline from {component} with visit count {visits}",
+            component=resume_state["pipeline_breakpoint"]["component"],
+            visits=resume_state["pipeline_breakpoint"]["visits"],
         )
-        logger.info(msg)
 
         return component_visits, data, resume_state, ordered_component_names
