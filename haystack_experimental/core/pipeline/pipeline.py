@@ -13,11 +13,12 @@ from haystack import logging, tracing
 from haystack.core.pipeline.base import ComponentPriority
 from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.telemetry import pipeline_running
+from haystack.utils import _deserialize_value_with_schema
 
 from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
 
-from .breakpoint import _deserialize_component_input, _save_state, _validate_breakpoint, _validate_pipeline_state
+from .breakpoint import _save_state, _validate_breakpoint, _validate_components_against_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
                 resume_state=resume_state,
             )
+            data = _deserialize_value_with_schema(resume_state["pipeline_state"]["inputs"])
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -237,7 +239,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 # this check will prevent other component_inputs generated at runtime from being deserialized
                 if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
                     for key, value in component_inputs.items():
-                        component_inputs[key] = _deserialize_component_input(value)
+                        component_inputs[key] = _deserialize_value_with_schema(value)
 
                 # Scenario 2: pipeline_breakpoint is provided to stop the pipeline at
                 # a specific component and visit count
@@ -259,6 +261,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             original_input_data=data,
                             ordered_component_names=ordered_component_names,
                         )
+
                         msg = (
                             f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
                         )
@@ -299,6 +302,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint",
                     pipeline_breakpoint=pipeline_breakpoint,
                 )
+
             return pipeline_outputs
 
     def inject_resume_state_into_graph(self, resume_state):
@@ -310,8 +314,9 @@ class Pipeline(HaystackPipeline, PipelineBase):
         # this is needed to prevent a typing error
         if not resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
+        # check if the resume_state is valid for the current pipeline
+        _validate_components_against_pipeline(resume_state, self.graph)
 
-        _validate_pipeline_state(resume_state, graph=self.graph)
         data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
         component_visits = resume_state["pipeline_state"]["component_visits"]
         ordered_component_names = resume_state["pipeline_state"]["ordered_component_names"]
@@ -320,4 +325,5 @@ class Pipeline(HaystackPipeline, PipelineBase):
             component=resume_state["pipeline_breakpoint"]["component"],
             visits=resume_state["pipeline_breakpoint"]["visits"],
         )
+
         return component_visits, data, resume_state, ordered_component_names
