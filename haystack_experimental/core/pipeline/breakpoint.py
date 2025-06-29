@@ -53,25 +53,26 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
     valid_components = set(graph.nodes.keys())
 
     # Check if the ordered_component_names are valid components in the pipeline
-    missing_ordered = set(pipeline_state["ordered_component_names"]) - valid_components
-    if missing_ordered:
+    invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
+    if invalid_ordered_components:
         raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {missing_ordered} in 'ordered_component_names' "
+            f"Invalid resume state: components {invalid_ordered_components} in 'ordered_component_names' "
             f"are not part of the current pipeline."
         )
 
     # Check if the input_data is valid components in the pipeline
-    missing_input = set(resume_state["input_data"].keys()) - valid_components
-    if missing_input:
+    invalid_input_data = set(resume_state["input_data"].keys()) - valid_components
+    if invalid_input_data:
         raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {missing_input} in 'input_data' are not part of the current pipeline."
+            f"Invalid resume state: components {invalid_input_data} in 'input_data' "
+            f"are not part of the current pipeline."
         )
 
     # Validate 'component_visits'
-    missing_visits = set(pipeline_state["component_visits"].keys()) - valid_components
-    if missing_visits:
+    invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
+    if invalid_component_visits:
         raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {missing_visits} in 'component_visits' "
+            f"Invalid resume state: components {invalid_component_visits} in 'component_visits' "
             f"are not part of the current pipeline."
         )
 
