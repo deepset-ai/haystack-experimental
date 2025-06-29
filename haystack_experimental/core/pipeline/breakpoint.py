@@ -61,7 +61,8 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
         )
 
     # Check if the input_data is valid components in the pipeline
-    invalid_input_data = set(resume_state["input_data"].keys()) - valid_components
+    serialized_input_data = resume_state["input_data"]["serialized_data"]
+    invalid_input_data = set(serialized_input_data.keys()) - valid_components
     if invalid_input_data:
         raise PipelineInvalidResumeStateError(
             f"Invalid resume state: components {invalid_input_data} in 'input_data' "
