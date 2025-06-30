@@ -7,7 +7,7 @@
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Optional, Set, Union
 
 from haystack import logging, tracing
 from haystack.core.pipeline.base import ComponentPriority
@@ -37,7 +37,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         self,
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
-        breakpoints: Optional[List[Union[Breakpoint, AgentBreakpoint]]] = None,
+        break_point: Optional[Union[Breakpoint, AgentBreakpoint]] = None,
         break_on_first: Optional[bool] = False,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
@@ -117,7 +117,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
             invoked multiple times (in a loop), only the last-produced
             output is included.
 
-        :param breakpoints:
+        :param break_point:
             A set of breakpoints that can be used to debug the pipeline execution.
 
         :param break_on_first:
@@ -148,7 +148,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         """
         pipeline_running(self)
 
-        if breakpoints and resume_state:
+        if break_point and resume_state:
             msg = (
                 "pipeline_breakpoint and resume_state cannot be provided at the same time. "
                 "The pipeline run will be aborted."
@@ -156,8 +156,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
             raise PipelineInvalidResumeStateError(message=msg)
 
         # make sure all breakpoints are valid, i.e. reference components in the pipeline
-        if breakpoints:
-            _validate_breakpoint(breakpoints, self.graph)
+        if break_point:
+            _validate_breakpoint(break_point, self.graph)
 
         # TODO: Remove this warmup once we can check reliably whether a component has been warmed up or not
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
@@ -246,28 +246,27 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     for key, value in component_inputs.items():
                         component_inputs[key] = _deserialize_value_with_schema(value)
 
-                # Scenario 2: breakpoints are provided to stop the pipeline at a specific component and visit count
+                # Scenario 2: a breakpoint is provided to stop the pipeline at a specific component and visit count
                 breakpoint_triggered = False
-                if breakpoints is not None:
+                if break_point is not None:
                     agent_breakpoint = False
                     breakpoint_component = None
                     visit_count = None
-                    for break_point in breakpoints:
-                        if isinstance(break_point, Breakpoint):
-                            breakpoint_component = break_point.component_name
-                            visit_count = break_point.visit_count
-                            break
+                    if isinstance(break_point, Breakpoint):
+                        breakpoint_component = break_point.component_name
+                        visit_count = break_point.visit_count
+                        break
 
-                        if isinstance(break_point, AgentBreakpoint):
-                            component_instance = component["instance"]
-                            component_class_name = component_instance.__class__.__name__
-                            # if the current component is an agent pass breakpoints to the agent
-                            if component_class_name == "Agent":
-                                component_inputs["breakpoints"] = break_point
-                                component_inputs["debug_path"] = debug_path
-                                component_inputs["break_on_first"] = break_on_first
-                                agent_breakpoint = True
-                                break
+                    if isinstance(break_point, AgentBreakpoint):
+                        component_instance = component["instance"]
+                        component_class_name = component_instance.__class__.__name__
+                        # if the current component is an agent pass breakpoints to the agent
+                        if component_class_name == "Agent":
+                            component_inputs["breakpoints"] = break_point
+                            component_inputs["debug_path"] = debug_path
+                            component_inputs["break_on_first"] = break_on_first
+                            agent_breakpoint = True
+                            break
 
                     if not agent_breakpoint:
                         breakpoint_triggered = bool(
@@ -321,12 +320,12 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 if self._is_queue_stale(priority_queue):
                     priority_queue = self._fill_queue(ordered_component_names, inputs, component_visits)
 
-            if breakpoints and not agent_breakpoint:
+            if break_point and not agent_breakpoint:
                 logger.warning(
                     "The given breakpoint {pipeline_breakpoint} was never triggered. This is because:\n"
                     "1. The provided component is not a part of the pipeline execution path.\n"
                     "2. The component did not reach the visit count specified in the pipeline_breakpoint",
-                    pipeline_breakpoint=breakpoints,
+                    pipeline_breakpoint=break_point,
                 )
 
             return pipeline_outputs

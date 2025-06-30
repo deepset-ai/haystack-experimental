@@ -275,7 +275,7 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = hybrid_rag_pipeline.run(data, breakpoints=[component, 0], debug_path=str(output_directory))
+            _ = hybrid_rag_pipeline.run(data, break_point=[component, 0], debug_path=str(output_directory))
         except PipelineBreakpointException as e:
             pass
 

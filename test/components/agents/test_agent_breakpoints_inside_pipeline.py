@@ -199,12 +199,13 @@ def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
-    agent_breakpoints = AgentBreakpoint(breakpoints={agent_generator_breakpoint, agent_tool_breakpoint})
+    # agent_breakpoints = AgentBreakpoint(break_point={agent_generator_breakpoint, agent_tool_breakpoint})
+    agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
 
     with tempfile.TemporaryDirectory() as debug_path:
         agent_output = pipeline_with_agent.run(
             data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-            breakpoints=[agent_breakpoints],
+            break_point=agent_breakpoints,
             debug_path=debug_path,
             break_on_first=False,
         )

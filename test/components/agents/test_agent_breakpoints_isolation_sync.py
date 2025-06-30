@@ -28,7 +28,7 @@ def test_run_with_chat_generator_breakpoint(agent_sync, debug_path):
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
     with pytest.raises(PipelineBreakpointException) as exc_info:
-        agent_sync.run(messages=messages, breakpoints=agent_breakpoint, debug_path=debug_path)
+        agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
 
@@ -40,7 +40,7 @@ def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls_sync, debug
     with pytest.raises(PipelineBreakpointException) as exc_info:
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
-            breakpoints=agent_breakpoint,
+            break_point=agent_breakpoint,
             debug_path=debug_path
         )
 
@@ -54,7 +54,7 @@ def test_resume_from_chat_generator(agent_sync, debug_path):
     agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
     
     try:
-        agent_sync.run(messages=messages, breakpoints=agent_breakpoint, debug_path=debug_path)
+        agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
     except PipelineBreakpointException:
         pass
 
@@ -81,7 +81,7 @@ def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
     try:
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
-            breakpoints=agent_breakpoint,
+            break_point=agent_breakpoint,
             debug_path=debug_path
         )
     except PipelineBreakpointException:
@@ -110,7 +110,7 @@ def test_invalid_combination_breakpoint_and_resume_state(mock_agent_with_tool_ca
     with pytest.raises(ValueError, match="agent_breakpoint and resume_state cannot be provided at the same time"):
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
-            breakpoints=agent_breakpoint,
+            break_point=agent_breakpoint,
             debug_path=debug_path,
             resume_state={"some": "state"}
         )
@@ -128,6 +128,6 @@ def test_breakpoint_with_invalid_tool_name(mock_agent_with_tool_calls_sync, debu
         agent_breakpoints = create_agent_breakpoint(tool_breakpoints={tool_breakpoint})
         mock_agent_with_tool_calls_sync.run(
             messages=[ChatMessage.from_user("What's the weather in Berlin?")],
-            breakpoints=agent_breakpoints,
+            break_point=agent_breakpoints,
             debug_path=debug_path
         )

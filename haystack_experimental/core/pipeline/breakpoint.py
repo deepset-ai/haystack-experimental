@@ -19,21 +19,18 @@ from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Break
 logger = logging.getLogger(__name__)
 
 
-def _validate_breakpoint(breakpoints: List[Union[Breakpoint, AgentBreakpoint]], graph: MultiDiGraph) -> None:
+def _validate_breakpoint(break_point: Union[Breakpoint, AgentBreakpoint], graph: MultiDiGraph) -> None:
     """
     Validates the breakpoints passed to the pipeline.
 
     Makes sure the breakpoint contains a valid components registered in the pipeline.
 
-    :param breakpoints: a breakpoint to validate, can be Breakpoint or AgentBreakpoint
+    :param break_point: a breakpoint to validate, can be Breakpoint or AgentBreakpoint
     """
 
     # all breakpoints must refer to a valid component in the pipeline
-    for break_point in breakpoints:
-        if isinstance(break_point, Breakpoint) and break_point.component_name not in graph.nodes:
-            raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
-
-    # ToDo: if there are any AgentBreakpoint check if the pipeline has an Agent component
+    if isinstance(break_point, Breakpoint) and break_point.component_name not in graph.nodes:
+        raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
 
 
 def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:

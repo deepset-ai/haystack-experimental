@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
-from typing import Optional, Set, Union
+from typing import Optional, Union
 
 
 @dataclass
@@ -69,58 +69,24 @@ class ToolBreakpoint(Breakpoint):
 class AgentBreakpoint:
     """
     A dataclass to hold a breakpoint that can be used to debug an Agent.
-
-    It holds a set of breakpoints for the components in the Agent.
     """
 
-    generator_breakpoints: Set[Breakpoint]
-    tool_breakpoints: Set[ToolBreakpoint]
+    generator_breakpoint: Optional[Breakpoint] = None
+    tool_breakpoint: Optional[ToolBreakpoint] = None
 
-    def __init__(self, breakpoints: Set[Union[Breakpoint, ToolBreakpoint]]):
-        for break_point in breakpoints:
-            if not isinstance(break_point, ToolBreakpoint) and break_point.component_name != "chat_generator":
-                raise ValueError("All Breakpoints must have component_name 'chat_generator'.")
+    def __init__(self, break_point: Union[Breakpoint, ToolBreakpoint]):
+        if not isinstance(break_point, ToolBreakpoint) and break_point.component_name != "chat_generator":
+            raise ValueError("A Breakpoint must have component_name 'chat_generator'.")
 
-        if not breakpoints:
-            raise ValueError("Breakpoints must be provided.")
+        if not break_point:
+            raise ValueError("A Breakpoint must be provided.")
 
-        self.tool_breakpoints = set()
-        self.generator_breakpoints = set()
-
-        for break_point in breakpoints:
-            if isinstance(break_point, ToolBreakpoint):
-                self.tool_breakpoints.add(break_point)
-            elif isinstance(break_point, Breakpoint) and not isinstance(break_point, ToolBreakpoint):
-                self.generator_breakpoints.add(break_point)
-            else:
-                raise ValueError("Breakpoints must be either Breakpoint or ToolBreakpoint.")
-
-    def add_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
-        """
-        Adds a breakpoint to the set of breakpoints.
-        """
-
-        if isinstance(break_point, Breakpoint):
-            if break_point in self.generator_breakpoints:
-                raise ValueError(f"Breakpoint {break_point} already exists in generator breakpoints.")
-            self.generator_breakpoints.add(break_point)
+        self.tool_breakpoint = None
+        self.generator_breakpoint = None
 
         if isinstance(break_point, ToolBreakpoint):
-            if break_point in self.tool_breakpoints:
-                raise ValueError(f"Breakpoint {break_point} already exists in tool breakpoints.")
-            self.tool_breakpoints.add(break_point)
-
-    def remove_breakpoint(self, break_point: Union[Breakpoint, ToolBreakpoint]) -> None:
-        """
-        Removes a breakpoint from the set of breakpoints.
-        """
-
-        if isinstance(break_point, Breakpoint):
-            if break_point not in self.generator_breakpoints:
-                raise ValueError(f"Breakpoint {break_point} does not exist in generator breakpoints.")
-            self.generator_breakpoints.remove(break_point)
-
-        if isinstance(break_point, ToolBreakpoint):
-            if break_point not in self.tool_breakpoints:
-                raise ValueError(f"Breakpoint {break_point} does not exist in tool breakpoints.")
-            self.tool_breakpoints.remove(break_point)
+            self.tool_breakpoint = break_point
+        elif isinstance(break_point, Breakpoint) and not isinstance(break_point, ToolBreakpoint):
+            self.generator_breakpoint = break_point
+        else:
+            raise ValueError("The breakpoint must be either Breakpoint or ToolBreakpoint.")
