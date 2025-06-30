@@ -26,21 +26,6 @@ def create_chat_generator_breakpoint(visit_count: int = 0) -> Breakpoint:
 def create_tool_breakpoint(tool_name: Optional[str] = None, visit_count: int = 0) -> ToolBreakpoint:
     return ToolBreakpoint(component_name="tool_invoker", visit_count=visit_count, tool_name=tool_name)
 
-def create_agent_breakpoint(
-    chat_generator_breakpoints: Optional[Set[Breakpoint]] = None,
-    tool_breakpoints: Optional[Set[ToolBreakpoint]] = None,
-) -> AgentBreakpoint:
-    breakpoints = set()
-    if chat_generator_breakpoints:
-        breakpoints.update(chat_generator_breakpoints)
-    if tool_breakpoints:
-        breakpoints.update(tool_breakpoints)
-
-    if not chat_generator_breakpoints and not tool_breakpoints:
-        raise ValueError("At least one breakpoint must be provided.")
-
-    return AgentBreakpoint(breakpoints)
-
 
 # Common fixtures
 @pytest.fixture

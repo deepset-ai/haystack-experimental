@@ -15,7 +15,6 @@ from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Break
 from test.components.agents.test_agent_breakpoints_utils import (
     create_chat_generator_breakpoint,
     create_tool_breakpoint,
-    create_agent_breakpoint,
     weather_tool,
     debug_path,
     agent_sync,
@@ -26,7 +25,7 @@ from test.components.agents.test_agent_breakpoints_utils import (
 def test_run_with_chat_generator_breakpoint(agent_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
-    agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
+    agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
     with pytest.raises(PipelineBreakpointException) as exc_info:
         agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
     assert exc_info.value.component == "chat_generator"
@@ -36,7 +35,7 @@ def test_run_with_chat_generator_breakpoint(agent_sync, debug_path):
 def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
-    agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
+    agent_breakpoint = AgentBreakpoint(break_point=tool_bp)
     with pytest.raises(PipelineBreakpointException) as exc_info:
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
@@ -51,7 +50,7 @@ def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls_sync, debug
 def test_resume_from_chat_generator(agent_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
-    agent_breakpoint = create_agent_breakpoint(chat_generator_breakpoints={chat_generator_bp})
+    agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
     
     try:
         agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
@@ -76,7 +75,7 @@ def test_resume_from_chat_generator(agent_sync, debug_path):
 def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
-    agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
+    agent_breakpoint = AgentBreakpoint(break_point=tool_bp)
     
     try:
         mock_agent_with_tool_calls_sync.run(
@@ -106,7 +105,7 @@ def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
 def test_invalid_combination_breakpoint_and_resume_state(mock_agent_with_tool_calls_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
-    agent_breakpoint = create_agent_breakpoint(tool_breakpoints={tool_bp})
+    agent_breakpoint = AgentBreakpoint(break_point=tool_bp)
     with pytest.raises(ValueError, match="agent_breakpoint and resume_state cannot be provided at the same time"):
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
@@ -118,14 +117,14 @@ def test_invalid_combination_breakpoint_and_resume_state(mock_agent_with_tool_ca
 
 def test_breakpoint_with_invalid_component(mock_agent_with_tool_calls_sync, debug_path):
     invalid_bp = Breakpoint(component_name="invalid_breakpoint", visit_count=0)
-    with pytest.raises(ValueError, match="All Breakpoints must have component_name 'chat_generator'."):
-        AgentBreakpoint({invalid_bp})
+    with pytest.raises(ValueError):
+        AgentBreakpoint(invalid_bp)
 
 
 def test_breakpoint_with_invalid_tool_name(mock_agent_with_tool_calls_sync, debug_path):
     tool_breakpoint = create_tool_breakpoint(tool_name="invalid_tool", visit_count=0)
     with pytest.raises(ValueError, match="Tool 'invalid_tool' is not available in the agent's tools"):
-        agent_breakpoints = create_agent_breakpoint(tool_breakpoints={tool_breakpoint})
+        agent_breakpoints = AgentBreakpoint(break_point=tool_breakpoint)
         mock_agent_with_tool_calls_sync.run(
             messages=[ChatMessage.from_user("What's the weather in Berlin?")],
             break_point=agent_breakpoints,
