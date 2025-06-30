@@ -9,13 +9,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from haystack import Answer, Document, ExtractedAnswer, logging
-from haystack.dataclasses import ChatMessage, SparseEmbedding
+from haystack import logging
+from haystack.utils import _serialize_value_with_schema
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
-from haystack_experimental.dataclasses import GeneratedAnswer
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,11 @@ def _validate_breakpoint(breakpoints: List[Union[Breakpoint, AgentBreakpoint]], 
     # ToDo: if there are any AgentBreakpoint check if the pipeline has an Agent component
 
 
-def _validate_pipeline_state(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
+def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
     """
     Validates that the resume_state contains valid configuration for the current pipeline.
 
-    Raises a PipelineInvalidResumeStateError if any component is missing or if the state structure is invalid.
+    Raises a PipelineInvalidResumeStateError if any component in resume_state is not part of the target pipeline.
 
     :param resume_state: The saved state to validate.
     """
@@ -50,25 +50,27 @@ def _validate_pipeline_state(resume_state: Dict[str, Any], graph: MultiDiGraph) 
     valid_components = set(graph.nodes.keys())
 
     # Check if the ordered_component_names are valid components in the pipeline
-    missing_ordered = set(pipeline_state["ordered_component_names"]) - valid_components
-    if missing_ordered:
+    invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
+    if invalid_ordered_components:
         raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {missing_ordered} in 'ordered_component_names' "
+            f"Invalid resume state: components {invalid_ordered_components} in 'ordered_component_names' "
             f"are not part of the current pipeline."
         )
 
     # Check if the input_data is valid components in the pipeline
-    missing_input = set(resume_state["input_data"].keys()) - valid_components
-    if missing_input:
+    serialized_input_data = resume_state["input_data"]["serialized_data"]
+    invalid_input_data = set(serialized_input_data.keys()) - valid_components
+    if invalid_input_data:
         raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {missing_input} in 'input_data' are not part of the current pipeline."
+            f"Invalid resume state: components {invalid_input_data} in 'input_data' "
+            f"are not part of the current pipeline."
         )
 
     # Validate 'component_visits'
-    missing_visits = set(pipeline_state["component_visits"].keys()) - valid_components
-    if missing_visits:
+    invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
+    if invalid_component_visits:
         raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {missing_visits} in 'component_visits' "
+            f"Invalid resume state: components {invalid_component_visits} in 'component_visits' "
             f"are not part of the current pipeline."
         )
 
@@ -96,6 +98,7 @@ def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
 
     # pipeline_state has the necessary keys
     pipeline_state = resume_state["pipeline_state"]
+
     required_pipeline_keys = {"inputs", "component_visits", "ordered_component_names"}
     missing_pipeline = required_pipeline_keys - pipeline_state.keys()
     if missing_pipeline:
@@ -118,7 +121,7 @@ def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Load a saved pipeline state.
 
-    :param file_path: Path to the resume_state file
+    :param file_path: Path to the resume_state file.
     :returns:
         Dict containing the loaded resume_state.
     """
@@ -175,13 +178,15 @@ def _save_state(
             - ordered_component_names: The order of components in the pipeline.
     """
     dt = datetime.now()
+    transformed_original_input_data = _transform_json_structure(original_input_data)
+    transformed_inputs = _transform_json_structure(inputs)
 
     state = {
-        "input_data": _serialize_component_input(original_input_data),  # original input data
+        "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),
         "pipeline_breakpoint": {"component": component_name, "visits": component_visits[component_name]},
         "pipeline_state": {
-            "inputs": _serialize_component_input(inputs),  # current pipeline state inputs
+            "inputs": _serialize_value_with_schema(transformed_inputs),  # current pipeline state inputs
             "component_visits": component_visits,
             "ordered_component_names": ordered_component_names,
         },
@@ -206,52 +211,6 @@ def _save_state(
     except Exception as e:
         logger.error(f"Failed to save pipeline state: {str(e)}")
         raise
-
-
-def _deserialize_component_input(value: Any) -> Any:  # noqa: PLR0911
-    """
-    Tries to deserialize any type of input that can be passed to as input to a pipeline component.
-
-    For primitive values, it returns the value as is, but for complex types, it tries to deserialize them.
-    """
-
-    # None or primitive types are returned as is
-    if not value or isinstance(value, (str, int, float, bool)):
-        return value
-
-    # list of primitive types are returned as is
-    if isinstance(value, list) and all(isinstance(i, (str, int, float, bool)) for i in value):
-        return value
-
-    if isinstance(value, list):
-        # list of lists are called recursively
-        if all(isinstance(i, list) for i in value):
-            return [_deserialize_component_input(i) for i in value]
-        # list of dicts are called recursively
-        if all(isinstance(i, dict) for i in value):
-            return [_deserialize_component_input(i) for i in value]
-
-    # Define the mapping of types to their deserialization functions
-    _type_deserializers = {
-        "Answer": Answer.from_dict,
-        "ChatMessage": ChatMessage.from_dict,
-        "Document": Document.from_dict,
-        "ExtractedAnswer": ExtractedAnswer.from_dict,
-        "GeneratedAnswer": GeneratedAnswer.from_dict,
-        "SparseEmbedding": SparseEmbedding.from_dict,
-    }
-
-    # check if the dictionary has a "_type" key and if it's a known type
-    if isinstance(value, dict):
-        if "_type" in value:
-            type_name = value.pop("_type")
-            if type_name in _type_deserializers:
-                return _type_deserializers[type_name](value)
-
-        # If not a known type, recursively deserialize each item in the dictionary
-        return {k: _deserialize_component_input(v) for k, v in value.items()}
-
-    return value
 
 
 def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any:
@@ -282,34 +241,3 @@ def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> An
 
     # For other data types, just return the value as is.
     return data
-
-
-def _serialize_component_input(value: Any) -> Any:
-    """
-    Serializes, so it can be saved to a file, any type of input to a pipeline component.
-
-    :param value: The value to serialize.
-    :returns: The serialized value that can be saved to a file.
-    """
-    value = _transform_json_structure(value)
-    if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
-        serialized_value = value.to_dict()
-        serialized_value["_type"] = value.__class__.__name__
-        return serialized_value
-
-    # this is a hack to serialize inputs that don't have a to_dict
-    elif hasattr(value, "__dict__"):
-        return {
-            "_type": value.__class__.__name__,
-            "attributes": value.__dict__,
-        }
-
-    # recursively serialize all inputs in a dict
-    elif isinstance(value, dict):
-        return {k: _serialize_component_input(v) for k, v in value.items()}
-
-    # recursively serialize all inputs in lists or tuples
-    elif isinstance(value, list):
-        return [_serialize_component_input(item) for item in value]
-
-    return value
