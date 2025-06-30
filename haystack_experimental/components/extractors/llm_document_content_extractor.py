@@ -53,19 +53,18 @@ Document:"""
 @component
 class LLMDocumentContentExtractor:
     """
-    Extracts the content of image-based documents using an LLM (Large Language Model).
+    Extracts textual content from image-based documents using a vision-enabled LLM (Large Language Model).
 
-    This component expects as input a list of documents and a prompt. The prompt should have a variable called
-    `document` that will point to a single document in the list of documents. So to access the content of the document,
-    you can use `{{ document.content }}` in the prompt.
+    This component converts each input document into an image using the DocumentToImageContent component,
+    uses a prompt to instruct the LLM on how to extract content, and uses a ChatGenerator to extract structured
+    textual content based on the provided prompt.
 
-    The component will run the LLM on each document in the list and extract the content from the document using the
-    vision-enabled ChatGenerator.
+    The prompt must not contain variables; it should only include instructions for the LLM. Image data and the prompt
+    are passed together to the LLM as a chat message.
 
-    If the LLM fails to extract content of a document, the document will be added to the `failed_documents` list.
-    The failed documents will have the keys `content_extraction_error` and `content_extraction_response` in their
-    metadata. These documents can be re-run with another extractor to extract metadata by using the
-    `content_extraction_response` and `content_extraction_error` in the prompt.
+    Documents for which the LLM fails to extract content are returned in a separate `failed_documents` list. These
+    failed documents will have `content_extraction_error` and `content_extraction_response` entries in their metadata.
+    This metadata can be used for debugging or for reprocessing the documents later.
     """
 
     def __init__(
@@ -82,17 +81,19 @@ class LLMDocumentContentExtractor:
         """
         Initialize the LLMDocumentContentExtractor component.
 
-        :param chat_generator: A ChatGenerator instance which represents the LLM. In order for the component to work,
-            the LLM should be configured to return a plain text response.
-        :param prompt: The prompt to be used for the LLM.
+        :param chat_generator: A ChatGenerator instance representing the LLM used to extract text. This generator must
+            support vision-based input and return a plain text response.
+        :param prompt: Instructional text provided to the LLM. It must not contain Jinja variables.
+            The prompt should only contain instructions on how to extract the content of the image-based document.
         :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
         :param root_path: The root directory path where document files are located. If provided, file paths in
             document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
         :param detail: Optional detail level of the image (only supported by OpenAI). Can be "auto", "high", or "low".
             This will be passed to chat_generator when processing the images.
-        :param raise_on_failure: Whether to raise an error on failure during the execution of the Generator or
-            validation of the JSON output.
-        :param max_workers: The maximum number of workers to use in the thread pool executor.
+        :param raise_on_failure: If True, exceptions from the LLM are raised. If False, failed documents are logged
+            and returned.
+        :param max_workers: Maximum number of threads used to parallelize LLM calls across documents using a
+            ThreadPoolExecutor.
         """
         # Needed for DocumentToImageContent component
         pillow_import.check()
@@ -122,7 +123,7 @@ class LLMDocumentContentExtractor:
 
     def warm_up(self):
         """
-        Warm up the LLM provider component.
+        Warm up the ChatGenerator if it has a warm_up method.
         """
         if hasattr(self._chat_generator, "warm_up"):
             self._chat_generator.warm_up()
@@ -160,6 +161,13 @@ class LLMDocumentContentExtractor:
         return default_from_dict(cls, data)
 
     def _run_on_thread(self, prompt: Optional[ChatMessage]) -> Dict[str, Any]:
+        """
+        Execute the LLM inference in a separate thread for each document.
+
+        :param prompt: A ChatMessage containing the prompt and image content for the LLM.
+        :returns:
+            The LLM response if successful, or a dictionary with an "error" key on failure.
+        """
         # If prompt is None, return an error dictionary
         if prompt is None:
             return {"error": "Document has no content, skipping LLM call."}
@@ -180,17 +188,17 @@ class LLMDocumentContentExtractor:
     @component.output_types(documents=List[Document], failed_documents=List[Document])
     def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
-        Extract text content from image-based documents using a Large Language Model.
+        Run content extraction on a list of image-based documents using a vision-capable LLM.
 
-        The original documents will be returned updated with the extracted text content.
+        Each document is passed to the LLM along with a predefined prompt. The response is used to update the document's
+        content. If the extraction fails, the document is returned in the `failed_documents` list with metadata
+        describing the failure.
 
-        :param documents: List of documents to extract content from.
+        :param documents: A list of image-based documents to process. Each must have a valid file path in its metadata.
         :returns:
-            A dictionary with the keys:
-            - "documents": A list of documents that were successfully updated with the extracted metadata.
-            - "failed_documents": A list of documents that failed to extract metadata. These documents will have
-            "content_extraction_error" and "content_extraction_response" in their metadata. These documents can be
-            re-run with the extractor to extract a textual representation of their content.
+            A dictionary with:
+            - "documents": Successfully processed documents, updated with extracted content.
+            - "failed_documents": Documents that failed processing, annotated with failure metadata.
         """
         if not documents:
             return {"documents": [], "failed_documents": []}
