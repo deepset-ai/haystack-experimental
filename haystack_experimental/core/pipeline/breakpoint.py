@@ -16,7 +16,6 @@ from networkx import MultiDiGraph
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 
-
 logger = logging.getLogger(__name__)
 
 

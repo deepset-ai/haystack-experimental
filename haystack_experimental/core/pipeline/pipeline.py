@@ -21,7 +21,6 @@ from haystack_experimental.core.pipeline.base import PipelineBase
 from ...dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 from .breakpoint import _save_state, _validate_breakpoint, _validate_components_against_pipeline
 
-
 logger = logging.getLogger(__name__)
 
 
