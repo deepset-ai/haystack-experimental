@@ -171,7 +171,7 @@ async def test_invalid_combination_breakpoint_and_resume_state_async(mock_agent_
     with pytest.raises(ValueError, match="agent_breakpoint and resume_state cannot be provided at the same time"):
         await mock_agent_with_tool_calls.run_async(
             messages=messages, 
-            breakpoints=agent_breakpoint, 
+            break_point=agent_breakpoint, 
             debug_path=debug_path, 
             resume_state={"some": "state"}
         )
