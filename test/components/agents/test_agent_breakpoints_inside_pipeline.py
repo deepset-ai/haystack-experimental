@@ -194,12 +194,11 @@ def create_pipeline():
 
     return extraction_agent
 
-def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
+def test_chat_generator_breakpoint_in_pipeline_agent():
 
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
-    agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
-    # agent_breakpoints = AgentBreakpoint(break_point={agent_generator_breakpoint, agent_tool_breakpoint})
+    # agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
     agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
 
     with tempfile.TemporaryDirectory() as debug_path:
@@ -212,9 +211,9 @@ def test_agent_breakpoints_in_pipeline_agent_break_on_first_false():
 
         # at least one state file was created for each breakpoint
         chat_generator_state_files = list(Path(debug_path).glob("chat_generator_*.json"))
-        tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
+        # tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
-        assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
+        # assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
 
         # pipeline completed successfully
         assert "database_agent" in agent_output

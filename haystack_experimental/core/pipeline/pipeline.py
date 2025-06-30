@@ -262,7 +262,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         component_class_name = component_instance.__class__.__name__
                         # if the current component is an agent pass breakpoints to the agent
                         if component_class_name == "Agent":
-                            component_inputs["breakpoints"] = break_point
+                            component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
                             component_inputs["break_on_first"] = break_on_first
                             agent_breakpoint = True
