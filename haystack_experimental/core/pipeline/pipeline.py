@@ -38,7 +38,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
         data: Dict[str, Any],
         include_outputs_from: Optional[Set[str]] = None,
         break_point: Optional[Union[Breakpoint, AgentBreakpoint]] = None,
-        break_on_first: Optional[bool] = False,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
@@ -255,7 +254,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     if isinstance(break_point, Breakpoint):
                         breakpoint_component = break_point.component_name
                         visit_count = break_point.visit_count
-                        break
 
                     if isinstance(break_point, AgentBreakpoint):
                         component_instance = component["instance"]
@@ -264,9 +262,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         if component_class_name == "Agent":
                             component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
-                            component_inputs["break_on_first"] = break_on_first
                             agent_breakpoint = True
-                            break
 
                     if not agent_breakpoint:
                         breakpoint_triggered = bool(
@@ -289,13 +285,12 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
                         )
 
-                        if break_on_first:
-                            raise PipelineBreakpointException(
-                                message=msg,
-                                component=component_name,
-                                state=state_inputs_serialised,
-                                results=pipeline_outputs,
-                            )
+                        raise PipelineBreakpointException(
+                            message=msg,
+                            component=component_name,
+                            state=state_inputs_serialised,
+                            results=pipeline_outputs,
+                        )
 
                 component_outputs = self._run_component(
                     component_name=component_name,

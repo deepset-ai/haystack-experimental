@@ -9,6 +9,7 @@ from typing import Optional, List, Dict
 from haystack import component
 from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.core.errors import PipelineRuntimeError
 from haystack.dataclasses import ByteStream
 from haystack.dataclasses import ChatMessage, Document, ToolCall
 from haystack.document_stores.in_memory import InMemoryDocumentStore
@@ -17,6 +18,7 @@ from haystack.tools import tool
 from haystack_experimental.components.agents import Agent
 from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
+from haystack_experimental.core.errors import PipelineBreakpointException
 
 document_store = InMemoryDocumentStore()
 
@@ -194,35 +196,91 @@ def create_pipeline():
 
     return extraction_agent
 
-def test_chat_generator_breakpoint_in_pipeline_agent():
+def run_pipeline_without_any_breakpoints():
+
+    pipeline_with_agent = create_pipeline()
+    agent_output = pipeline_with_agent.run(
+        data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
+    )
+
+    # pipeline completed
+    assert "database_agent" in agent_output
+    assert "messages" in agent_output["database_agent"]
+    assert len(agent_output["database_agent"]["messages"]) > 0
+
+    # final message contains the expected summary
+    final_message = agent_output["database_agent"]["messages"][-1].text
+    assert "Malte Pietsch" in final_message
+    assert "Milos Rusic" in final_message
+    assert "Chief Executive Officer" in final_message
+    assert "Chief Technology Officer" in final_message
+
+def test_chat_generator_breakpoint_in_pipeline_agent_comprehensive():
 
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
-    # agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
     agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
 
     with tempfile.TemporaryDirectory() as debug_path:
-        agent_output = pipeline_with_agent.run(
-            data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-            break_point=agent_breakpoints,
-            debug_path=debug_path,
-            break_on_first=False,
-        )
+        try:
+            pipeline_with_agent.run(
+                data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
+                break_point=agent_breakpoints,
+                debug_path=debug_path,
+            )
+            assert False, "Expected exception was not raised"
 
-        # at least one state file was created for each breakpoint
+        except PipelineBreakpointException as e:    # this is the exception from the Agent
+            assert e.component == "chat_generator"
+            assert e.state is not None
+            assert "messages" in e.state
+            assert e.results is not None
+        except PipelineRuntimeError as e:
+            # propagated exception to core Pipeline - assure that the cause is a PipelineBreakpointException
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+                original_exception = e.__cause__
+                assert original_exception.component == "chat_generator"
+                assert original_exception.state is not None
+                assert "messages" in original_exception.state
+                assert original_exception.results is not None
+            else:
+                # re-raise if it's a different PipelineRuntimeError - test failed
+                raise
+
+        # verify that debug/state file was created
         chat_generator_state_files = list(Path(debug_path).glob("chat_generator_*.json"))
-        # tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
-        # assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
 
-        # pipeline completed successfully
-        assert "database_agent" in agent_output
-        assert "messages" in agent_output["database_agent"]
-        assert len(agent_output["database_agent"]["messages"]) > 0
+def test_tool_breakpoint_in_pipeline_agent():
+    pipeline_with_agent = create_pipeline()
+    agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
+    agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint)
 
-        # final message contains the expected summary
-        final_message = agent_output["database_agent"]["messages"][-1].text
-        assert "Malte Pietsch" in final_message
-        assert "Milos Rusic" in final_message
-        assert "Chief Executive Officer" in final_message
-        assert "Chief Technology Officer" in final_message
+    with tempfile.TemporaryDirectory() as debug_path:
+        try:
+            pipeline_with_agent.run(
+                data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
+                break_point=agent_breakpoints,
+                debug_path=debug_path,
+            )
+            assert False, "Expected exception was not raised"
+        except PipelineBreakpointException as e:    # this is the exception from the Agent
+            assert e.component == "tool_invoker"
+            assert e.state is not None
+            assert "messages" in e.state
+            assert e.results is not None
+        except PipelineRuntimeError as e:
+            # propagated exception to core Pipeline - assure that the cause is a PipelineBreakpointException
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+                original_exception = e.__cause__
+                assert original_exception.component == "tool_invoker"
+                assert original_exception.state is not None
+                assert "messages" in original_exception.state
+                assert original_exception.results is not None
+            else:
+                # re-raise if it's a different PipelineRuntimeError - test failed
+                raise
+
+        # verify that debug/state file was created
+        tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
+        assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
