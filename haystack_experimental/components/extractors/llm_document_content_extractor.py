@@ -15,7 +15,6 @@ from jinja2 import meta
 from jinja2.sandbox import SandboxedEnvironment
 
 from haystack_experimental.components.converters.image.document_to_image import DocumentToImageContent
-from haystack_experimental.components.converters.image.image_utils import pillow_import, pypdfium2_import
 from haystack_experimental.dataclasses.chat_message import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -65,6 +64,24 @@ class LLMDocumentContentExtractor:
     Documents for which the LLM fails to extract content are returned in a separate `failed_documents` list. These
     failed documents will have a `content_extraction_error` entry in their metadata. This metadata can be used for
     debugging or for reprocessing the documents later.
+
+    ### Usage example
+    ```python
+    from haystack import Document
+    from haystack_experimental.components.generators.chat import OpenAIChatGenerator
+    from haystack_experimental.components.extractors import LLMDocumentContentExtractor
+    chat_generator = OpenAIChatGenerator()
+    extractor = LLMDocumentContentExtractor(chat_generator=chat_generator)
+    documents = [
+        Document(content="", meta={"file_path": "image.jpg"}),
+        Document(content="", meta={"file_path": "document.pdf", "page_number": 1}),
+    ]
+    updated_documents = extractor.run(documents=documents)["documents"]
+    print(updated_documents)
+    # [Document(content='Extracted text from image.jpg',
+    #           meta={'file_path': 'image.jpg'}),
+    #  ...]
+    ```
     """
 
     def __init__(
@@ -99,10 +116,6 @@ class LLMDocumentContentExtractor:
         :param max_workers: Maximum number of threads used to parallelize LLM calls across documents using a
             ThreadPoolExecutor.
         """
-        # Needed for DocumentToImageContent component
-        pillow_import.check()
-        pypdfium2_import.check()
-
         self._chat_generator = chat_generator
         self.prompt = prompt
         self.file_path_meta_field = file_path_meta_field
@@ -126,13 +139,16 @@ class LLMDocumentContentExtractor:
             detail=detail,
             size=size,
         )
+        self._is_warmed_up = False
 
     def warm_up(self):
         """
         Warm up the ChatGenerator if it has a warm_up method.
         """
-        if hasattr(self._chat_generator, "warm_up"):
-            self._chat_generator.warm_up()
+        if not self._is_warmed_up:
+            if hasattr(self._chat_generator, "warm_up"):
+                self._chat_generator.warm_up()
+            self._is_warmed_up = True
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -167,20 +183,20 @@ class LLMDocumentContentExtractor:
         deserialize_chatgenerator_inplace(data["init_parameters"], key="chat_generator")
         return default_from_dict(cls, data)
 
-    def _run_on_thread(self, prompt: Optional[ChatMessage]) -> Dict[str, Any]:
+    def _run_on_thread(self, message: Optional[ChatMessage]) -> Dict[str, Any]:
         """
         Execute the LLM inference in a separate thread for each document.
 
-        :param prompt: A ChatMessage containing the prompt and image content for the LLM.
+        :param message: A ChatMessage containing the prompt and image content for the LLM.
         :returns:
             The LLM response if successful, or a dictionary with an "error" key on failure.
         """
-        # If prompt is None, return an error dictionary
-        if prompt is None:
+        # If message is None, return an error dictionary
+        if message is None:
             return {"error": "Document has no content, skipping LLM call."}
 
         try:
-            result = self._chat_generator.run(messages=[prompt])
+            result = self._chat_generator.run(messages=[message])
         except Exception as e:
             if self.raise_on_failure:
                 raise e
@@ -212,20 +228,20 @@ class LLMDocumentContentExtractor:
 
         # Create ChatMessage prompts for each document
         image_contents = self._document_to_image_content.run(documents=documents)["image_contents"]
-        all_prompts: List[Union[ChatMessage, None]] = []
+        all_messages: List[Union[ChatMessage, None]] = []
         for image_content in image_contents:
             if image_content is None:
                 # If the image content is None, it means the document could not be converted to an image.
                 # We skip this document.
                 # We don't log a warning here since it is already logged in the DocumentToImageContent component.
-                all_prompts.append(None)
+                all_messages.append(None)
                 continue
             message = ChatMessage.from_user(content_parts=[TextContent(text=self.prompt), image_content])
-            all_prompts.append(message)
+            all_messages.append(message)
 
-        # Run the LLM on each prompt
+        # Run the LLM on each message
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            results = executor.map(self._run_on_thread, all_prompts)
+            results = executor.map(self._run_on_thread, all_messages)
 
         successful_documents = []
         failed_documents = []
