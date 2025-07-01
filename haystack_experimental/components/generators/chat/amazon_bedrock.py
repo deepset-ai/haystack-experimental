@@ -39,6 +39,23 @@ if not bedrock_integration_import.is_successful():
     class AmazonBedrockChatGenerator:
         """
         Experimental version of AmazonBedrockChatGenerator that allows multimodal chat messages.
+
+        ### Usage example
+        ```python
+        from haystack_experimental.components.generators.chat import AmazonBedrockChatGenerator
+        from haystack_experimental.dataclasses import ChatMessage, ImageContent
+
+        generator = AmazonBedrockChatGenerator(model="anthropic.claude-3-5-sonnet-20240620-v1:0")
+
+        image_content = ImageContent.from_file_path(file_path="apple.jpg")
+
+        message = ChatMessage.from_user(content_parts=["Describe the image using 10 words at most.", image_content])
+
+        response = generator.run(messages=[message])["replies"][0].text
+
+        print(response)
+        # The image shows a red apple.
+        ```
         """
 
         def __init__(  # pylint: disable=too-many-positional-arguments
