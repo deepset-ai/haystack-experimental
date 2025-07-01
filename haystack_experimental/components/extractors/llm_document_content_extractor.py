@@ -4,7 +4,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.types import ChatGenerator
@@ -63,8 +63,8 @@ class LLMDocumentContentExtractor:
     are passed together to the LLM as a chat message.
 
     Documents for which the LLM fails to extract content are returned in a separate `failed_documents` list. These
-    failed documents will have `content_extraction_error` and `content_extraction_response` entries in their metadata.
-    This metadata can be used for debugging or for reprocessing the documents later.
+    failed documents will have a `content_extraction_error` entry in their metadata. This metadata can be used for
+    debugging or for reprocessing the documents later.
     """
 
     def __init__(
@@ -75,6 +75,7 @@ class LLMDocumentContentExtractor:
         file_path_meta_field: str = "file_path",
         root_path: Optional[str] = None,
         detail: Optional[Literal["auto", "high", "low"]] = None,
+        size: Optional[Tuple[int, int]] = None,
         raise_on_failure: bool = False,
         max_workers: int = 3,
     ):
@@ -90,6 +91,9 @@ class LLMDocumentContentExtractor:
             document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
         :param detail: Optional detail level of the image (only supported by OpenAI). Can be "auto", "high", or "low".
             This will be passed to chat_generator when processing the images.
+        :param size: If provided, resizes the image to fit within the specified dimensions (width, height) while
+            maintaining aspect ratio. This reduces file size, memory usage, and processing time, which is beneficial
+            when working with models that have resolution constraints or when transmitting images to remote services.
         :param raise_on_failure: If True, exceptions from the LLM are raised. If False, failed documents are logged
             and returned.
         :param max_workers: Maximum number of threads used to parallelize LLM calls across documents using a
@@ -104,6 +108,7 @@ class LLMDocumentContentExtractor:
         self.file_path_meta_field = file_path_meta_field
         self.root_path = root_path or ""
         self.detail = detail
+        self.size = size
         # Ensure the prompt does not contain any variables.
         ast = SandboxedEnvironment().parse(prompt)
         template_variables = meta.find_undeclared_variables(ast)
@@ -119,6 +124,7 @@ class LLMDocumentContentExtractor:
             file_path_meta_field=file_path_meta_field,
             root_path=root_path,
             detail=detail,
+            size=size,
         )
 
     def warm_up(self):
@@ -143,6 +149,7 @@ class LLMDocumentContentExtractor:
             file_path_meta_field=self.file_path_meta_field,
             root_path=self.root_path,
             detail=self.detail,
+            size=self.size,
             raise_on_failure=self.raise_on_failure,
             max_workers=self.max_workers,
         )
@@ -227,15 +234,13 @@ class LLMDocumentContentExtractor:
                 new_meta = {
                     **document.meta,
                     "content_extraction_error": result["error"],
-                    "content_extraction_response": None,
                 }
                 failed_documents.append(replace(document, meta=new_meta))
                 continue
 
-            # Remove content_extraction_error and content_extraction_response if present from previous runs
+            # Remove content_extraction_error if present from previous runs
             new_meta = {**document.meta}
             new_meta.pop("content_extraction_error", None)
-            new_meta.pop("content_extraction_response", None)
 
             extracted_content = result["replies"][0].text
             successful_documents.append(replace(document, content=extracted_content, meta=new_meta))
