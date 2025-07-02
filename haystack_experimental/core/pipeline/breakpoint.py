@@ -42,7 +42,7 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
     :param resume_state: The saved state to validate.
     """
 
-    if not resume_state['is_agent']:
+    if not resume_state["is_agent"]:
         pipeline_state = resume_state["pipeline_state"]
         valid_components = set(graph.nodes.keys())
 

@@ -181,20 +181,18 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
         else:
             # if it's an Agent state we need to handle it differently
-            if resume_state['is_agent']:
-                agent_name = resume_state['agent_name']
-                print(f"Resuming Agent from {resume_state['component_name']}")
+            if resume_state["is_agent"]:
+                agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
-                    if component['instance'].__class__.__name__ == "Agent" and name == agent_name:
-                        # inject the resume state into the agent
-                        print("found agent component")
+                    if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
                         component_visits, data, resume_state, ordered_component_names = (
-                            component['instance'].inject_resume_state_into_agent(resume_state)
+                            component["instance"].inject_resume_state_into_agent(resume_state)
                         )
                         print(f"Resuming Agent {name} from component {resume_state['pipeline_breakpoint']['component']} ")
                         print(f"with visit count {resume_state['pipeline_breakpoint']['visits']}")
                         break
-                    # ToDo: we need to instruct the main Pipeline that the next component to run is the Agent otherwise it will not run the Agent component
+                    # ToDo: we need somehow to instruct the main Pipeline that the next component to run is the Agent
+                    #  otherwise it will not run the Agent component
             else:
                 # inject the resume state into the graph
                 component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
