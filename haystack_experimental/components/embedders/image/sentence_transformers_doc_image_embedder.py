@@ -33,6 +33,31 @@ class SentenceTransformersDocumentImageEmbedder:
     A component for computing Document embeddings based on images using Sentence Transformers models.
 
     The embedding of each Document is stored in the `embedding` field of the Document.
+
+    ### Usage example
+    ```python
+    from haystack import Document
+    from haystack_experimental.components.embedders.image import SentenceTransformersDocumentImageEmbedder
+
+    embedder = SentenceTransformersDocumentImageEmbedder(model="sentence-transformers/clip-ViT-B-32")
+    embedder.warm_up()
+
+    documents = [
+        Document(content="A photo of a cat", meta={"file_path": "cat.jpg"}),
+        Document(content="A photo of a dog", meta={"file_path": "dog.jpg"}),
+    ]
+
+    result = embedder.run(documents=documents)
+    documents_with_embeddings = result["documents"]
+    print(documents_with_embeddings)
+
+    # [Document(id=...,
+    #           content='A photo of a cat',
+    #           meta={'file_path': 'cat.jpg',
+    #                 'embedding_source': {'type': 'image', 'file_path_meta_field': 'file_path'}},
+    #           embedding=vector of size 512),
+    #  ...]
+    ```
     """
 
     def __init__(

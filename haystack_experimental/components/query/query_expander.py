@@ -61,7 +61,7 @@ class QueryExpander:
     {"queries": ["expanded query 1", "expanded query 2", "expanded query 3"]}
     ```
 
-    Usage example:
+    ### Usage example
 
     ```python
     from haystack.components.generators.chat.openai import OpenAIChatGenerator
