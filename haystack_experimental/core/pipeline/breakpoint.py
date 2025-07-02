@@ -42,38 +42,42 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
     :param resume_state: The saved state to validate.
     """
 
-    pipeline_state = resume_state["pipeline_state"]
-    valid_components = set(graph.nodes.keys())
+    if not resume_state['is_agent']:
+        pipeline_state = resume_state["pipeline_state"]
+        valid_components = set(graph.nodes.keys())
 
-    # Check if the ordered_component_names are valid components in the pipeline
-    invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
-    if invalid_ordered_components:
-        raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {invalid_ordered_components} in 'ordered_component_names' "
-            f"are not part of the current pipeline."
+        # Check if the ordered_component_names are valid components in the pipeline
+        invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
+        if invalid_ordered_components:
+            raise PipelineInvalidResumeStateError(
+                f"Invalid resume state: components {invalid_ordered_components} in 'ordered_component_names' "
+                f"are not part of the current pipeline."
+            )
+
+        # Check if the input_data is valid components in the pipeline
+        serialized_input_data = resume_state["input_data"]["serialized_data"]
+        invalid_input_data = set(serialized_input_data.keys()) - valid_components
+        if invalid_input_data:
+            raise PipelineInvalidResumeStateError(
+                f"Invalid resume state: components {invalid_input_data} in 'input_data' "
+                f"are not part of the current pipeline."
+            )
+
+        # Validate 'component_visits'
+        invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
+        if invalid_component_visits:
+            raise PipelineInvalidResumeStateError(
+                f"Invalid resume state: components {invalid_component_visits} in 'component_visits' "
+                f"are not part of the current pipeline."
+            )
+
+        logger.info(
+            f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
+            f"(visit {resume_state['pipeline_breakpoint']['visits']})"
         )
-
-    # Check if the input_data is valid components in the pipeline
-    serialized_input_data = resume_state["input_data"]["serialized_data"]
-    invalid_input_data = set(serialized_input_data.keys()) - valid_components
-    if invalid_input_data:
-        raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {invalid_input_data} in 'input_data' "
-            f"are not part of the current pipeline."
-        )
-
-    # Validate 'component_visits'
-    invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
-    if invalid_component_visits:
-        raise PipelineInvalidResumeStateError(
-            f"Invalid resume state: components {invalid_component_visits} in 'component_visits' "
-            f"are not part of the current pipeline."
-        )
-
-    logger.info(
-        f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
-        f"(visit {resume_state['pipeline_breakpoint']['visits']})"
-    )
+    else:
+        msg = "Resuming agent pipeline from state."
+        logger.info(msg)
 
 
 def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
@@ -150,6 +154,8 @@ def _save_state(
     debug_path: Optional[Union[str, Path]] = None,
     original_input_data: Optional[Dict[str, Any]] = None,
     ordered_component_names: Optional[List[str]] = None,
+    is_agent = False,
+    agent_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Save the pipeline state to a file.
@@ -160,6 +166,7 @@ def _save_state(
     :param debug_path: The path to save the state to.
     :param original_input_data: The original input data.
     :param ordered_component_names: The ordered component names.
+    :param is_agent: Whether the pipeline is an agent pipeline. If True, the state will be saved in a different format.
     :raises:
         Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
 
@@ -178,6 +185,9 @@ def _save_state(
     transformed_inputs = _transform_json_structure(inputs)
 
     state = {
+        "is_agent": is_agent,
+        "agent_name": agent_name if is_agent else None,
+        "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),
         "pipeline_breakpoint": {"component": component_name, "visits": component_visits[component_name]},

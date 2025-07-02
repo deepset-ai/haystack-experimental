@@ -180,11 +180,27 @@ class Pipeline(HaystackPipeline, PipelineBase):
             component_visits = dict.fromkeys(ordered_component_names, 0)
 
         else:
-            # inject the resume state into the graph
-            component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
-                resume_state=resume_state,
-            )
-            data = _deserialize_value_with_schema(resume_state["pipeline_state"]["inputs"])
+            # if it's an Agent state we need to handle it differently
+            if resume_state['is_agent']:
+                agent_name = resume_state['agent_name']
+                print(f"Resuming Agent from {resume_state['component_name']}")
+                for name, component in self.graph.nodes.items():
+                    if component['instance'].__class__.__name__ == "Agent" and name == agent_name:
+                        # inject the resume state into the agent
+                        print("found agent component")
+                        component_visits, data, resume_state, ordered_component_names = (
+                            component['instance'].inject_resume_state_into_agent(resume_state)
+                        )
+                        print(f"Resuming Agent {name} from component {resume_state['pipeline_breakpoint']['component']} ")
+                        print(f"with visit count {resume_state['pipeline_breakpoint']['visits']}")
+                        break
+                    # ToDo: we need to instruct the main Pipeline that the next component to run is the Agent otherwise it will not run the Agent component
+            else:
+                # inject the resume state into the graph
+                component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
+                    resume_state=resume_state,
+                )
+                data = _deserialize_value_with_schema(resume_state["pipeline_state"]["inputs"])
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -262,7 +278,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         if component_class_name == "Agent":
                             component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
+                            component_inputs["component_name"] = component_name
                             agent_breakpoint = True
+                        # ToDo: we need to save here as well the current main pipeline state otherwise the agent will
+                        #  not be able to resume properly
 
                     if not agent_breakpoint:
                         breakpoint_triggered = bool(
@@ -330,10 +349,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
         Loads the resume state from a file and injects it into the pipeline graph.
 
         """
-        # We previously check if the resume_state is None but
-        # this is needed to prevent a typing error
+        # We previously check if the resume_state is None but this is needed to prevent a typing error
         if not resume_state:
             raise PipelineInvalidResumeStateError("Cannot inject resume state: resume_state is None")
+
         # check if the resume_state is valid for the current pipeline
         _validate_components_against_pipeline(resume_state, self.graph)
 

@@ -248,6 +248,7 @@ class Agent:
     def _check_chat_generator_breakpoint(  # pylint: disable=too-many-positional-arguments
         agent_breakpoint: Optional[AgentBreakpoint],
         component_visits: Dict[str, int],
+        component_name: str,
         messages: List[ChatMessage],
         generator_inputs: Dict[str, Any],
         debug_path: Optional[Union[str, Path]],
@@ -278,6 +279,8 @@ class Agent:
                     debug_path=debug_path,
                     original_input_data={"messages": messages, **kwargs},
                     ordered_component_names=["chat_generator", "tool_invoker"],
+                    is_agent=True,
+                    agent_name=component_name
                 )
                 msg = (
                     f"Breaking at {break_point.component_name} visit count "
@@ -295,6 +298,7 @@ class Agent:
     def _check_tool_invoker_breakpoint(  # pylint: disable=too-many-positional-arguments
         agent_breakpoint: Optional[AgentBreakpoint],
         component_visits: Dict[str, int],
+        component_name: str,
         llm_messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT],
         debug_path: Optional[Union[str, Path]],
@@ -366,6 +370,7 @@ class Agent:
         break_point: Optional[AgentBreakpoint] = None,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
+        component_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -449,6 +454,7 @@ class Agent:
                 Agent._check_chat_generator_breakpoint(
                     break_point,
                     component_visits,
+                    component_name,
                     messages,
                     generator_inputs,
                     debug_path,
@@ -476,6 +482,7 @@ class Agent:
                 Agent._check_tool_invoker_breakpoint(
                     break_point,
                     component_visits,
+                    component_name,
                     llm_messages,
                     streaming_callback,
                     debug_path,
@@ -528,6 +535,7 @@ class Agent:
         break_point: Optional[AgentBreakpoint] = None,
         resume_state: Optional[Dict[str, Any]] = None,
         debug_path: Optional[Union[str, Path]] = None,
+        component_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -619,6 +627,7 @@ class Agent:
                 Agent._check_chat_generator_breakpoint(
                     break_point,
                     component_visits,
+                    component_name,
                     messages,
                     generator_inputs,
                     debug_path,
@@ -647,6 +656,7 @@ class Agent:
                 Agent._check_tool_invoker_breakpoint(
                     break_point,
                     component_visits,
+                    component_name,
                     llm_messages,
                     streaming_callback,
                     debug_path,
