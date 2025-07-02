@@ -185,14 +185,14 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
-                        component_visits, data, resume_state, ordered_component_names = (
-                            component["instance"].inject_resume_state_into_agent(resume_state)
-                        )
-                        print(f"Resuming Agent {name} from component {resume_state['pipeline_breakpoint']['component']} ")
-                        print(f"with visit count {resume_state['pipeline_breakpoint']['visits']}")
-                        break
-                    # ToDo: we need somehow to instruct the main Pipeline that the next component to run is the Agent
-                    #  otherwise it will not run the Agent component
+                        component["instance"].set_resume_state(resume_state)
+                        pass
+                        # We need to inject the resume state into the agent components so that when the agent runs
+                        # it can continue from the last state
+                        # inputs
+                        # component_visits
+                        # ToDo: we need somehow to instruct the main Pipeline that the next component to run is the
+                        #  Agent, otherwise it will not run the Agent component
             else:
                 # inject the resume state into the graph
                 component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(

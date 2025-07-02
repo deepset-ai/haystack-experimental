@@ -280,7 +280,7 @@ class Agent:
                     original_input_data={"messages": messages, **kwargs},
                     ordered_component_names=["chat_generator", "tool_invoker"],
                     is_agent=True,
-                    agent_name=component_name
+                    agent_name=component_name,
                 )
                 msg = (
                     f"Breaking at {break_point.component_name} visit count "
@@ -384,6 +384,7 @@ class Agent:
                            for "tool_invoker".
         :param resume_state: A dictionary containing the state of a previously saved agent execution.
         :param debug_path: Path to the directory where the agent state should be saved.
+        :param component_name: Name of the component to use for debugging purposes.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -552,7 +553,7 @@ class Agent:
                            for "tool_invoker".
         :param resume_state: A dictionary containing the state of a previously saved agent execution.
         :param debug_path: Path to the directory where the agent state should be saved.
-
+        :param component_name: Name of the component to use for debugging purposes.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:

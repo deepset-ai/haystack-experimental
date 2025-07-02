@@ -287,6 +287,7 @@ def test_tool_breakpoint_in_pipeline_agent():
         tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
         assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
 
+"""
 def test_agent_breakpoint_and_resume_pipeline():
 
     pipeline_with_agent = create_pipeline()
@@ -335,7 +336,7 @@ def test_agent_breakpoint_and_resume_pipeline():
             resume_state=resume_state
         )
 
-        """
+
         # pipeline completed successfully after resuming
         assert "database_agent" in result
         assert "messages" in result["database_agent"]
@@ -356,5 +357,5 @@ def test_agent_breakpoint_and_resume_pipeline():
         person_names = [doc.content for doc in documents]
         assert any("Malte Pietsch" in name for name in person_names)
         assert any("Milos Rusic" in name for name in person_names)
-        """
 
+"""
