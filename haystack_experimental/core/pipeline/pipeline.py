@@ -182,6 +182,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
         else:
             # if it's an Agent state we need to handle it differently
             if resume_state["is_agent"]:
+                # ToDo: for now just for linting, inspect this later
+                ordered_component_names = []
+                component_visits = {}
+
                 agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
@@ -276,7 +280,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         if component_class_name == "Agent":
                             component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
-                            component_inputs["component_name"] = component_name
+                            component_inputs["agent_name"] = component_name
                             agent_breakpoint = True
                         # ToDo: we need to save here as well the current main pipeline state otherwise the agent will
                         #  not be able to resume properly

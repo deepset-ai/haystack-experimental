@@ -27,7 +27,7 @@ def test_run_with_chat_generator_breakpoint(agent_sync, debug_path):
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
     with pytest.raises(PipelineBreakpointException) as exc_info:
-        agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
+        agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
 
@@ -40,7 +40,8 @@ def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls_sync, debug
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
             break_point=agent_breakpoint,
-            debug_path=debug_path
+            debug_path=debug_path,
+            agent_name="test"
         )
 
     assert exc_info.value.component == "tool_invoker"
@@ -53,7 +54,7 @@ def test_resume_from_chat_generator(agent_sync, debug_path):
     agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
     
     try:
-        agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
+        agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
     except PipelineBreakpointException:
         pass
 
@@ -81,7 +82,8 @@ def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
         mock_agent_with_tool_calls_sync.run(
             messages=messages,
             break_point=agent_breakpoint,
-            debug_path=debug_path
+            debug_path=debug_path,
+            agent_name="test"
         )
     except PipelineBreakpointException:
         pass

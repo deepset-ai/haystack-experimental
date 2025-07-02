@@ -154,7 +154,7 @@ def _save_state(
     debug_path: Optional[Union[str, Path]] = None,
     original_input_data: Optional[Dict[str, Any]] = None,
     ordered_component_names: Optional[List[str]] = None,
-    is_agent=False,
+    is_agent: bool = False,
     agent_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """

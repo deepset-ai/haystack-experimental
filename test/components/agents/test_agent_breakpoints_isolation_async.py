@@ -95,7 +95,7 @@ async def test_run_async_with_chat_generator_breakpoint(agent, debug_path):
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
     with pytest.raises(PipelineBreakpointException) as exc_info:
-        await agent.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
+        await agent.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
     assert exc_info.value.component == "chat_generator"
     assert "messages" in exc_info.value.state
 
@@ -106,7 +106,7 @@ async def test_run_async_with_tool_invoker_breakpoint(mock_agent_with_tool_calls
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
     agent_breakpoint = AgentBreakpoint(break_point=tool_bp)
     with pytest.raises(PipelineBreakpointException) as exc_info:
-        await mock_agent_with_tool_calls.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
+        await mock_agent_with_tool_calls.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
 
     assert exc_info.value.component == "tool_invoker"
     assert "messages" in exc_info.value.state
@@ -118,7 +118,7 @@ async def test_resume_from_chat_generator_async(agent, debug_path):
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
     try:
-        await agent.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
+        await agent.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
     except PipelineBreakpointException:
         pass
 
@@ -144,7 +144,7 @@ async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls, debug_
     agent_breakpoint = AgentBreakpoint(break_point=tool_bp)
 
     try:
-        await mock_agent_with_tool_calls.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path)
+        await mock_agent_with_tool_calls.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
     except PipelineBreakpointException:
         pass
 
