@@ -39,7 +39,7 @@ class PDFToImageContent:
     # [ImageContent(base64_image='...',
     #               mime_type='application/pdf',
     #               detail=None,
-    #               meta={'file_path': 'file.pdf'}),
+    #               meta={'file_path': 'file.pdf', 'page_number': 1}),
     #  ...]
     ```
     """

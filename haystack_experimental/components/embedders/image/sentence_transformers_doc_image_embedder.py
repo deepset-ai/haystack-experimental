@@ -53,7 +53,7 @@ class SentenceTransformersDocumentImageEmbedder:
 
     # [Document(id=...,
     #           content='A photo of a cat',
-    #           meta={'file_path': 'test/test_files/images/apple.jpg',
+    #           meta={'file_path': 'cat.jpg',
     #                 'embedding_source': {'type': 'image', 'file_path_meta_field': 'file_path'}},
     #           embedding=vector of size 512),
     #  ...]
