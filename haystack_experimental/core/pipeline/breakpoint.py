@@ -181,13 +181,9 @@ def _save_state(
     """
     dt = datetime.now()
 
-    # agent related stuff
+    # remove duplicated information
     if original_input_data:
-        # Remove old main_pipeline keys if they exist (for backward compatibility)
-        original_input_data.pop("main_pipeline_component_visits", None)
-        original_input_data.pop("main_pipeline_ordered_component_names", None)
-        original_input_data.pop("main_pipeline_original_input_data", None)
-        original_input_data.pop("main_pipeline_inputs", None)
+        original_input_data.pop("main_pipeline_state", None)
 
     transformed_original_input_data = _transform_json_structure(original_input_data)
     transformed_inputs = _transform_json_structure(inputs)
@@ -217,17 +213,17 @@ def _save_state(
         main_pipeline_transformed_inputs = _serialize_value_with_schema(main_pipeline_transformed_inputs)
 
     state = {
-        # related to the main pipeline when agent running on it as a breakpoint
-        "agent_name": agent_name if is_agent else None,
+        # related to the main pipeline where the agent running as a breakpoint - only used with AgentBreakpoint
+        "agent_name": agent_name if agent_name else None,
         "main_pipeline_state": {
             "component_visits": main_pipeline_component_visits,
             "ordered_component_names": main_pipeline_ordered_component_names,
             "original_input_data": main_pipeline_transformed_original_input_data,
             "inputs": main_pipeline_transformed_inputs,
         }
-        if is_agent
+        if agent_name
         else None,
-        # breakpoint
+        # breakpoint - information for the component that triggered the breakpoint, can also be an Agent
         "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),
