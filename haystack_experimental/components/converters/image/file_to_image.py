@@ -31,6 +31,24 @@ _EMPTY_BYTE_STRING = b""
 class ImageFileToImageContent:
     """
     Converts image files to ImageContent objects.
+
+    ### Usage example
+    ```python
+    from haystack_experimental.components.converters.image import ImageFileToImageContent
+
+    converter = ImageFileToImageContent()
+
+    sources = ["image.jpg", "another_image.png"]
+
+    image_contents = converter.run(sources=sources)["image_contents"]
+    print(image_contents)
+
+    # [ImageContent(base64_image='...',
+    #               mime_type='image/jpeg',
+    #               detail=None,
+    #               meta={'file_path': 'image.jpg'}),
+    #  ...]
+    ```
     """
 
     def __init__(
