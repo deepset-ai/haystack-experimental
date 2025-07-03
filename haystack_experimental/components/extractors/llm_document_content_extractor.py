@@ -100,7 +100,8 @@ class LLMDocumentContentExtractor:
         Initialize the LLMDocumentContentExtractor component.
 
         :param chat_generator: A ChatGenerator instance representing the LLM used to extract text. This generator must
-            support vision-based input and return a plain text response.
+            support vision-based input and return a plain text response. Currently, the experimental versions of
+            OpenAIChatGenerator and AmazonBedrockChatGenerator are supported.
         :param prompt: Instructional text provided to the LLM. It must not contain Jinja variables.
             The prompt should only contain instructions on how to extract the content of the image-based document.
         :param file_path_meta_field: The metadata field in the Document that contains the file path to the image or PDF.
