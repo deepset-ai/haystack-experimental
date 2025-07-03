@@ -4,7 +4,7 @@
 
 import inspect
 from copy import deepcopy
-from pathlib import PosixPath
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging, tracing
@@ -251,7 +251,7 @@ class Agent:
         agent_name: str,
         messages: List[ChatMessage],
         generator_inputs: Dict[str, Any],
-        debug_path: Optional[Union[str, PosixPath]],
+        debug_path: Optional[Union[str, Path]],
         kwargs: Dict[str, Any],  # ToDo: this can probably be removed
         state: State,
     ) -> None:
@@ -305,7 +305,7 @@ class Agent:
         agent_name: str,
         llm_messages: List[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT],
-        debug_path: Optional[Union[str, PosixPath]],
+        debug_path: Optional[Union[str, Path]],
         messages: List[ChatMessage],
         kwargs: Dict[str, Any],
         state: State,
@@ -381,7 +381,7 @@ class Agent:
         *,
         break_point: Optional[AgentBreakpoint] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[Union[str, PosixPath]] = None,
+        debug_path: Optional[Union[str, Path]] = None,
         agent_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -551,7 +551,7 @@ class Agent:
         *,
         break_point: Optional[AgentBreakpoint] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[Union[str, PosixPath]] = None,
+        debug_path: Optional[Union[str, Path]] = None,
         agent_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:

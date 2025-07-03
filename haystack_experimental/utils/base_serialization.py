@@ -125,11 +125,17 @@ def _serialize_value_with_schema(payload: Any) -> Dict[str, Any]:
         schema = {"type": type_name}
         return {"serialization_schema": schema, "serialized_data": pure}
 
-    # Handle a Path object - convert to string - necessary for serialization of Agents
+    # Handle a PosixPath object - convert to string - necessary for serialization of Agents
     elif isinstance(payload, Path):
         # Special case for PosixPath - convert to string
         schema = {"type": "string"}
         return {"serialization_schema": schema, "serialized_data": str(payload)}
+
+    # Handle primitives
+    else:
+        prim_type = _primitive_schema_type(payload)
+        schema = {"type": prim_type}
+        return {"serialization_schema": schema, "serialized_data": payload}
 
 
 def _primitive_schema_type(value: Any) -> str:
