@@ -189,9 +189,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
                         # inject the saved main pipeline state before the agent run into the pipeline graph
                         # this is needed to ensure that the agent is the next selected component to run
-                        component_visits = resume_state["main_pipeline_components_visits"]
-                        ordered_component_names = resume_state["main_pipeline_ordered_components_names"]
-                        data = _deserialize_value_with_schema(resume_state["main_pipeline_inputs"])
+                        main_pipeline_state = resume_state.get("main_pipeline_state", {})
+                        component_visits = main_pipeline_state.get("component_visits", {})
+                        ordered_component_names = main_pipeline_state.get("ordered_component_names", [])
+                        data = _deserialize_value_with_schema(main_pipeline_state.get("inputs", {}))
                         resume_agent_in_pipeline = True
 
             else:

@@ -183,6 +183,7 @@ def _save_state(
 
     # agent related stuff
     if original_input_data:
+        # Remove old main_pipeline keys if they exist (for backward compatibility)
         original_input_data.pop("main_pipeline_component_visits", None)
         original_input_data.pop("main_pipeline_ordered_component_names", None)
         original_input_data.pop("main_pipeline_original_input_data", None)
@@ -195,7 +196,7 @@ def _save_state(
     main_pipeline_transformed_original_input_data = None
     main_pipeline_transformed_inputs = None
 
-    # Extract data from main_pipeline_state if available
+    # extract data from main_pipeline_state if available
     main_pipeline_component_visits = None
     main_pipeline_ordered_component_names = None
     main_pipeline_original_input_data = None
@@ -218,10 +219,14 @@ def _save_state(
     state = {
         # related to the main pipeline when agent running on it as a breakpoint
         "agent_name": agent_name if is_agent else None,
-        "main_pipeline_components_visits": main_pipeline_component_visits,
-        "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names,
-        "main_pipeline_original_input_data": main_pipeline_transformed_original_input_data,
-        "main_pipeline_inputs": main_pipeline_transformed_inputs,
+        "main_pipeline_state": {
+            "component_visits": main_pipeline_component_visits,
+            "ordered_component_names": main_pipeline_ordered_component_names,
+            "original_input_data": main_pipeline_transformed_original_input_data,
+            "inputs": main_pipeline_transformed_inputs,
+        }
+        if is_agent
+        else None,
         # breakpoint
         "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
