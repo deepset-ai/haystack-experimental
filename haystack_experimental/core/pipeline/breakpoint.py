@@ -168,6 +168,48 @@ def _process_main_pipeline_state(main_pipeline_state: Optional[Dict[str, Any]]) 
     }
 
 
+def _save_state_to_file(
+    state: Dict[str, Any],
+    debug_path: Union[str, Path],
+    dt: datetime,
+    is_agent: bool,
+    agent_name: Optional[str],
+    component_name: str,
+) -> None:
+    """
+    Save state dictionary to a JSON file.
+
+    :param state: The state dictionary to save.
+    :param debug_path: The path where to save the file.
+    :param dt: The datetime object for timestamping.
+    :param is_agent: Whether this is an agent pipeline.
+    :param agent_name: Name of the agent (if applicable).
+    :param component_name: Name of the component that triggered the breakpoint.
+    :raises:
+        ValueError: If the debug_path is not a string or a Path object.
+        Exception: If saving the JSON state fails.
+    """
+    debug_path = Path(debug_path) if isinstance(debug_path, str) else debug_path
+    if not isinstance(debug_path, Path):
+        raise ValueError("Debug path must be a string or a Path object.")
+
+    debug_path.mkdir(exist_ok=True)
+
+    # Generate filename
+    if is_agent:
+        file_name = f"{agent_name}_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+    else:
+        file_name = f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+
+    try:
+        with open(debug_path / file_name, "w") as f_out:
+            json.dump(state, f_out, indent=2)
+        logger.info(f"Pipeline state saved at: {file_name}")
+    except Exception as e:
+        logger.error(f"Failed to save pipeline state: {str(e)}")
+        raise
+
+
 def _save_state(
     inputs: Dict[str, Any],
     component_name: str,
@@ -232,26 +274,9 @@ def _save_state(
     if not debug_path:
         return state
 
-    debug_path = Path(debug_path) if isinstance(debug_path, str) else debug_path
-    if not isinstance(debug_path, Path):
-        raise ValueError("Debug path must be a string or a Path object.")
-    debug_path.mkdir(exist_ok=True)
+    _save_state_to_file(state, debug_path, dt, is_agent, agent_name, component_name)
 
-    if is_agent:
-        file_name = Path(f"{agent_name}_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
-    else:
-        file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
-
-    try:
-        with open(debug_path / file_name, "w") as f_out:
-            json.dump(state, f_out, indent=2)
-        logger.info(f"Pipeline state saved at: {file_name}")
-
-        return state
-
-    except Exception as e:
-        logger.error(f"Failed to save pipeline state: {str(e)}")
-        raise
+    return state
 
 
 def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any:
