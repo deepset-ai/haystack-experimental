@@ -182,21 +182,26 @@ class Pipeline(HaystackPipeline, PipelineBase):
         else:
             # if it's an Agent state we need to handle it differently
             if resume_state["is_agent"]:
-                # ToDo: for now just for linting, inspect this later
-                ordered_component_names = []
-                component_visits = {}
+
+                ordered_component_names = []    # ToDo: for now just for linting, inspect this later
+                component_visits = {}           # ToDo: for now just for linting, inspect this later
 
                 agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
-                        component["instance"].set_resume_state(resume_state)
-                        pass
-                        # We need to inject the resume state into the agent components so that when the agent runs
-                        # it can continue from the last state
-                        # inputs
-                        # component_visits
-                        # ToDo: we need somehow to instruct the main Pipeline that the next component to run is the
-                        #  Agent, otherwise it will not run the Agent component
+
+                        # we need somehow to instruct the main Pipeline that the next component to run is the agent
+                        data = resume_state["pipeline_original_input_data"]
+
+                        # this is replicated from the inject_resume_state_into_graph method
+                        component_visits = resume_state["pipeline_components_visits"]
+                        ordered_component_names = resume_state["pipeline_ordered_components_names"]
+
+                        # ToDo: debug
+                        data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
+
+
+
             else:
                 # inject the resume state into the graph
                 component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
@@ -281,9 +286,17 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
                             component_inputs["agent_name"] = component_name
+
+                            # those are need so that the pipeline knows how to resume the execution at the agent
+
+                            state_inputs_serialised = deepcopy(inputs)
+                            state_inputs_serialised[component_name] = deepcopy(component_inputs)
+                            component_inputs["main_pipeline_components_visits"] = component_visits
+                            component_inputs["main_pipeline_ordered_component_names"] = ordered_component_names
+                            component_inputs["main_pipeline_original_input_data"] = data
+                            component_inputs["main_pipeline_inputs"] = state_inputs_serialised
+
                             agent_breakpoint = True
-                        # ToDo: we need to save here as well the current main pipeline state otherwise the agent will
-                        #  not be able to resume properly
 
                     if not agent_breakpoint:
                         breakpoint_triggered = bool(

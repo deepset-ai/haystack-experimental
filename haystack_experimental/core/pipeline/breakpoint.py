@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import logging
-from haystack.utils import _serialize_value_with_schema
+from haystack_experimental.utils.base_serialization import _serialize_value_with_schema
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
@@ -156,6 +156,10 @@ def _save_state(
     ordered_component_names: Optional[List[str]] = None,
     is_agent: bool = False,
     agent_name: Optional[str] = None,
+    main_pipeline_components_visits: Optional[Dict[str, Any]] = None,
+    main_pipeline_ordered_component_names: Optional[Dict[str, Any]] = None,
+    main_pipeline_original_input_data: Optional[Dict[str, Any]] = None,
+    main_pipeline_inputs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Save the pipeline state to a file.
@@ -181,12 +185,37 @@ def _save_state(
             - ordered_component_names: The order of components in the pipeline.
     """
     dt = datetime.now()
+
+    # agent related stuff
+    original_input_data.pop("main_pipeline_components_visits", None)
+    original_input_data.pop("main_pipeline_ordered_component_names", None)
+    original_input_data.pop("main_pipeline_original_input_data", None)
+    original_input_data.pop("main_pipeline_inputs", None)
     transformed_original_input_data = _transform_json_structure(original_input_data)
     transformed_inputs = _transform_json_structure(inputs)
 
+    # main pipeline, where the agent is running
+    main_pipeline_transformed_original_input_data = None
+    main_pipeline_transformed_inputs = None
+    if main_pipeline_original_input_data and main_pipeline_inputs:
+        main_pipeline_transformed_original_input_data = _transform_json_structure(main_pipeline_original_input_data)
+        main_pipeline_transformed_original_input_data = _serialize_value_with_schema(main_pipeline_transformed_original_input_data)
+        main_pipeline_transformed_inputs = _transform_json_structure(main_pipeline_inputs)
+        main_pipeline_transformed_inputs = _serialize_value_with_schema(main_pipeline_transformed_inputs)
+
     state = {
+
+        # ToDo: this can be a single key "agent_name"
         "is_agent": is_agent,
         "agent_name": agent_name if is_agent else None,
+
+        # agent breakpoint - this info is related to the main pipeline where the agent is running
+        "main_pipeline_components_visits": main_pipeline_components_visits if main_pipeline_components_visits else None,
+        "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names if main_pipeline_ordered_component_names else None,
+        "main_pipeline_original_input_data": main_pipeline_transformed_original_input_data if main_pipeline_transformed_original_input_data else None,
+        "main_pipeline_inputs": main_pipeline_transformed_inputs if main_pipeline_transformed_inputs else None,
+
+        # normal breakpoint
         "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),
@@ -205,7 +234,11 @@ def _save_state(
     if not isinstance(debug_path, Path):
         raise ValueError("Debug path must be a string or a Path object.")
     debug_path.mkdir(exist_ok=True)
-    file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+
+    if is_agent:
+        file_name = Path(f"{agent_name}_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+    else:
+        file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
 
     try:
         with open(debug_path / file_name, "w") as f_out:
