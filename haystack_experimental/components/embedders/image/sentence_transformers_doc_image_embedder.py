@@ -87,9 +87,16 @@ class SentenceTransformersDocumentImageEmbedder:
         :param root_path: The root directory path where document files are located. If provided, file paths in
             document metadata will be resolved relative to this path. If None, file paths are treated as absolute paths.
         :param model:
-            The Sentence Transformers model to use for calculating embeddings. To be used with this component,
-            the model must be able to embed images and text into the same vector space.
-            Pass a local path or ID of the model on Hugging Face.
+            The Sentence Transformers model to use for calculating embeddings. Pass a local path or ID of the model on
+            Hugging Face. To be used with this component, the model must be able to embed images and text into the same
+            vector space. Compatible models include:
+            - "sentence-transformers/clip-ViT-B-32"
+            - "sentence-transformers/clip-ViT-L-14"
+            - "sentence-transformers/clip-ViT-B-16"
+            - "sentence-transformers/clip-ViT-B-32-multilingual-v1"
+            - "jinaai/jina-embeddings-v4"
+            - "jinaai/jina-clip-v1"
+            - "jinaai/jina-clip-v2".
         :param device:
             The device to use for loading the model.
             Overrides the default device.
