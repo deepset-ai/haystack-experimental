@@ -207,10 +207,8 @@ def _save_state(
         main_pipeline_transformed_inputs = _serialize_value_with_schema(main_pipeline_transformed_inputs)
 
     state = {
-        # ToDo: this can be a single key "agent_name"
-        "is_agent": is_agent,
-        "agent_name": agent_name if is_agent else None,
         # agent breakpoint - this info is related to the main pipeline where the agent is running
+        "agent_name": agent_name if is_agent else None,
         "main_pipeline_components_visits": main_pipeline_component_visits if main_pipeline_component_visits else None,
         "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names
         if main_pipeline_ordered_component_names

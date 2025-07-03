@@ -182,15 +182,13 @@ class Pipeline(HaystackPipeline, PipelineBase):
             component_visits = dict.fromkeys(ordered_component_names, 0)
 
         else:
-            # if it's an Agent state we need to handle it differently
-            if resume_state["is_agent"]:
-                ordered_component_names = []  # ToDo: for now just for linting, inspect this later
-                component_visits = {}  # ToDo: for now just for linting, inspect this later
-
+            # check if it's an Agent resume state - we need to handle it differently
+            if resume_state["agent_name"]:
                 agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
-                        # we need inject the save main pipeline state before the agent running into the pipeline graph
+                        # inject the saved main pipeline state before the agent run into the pipeline graph
+                        # this is needed to ensure that the agent is the next selected component to run
                         component_visits = resume_state["main_pipeline_components_visits"]
                         ordered_component_names = resume_state["main_pipeline_ordered_components_names"]
                         data = _deserialize_value_with_schema(resume_state["main_pipeline_inputs"])
@@ -275,13 +273,13 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     if isinstance(break_point, AgentBreakpoint):
                         component_instance = component["instance"]
                         component_class_name = component_instance.__class__.__name__
-                        # if the current component is an agent pass breakpoints to the agent
                         if component_class_name == "Agent":
+                            # pass breakpoints to the agent
                             component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
                             component_inputs["agent_name"] = component_name
 
-                            # those are need so that the pipeline knows how to resume the execution at the agent
+                            # also keep the current pipeline state and inputs, they are later needed to resume the Agent
                             state_inputs_serialised = deepcopy(inputs)
                             state_inputs_serialised[component_name] = deepcopy(component_inputs)
                             component_inputs["main_pipeline_component_visits"] = component_visits
