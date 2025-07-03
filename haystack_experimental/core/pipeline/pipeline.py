@@ -253,7 +253,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 component_inputs = self._add_missing_input_defaults(component_inputs, component["input_sockets"])
 
                 # Scenario 1: Resume state is provided to resume the pipeline at a specific component
-
                 # Deserialize the component_inputs if they are passed in resume state
                 # this check will prevent other component_inputs generated at runtime from being deserialized
                 if resume_state and component_name in resume_state["pipeline_state"]["inputs"].keys():
@@ -282,11 +281,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             # also keep the current pipeline state and inputs, they are later needed to resume the Agent
                             state_inputs_serialised = deepcopy(inputs)
                             state_inputs_serialised[component_name] = deepcopy(component_inputs)
-                            component_inputs["main_pipeline_component_visits"] = component_visits
-                            component_inputs["main_pipeline_ordered_component_names"] = ordered_component_names
-                            component_inputs["main_pipeline_original_input_data"] = data
-                            component_inputs["main_pipeline_inputs"] = state_inputs_serialised
-
                             component_inputs["main_pipeline_state"] = {
                                 "inputs": state_inputs_serialised,
                                 "component_visits": component_visits,

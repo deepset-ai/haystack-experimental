@@ -152,24 +152,6 @@ class Agent:
 
         self._is_warmed_up = False
 
-    def _validate_breakpoints(self, agent_breakpoint: AgentBreakpoint) -> None:
-        """
-        Validates the AgentBreakpoint passed to the agent.
-
-        Validates that all tool names in ToolBreakpoints correspond to tools available in the agent.
-
-        :param agent_breakpoint: AgentBreakpoint object containing breakpoints for the agent components.
-        :raises ValueError: If any tool name in ToolBreakpoints is not available in the agent's tools.
-        """
-        available_tool_names = {tool.name for tool in self.tools}
-        tool_breakpoint = agent_breakpoint.tool_breakpoint
-        if (
-            tool_breakpoint is not None
-            and tool_breakpoint.tool_name is not None
-            and tool_breakpoint.tool_name not in available_tool_names
-        ):
-            raise ValueError(f"Tool '{tool_breakpoint.tool_name}' is not available in the agent's tools")
-
     def warm_up(self) -> None:
         """
         Warm up the Agent.
@@ -244,6 +226,24 @@ class Agent:
             },
         )
 
+    def _validate_breakpoints(self, agent_breakpoint: AgentBreakpoint) -> None:
+        """
+        Validates the AgentBreakpoint passed to the agent.
+
+        Validates that all tool names in ToolBreakpoints correspond to tools available in the agent.
+
+        :param agent_breakpoint: AgentBreakpoint object containing breakpoints for the agent components.
+        :raises ValueError: If any tool name in ToolBreakpoints is not available in the agent's tools.
+        """
+        available_tool_names = {tool.name for tool in self.tools}
+        tool_breakpoint = agent_breakpoint.tool_breakpoint
+        if (
+            tool_breakpoint is not None
+            and tool_breakpoint.tool_name is not None
+            and tool_breakpoint.tool_name not in available_tool_names
+        ):
+            raise ValueError(f"Tool '{tool_breakpoint.tool_name}' is not available in the agent's tools")
+
     @staticmethod
     def _check_chat_generator_breakpoint(  # pylint: disable=too-many-positional-arguments
         agent_breakpoint: Optional[AgentBreakpoint],
@@ -252,7 +252,7 @@ class Agent:
         messages: List[ChatMessage],
         generator_inputs: Dict[str, Any],
         debug_path: Optional[Union[str, Path]],
-        kwargs: Dict[str, Any],  # ToDo: this can probably be removed
+        kwargs: Dict[str, Any],
         state: State,
     ) -> None:
         """
