@@ -274,7 +274,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                         component_instance = component["instance"]
                         component_class_name = component_instance.__class__.__name__
                         if component_class_name == "Agent":
-                            # pass breakpoints to the agent
+                            # inject all breakpoint into the Agent he will handle it internally
                             component_inputs["break_point"] = break_point
                             component_inputs["debug_path"] = debug_path
                             component_inputs["agent_name"] = component_name
@@ -286,6 +286,13 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             component_inputs["main_pipeline_ordered_component_names"] = ordered_component_names
                             component_inputs["main_pipeline_original_input_data"] = data
                             component_inputs["main_pipeline_inputs"] = state_inputs_serialised
+
+                            component_inputs["main_pipeline_state"] = {
+                                "inputs": state_inputs_serialised,
+                                "component_visits": component_visits,
+                                "ordered_component_names": ordered_component_names,
+                                "original_input_data": data,
+                            }
 
                             agent_breakpoint = True
 

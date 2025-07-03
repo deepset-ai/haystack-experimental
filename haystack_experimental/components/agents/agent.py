@@ -285,6 +285,7 @@ class Agent:
                     main_pipeline_ordered_component_names=state.data.get("main_pipeline_ordered_component_names", []),
                     main_pipeline_original_input_data=state.data.get("main_pipeline_original_input_data", {}),
                     main_pipeline_inputs=state.data.get("main_pipeline_inputs", {}),
+                    main_pipeline_state=state.data.get("main_pipeline_state", {}),
                 )
                 msg = (
                     f"Breaking at {break_point.component_name} visit count "

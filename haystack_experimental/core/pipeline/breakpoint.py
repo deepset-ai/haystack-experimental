@@ -42,42 +42,38 @@ def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: M
     :param resume_state: The saved state to validate.
     """
 
-    if not resume_state["is_agent"]:
-        pipeline_state = resume_state["pipeline_state"]
-        valid_components = set(graph.nodes.keys())
+    pipeline_state = resume_state["pipeline_state"]
+    valid_components = set(graph.nodes.keys())
 
-        # Check if the ordered_component_names are valid components in the pipeline
-        invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
-        if invalid_ordered_components:
-            raise PipelineInvalidResumeStateError(
-                f"Invalid resume state: components {invalid_ordered_components} in 'ordered_component_names' "
-                f"are not part of the current pipeline."
-            )
-
-        # Check if the input_data is valid components in the pipeline
-        serialized_input_data = resume_state["input_data"]["serialized_data"]
-        invalid_input_data = set(serialized_input_data.keys()) - valid_components
-        if invalid_input_data:
-            raise PipelineInvalidResumeStateError(
-                f"Invalid resume state: components {invalid_input_data} in 'input_data' "
-                f"are not part of the current pipeline."
-            )
-
-        # Validate 'component_visits'
-        invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
-        if invalid_component_visits:
-            raise PipelineInvalidResumeStateError(
-                f"Invalid resume state: components {invalid_component_visits} in 'component_visits' "
-                f"are not part of the current pipeline."
-            )
-
-        logger.info(
-            f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
-            f"(visit {resume_state['pipeline_breakpoint']['visits']})"
+    # Check if the ordered_component_names are valid components in the pipeline
+    invalid_ordered_components = set(pipeline_state["ordered_component_names"]) - valid_components
+    if invalid_ordered_components:
+        raise PipelineInvalidResumeStateError(
+            f"Invalid resume state: components {invalid_ordered_components} in 'ordered_component_names' "
+            f"are not part of the current pipeline."
         )
-    else:
-        msg = "Resuming agent pipeline from state."
-        logger.info(msg)
+
+    # Check if the input_data is valid components in the pipeline
+    serialized_input_data = resume_state["input_data"]["serialized_data"]
+    invalid_input_data = set(serialized_input_data.keys()) - valid_components
+    if invalid_input_data:
+        raise PipelineInvalidResumeStateError(
+            f"Invalid resume state: components {invalid_input_data} in 'input_data' "
+            f"are not part of the current pipeline."
+        )
+
+    # Validate 'component_visits'
+    invalid_component_visits = set(pipeline_state["component_visits"].keys()) - valid_components
+    if invalid_component_visits:
+        raise PipelineInvalidResumeStateError(
+            f"Invalid resume state: components {invalid_component_visits} in 'component_visits' "
+            f"are not part of the current pipeline."
+        )
+
+    logger.info(
+        f"Resuming pipeline from component: {resume_state['pipeline_breakpoint']['component']} "
+        f"(visit {resume_state['pipeline_breakpoint']['visits']})"
+    )
 
 
 def _validate_resume_state(resume_state: Dict[str, Any]) -> None:
@@ -160,6 +156,7 @@ def _save_state(
     main_pipeline_ordered_component_names: Optional[Dict[str, Any]] = None,
     main_pipeline_original_input_data: Optional[Dict[str, Any]] = None,
     main_pipeline_inputs: Optional[Dict[str, Any]] = None,
+    main_pipeline_state: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Save the pipeline state to a file.
@@ -192,12 +189,14 @@ def _save_state(
         original_input_data.pop("main_pipeline_ordered_component_names", None)
         original_input_data.pop("main_pipeline_original_input_data", None)
         original_input_data.pop("main_pipeline_inputs", None)
+
     transformed_original_input_data = _transform_json_structure(original_input_data)
     transformed_inputs = _transform_json_structure(inputs)
 
     # main pipeline, where the agent is running
     main_pipeline_transformed_original_input_data = None
     main_pipeline_transformed_inputs = None
+
     if main_pipeline_original_input_data and main_pipeline_inputs:
         main_pipeline_transformed_original_input_data = _transform_json_structure(main_pipeline_original_input_data)
         main_pipeline_transformed_original_input_data = _serialize_value_with_schema(
