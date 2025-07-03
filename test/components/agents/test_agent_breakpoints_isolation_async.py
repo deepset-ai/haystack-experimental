@@ -117,12 +117,19 @@ async def test_resume_from_chat_generator_async(agent, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
     agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp)
+    agent_name = "test"
+
     try:
-        await agent.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
+        await agent.run_async(
+            messages=messages,
+            break_point=agent_breakpoint,
+            debug_path=debug_path,
+            agent_name=agent_name
+        )
     except PipelineBreakpointException:
         pass
 
-    state_files = list(Path(debug_path).glob("chat_generator_*.json"))
+    state_files = list(Path(debug_path).glob(agent_name+"_chat_generator_*.json"))
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
 
@@ -142,13 +149,19 @@ async def test_resume_from_tool_invoker_async(mock_agent_with_tool_calls, debug_
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
     agent_breakpoint = AgentBreakpoint(break_point=tool_bp)
+    agent_name = "test"
 
     try:
-        await mock_agent_with_tool_calls.run_async(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name="test")
+        await mock_agent_with_tool_calls.run_async(
+            messages=messages,
+            break_point=agent_breakpoint,
+            debug_path=debug_path,
+            agent_name=agent_name
+        )
     except PipelineBreakpointException:
         pass
 
-    state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
+    state_files = list(Path(debug_path).glob(agent_name+"_tool_invoker_*.json"))
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
 

@@ -156,7 +156,7 @@ def _save_state(
     ordered_component_names: Optional[List[str]] = None,
     is_agent: bool = False,
     agent_name: Optional[str] = None,
-    main_pipeline_components_visits: Optional[Dict[str, Any]] = None,
+    main_pipeline_component_visits: Optional[Dict[str, Any]] = None,
     main_pipeline_ordered_component_names: Optional[Dict[str, Any]] = None,
     main_pipeline_original_input_data: Optional[Dict[str, Any]] = None,
     main_pipeline_inputs: Optional[Dict[str, Any]] = None,
@@ -188,7 +188,7 @@ def _save_state(
 
     # agent related stuff
     if original_input_data:
-        original_input_data.pop("main_pipeline_components_visits", None)
+        original_input_data.pop("main_pipeline_component_visits", None)
         original_input_data.pop("main_pipeline_ordered_component_names", None)
         original_input_data.pop("main_pipeline_original_input_data", None)
         original_input_data.pop("main_pipeline_inputs", None)
@@ -211,7 +211,7 @@ def _save_state(
         "is_agent": is_agent,
         "agent_name": agent_name if is_agent else None,
         # agent breakpoint - this info is related to the main pipeline where the agent is running
-        "main_pipeline_components_visits": main_pipeline_components_visits if main_pipeline_components_visits else None,
+        "main_pipeline_components_visits": main_pipeline_component_visits if main_pipeline_component_visits else None,
         "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names
         if main_pipeline_ordered_component_names
         else None,

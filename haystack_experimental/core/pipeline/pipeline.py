@@ -284,10 +284,9 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             component_inputs["agent_name"] = component_name
 
                             # those are need so that the pipeline knows how to resume the execution at the agent
-
                             state_inputs_serialised = deepcopy(inputs)
                             state_inputs_serialised[component_name] = deepcopy(component_inputs)
-                            component_inputs["main_pipeline_components_visits"] = component_visits
+                            component_inputs["main_pipeline_component_visits"] = component_visits
                             component_inputs["main_pipeline_ordered_component_names"] = ordered_component_names
                             component_inputs["main_pipeline_original_input_data"] = data
                             component_inputs["main_pipeline_inputs"] = state_inputs_serialised

@@ -250,7 +250,7 @@ def test_chat_generator_breakpoint_in_pipeline_agent():
                 raise
 
         # verify that debug/state file was created
-        chat_generator_state_files = list(Path(debug_path).glob("chat_generator_*.json"))
+        chat_generator_state_files = list(Path(debug_path).glob("database_agent_chat_generator_*.json"))
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
 
 def test_tool_breakpoint_in_pipeline_agent():
@@ -284,7 +284,7 @@ def test_tool_breakpoint_in_pipeline_agent():
                 raise
 
         # verify that debug/state file was created
-        tool_invoker_state_files = list(Path(debug_path).glob("tool_invoker_*.json"))
+        tool_invoker_state_files = list(Path(debug_path).glob("database_agent_tool_invoker_*.json"))
         assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
 
 def test_agent_breakpoint_and_resume_pipeline():
