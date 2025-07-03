@@ -6,7 +6,7 @@
 
 
 from copy import deepcopy
-from pathlib import Path
+from pathlib import PosixPath
 from typing import Any, Dict, Optional, Set, Union
 
 from haystack import logging, tracing
@@ -39,7 +39,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         include_outputs_from: Optional[Set[str]] = None,
         break_point: Optional[Union[Breakpoint, AgentBreakpoint]] = None,
         resume_state: Optional[Dict[str, Any]] = None,
-        debug_path: Optional[Union[str, Path]] = None,
+        debug_path: Optional[Union[str, PosixPath]] = None,
     ) -> Dict[str, Any]:
         """
         Runs the Pipeline with given input data.

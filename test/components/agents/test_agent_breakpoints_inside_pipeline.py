@@ -4,7 +4,7 @@
 
 import tempfile
 import os
-from pathlib import Path
+from pathlib import PosixPath
 from typing import Optional, List, Dict
 
 from haystack import component
@@ -250,7 +250,7 @@ def test_chat_generator_breakpoint_in_pipeline_agent():
                 raise
 
         # verify that debug/state file was created
-        chat_generator_state_files = list(Path(debug_path).glob("database_agent_chat_generator_*.json"))
+        chat_generator_state_files = list(PosixPath(debug_path).glob("database_agent_chat_generator_*.json"))
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
 
 def test_tool_breakpoint_in_pipeline_agent():
@@ -284,7 +284,7 @@ def test_tool_breakpoint_in_pipeline_agent():
                 raise
 
         # verify that debug/state file was created
-        tool_invoker_state_files = list(Path(debug_path).glob("database_agent_tool_invoker_*.json"))
+        tool_invoker_state_files = list(PosixPath(debug_path).glob("database_agent_tool_invoker_*.json"))
         assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
 
 def test_agent_breakpoint_and_resume_pipeline():
@@ -294,7 +294,7 @@ def test_agent_breakpoint_and_resume_pipeline():
     agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
     
     # with tempfile.TemporaryDirectory() as debug_path:
-    with Path("debug_path") as debug_path:
+    with PosixPath("debug_path") as debug_path:
         try:
             pipeline_with_agent.run(
                 data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
@@ -320,7 +320,7 @@ def test_agent_breakpoint_and_resume_pipeline():
                 raise
         
         # verify that the state file was created
-        chat_generator_state_files = list(Path(debug_path).glob("database_agent_chat_generator_*.json"))
+        chat_generator_state_files = list(PosixPath(debug_path).glob("database_agent_chat_generator_*.json"))
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
 
 
