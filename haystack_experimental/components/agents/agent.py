@@ -252,7 +252,7 @@ class Agent:
         messages: List[ChatMessage],
         generator_inputs: Dict[str, Any],
         debug_path: Optional[Union[str, Path]],
-        kwargs: Dict[str, Any], # ToDo: this can probably be removed
+        kwargs: Dict[str, Any],  # ToDo: this can probably be removed
         state: State,
     ) -> None:
         """
@@ -281,10 +281,10 @@ class Agent:
                     ordered_component_names=["chat_generator", "tool_invoker"],
                     is_agent=True,
                     agent_name=agent_name,
-                    main_pipeline_components_visits = state.data["main_pipeline_components_visits"],
-                    main_pipeline_ordered_component_names = state.data["main_pipeline_ordered_component_names"],
-                    main_pipeline_original_input_data = state.data["main_pipeline_original_input_data"],
-                    main_pipeline_inputs = state.data["main_pipeline_inputs"]
+                    main_pipeline_components_visits=state.data["main_pipeline_components_visits"],
+                    main_pipeline_ordered_component_names=state.data["main_pipeline_ordered_component_names"],
+                    main_pipeline_original_input_data=state.data["main_pipeline_original_input_data"],
+                    main_pipeline_inputs=state.data["main_pipeline_inputs"],
                 )
                 msg = (
                     f"Breaking at {break_point.component_name} visit count "
@@ -352,10 +352,10 @@ class Agent:
                         ordered_component_names=["chat_generator", "tool_invoker"],
                         is_agent=True,
                         agent_name=agent_name,
-                        pipeline_components_visits=state.data["pipeline_components_visits"],
-                        pipeline_ordered_component_names=state.data["pipeline_ordered_component_names"],
-                        pipeline_original_input_data=state.data["pipeline_original_input_data"],
-                        pipeline_inputs = state.data["pipeline_inputs"]
+                        main_pipeline_components_visits=state.data["main_pipeline_components_visits"],
+                        main_pipeline_ordered_component_names=state.data["main_pipeline_ordered_component_names"],
+                        main_pipeline_original_input_data=state.data["main_pipeline_original_input_data"],
+                        main_pipeline_inputs=state.data["main_pipeline_inputs"],
                     )
                     msg = (
                         f"Breaking at {tool_breakpoint.component_name} visit count "

@@ -182,14 +182,12 @@ class Pipeline(HaystackPipeline, PipelineBase):
         else:
             # if it's an Agent state we need to handle it differently
             if resume_state["is_agent"]:
-
-                ordered_component_names = []    # ToDo: for now just for linting, inspect this later
-                component_visits = {}           # ToDo: for now just for linting, inspect this later
+                ordered_component_names = []  # ToDo: for now just for linting, inspect this later
+                component_visits = {}  # ToDo: for now just for linting, inspect this later
 
                 agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
-
                         # we need somehow to instruct the main Pipeline that the next component to run is the agent
                         data = resume_state["pipeline_original_input_data"]
 
@@ -199,8 +197,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
                         # ToDo: debug
                         data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
-
-
 
             else:
                 # inject the resume state into the graph

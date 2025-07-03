@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import logging
-from haystack_experimental.utils.base_serialization import _serialize_value_with_schema
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import PipelineInvalidResumeStateError
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
+from haystack_experimental.utils.base_serialization import _serialize_value_with_schema
 
 logger = logging.getLogger(__name__)
 
@@ -187,10 +187,11 @@ def _save_state(
     dt = datetime.now()
 
     # agent related stuff
-    original_input_data.pop("main_pipeline_components_visits", None)
-    original_input_data.pop("main_pipeline_ordered_component_names", None)
-    original_input_data.pop("main_pipeline_original_input_data", None)
-    original_input_data.pop("main_pipeline_inputs", None)
+    if original_input_data:
+        original_input_data.pop("main_pipeline_components_visits", None)
+        original_input_data.pop("main_pipeline_ordered_component_names", None)
+        original_input_data.pop("main_pipeline_original_input_data", None)
+        original_input_data.pop("main_pipeline_inputs", None)
     transformed_original_input_data = _transform_json_structure(original_input_data)
     transformed_inputs = _transform_json_structure(inputs)
 
@@ -199,22 +200,25 @@ def _save_state(
     main_pipeline_transformed_inputs = None
     if main_pipeline_original_input_data and main_pipeline_inputs:
         main_pipeline_transformed_original_input_data = _transform_json_structure(main_pipeline_original_input_data)
-        main_pipeline_transformed_original_input_data = _serialize_value_with_schema(main_pipeline_transformed_original_input_data)
+        main_pipeline_transformed_original_input_data = _serialize_value_with_schema(
+            main_pipeline_transformed_original_input_data
+        )
         main_pipeline_transformed_inputs = _transform_json_structure(main_pipeline_inputs)
         main_pipeline_transformed_inputs = _serialize_value_with_schema(main_pipeline_transformed_inputs)
 
     state = {
-
         # ToDo: this can be a single key "agent_name"
         "is_agent": is_agent,
         "agent_name": agent_name if is_agent else None,
-
         # agent breakpoint - this info is related to the main pipeline where the agent is running
         "main_pipeline_components_visits": main_pipeline_components_visits if main_pipeline_components_visits else None,
-        "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names if main_pipeline_ordered_component_names else None,
-        "main_pipeline_original_input_data": main_pipeline_transformed_original_input_data if main_pipeline_transformed_original_input_data else None,
+        "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names
+        if main_pipeline_ordered_component_names
+        else None,
+        "main_pipeline_original_input_data": main_pipeline_transformed_original_input_data
+        if main_pipeline_transformed_original_input_data
+        else None,
         "main_pipeline_inputs": main_pipeline_transformed_inputs if main_pipeline_transformed_inputs else None,
-
         # normal breakpoint
         "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
