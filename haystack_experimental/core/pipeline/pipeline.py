@@ -162,6 +162,8 @@ class Pipeline(HaystackPipeline, PipelineBase):
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
         self.warm_up()
 
+        resume_agent_in_pipeline = False
+
         if include_outputs_from is None:
             include_outputs_from = set()
 
@@ -188,15 +190,11 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 agent_name = resume_state["agent_name"]
                 for name, component in self.graph.nodes.items():
                     if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
-                        # we need somehow to instruct the main Pipeline that the next component to run is the agent
-                        data = resume_state["pipeline_original_input_data"]
-
-                        # this is replicated from the inject_resume_state_into_graph method
-                        component_visits = resume_state["pipeline_components_visits"]
-                        ordered_component_names = resume_state["pipeline_ordered_components_names"]
-
-                        # ToDo: debug
-                        data = self._prepare_component_input_data(resume_state["pipeline_state"]["inputs"])
+                        # we need inject the save main pipeline state before the agent running into the pipeline graph
+                        component_visits = resume_state["main_pipeline_components_visits"]
+                        ordered_component_names = resume_state["main_pipeline_ordered_components_names"]
+                        data = _deserialize_value_with_schema(resume_state["main_pipeline_inputs"])
+                        resume_agent_in_pipeline = True
 
             else:
                 # inject the resume state into the graph
@@ -320,6 +318,11 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             state=state_inputs_serialised,
                             results=pipeline_outputs,
                         )
+
+                if resume_agent_in_pipeline:
+                    # inject the resume_state into the component (the Agent) inputs
+                    component_inputs["resume_state"] = resume_state
+                    component_inputs["break_point"] = None
 
                 component_outputs = self._run_component(
                     component_name=component_name,

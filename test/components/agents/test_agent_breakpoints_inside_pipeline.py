@@ -323,7 +323,7 @@ def test_agent_breakpoint_and_resume_pipeline():
         chat_generator_state_files = list(Path(debug_path).glob("database_agent_chat_generator_*.json"))
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
 
-        """
+
         # resume the pipeline from the saved state
         latest_state_file = max(chat_generator_state_files, key=os.path.getctime)
         resume_state = load_state(latest_state_file)
@@ -353,4 +353,3 @@ def test_agent_breakpoint_and_resume_pipeline():
         person_names = [doc.content for doc in documents]
         assert any("Malte Pietsch" in name for name in person_names)
         assert any("Milos Rusic" in name for name in person_names)
-        """
