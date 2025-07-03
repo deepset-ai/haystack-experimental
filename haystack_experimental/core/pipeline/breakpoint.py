@@ -152,11 +152,7 @@ def _save_state(
     ordered_component_names: Optional[List[str]] = None,
     is_agent: bool = False,
     agent_name: Optional[str] = None,
-    main_pipeline_component_visits: Optional[Dict[str, Any]] = None,
-    main_pipeline_ordered_component_names: Optional[Dict[str, Any]] = None,
-    main_pipeline_original_input_data: Optional[Dict[str, Any]] = None,
-    main_pipeline_inputs: Optional[Dict[str, Any]] = None,
-    main_pipeline_state: Optional[str] = None,
+    main_pipeline_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Save the pipeline state to a file.
@@ -168,6 +164,8 @@ def _save_state(
     :param original_input_data: The original input data.
     :param ordered_component_names: The ordered component names.
     :param is_agent: Whether the pipeline is an agent pipeline. If True, the state will be saved in a different format.
+    :param main_pipeline_state: Dictionary containing main pipeline state with keys: "component_visits",
+                                "ordered_component_names", "original_input_data", and "inputs".
     :raises:
         Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
 
@@ -197,6 +195,18 @@ def _save_state(
     main_pipeline_transformed_original_input_data = None
     main_pipeline_transformed_inputs = None
 
+    # Extract data from main_pipeline_state if available
+    main_pipeline_component_visits = None
+    main_pipeline_ordered_component_names = None
+    main_pipeline_original_input_data = None
+    main_pipeline_inputs = None
+
+    if main_pipeline_state:
+        main_pipeline_component_visits = main_pipeline_state.get("component_visits")
+        main_pipeline_ordered_component_names = main_pipeline_state.get("ordered_component_names")
+        main_pipeline_original_input_data = main_pipeline_state.get("original_input_data")
+        main_pipeline_inputs = main_pipeline_state.get("inputs")
+
     if main_pipeline_original_input_data and main_pipeline_inputs:
         main_pipeline_transformed_original_input_data = _transform_json_structure(main_pipeline_original_input_data)
         main_pipeline_transformed_original_input_data = _serialize_value_with_schema(
@@ -206,17 +216,13 @@ def _save_state(
         main_pipeline_transformed_inputs = _serialize_value_with_schema(main_pipeline_transformed_inputs)
 
     state = {
-        # agent breakpoint - this info is related to the main pipeline where the agent is running
+        # related to the main pipeline when agent running on it as a breakpoint
         "agent_name": agent_name if is_agent else None,
-        "main_pipeline_components_visits": main_pipeline_component_visits if main_pipeline_component_visits else None,
-        "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names
-        if main_pipeline_ordered_component_names
-        else None,
-        "main_pipeline_original_input_data": main_pipeline_transformed_original_input_data
-        if main_pipeline_transformed_original_input_data
-        else None,
-        "main_pipeline_inputs": main_pipeline_transformed_inputs if main_pipeline_transformed_inputs else None,
-        # normal breakpoint
+        "main_pipeline_components_visits": main_pipeline_component_visits,
+        "main_pipeline_ordered_components_names": main_pipeline_ordered_component_names,
+        "main_pipeline_original_input_data": main_pipeline_transformed_original_input_data,
+        "main_pipeline_inputs": main_pipeline_transformed_inputs,
+        # breakpoint
         "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),

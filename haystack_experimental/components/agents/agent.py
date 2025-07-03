@@ -281,10 +281,6 @@ class Agent:
                     ordered_component_names=["chat_generator", "tool_invoker"],
                     is_agent=True,
                     agent_name=agent_name,
-                    main_pipeline_component_visits=state.data.get("main_pipeline_component_visits", {}),
-                    main_pipeline_ordered_component_names=state.data.get("main_pipeline_ordered_component_names", []),
-                    main_pipeline_original_input_data=state.data.get("main_pipeline_original_input_data", {}),
-                    main_pipeline_inputs=state.data.get("main_pipeline_inputs", {}),
                     main_pipeline_state=state.data.get("main_pipeline_state", {}),
                 )
                 msg = (
@@ -353,12 +349,7 @@ class Agent:
                         ordered_component_names=["chat_generator", "tool_invoker"],
                         is_agent=True,
                         agent_name=agent_name,
-                        main_pipeline_component_visits=state.data.get("main_pipeline_component_visits", {}),
-                        main_pipeline_ordered_component_names=state.data.get(
-                            "main_pipeline_ordered_component_names", []
-                        ),
-                        main_pipeline_original_input_data=state.data.get("main_pipeline_original_input_data", {}),
-                        main_pipeline_inputs=state.data.get("main_pipeline_inputs", {}),
+                        main_pipeline_state=state.data.get("main_pipeline_state", {}),
                     )
                     msg = (
                         f"Breaking at {tool_breakpoint.component_name} visit count "
