@@ -47,16 +47,22 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`ChatMessageRetriever`][2]     | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`ChatMessageWriter`][3]        | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`Pipeline`][4]                 | Pipeline breakpoints for debugging        | June 2025         | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hybrid_rag_pipeline_with_breakpoints.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/281)
-| [`ImageContent`][5]; [Image Converters][6]; [multimodal support in `OpenAIChatGenerator`][7]; [`ChatPromptBuilder` refactoring][8]                 | Multimodality        | August 2025         | pillow; pdf2image; pypdf         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/multimodal_intro.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/302)  
+| [`ImageContent`][5]; [Image Converters][6]; multimodal support in [`OpenAIChatGenerator`][7] and [`AmazonBedrockChatGenerator`][9]; [`ChatPromptBuilder` refactoring][8]; [`SentenceTransformersDocumentImageEmbedder`][10]; [`LLMDocumentContentExtractor`][11]; new [Routers][12]                 | Multimodality        | August 2025         | pypdfium2; pillow; sentence-transformers         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/multimodal_intro.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/302)
+| [`QueryExpander`][13]                 | Query Expansion Component        | October 2025         | None         | None | None  
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
 [3]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
 [4]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/pipeline/pipeline.py
 [5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/dataclasses/image_content.py
-[6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/image_converters
+[6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/converters/image
 [7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
 [8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/builders/chat_prompt_builder.py
+[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/amazon_bedrock.py
+[10]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/embedders/image/sentence_transformers_doc_image_embedder.py
+[11]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/extractors/llm_document_content_extractor.py
+[12]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/routers
+[13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/query/query_expander.py
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |

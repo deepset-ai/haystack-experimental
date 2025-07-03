@@ -34,7 +34,7 @@ class DocumentToImageContent:
     - A supported image format (MIME type must be one of the supported image types)
     - For PDF files, a `page_number` key specifying which page to extract
 
-    Usage example:
+    ### Usage example
         ```python
         from haystack import Document
         from haystack_experimental.components.image_converters.document_to_image import DocumentToImageContent

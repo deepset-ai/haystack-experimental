@@ -23,6 +23,23 @@ class ImageFileToDocument:
 
     It does **not** extract any content from the image files, instead it creates `Document` objects with `None` as
     their content and attaches metadata such as file path and any user-provided values.
+
+    ### Usage example
+    ```python
+    from haystack_experimental.components.converters.image import ImageFileToDocument
+
+    converter = ImageFileToDocument()
+
+    sources = ["image.jpg", "another_image.png"]
+
+    result = converter.run(sources=sources)
+    documents = result["documents"]
+
+    print(documents)
+
+    # [Document(id=..., meta: {'file_path': 'image.jpg'}),
+    # Document(id=..., meta: {'file_path': 'another_image.png'})]
+    ```
     """
 
     def __init__(self, *, store_full_path: bool = False):

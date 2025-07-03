@@ -24,6 +24,24 @@ logger = logging.getLogger(__name__)
 class PDFToImageContent:
     """
     Converts PDF files to ImageContent objects.
+
+    ### Usage example
+    ```python
+    from haystack_experimental.components.converters.image import PDFToImageContent
+
+    converter = PDFToImageContent()
+
+    sources = ["file.pdf", "another_file.pdf"]
+
+    image_contents = converter.run(sources=sources)["image_contents"]
+    print(image_contents)
+
+    # [ImageContent(base64_image='...',
+    #               mime_type='application/pdf',
+    #               detail=None,
+    #               meta={'file_path': 'file.pdf', 'page_number': 1}),
+    #  ...]
+    ```
     """
 
     def __init__(
