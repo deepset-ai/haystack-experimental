@@ -73,8 +73,9 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
         return component_inputs
 
+    @staticmethod
     def _check_regular_breakpoint(
-        self, break_point: Breakpoint, component_name: str, component_visits: Dict[str, int]
+        break_point: Breakpoint, component_name: str, component_visits: Dict[str, int]
     ) -> bool:
         """
         Check if a regular breakpoint should be triggered.
@@ -409,7 +410,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             agent_breakpoint = True
 
                     if not agent_breakpoint and isinstance(break_point, Breakpoint):
-                        breakpoint_triggered = self._check_regular_breakpoint(
+                        breakpoint_triggered = Pipeline._check_regular_breakpoint(
                             break_point, component_name, component_visits
                         )
 
