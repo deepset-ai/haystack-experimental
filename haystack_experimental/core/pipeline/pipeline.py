@@ -33,6 +33,152 @@ class Pipeline(HaystackPipeline, PipelineBase):
     Orchestrates component execution according to the execution graph, one after the other.
     """
 
+    @staticmethod
+    def _handle_agent_breakpoint(
+        break_point: AgentBreakpoint,
+        component_name: str,
+        component_inputs: Dict[str, Any],
+        inputs: Dict[str, Any],
+        component_visits: Dict[str, int],
+        ordered_component_names: list,
+        data: Dict[str, Any],
+        debug_path: Optional[Union[str, Path]],
+    ) -> Dict[str, Any]:
+        """
+        Handle agent-specific breakpoint logic.
+
+        :param break_point: The agent breakpoint to handle
+        :param component_name: Name of the current component
+        :param component_inputs: Inputs for the current component
+        :param inputs: Global pipeline inputs
+        :param component_visits: Component visit counts
+        :param ordered_component_names: Ordered list of component names
+        :param data: Original pipeline data
+        :param debug_path: Path for debug files
+        :return: Updated component inputs
+        """
+        component_inputs["break_point"] = break_point
+        component_inputs["debug_path"] = debug_path
+        component_inputs["agent_name"] = component_name
+
+        # Store pipeline state for agent resume
+        state_inputs_serialised = deepcopy(inputs)
+        state_inputs_serialised[component_name] = deepcopy(component_inputs)
+        component_inputs["main_pipeline_state"] = {
+            "inputs": state_inputs_serialised,
+            "component_visits": component_visits,
+            "ordered_component_names": ordered_component_names,
+            "original_input_data": data,
+        }
+
+        return component_inputs
+
+    def _check_regular_breakpoint(
+        self, break_point: Breakpoint, component_name: str, component_visits: Dict[str, int]
+    ) -> bool:
+        """
+        Check if a regular breakpoint should be triggered.
+
+        :param break_point: The breakpoint to check
+        :param component_name: Name of the current component
+        :param component_visits: Component visit counts
+        :return: True if breakpoint should be triggered
+        """
+        return (
+            break_point.component_name == component_name and break_point.visit_count == component_visits[component_name]
+        )
+
+    @staticmethod
+    def _trigger_breakpoint(
+        component_name: str,
+        component_inputs: Dict[str, Any],
+        inputs: Dict[str, Any],
+        component_visits: Dict[str, int],
+        debug_path: Optional[Union[str, Path]],
+        data: Dict[str, Any],
+        ordered_component_names: list,
+        pipeline_outputs: Dict[str, Any],
+    ) -> None:
+        """
+        Trigger a breakpoint by saving state and raising exception.
+
+        :param component_name: Name of the component where breakpoint is triggered
+        :param component_inputs: Inputs for the current component
+        :param inputs: Global pipeline inputs
+        :param component_visits: Component visit counts
+        :param debug_path: Path for debug files
+        :param data: Original pipeline data
+        :param ordered_component_names: Ordered list of component names
+        :param pipeline_outputs: Current pipeline outputs
+        :raises PipelineBreakpointException: When breakpoint is triggered
+        """
+        state_inputs_serialised = deepcopy(inputs)
+        state_inputs_serialised[component_name] = deepcopy(component_inputs)
+        _save_state(
+            inputs=state_inputs_serialised,
+            component_name=str(component_name),
+            component_visits=component_visits,
+            debug_path=debug_path,
+            original_input_data=data,
+            ordered_component_names=ordered_component_names,
+        )
+
+        msg = f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
+        raise PipelineBreakpointException(
+            message=msg,
+            component=component_name,
+            state=state_inputs_serialised,
+            results=pipeline_outputs,
+        )
+
+    def _handle_resume_state(self, resume_state: Dict[str, Any]) -> tuple[Dict[str, int], Dict[str, Any], bool, list]:
+        """
+        Handle resume state initialization.
+
+        :param resume_state: The resume state to handle
+        :return: Tuple of (component_visits, data, resume_agent_in_pipeline, ordered_component_names)
+        """
+        if resume_state.get("agent_name"):
+            return self._handle_agent_resume_state(resume_state)
+        else:
+            return self._handle_regular_resume_state(resume_state)
+
+    def _handle_agent_resume_state(
+        self, resume_state: Dict[str, Any]
+    ) -> tuple[Dict[str, int], Dict[str, Any], bool, list]:
+        """
+        Handle agent-specific resume state.
+
+        :param resume_state: The resume state to handle
+        :return: Tuple of (component_visits, data, resume_agent_in_pipeline, ordered_component_names)
+        """
+        agent_name = resume_state["agent_name"]
+        for name, component in self.graph.nodes.items():
+            if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
+                main_pipeline_state = resume_state.get("main_pipeline_state", {})
+                component_visits = main_pipeline_state.get("component_visits", {})
+                ordered_component_names = main_pipeline_state.get("ordered_component_names", [])
+                data = _deserialize_value_with_schema(main_pipeline_state.get("inputs", {}))
+                return component_visits, data, True, ordered_component_names
+
+        # Fallback to regular resume if agent not found
+        return self._handle_regular_resume_state(resume_state)
+
+    def _handle_regular_resume_state(
+        self, resume_state: Dict[str, Any]
+    ) -> tuple[Dict[str, int], Dict[str, Any], bool, list]:
+        """
+        Handle regular component resume state.
+
+        :param resume_state: The resume state to handle
+        :return: Tuple of (component_visits, data, resume_agent_in_pipeline, ordered_component_names)
+        """
+        component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
+            resume_state=resume_state,
+        )
+        data = _deserialize_value_with_schema(resume_state["pipeline_state"]["inputs"])
+        return component_visits, data, False, ordered_component_names
+
     def run(  # noqa: PLR0915, PLR0912
         self,
         data: Dict[str, Any],
@@ -119,9 +265,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
         :param break_point:
             A set of breakpoints that can be used to debug the pipeline execution.
 
-        :param break_on_first:
-            If `True`, the pipeline will stop at the first breakpoint.
-
         :param resume_state:
             A dictionary containing the state of a previously saved pipeline execution.
 
@@ -162,8 +305,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
         self.warm_up()
 
-        resume_agent_in_pipeline = False
-
         if include_outputs_from is None:
             include_outputs_from = set()
 
@@ -180,27 +321,13 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
             # We track component visits to decide if a component can run.
             component_visits = dict.fromkeys(ordered_component_names, 0)
+            resume_agent_in_pipeline = False
 
         else:
-            # check if it's an Agent resume state - we need to handle it differently
-            if resume_state["agent_name"]:
-                agent_name = resume_state["agent_name"]
-                for name, component in self.graph.nodes.items():
-                    if component["instance"].__class__.__name__ == "Agent" and name == agent_name:
-                        # inject the saved main pipeline state before the agent run into the pipeline graph
-                        # this is needed to ensure that the agent is the next selected component to run
-                        main_pipeline_state = resume_state.get("main_pipeline_state", {})
-                        component_visits = main_pipeline_state.get("component_visits", {})
-                        ordered_component_names = main_pipeline_state.get("ordered_component_names", [])
-                        data = _deserialize_value_with_schema(main_pipeline_state.get("inputs", {}))
-                        resume_agent_in_pipeline = True
-
-            else:
-                # inject the resume state into the graph
-                component_visits, data, resume_state, ordered_component_names = self.inject_resume_state_into_graph(
-                    resume_state=resume_state,
-                )
-                data = _deserialize_value_with_schema(resume_state["pipeline_state"]["inputs"])
+            # Handle resume state
+            component_visits, data, resume_agent_in_pipeline, ordered_component_names = self._handle_resume_state(
+                resume_state
+            )
 
         cached_topological_sort = None
         # We need to access a component's receivers multiple times during a pipeline run.
@@ -264,59 +391,38 @@ class Pipeline(HaystackPipeline, PipelineBase):
                 breakpoint_triggered = False
                 if break_point is not None:
                     agent_breakpoint = False
-                    breakpoint_component = None
-                    visit_count = None
-                    if isinstance(break_point, Breakpoint):
-                        breakpoint_component = break_point.component_name
-                        visit_count = break_point.visit_count
 
                     if isinstance(break_point, AgentBreakpoint):
                         component_instance = component["instance"]
                         component_class_name = component_instance.__class__.__name__
                         if component_class_name == "Agent":
-                            # inject all breakpoint into the Agent he will handle it internally
-                            component_inputs["break_point"] = break_point
-                            component_inputs["debug_path"] = debug_path
-                            component_inputs["agent_name"] = component_name
-
-                            # also keep the current pipeline state and inputs, they are later needed to resume the Agent
-                            state_inputs_serialised = deepcopy(inputs)
-                            state_inputs_serialised[component_name] = deepcopy(component_inputs)
-                            component_inputs["main_pipeline_state"] = {
-                                "inputs": state_inputs_serialised,
-                                "component_visits": component_visits,
-                                "ordered_component_names": ordered_component_names,
-                                "original_input_data": data,
-                            }
-
+                            component_inputs = Pipeline._handle_agent_breakpoint(
+                                break_point,
+                                component_name,
+                                component_inputs,
+                                inputs,
+                                component_visits,
+                                ordered_component_names,
+                                data,
+                                debug_path,
+                            )
                             agent_breakpoint = True
 
-                    if not agent_breakpoint:
-                        breakpoint_triggered = bool(
-                            breakpoint_component == component_name and visit_count == component_visits[component_name]
+                    if not agent_breakpoint and isinstance(break_point, Breakpoint):
+                        breakpoint_triggered = self._check_regular_breakpoint(
+                            break_point, component_name, component_visits
                         )
 
                     if breakpoint_triggered:
-                        state_inputs_serialised = deepcopy(inputs)
-                        state_inputs_serialised[component_name] = deepcopy(component_inputs)
-                        _save_state(
-                            inputs=state_inputs_serialised,
-                            component_name=str(component_name),
-                            component_visits=component_visits,
-                            debug_path=debug_path,
-                            original_input_data=data,
-                            ordered_component_names=ordered_component_names,
-                        )
-
-                        msg = (
-                            f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
-                        )
-
-                        raise PipelineBreakpointException(
-                            message=msg,
-                            component=component_name,
-                            state=state_inputs_serialised,
-                            results=pipeline_outputs,
+                        Pipeline._trigger_breakpoint(
+                            component_name,
+                            component_inputs,
+                            inputs,
+                            component_visits,
+                            debug_path,
+                            data,
+                            ordered_component_names,
+                            pipeline_outputs,
                         )
 
                 if resume_agent_in_pipeline:
