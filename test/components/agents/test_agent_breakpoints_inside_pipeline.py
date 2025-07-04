@@ -218,7 +218,7 @@ def run_pipeline_without_any_breakpoints():
     assert "Chief Technology Officer" in final_message
 
 def test_chat_generator_breakpoint_in_pipeline_agent():
-
+    
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
@@ -254,6 +254,7 @@ def test_chat_generator_breakpoint_in_pipeline_agent():
         assert len(chat_generator_state_files) > 0, f"No chat_generator state files found in {debug_path}"
 
 def test_tool_breakpoint_in_pipeline_agent():
+
     pipeline_with_agent = create_pipeline()
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
     agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint)
@@ -287,8 +288,7 @@ def test_tool_breakpoint_in_pipeline_agent():
         tool_invoker_state_files = list(Path(debug_path).glob("database_agent_tool_invoker_*.json"))
         assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
 
-def test_agent_breakpoint_and_resume_pipeline():
-
+def test_agent_breakpoint_chat_generator_and_resume_pipeline():
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
@@ -326,6 +326,71 @@ def test_agent_breakpoint_and_resume_pipeline():
 
         # resume the pipeline from the saved state
         latest_state_file = max(chat_generator_state_files, key=os.path.getctime)
+        resume_state = load_state(latest_state_file)
+
+        result = pipeline_with_agent.run(
+            data={},
+            resume_state=resume_state
+        )
+
+        # pipeline completed successfully after resuming
+        assert "database_agent" in result
+        assert "messages" in result["database_agent"]
+        assert len(result["database_agent"]["messages"]) > 0
+        
+        # final message contains the expected summary
+        final_message = result["database_agent"]["messages"][-1].text
+        assert "Malte Pietsch" in final_message
+        assert "Milos Rusic" in final_message
+        assert "Chief Executive Officer" in final_message
+        assert "Chief Technology Officer" in final_message
+
+        # tool should have been called during the resumed execution
+        documents = document_store.filter_documents()
+        assert len(documents) >= 2, "Expected at least 2 documents to be added to the database"
+        
+        # both people were added
+        person_names = [doc.content for doc in documents]
+        assert any("Malte Pietsch" in name for name in person_names)
+        assert any("Milos Rusic" in name for name in person_names)
+
+def test_agent_breakpoint_tool_and_resume_pipeline():
+
+    pipeline_with_agent = create_pipeline()
+    agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
+    agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint)
+    
+    with tempfile.TemporaryDirectory() as debug_path:
+        try:
+            pipeline_with_agent.run(
+                data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
+                break_point=agent_breakpoints,
+                debug_path=debug_path,
+            )
+            assert False, "Expected PipelineBreakpointException was not raised"
+            
+        except PipelineBreakpointException as e:
+            assert e.component == "tool_invoker"
+            assert e.state is not None
+            assert "messages" in e.state
+            assert e.results is not None
+            
+        except PipelineRuntimeError as e:
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+                original_exception = e.__cause__
+                assert original_exception.component == "tool_invoker"
+                assert original_exception.state is not None
+                assert "messages" in original_exception.state
+                assert original_exception.results is not None
+            else:
+                raise
+        
+        # verify that the state file was created
+        tool_invoker_state_files = list(Path(debug_path).glob("database_agent_tool_invoker_*.json"))
+        assert len(tool_invoker_state_files) > 0, f"No tool_invoker state files found in {debug_path}"
+
+        # resume the pipeline from the saved state
+        latest_state_file = max(tool_invoker_state_files, key=os.path.getctime)
         resume_state = load_state(latest_state_file)
 
         result = pipeline_with_agent.run(
