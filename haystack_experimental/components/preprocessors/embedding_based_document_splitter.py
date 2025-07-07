@@ -60,7 +60,7 @@ class EmbeddingBasedDocumentSplitter:
         self,
         *,
         document_embedder: DocumentEmbedder,
-        sentences_per_group: int = 1,
+        sentences_per_group: int = 3,
         percentile: float = 0.95,
         min_length: int = 50,
         max_length: int = 1000,
@@ -72,16 +72,14 @@ class EmbeddingBasedDocumentSplitter:
         Initialize EmbeddingBasedDocumentSplitter.
 
         :param document_embedder: The DocumentEmbedder to use for calculating embeddings.
-        :param sentences_per_group: Number of sentences to group together before embedding. Default is 1.
+        :param sentences_per_group: Number of sentences to group together before embedding.
         :param percentile: Percentile threshold for cosine distance. Distances above this percentile
-            are treated as break points. Default is 0.95.
+            are treated as break points.
         :param min_length: Minimum length of splits in characters. Splits below this length will be merged.
-            Default is 50.
         :param max_length: Maximum length of splits in characters. Splits above this length will be recursively split.
-            Default is 1000.
-        :param language: Language for sentence tokenization. Default is "en".
-        :param use_split_rules: Whether to use additional split rules for sentence tokenization. Default is True.
-        :param extend_abbreviations: Whether to extend NLTK abbreviations. Default is True.
+        :param language: Language for sentence tokenization.
+        :param use_split_rules: Whether to use additional split rules for sentence tokenization.
+        :param extend_abbreviations: Whether to extend NLTK abbreviations.
         """
         self.document_embedder = document_embedder
         self.sentences_per_group = sentences_per_group
