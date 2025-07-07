@@ -93,6 +93,7 @@ class EmbeddingBasedDocumentSplitter:
 
         self._init_validation()
         self.sentence_splitter: Optional[SentenceSplitter] = None
+        self._is_warmed_up = False
 
     def _init_validation(self) -> None:
         """
@@ -121,7 +122,9 @@ class EmbeddingBasedDocumentSplitter:
             extend_abbreviations=self.extend_abbreviations,
             keep_white_spaces=True,
         )
-        self.document_embedder.warm_up()
+        if hasattr(self.document_embedder, "warm_up"):
+            self.document_embedder.warm_up()
+        self._is_warmed_up = True
 
     @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]):
@@ -140,7 +143,7 @@ class EmbeddingBasedDocumentSplitter:
             - `TypeError`: If the input is not a list of Documents.
             - `ValueError`: If the document content is None or empty.
         """
-        if self.sentence_splitter is None:
+        if not self._is_warmed_up:
             raise RuntimeError(
                 "The component EmbeddingBasedDocumentSplitter wasn't warmed up. Run 'warm_up()' before calling 'run()'."
             )
