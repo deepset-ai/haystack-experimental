@@ -2,9 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import re
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from haystack import Document, component, logging
@@ -12,7 +11,6 @@ from haystack.components.embedders.types.protocol import TextEmbedder
 from haystack.components.preprocessors.sentence_tokenizer import Language, SentenceSplitter, nltk_imports
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict
 from haystack.utils.deserialization import deserialize_component_inplace
-from more_itertools import windowed
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +56,7 @@ class EmbeddingBasedDocumentSplitter:
 
     def __init__(
         self,
+        *,
         text_embedder: TextEmbedder,
         sentences_per_group: int = 1,
         percentile: float = 0.95,
