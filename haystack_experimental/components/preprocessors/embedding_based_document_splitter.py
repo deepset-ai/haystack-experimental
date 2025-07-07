@@ -32,8 +32,8 @@ class EmbeddingBasedDocumentSplitter:
 
     ```python
     from haystack import Document
-    from haystack.components.preprocessors import EmbeddingBasedDocumentSplitter
     from haystack.components.embedders import SentenceTransformersTextEmbedder
+    from haystack_experimental.components.preprocessors import EmbeddingBasedDocumentSplitter
 
     doc = Document(
         content="This is a first sentence. This is a second sentence. This is a third sentence. "

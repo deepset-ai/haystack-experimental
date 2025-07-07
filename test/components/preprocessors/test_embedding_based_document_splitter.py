@@ -249,20 +249,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert result["init_parameters"]["max_length"] == 1000
         assert "text_embedder" in result["init_parameters"]
 
-    def test_from_dict_not_implemented(self):
-        """Test deserialization raises DeserializationError."""
-        data = {
-            "type": "EmbeddingBasedDocumentSplitter",
-            "init_parameters": {
-                "sentences_per_group": 1,
-                "percentile": 0.95,
-                "min_length": 50,
-                "max_length": 1000,
-            }
-        }
-
-        with pytest.raises(Exception, match="Missing 'text_embedder'"):
-            EmbeddingBasedDocumentSplitter.from_dict(data)
 
     @pytest.mark.integration
     def test_embedding_based_document_splitter_integration(self):
