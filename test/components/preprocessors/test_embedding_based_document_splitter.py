@@ -81,6 +81,7 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
         splitter.sentence_splitter = Mock()
+        splitter._is_warmed_up = True
 
         with pytest.raises(TypeError, match="expects a List of Documents"):
             splitter.run(documents="not a list")
@@ -90,6 +91,7 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
         splitter.sentence_splitter = Mock()
+        splitter._is_warmed_up = True
 
         with pytest.raises(ValueError, match="content for document ID"):
             splitter.run(documents=[Document(content=None)])
@@ -99,6 +101,7 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
         splitter.sentence_splitter = Mock()
+        splitter._is_warmed_up = True
 
         result = splitter.run(documents=[Document(content="")])
         assert result["documents"] == []
@@ -226,6 +229,43 @@ class TestEmbeddingBasedDocumentSplitter:
         assert documents[0].meta["key"] == "value"
         assert documents[1].content == "Split 2"
         assert documents[1].meta["split_id"] == 1
+
+    def test_create_documents_from_splits_with_page_numbers(self):
+        """Test creating Document objects from splits with page number tracking."""
+        mock_embedder = Mock()
+        splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
+
+        # Test with page breaks
+        original_doc = Document(content="Page 1 content.\fPage 2 content.\f\fPage 4 content.", meta={"key": "value"})
+        splits = ["Page 1 content.\f", "Page 2 content.\f\f", "Page 4 content."]
+
+        documents = splitter._create_documents_from_splits(splits, original_doc)
+
+        assert len(documents) == 3
+        assert documents[0].content == "Page 1 content.\f"
+        assert documents[0].meta["page_number"] == 1
+        assert documents[1].content == "Page 2 content.\f\f"
+        assert documents[1].meta["page_number"] == 2
+        assert documents[2].content == "Page 4 content."
+        assert documents[2].meta["page_number"] == 4
+
+    def test_create_documents_from_splits_with_consecutive_page_breaks(self):
+        """Test creating Document objects from splits with consecutive page breaks at the end."""
+        mock_embedder = Mock()
+        splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
+
+        # Test with consecutive page breaks at the end
+        original_doc = Document(content="Page 1 content.\fPage 2 content.\f\f\f", meta={"key": "value"})
+        splits = ["Page 1 content.\f", "Page 2 content.\f\f\f"]
+
+        documents = splitter._create_documents_from_splits(splits, original_doc)
+
+        assert len(documents) == 2
+        assert documents[0].content == "Page 1 content.\f"
+        assert documents[0].meta["page_number"] == 1
+        assert documents[1].content == "Page 2 content.\f\f\f"
+        # Should be page 2, not 4, because consecutive page breaks at the end are adjusted
+        assert documents[1].meta["page_number"] == 2
 
     def test_calculate_embeddings(self):
         """Test calculating embeddings using DocumentEmbedder."""

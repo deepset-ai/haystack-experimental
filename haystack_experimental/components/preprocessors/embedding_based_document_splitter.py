@@ -23,7 +23,8 @@ class EmbeddingBasedDocumentSplitter:
 
     This component first splits text into sentences, optionally groups them, calculates embeddings for each group,
     and then uses cosine distance between sequential embeddings to determine split points. Any distance above
-    the specified percentile is treated as a break point.
+    the specified percentile is treated as a break point. The component also tracks page numbers based on form feed
+    characters (`\f`) in the original document.
 
     This component is inspired by [5 Levels of Text Splitting](
         https://github.com/FullStackRetrieval-com/RetrievalTutorials/blob/main/tutorials/LevelsOfTextSplitting/5_Levels_Of_Text_Splitting.ipynb
@@ -136,6 +137,7 @@ class EmbeddingBasedDocumentSplitter:
             - `documents`: List of documents with the split texts. Each document includes:
                 - A metadata field `source_id` to track the original document.
                 - A metadata field `split_id` to track the split number.
+                - A metadata field `page_number` to track the original page number.
                 - All other metadata copied from the original document.
 
         :raises:
@@ -348,11 +350,25 @@ class EmbeddingBasedDocumentSplitter:
         metadata = deepcopy(original_doc.meta)
         metadata["source_id"] = original_doc.id
 
+        # Calculate page numbers for each split
+        current_page = 1
+
         for i, split_text in enumerate(splits):
             split_meta = deepcopy(metadata)
             split_meta["split_id"] = i
+
+            # Calculate page number for this split
+            # Count page breaks in the split itself
+            page_breaks_in_split = split_text.count("\f")
+
+            # Calculate the page number for this split
+            split_meta["page_number"] = current_page
+
             doc = Document(content=split_text, meta=split_meta)
             documents.append(doc)
+
+            # Update page counter for next split
+            current_page += page_breaks_in_split
 
         return documents
 
