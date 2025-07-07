@@ -128,7 +128,7 @@ class EmbeddingBasedDocumentSplitter:
         self._is_warmed_up = True
 
     @component.output_types(documents=List[Document])
-    def run(self, documents: List[Document]):
+    def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
         Split documents based on embedding similarity.
 
@@ -173,6 +173,11 @@ class EmbeddingBasedDocumentSplitter:
         """
         Split a single document based on embedding similarity.
         """
+        if self.sentence_splitter is None:
+            raise RuntimeError("Sentence splitter is not initialized. Call warm_up() first.")
+        if doc.content is None:
+            raise ValueError("Document content cannot be None.")
+
         sentences_result = self.sentence_splitter.split_sentences(doc.content)
         sentences = [sentence["sentence"] for sentence in sentences_result]
 
@@ -328,6 +333,8 @@ class EmbeddingBasedDocumentSplitter:
             else:
                 # Recursively split large splits
                 # For simplicity, split by sentences first
+                if self.sentence_splitter is None:
+                    raise RuntimeError("Sentence splitter is not initialized. Call warm_up() first.")
                 sentences_result = self.sentence_splitter.split_sentences(split)
                 sentences = [sentence["sentence"] for sentence in sentences_result]
 
