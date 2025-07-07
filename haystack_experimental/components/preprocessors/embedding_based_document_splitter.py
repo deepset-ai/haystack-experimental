@@ -7,10 +7,11 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from haystack import Document, component, logging
-from haystack.components.embedders.types.protocol import TextEmbedder
 from haystack.components.preprocessors.sentence_tokenizer import Language, SentenceSplitter, nltk_imports
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict
 from haystack.utils.deserialization import deserialize_component_inplace
+
+from haystack_experimental.components.embedders.types import DocumentEmbedder
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class EmbeddingBasedDocumentSplitter:
 
     ```python
     from haystack import Document
-    from haystack.components.embedders import SentenceTransformersTextEmbedder
+    from haystack.components.embedders import SentenceTransformersDocumentEmbedder
     from haystack_experimental.components.preprocessors import EmbeddingBasedDocumentSplitter
 
     doc = Document(
@@ -40,10 +41,10 @@ class EmbeddingBasedDocumentSplitter:
         "Completely different topic. The same completely different topic."
     )
 
-    embedder = SentenceTransformersTextEmbedder()
+    embedder = SentenceTransformersDocumentEmbedder()
 
     splitter = EmbeddingBasedDocumentSplitter(
-        text_embedder=embedder,
+        document_embedder=embedder,
         sentences_per_group=2,
         percentile=0.95,
         min_length=50,
@@ -57,7 +58,7 @@ class EmbeddingBasedDocumentSplitter:
     def __init__(
         self,
         *,
-        text_embedder: TextEmbedder,
+        document_embedder: DocumentEmbedder,
         sentences_per_group: int = 1,
         percentile: float = 0.95,
         min_length: int = 50,
@@ -69,7 +70,7 @@ class EmbeddingBasedDocumentSplitter:
         """
         Initialize EmbeddingBasedDocumentSplitter.
 
-        :param text_embedder: The TextEmbedder to use for calculating embeddings.
+        :param document_embedder: The DocumentEmbedder to use for calculating embeddings.
         :param sentences_per_group: Number of sentences to group together before embedding. Default is 1.
         :param percentile: Percentile threshold for cosine distance. Distances above this percentile
             are treated as break points. Default is 0.95.
@@ -81,7 +82,7 @@ class EmbeddingBasedDocumentSplitter:
         :param use_split_rules: Whether to use additional split rules for sentence tokenization. Default is True.
         :param extend_abbreviations: Whether to extend NLTK abbreviations. Default is True.
         """
-        self.text_embedder = text_embedder
+        self.document_embedder = document_embedder
         self.sentences_per_group = sentences_per_group
         self.percentile = percentile
         self.min_length = min_length
@@ -120,7 +121,7 @@ class EmbeddingBasedDocumentSplitter:
             extend_abbreviations=self.extend_abbreviations,
             keep_white_spaces=True,
         )
-        self.text_embedder.warm_up()
+        self.document_embedder.warm_up()
 
     @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]):
@@ -199,12 +200,13 @@ class EmbeddingBasedDocumentSplitter:
 
     def _calculate_embeddings(self, sentence_groups: List[str]) -> List[List[float]]:
         """
-        Calculate embeddings for each sentence group.
+        Calculate embeddings for each sentence group using the DocumentEmbedder.
         """
-        embeddings = []
-        for group in sentence_groups:
-            result = self.text_embedder.run(group)
-            embeddings.append(result["embedding"])
+        # Create Document objects for each group
+        group_docs = [Document(content=group) for group in sentence_groups]
+        result = self.document_embedder.run(group_docs)
+        embedded_docs = result["documents"]
+        embeddings = [doc.embedding for doc in embedded_docs]
         return embeddings
 
     def _find_split_points(self, embeddings: List[List[float]]) -> List[int]:
@@ -357,7 +359,7 @@ class EmbeddingBasedDocumentSplitter:
         """
         return default_to_dict(
             self,
-            text_embedder=component_to_dict(obj=self.text_embedder, name="text_embedder"),
+            document_embedder=component_to_dict(obj=self.document_embedder, name="document_embedder"),
             sentences_per_group=self.sentences_per_group,
             percentile=self.percentile,
             min_length=self.min_length,
@@ -372,5 +374,5 @@ class EmbeddingBasedDocumentSplitter:
         """
         Deserializes the component from a dictionary.
         """
-        deserialize_component_inplace(data["init_parameters"], key="text_embedder")
+        deserialize_component_inplace(data["init_parameters"], key="document_embedder")
         return default_from_dict(cls, data)
