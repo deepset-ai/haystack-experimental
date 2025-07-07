@@ -57,9 +57,9 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(text_embedder=mock_embedder)
 
-        with patch('haystack.components.preprocessors.embedding_based_document_splitter.nltk_imports') as mock_nltk:
+        with patch('haystack_experimental.components.preprocessors.embedding_based_document_splitter.nltk_imports') as mock_nltk:
             mock_nltk.check.return_value = None
-            with patch('haystack.components.preprocessors.embedding_based_document_splitter.SentenceSplitter') as mock_splitter_class:
+            with patch('haystack_experimental.components.preprocessors.embedding_based_document_splitter.SentenceSplitter') as mock_splitter_class:
                 mock_splitter = Mock()
                 mock_splitter_class.return_value = mock_splitter
 
