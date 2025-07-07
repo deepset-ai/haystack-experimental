@@ -293,8 +293,7 @@ def test_agent_breakpoint_chat_generator_and_resume_pipeline():
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
     agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
     
-    # with tempfile.TemporaryDirectory() as debug_path:
-    with Path("debug_path") as debug_path:
+    with tempfile.TemporaryDirectory() as debug_path:    
         try:
             pipeline_with_agent.run(
                 data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
