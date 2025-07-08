@@ -28,9 +28,14 @@ def _validate_breakpoint(break_point: Union[Breakpoint, AgentBreakpoint], graph:
     :param break_point: a breakpoint to validate, can be Breakpoint or AgentBreakpoint
     """
 
-    # all breakpoints must refer to a valid component in the pipeline
+    # all Breakpoints must refer to a valid component in the pipeline
     if isinstance(break_point, Breakpoint) and break_point.component_name not in graph.nodes:
         raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
+
+    if isinstance(break_point, AgentBreakpoint):
+        agent_components = [node for node in graph.nodes if graph.nodes[node]["instance"].__class__.__name__ == "Agent"]
+        if not agent_components:
+            raise ValueError("Defining an AgentBreakpoint but no Agent component found in the pipeline")
 
 
 def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
