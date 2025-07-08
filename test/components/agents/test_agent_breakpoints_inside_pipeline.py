@@ -19,7 +19,7 @@ from haystack.tools import tool
 from haystack_experimental.components.agents import Agent
 from haystack_experimental.core.pipeline import Pipeline
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
-from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.breakpoint import load_state
 
 document_store = InMemoryDocumentStore()
@@ -221,7 +221,7 @@ def test_chat_generator_breakpoint_in_pipeline_agent():
     
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
-    agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
+    agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint, agent_name='database_agent')
 
     with tempfile.TemporaryDirectory() as debug_path:
         try:
@@ -232,14 +232,14 @@ def test_chat_generator_breakpoint_in_pipeline_agent():
             )
             assert False, "Expected exception was not raised"
 
-        except PipelineBreakpointException as e:    # this is the exception from the Agent
+        except BreakpointException as e:    # this is the exception from the Agent
             assert e.component == "chat_generator"
             assert e.state is not None
             assert "messages" in e.state
             assert e.results is not None
         except PipelineRuntimeError as e:
             # propagated exception to core Pipeline - assure that the cause is a PipelineBreakpointException
-            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, BreakpointException):
                 original_exception = e.__cause__
                 assert original_exception.component == "chat_generator"
                 assert original_exception.state is not None
@@ -257,7 +257,7 @@ def test_tool_breakpoint_in_pipeline_agent():
 
     pipeline_with_agent = create_pipeline()
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
-    agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint)
+    agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint, agent_name = 'database_agent')
 
     with tempfile.TemporaryDirectory() as debug_path:
         try:
@@ -267,14 +267,14 @@ def test_tool_breakpoint_in_pipeline_agent():
                 debug_path=debug_path,
             )
             assert False, "Expected exception was not raised"
-        except PipelineBreakpointException as e:    # this is the exception from the Agent
+        except BreakpointException as e:    # this is the exception from the Agent
             assert e.component == "tool_invoker"
             assert e.state is not None
             assert "messages" in e.state
             assert e.results is not None
         except PipelineRuntimeError as e:
             # propagated exception to core Pipeline - assure that the cause is a PipelineBreakpointException
-            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, BreakpointException):
                 original_exception = e.__cause__
                 assert original_exception.component == "tool_invoker"
                 assert original_exception.state is not None
@@ -291,9 +291,9 @@ def test_tool_breakpoint_in_pipeline_agent():
 def test_agent_breakpoint_chat_generator_and_resume_pipeline():
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
-    agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint)
-    
-    with tempfile.TemporaryDirectory() as debug_path:    
+    agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint, agent_name='database_agent')
+
+    with tempfile.TemporaryDirectory() as debug_path:
         try:
             pipeline_with_agent.run(
                 data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
@@ -302,14 +302,14 @@ def test_agent_breakpoint_chat_generator_and_resume_pipeline():
             )
             assert False, "Expected PipelineBreakpointException was not raised"
             
-        except PipelineBreakpointException as e:
+        except BreakpointException as e:
             assert e.component == "chat_generator"
             assert e.state is not None
             assert "messages" in e.state
             assert e.results is not None
             
         except PipelineRuntimeError as e:
-            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, BreakpointException):
                 original_exception = e.__cause__
                 assert original_exception.component == "chat_generator"
                 assert original_exception.state is not None
@@ -357,7 +357,7 @@ def test_agent_breakpoint_tool_and_resume_pipeline():
 
     pipeline_with_agent = create_pipeline()
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
-    agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint)
+    agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint, agent_name='database_agent')
     
     with tempfile.TemporaryDirectory() as debug_path:
         try:
@@ -368,14 +368,14 @@ def test_agent_breakpoint_tool_and_resume_pipeline():
             )
             assert False, "Expected PipelineBreakpointException was not raised"
             
-        except PipelineBreakpointException as e:
+        except BreakpointException as e:
             assert e.component == "tool_invoker"
             assert e.state is not None
             assert "messages" in e.state
             assert e.results is not None
             
         except PipelineRuntimeError as e:
-            if hasattr(e, '__cause__') and isinstance(e.__cause__, PipelineBreakpointException):
+            if hasattr(e, '__cause__') and isinstance(e.__cause__, BreakpointException):
                 original_exception = e.__cause__
                 assert original_exception.component == "tool_invoker"
                 assert original_exception.state is not None

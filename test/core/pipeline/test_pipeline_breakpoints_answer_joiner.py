@@ -8,7 +8,7 @@ from haystack.components.joiners import AnswerJoiner
 # from haystack.core.pipeline import Pipeline
 from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
-from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.dataclasses.breakpoints import Breakpoint
 from test.conftest import load_and_resume_pipeline_state
@@ -111,7 +111,7 @@ class TestPipelineBreakpoints:
 
         try:
             _ = answer_join_pipeline.run(data, break_point=component, debug_path=str(output_directory))
-        except PipelineBreakpointException as e:
+        except BreakpointException as e:
             pass
 
         result = load_and_resume_pipeline_state(answer_join_pipeline, output_directory, component.component_name, data)

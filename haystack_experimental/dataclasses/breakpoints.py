@@ -71,16 +71,18 @@ class AgentBreakpoint:
     A dataclass to hold a breakpoint that can be used to debug an Agent.
     """
 
+    agent_name: str = ""
     generator_breakpoint: Optional[Breakpoint] = None
     tool_breakpoint: Optional[ToolBreakpoint] = None
 
-    def __init__(self, break_point: Union[Breakpoint, ToolBreakpoint]):
+    def __init__(self, agent_name: str, break_point: Union[Breakpoint, ToolBreakpoint]):
         if not isinstance(break_point, ToolBreakpoint) and break_point.component_name != "chat_generator":
             raise ValueError("A Breakpoint must have component_name 'chat_generator'.")
 
         if not break_point:
             raise ValueError("A Breakpoint must be provided.")
 
+        self.agent_name = agent_name
         self.tool_breakpoint = None
         self.generator_breakpoint = None
 

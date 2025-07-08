@@ -15,9 +15,10 @@ from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.telemetry import pipeline_running
 from haystack.utils import _deserialize_value_with_schema
 
-from haystack_experimental.core.errors import PipelineBreakpointException, PipelineInvalidResumeStateError
+from haystack_experimental.core.errors import BreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
 
+from ...components.agents import Agent
 from ...dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 from .breakpoint import _save_state, _validate_breakpoint, _validate_components_against_pipeline
 
@@ -125,7 +126,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
         )
 
         msg = f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
-        raise PipelineBreakpointException(
+        raise BreakpointException(
             message=msg,
             component=component_name,
             state=state_inputs_serialised,
@@ -395,8 +396,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
                     if isinstance(break_point, AgentBreakpoint):
                         component_instance = component["instance"]
-                        component_class_name = component_instance.__class__.__name__
-                        if component_class_name == "Agent":
+                        if isinstance(component_instance, Agent):
                             component_inputs = Pipeline._handle_agent_breakpoint(
                                 break_point,
                                 component_name,

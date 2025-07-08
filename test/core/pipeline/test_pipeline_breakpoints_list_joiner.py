@@ -9,7 +9,7 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import ListJoiner
 from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
-from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.dataclasses.breakpoints import Breakpoint
 from test.conftest import load_and_resume_pipeline_state
@@ -122,7 +122,7 @@ class TestPipelineBreakpoints:
 
         try:
             _ = list_joiner_pipeline.run(data, break_point=component, debug_path=str(output_directory))
-        except PipelineBreakpointException as e:
+        except BreakpointException as e:
             pass
 
         result = load_and_resume_pipeline_state(list_joiner_pipeline, output_directory, component.component_name, data)

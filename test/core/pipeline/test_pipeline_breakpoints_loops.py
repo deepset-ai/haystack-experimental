@@ -14,7 +14,7 @@ from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
-from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.core.pipeline.breakpoint import load_state
 from unittest.mock import patch
@@ -205,7 +205,7 @@ class TestPipelineBreakpointsLoops:
 
         try:
             _ = validation_loop_pipeline.run(data, break_point=component, debug_path=str(output_directory))
-        except PipelineBreakpointException:
+        except BreakpointException:
             pass
 
         all_files = list(output_directory.glob("*"))
