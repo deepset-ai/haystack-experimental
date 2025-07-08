@@ -60,7 +60,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
         """
         component_inputs["break_point"] = break_point
         component_inputs["debug_path"] = debug_path
-        component_inputs["agent_name"] = component_name
 
         # Store pipeline state for agent resume
         state_inputs_serialised = deepcopy(inputs)

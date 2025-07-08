@@ -358,7 +358,7 @@ def test_agent_breakpoint_tool_and_resume_pipeline():
     pipeline_with_agent = create_pipeline()
     agent_tool_breakpoint = ToolBreakpoint("tool_invoker", 0, "add_database_tool")
     agent_breakpoints = AgentBreakpoint(break_point=agent_tool_breakpoint, agent_name='database_agent')
-    
+
     with tempfile.TemporaryDirectory() as debug_path:
         try:
             pipeline_with_agent.run(

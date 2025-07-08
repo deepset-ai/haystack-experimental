@@ -21,6 +21,7 @@ from test.components.agents.test_agent_breakpoints_utils import (
     mock_agent_with_tool_calls_sync,
 )
 
+agent_name = "isolated_agent"
 
 def test_run_with_chat_generator_breakpoint(agent_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
@@ -51,8 +52,7 @@ def test_run_with_tool_invoker_breakpoint(mock_agent_with_tool_calls_sync, debug
 def test_resume_from_chat_generator(agent_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     chat_generator_bp = create_chat_generator_breakpoint(visit_count=0)
-    agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp, agent_name="test_agent")
-    agent_name = "test_agent"
+    agent_breakpoint = AgentBreakpoint(break_point=chat_generator_bp, agent_name=agent_name)
 
     try:
         agent_sync.run(messages=messages, break_point=agent_breakpoint, debug_path=debug_path, agent_name=agent_name)
@@ -60,6 +60,10 @@ def test_resume_from_chat_generator(agent_sync, debug_path):
         pass
 
     state_files = list(Path(debug_path).glob(agent_name+"_chat_generator_*.json"))
+
+    for f in list(Path(debug_path).glob("*")):
+        print(f)
+
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
 
@@ -77,8 +81,7 @@ def test_resume_from_chat_generator(agent_sync, debug_path):
 def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
     messages = [ChatMessage.from_user("What's the weather in Berlin?")]
     tool_bp = create_tool_breakpoint(tool_name="weather_tool", visit_count=0)
-    agent_breakpoint = AgentBreakpoint(break_point=tool_bp, agent_name="test_agent")
-    agent_name = "test_agent"
+    agent_breakpoint = AgentBreakpoint(break_point=tool_bp, agent_name=agent_name)
 
     try:
         mock_agent_with_tool_calls_sync.run(
@@ -91,6 +94,11 @@ def test_resume_from_tool_invoker(mock_agent_with_tool_calls_sync, debug_path):
         pass
 
     state_files = list(Path(debug_path).glob(agent_name+"_tool_invoker_*.json"))
+
+    for f in list(Path(debug_path).glob("*")):
+        print(f)
+
+
     assert len(state_files) > 0
     latest_state_file = str(max(state_files, key=os.path.getctime))
 
