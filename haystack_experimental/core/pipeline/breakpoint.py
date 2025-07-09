@@ -33,38 +33,25 @@ def _validate_breakpoint(break_point: Union[Breakpoint, AgentBreakpoint], graph:
         raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
 
     if isinstance(break_point, AgentBreakpoint):
-        agent_components = [node for node in graph.nodes if graph.nodes[node]["instance"].__class__.__name__ == "Agent"]
-        if not agent_components:
-            raise ValueError("Defining an AgentBreakpoint but no Agent component found in the pipeline")
+        breakpoint_agent_component = next(
+            (
+                node
+                for node in graph.nodes
+                if graph.nodes[node]["instance"].__component_name__ == break_point.agent_name
+            ),
+            None,
+        )
+        if not breakpoint_agent_component:
+            raise ValueError(f"pipeline_breakpoint {break_point} is not a registered Agent component in the pipeline")
 
-        agent_names = [graph.nodes[node]["instance"].__component_name__ for node in agent_components]
-        if break_point.agent_name and break_point.agent_name not in agent_names:
-            raise ValueError(
-                f"pipeline_breakpoint {break_point} is not a registered Agent component in the pipeline. "
-                f"Available agents: {agent_names}"
-            )
-
-        # check if the tool breakpoint is for an actual tool registered in the agent
         if break_point.tool_breakpoint:
-            agent_component = next(
-                (
-                    node
-                    for node in agent_components
-                    if graph.nodes[node]["instance"].__component_name__ == break_point.agent_name
-                ),
-                None,
-            )
-
-            # get all the tools registered in the agent component
-            if agent_component:
-                agent_instance = graph.nodes[agent_component]["instance"]
-                tools = agent_instance.tools if hasattr(agent_instance, "tools") else []
-                tool_names = [tool.name for tool in tools]
-                if break_point.tool_breakpoint.tool_name and break_point.tool_breakpoint.tool_name not in tool_names:
-                    raise ValueError(
-                        f"pipeline_breakpoint {break_point.tool_breakpoint} is not a registered tool in the agent "
-                        f"{break_point.agent_name}. Available tools: {tool_names}"
-                    )
+            for tool in graph.nodes[breakpoint_agent_component]["instance"].tools:
+                if break_point.tool_breakpoint.tool_name == tool.name:
+                    break
+            else:
+                raise ValueError(
+                    f"pipeline_breakpoint {break_point.tool_breakpoint} is not a registered tool in the Agent component"
+                )
 
 
 def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
