@@ -15,12 +15,18 @@ from haystack.core.pipeline.pipeline import Pipeline as HaystackPipeline
 from haystack.telemetry import pipeline_running
 from haystack.utils import _deserialize_value_with_schema
 
-from haystack_experimental.core.errors import BreakpointException, PipelineInvalidResumeStateError
+from haystack_experimental.core.errors import PipelineInvalidResumeStateError
 from haystack_experimental.core.pipeline.base import PipelineBase
 
 from ...components.agents import Agent
 from ...dataclasses.breakpoints import AgentBreakpoint, Breakpoint
-from .breakpoint import _save_state, _validate_breakpoint, _validate_components_against_pipeline
+from .breakpoint import (
+    _validate_breakpoint,
+    _validate_components_against_pipeline,
+    check_regular_breakpoint,
+    handle_agent_breakpoint,
+    trigger_breakpoint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,104 +39,6 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
     Orchestrates component execution according to the execution graph, one after the other.
     """
-
-    @staticmethod
-    def _handle_agent_breakpoint(
-        break_point: AgentBreakpoint,
-        component_name: str,
-        component_inputs: Dict[str, Any],
-        inputs: Dict[str, Any],
-        component_visits: Dict[str, int],
-        ordered_component_names: list,
-        data: Dict[str, Any],
-        debug_path: Optional[Union[str, Path]],
-    ) -> Dict[str, Any]:
-        """
-        Handle agent-specific breakpoint logic.
-
-        :param break_point: The agent breakpoint to handle
-        :param component_name: Name of the current component
-        :param component_inputs: Inputs for the current component
-        :param inputs: Global pipeline inputs
-        :param component_visits: Component visit counts
-        :param ordered_component_names: Ordered list of component names
-        :param data: Original pipeline data
-        :param debug_path: Path for debug files
-        :return: Updated component inputs
-        """
-        component_inputs["break_point"] = break_point
-        component_inputs["debug_path"] = debug_path
-
-        # Store pipeline state for agent resume
-        state_inputs_serialised = deepcopy(inputs)
-        state_inputs_serialised[component_name] = deepcopy(component_inputs)
-        component_inputs["main_pipeline_state"] = {
-            "inputs": state_inputs_serialised,
-            "component_visits": component_visits,
-            "ordered_component_names": ordered_component_names,
-            "original_input_data": data,
-        }
-
-        return component_inputs
-
-    @staticmethod
-    def _check_regular_breakpoint(
-        break_point: Breakpoint, component_name: str, component_visits: Dict[str, int]
-    ) -> bool:
-        """
-        Check if a regular breakpoint should be triggered.
-
-        :param break_point: The breakpoint to check
-        :param component_name: Name of the current component
-        :param component_visits: Component visit counts
-        :return: True if breakpoint should be triggered
-        """
-        return (
-            break_point.component_name == component_name and break_point.visit_count == component_visits[component_name]
-        )
-
-    @staticmethod
-    def _trigger_breakpoint(
-        component_name: str,
-        component_inputs: Dict[str, Any],
-        inputs: Dict[str, Any],
-        component_visits: Dict[str, int],
-        debug_path: Optional[Union[str, Path]],
-        data: Dict[str, Any],
-        ordered_component_names: list,
-        pipeline_outputs: Dict[str, Any],
-    ) -> None:
-        """
-        Trigger a breakpoint by saving state and raising exception.
-
-        :param component_name: Name of the component where breakpoint is triggered
-        :param component_inputs: Inputs for the current component
-        :param inputs: Global pipeline inputs
-        :param component_visits: Component visit counts
-        :param debug_path: Path for debug files
-        :param data: Original pipeline data
-        :param ordered_component_names: Ordered list of component names
-        :param pipeline_outputs: Current pipeline outputs
-        :raises PipelineBreakpointException: When breakpoint is triggered
-        """
-        state_inputs_serialised = deepcopy(inputs)
-        state_inputs_serialised[component_name] = deepcopy(component_inputs)
-        _save_state(
-            inputs=state_inputs_serialised,
-            component_name=str(component_name),
-            component_visits=component_visits,
-            debug_path=debug_path,
-            original_input_data=data,
-            ordered_component_names=ordered_component_names,
-        )
-
-        msg = f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
-        raise BreakpointException(
-            message=msg,
-            component=component_name,
-            state=state_inputs_serialised,
-            results=pipeline_outputs,
-        )
 
     def _handle_resume_state(self, resume_state: Dict[str, Any]) -> tuple[Dict[str, int], Dict[str, Any], bool, list]:
         """
@@ -396,7 +304,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     if isinstance(break_point, AgentBreakpoint):
                         component_instance = component["instance"]
                         if isinstance(component_instance, Agent):
-                            component_inputs = Pipeline._handle_agent_breakpoint(
+                            component_inputs = handle_agent_breakpoint(
                                 break_point,
                                 component_name,
                                 component_inputs,
@@ -409,12 +317,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             agent_breakpoint = True
 
                     if not agent_breakpoint and isinstance(break_point, Breakpoint):
-                        breakpoint_triggered = Pipeline._check_regular_breakpoint(
-                            break_point, component_name, component_visits
-                        )
+                        breakpoint_triggered = check_regular_breakpoint(break_point, component_name, component_visits)
 
                     if breakpoint_triggered:
-                        Pipeline._trigger_breakpoint(
+                        trigger_breakpoint(
                             component_name,
                             component_inputs,
                             inputs,

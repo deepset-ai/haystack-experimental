@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-
 # pylint: disable=too-many-return-statements, too-many-positional-arguments
-
 import json
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -12,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 from haystack import logging
 from networkx import MultiDiGraph
 
-from haystack_experimental.core.errors import PipelineInvalidResumeStateError
+from haystack_experimental.core.errors import BreakpointException, PipelineInvalidResumeStateError
 from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 from haystack_experimental.utils.base_serialization import _serialize_value_with_schema
 
@@ -328,3 +327,97 @@ def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> An
 
     # For other data types, just return the value as is.
     return data
+
+
+def handle_agent_breakpoint(
+    break_point: AgentBreakpoint,
+    component_name: str,
+    component_inputs: Dict[str, Any],
+    inputs: Dict[str, Any],
+    component_visits: Dict[str, int],
+    ordered_component_names: list,
+    data: Dict[str, Any],
+    debug_path: Optional[Union[str, Path]],
+) -> Dict[str, Any]:
+    """
+    Handle agent-specific breakpoint logic.
+
+    :param break_point: The agent breakpoint to handle
+    :param component_name: Name of the current component
+    :param component_inputs: Inputs for the current component
+    :param inputs: Global pipeline inputs
+    :param component_visits: Component visit counts
+    :param ordered_component_names: Ordered list of component names
+    :param data: Original pipeline data
+    :param debug_path: Path for debug files
+    :return: Updated component inputs
+    """
+    component_inputs["break_point"] = break_point
+    component_inputs["debug_path"] = debug_path
+
+    # Store pipeline state for agent resume
+    state_inputs_serialised = deepcopy(inputs)
+    state_inputs_serialised[component_name] = deepcopy(component_inputs)
+    component_inputs["main_pipeline_state"] = {
+        "inputs": state_inputs_serialised,
+        "component_visits": component_visits,
+        "ordered_component_names": ordered_component_names,
+        "original_input_data": data,
+    }
+
+    return component_inputs
+
+
+def check_regular_breakpoint(break_point: Breakpoint, component_name: str, component_visits: Dict[str, int]) -> bool:
+    """
+    Check if a regular breakpoint should be triggered.
+
+    :param break_point: The breakpoint to check
+    :param component_name: Name of the current component
+    :param component_visits: Component visit counts
+    :return: True if breakpoint should be triggered
+    """
+    return break_point.component_name == component_name and break_point.visit_count == component_visits[component_name]
+
+
+def trigger_breakpoint(
+    component_name: str,
+    component_inputs: Dict[str, Any],
+    inputs: Dict[str, Any],
+    component_visits: Dict[str, int],
+    debug_path: Optional[Union[str, Path]],
+    data: Dict[str, Any],
+    ordered_component_names: list,
+    pipeline_outputs: Dict[str, Any],
+) -> None:
+    """
+    Trigger a breakpoint by saving state and raising exception.
+
+    :param component_name: Name of the component where breakpoint is triggered
+    :param component_inputs: Inputs for the current component
+    :param inputs: Global pipeline inputs
+    :param component_visits: Component visit counts
+    :param debug_path: Path for debug files
+    :param data: Original pipeline data
+    :param ordered_component_names: Ordered list of component names
+    :param pipeline_outputs: Current pipeline outputs
+    :raises PipelineBreakpointException: When breakpoint is triggered
+    """
+    state_inputs_serialised = deepcopy(inputs)
+    state_inputs_serialised[component_name] = deepcopy(component_inputs)
+    _save_state(
+        inputs=state_inputs_serialised,
+        component_name=str(component_name),
+        component_visits=component_visits,
+        debug_path=debug_path,
+        original_input_data=data,
+        ordered_component_names=ordered_component_names,
+    )
+
+    msg = f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
+    raise BreakpointException(
+        message=msg,
+        component=component_name,
+        state=state_inputs_serialised,
+        results=pipeline_outputs,
+    )
