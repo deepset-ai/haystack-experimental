@@ -151,7 +151,7 @@ class Agent:
             )
 
         self._is_warmed_up = False
-        self._agent_name = None
+        self._agent_name: Optional[str] = None
 
     def warm_up(self) -> None:
         """
@@ -227,7 +227,7 @@ class Agent:
             },
         )
 
-    def _validate_breakpoints(self, agent_breakpoint: AgentBreakpoint) -> None:
+    def _validate_tool_breakpoint_is_valid(self, agent_breakpoint: AgentBreakpoint) -> None:
         """
         Validates the AgentBreakpoint passed to the agent.
 
@@ -236,14 +236,11 @@ class Agent:
         :param agent_breakpoint: AgentBreakpoint object containing breakpoints for the agent components.
         :raises ValueError: If any tool name in ToolBreakpoints is not available in the agent's tools.
         """
+
         available_tool_names = {tool.name for tool in self.tools}
         tool_breakpoint = agent_breakpoint.break_point
-        if (
-            tool_breakpoint is not None
-            and tool_breakpoint.tool_name is not None
-            and tool_breakpoint.tool_name not in available_tool_names
-        ):
-            raise ValueError(f"Tool '{tool_breakpoint.tool_name}' is not available in the agent's tools")
+        if tool_breakpoint.tool_name is not None and tool_breakpoint.tool_name not in available_tool_names:  # type: ignore # was checked outside function
+            raise ValueError(f"Tool '{tool_breakpoint.tool_name}' is not available in the agent's tools")  # type: ignore # was checked outside function
 
     def _check_chat_generator_breakpoint(  # pylint: disable=too-many-positional-arguments
         self,
@@ -407,8 +404,8 @@ class Agent:
         self._agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
 
         # validate breakpoints
-        if break_point:
-            self._validate_breakpoints(break_point)
+        if break_point and isinstance(break_point.break_point, ToolBreakpoint):
+            self._validate_tool_breakpoint_is_valid(break_point)
 
         # resume state if provided
         if resume_state:
@@ -578,8 +575,8 @@ class Agent:
         self._agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
 
         # validate breakpoints
-        if break_point:
-            self._validate_breakpoints(break_point)
+        if break_point and isinstance(break_point.break_point, ToolBreakpoint):
+            self._validate_tool_breakpoint_is_valid(break_point)
 
         # Handle resume state if provided
         if resume_state:
