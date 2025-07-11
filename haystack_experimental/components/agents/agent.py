@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
+from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from haystack import component, default_from_dict, default_to_dict, logging, tracing
@@ -17,6 +19,10 @@ from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_stre
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
+
+from haystack_experimental.core.errors import BreakpointException
+from haystack_experimental.core.pipeline.breakpoint import _save_state
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
 
 from .state.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 from .state.state_utils import merge_lists
@@ -145,6 +151,7 @@ class Agent:
             )
 
         self._is_warmed_up = False
+        self._agent_name: Optional[str] = None
 
     def warm_up(self) -> None:
         """
@@ -220,8 +227,148 @@ class Agent:
             },
         )
 
+    def _validate_tool_breakpoint_is_valid(self, agent_breakpoint: AgentBreakpoint) -> None:
+        """
+        Validates the AgentBreakpoint passed to the agent.
+
+        Validates that all tool names in ToolBreakpoints correspond to tools available in the agent.
+
+        :param agent_breakpoint: AgentBreakpoint object containing breakpoints for the agent components.
+        :raises ValueError: If any tool name in ToolBreakpoints is not available in the agent's tools.
+        """
+
+        available_tool_names = {tool.name for tool in self.tools}
+        tool_breakpoint = agent_breakpoint.break_point
+        if tool_breakpoint.tool_name is not None and tool_breakpoint.tool_name not in available_tool_names:  # type: ignore # was checked outside function
+            raise ValueError(f"Tool '{tool_breakpoint.tool_name}' is not available in the agent's tools")  # type: ignore # was checked outside function
+
+    def _check_chat_generator_breakpoint(  # pylint: disable=too-many-positional-arguments
+        self,
+        agent_breakpoint: Optional[AgentBreakpoint],
+        component_visits: Dict[str, int],
+        messages: List[ChatMessage],
+        generator_inputs: Dict[str, Any],
+        debug_path: Optional[Union[str, Path]],
+        kwargs: Dict[str, Any],
+        state: State,
+    ) -> None:
+        """
+        Check for breakpoint before calling the ChatGenerator.
+
+        :param agent_breakpoint: AgentBreakpoint object containing breakpoints
+        :param component_visits: Dictionary tracking component visit counts
+        :param messages: Current messages to process
+        :param generator_inputs: Inputs for the chat generator
+        :param debug_path: Path for saving debug state
+        :param kwargs: Additional keyword arguments
+        :param state: Current agent state
+        :raises AgentBreakpointException: If a breakpoint is triggered
+        """
+
+        if agent_breakpoint and isinstance(agent_breakpoint.break_point, Breakpoint):
+            break_point = agent_breakpoint.break_point
+            if component_visits[break_point.component_name] == break_point.visit_count:
+                state_inputs = deepcopy({"messages": messages, **generator_inputs})
+                _save_state(
+                    inputs=state_inputs,
+                    component_name=break_point.component_name,
+                    component_visits=component_visits,  # these are the component visits of the agent components
+                    debug_path=debug_path,
+                    original_input_data={"messages": messages, **kwargs},
+                    ordered_component_names=["chat_generator", "tool_invoker"],
+                    agent_name=self._agent_name,
+                    main_pipeline_state=state.data.get("main_pipeline_state", {}),
+                )
+                msg = (
+                    f"Breaking at {break_point.component_name} visit count "
+                    f"{component_visits[break_point.component_name]}"
+                )
+                logger.info(msg)
+                raise BreakpointException(
+                    message=msg,
+                    component=break_point.component_name,
+                    state=state_inputs,
+                    results=state.data,
+                )
+
+    def _check_tool_invoker_breakpoint(  # pylint: disable=too-many-positional-arguments
+        self,
+        agent_breakpoint: Optional[AgentBreakpoint],
+        component_visits: Dict[str, int],
+        llm_messages: List[ChatMessage],
+        streaming_callback: Optional[StreamingCallbackT],
+        debug_path: Optional[Union[str, Path]],
+        messages: List[ChatMessage],
+        kwargs: Dict[str, Any],
+        state: State,
+    ) -> None:
+        """
+        Check for breakpoint before calling the ToolInvoker.
+
+        :param agent_breakpoint: AgentBreakpoint object containing breakpoints
+        :param component_visits: Dictionary tracking component visit counts
+        :param llm_messages: Messages from the LLM
+        :param state: Current agent state
+        :param streaming_callback: Streaming callback function
+        :param debug_path: Path for saving debug state
+        :param messages: Original messages
+        :param kwargs: Additional keyword arguments
+        :raises AgentBreakpointException: If a breakpoint is triggered
+        """
+
+        if agent_breakpoint and isinstance(agent_breakpoint.break_point, ToolBreakpoint):
+            tool_breakpoint = agent_breakpoint.break_point
+            # Check if the visit count matches
+            if component_visits[tool_breakpoint.component_name] == tool_breakpoint.visit_count:
+                # Check if we should break for this specific tool or all tools
+                should_break = False
+                if tool_breakpoint.tool_name is None:
+                    # Break for any tool call
+                    should_break = any(msg.tool_call for msg in llm_messages)
+                else:
+                    # Break only for the specific tool
+                    should_break = any(
+                        msg.tool_call and msg.tool_call.tool_name == tool_breakpoint.tool_name for msg in llm_messages
+                    )
+
+                if should_break:
+                    state_inputs = deepcopy(
+                        {"messages": llm_messages, "state": state, "streaming_callback": streaming_callback}
+                    )
+                    _save_state(
+                        inputs=state_inputs,
+                        component_name=tool_breakpoint.component_name,
+                        component_visits=component_visits,
+                        debug_path=debug_path,
+                        original_input_data={"messages": messages, **kwargs},
+                        ordered_component_names=["chat_generator", "tool_invoker"],
+                        agent_name=self._agent_name,
+                        main_pipeline_state=state.data.get("main_pipeline_state", {}),
+                    )
+                    msg = (
+                        f"Breaking at {tool_breakpoint.component_name} visit count "
+                        f"{component_visits[tool_breakpoint.component_name]}"
+                    )
+                    if tool_breakpoint.tool_name:
+                        msg += f" for tool {tool_breakpoint.tool_name}"
+                    logger.info(msg)
+
+                    raise BreakpointException(
+                        message=msg,
+                        component=tool_breakpoint.component_name,
+                        state=state_inputs,
+                        results=state.data,
+                    )
+
     def run(
-        self, messages: List[ChatMessage], streaming_callback: Optional[StreamingCallbackT] = None, **kwargs: Any
+        self,
+        messages: List[ChatMessage],
+        streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
+        break_point: Optional[AgentBreakpoint] = None,
+        resume_state: Optional[Dict[str, Any]] = None,
+        debug_path: Optional[Union[str, Path]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Process messages and execute tools until an exit condition is met.
@@ -230,6 +377,10 @@ class Agent:
             If a list of dictionaries is provided, each dictionary will be converted to a ChatMessage object.
         :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
             The same callback can be configured to emit tool results when a tool is called.
+        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
+                           for "tool_invoker".
+        :param resume_state: A dictionary containing the state of a previously saved agent execution.
+        :param debug_path: Path to the directory where the agent state should be saved.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -238,9 +389,42 @@ class Agent:
             - "last_message": The last message exchanged during the agent's run.
             - Any additional keys defined in the `state_schema`.
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
+        :raises AgentBreakpointException: If an agent breakpoint is triggered.
+
         """
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
+
+        if break_point and resume_state:
+            msg = (
+                "agent_breakpoint and resume_state cannot be provided at the same time. The agent run will be aborted."
+            )
+            raise ValueError(msg)
+
+        self._agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
+
+        # validate breakpoints
+        if break_point and isinstance(break_point.break_point, ToolBreakpoint):
+            self._validate_tool_breakpoint_is_valid(break_point)
+
+        # resume state if provided
+        if resume_state:
+            component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
+            state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
+            state = State(schema=self.state_schema, data=state_data)
+
+            # deserialize messages from pipeline state
+            raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
+
+            # convert raw message dictionaries to ChatMessage objects and populate the state
+            messages = [ChatMessage.from_dict(msg) if isinstance(msg, dict) else msg for msg in raw_messages]
+            state.set("messages", messages)
+
+        else:
+            # initialize new state if not resuming
+            state = State(schema=self.state_schema, data=kwargs)
+            state.set("messages", messages)
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
@@ -253,7 +437,6 @@ class Agent:
 
         state = State(schema=self.state_schema, data=kwargs)
         state.set("messages", messages)
-        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=False
@@ -265,7 +448,22 @@ class Agent:
                 _deepcopy_with_exceptions({"messages": messages, "streaming_callback": streaming_callback, **kwargs}),
             )
             counter = 0
+
+            if break_point and self._agent_name is None:
+                raise ValueError("When using breakpoints, the agent_name must be provided to save the state correctly.")
+
             while counter < self.max_agent_steps:
+                # check for breakpoint before ChatGenerator
+                self._check_chat_generator_breakpoint(
+                    break_point,
+                    component_visits,
+                    messages,
+                    generator_inputs,
+                    debug_path,
+                    kwargs,
+                    state,
+                )
+
                 # 1. Call the ChatGenerator
                 result = Pipeline._run_component(
                     component_name="chat_generator",
@@ -281,6 +479,18 @@ class Agent:
                 if not any(msg.tool_call for msg in llm_messages) or self._tool_invoker is None:
                     counter += 1
                     break
+
+                # check for breakpoint before ToolInvoker
+                self._check_tool_invoker_breakpoint(
+                    break_point,
+                    component_visits,
+                    llm_messages,
+                    streaming_callback,
+                    debug_path,
+                    messages,
+                    kwargs,
+                    state,
+                )
 
                 # 3. Call the ToolInvoker
                 # We only send the messages from the LLM to the tool invoker
@@ -319,7 +529,14 @@ class Agent:
         return result
 
     async def run_async(
-        self, messages: List[ChatMessage], streaming_callback: Optional[StreamingCallbackT] = None, **kwargs: Any
+        self,
+        messages: List[ChatMessage],
+        streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
+        break_point: Optional[AgentBreakpoint] = None,
+        resume_state: Optional[Dict[str, Any]] = None,
+        debug_path: Optional[Union[str, Path]] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Asynchronously process messages and execute tools until the exit condition is met.
@@ -330,8 +547,11 @@ class Agent:
 
         :param messages: List of chat messages to process
         :param streaming_callback: An asynchronous callback that will be invoked when a response
-        is streamed from the LLM. The same callback can be configured to emit tool results
-        when a tool is called.
+        is streamed from the LLM. The same callback can be configured to emit tool results when a tool is called.
+        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
+                           for "tool_invoker".
+        :param resume_state: A dictionary containing the state of a previously saved agent execution.
+        :param debug_path: Path to the directory where the agent state should be saved.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -340,9 +560,45 @@ class Agent:
             - "last_message": The last message exchanged during the agent's run.
             - Any additional keys defined in the `state_schema`.
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
+        :raises AgentBreakpointException: If an agent breakpoint is triggered.
+
         """
         if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run_async()'.")
+
+        if break_point and resume_state:
+            msg = (
+                "agent_breakpoint and resume_state cannot be provided at the same time. The agent run will be aborted."
+            )
+            raise ValueError(msg)
+
+        self._agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
+
+        # validate breakpoints
+        if break_point and isinstance(break_point.break_point, ToolBreakpoint):
+            self._validate_tool_breakpoint_is_valid(break_point)
+
+        # Handle resume state if provided
+        if resume_state:
+            # Extract component visits from pipeline state
+            component_visits = resume_state.get("pipeline_state", {}).get("component_visits", {})
+            # Initialize with default values if not present in resume state
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0) | component_visits
+
+            # Extract state data from pipeline state
+            state_data = resume_state.get("pipeline_state", {}).get("inputs", {}).get("state", {}).get("data", {})
+            state = State(schema=self.state_schema, data=state_data)
+
+            # Extract and deserialize messages from pipeline state
+            raw_messages = resume_state.get("pipeline_state", {}).get("inputs", {}).get("messages", messages)
+            # Convert raw message dictionaries to ChatMessage objects
+            messages = [ChatMessage.from_dict(msg) if isinstance(msg, dict) else msg for msg in raw_messages]
+            state.set("messages", messages)
+        else:
+            # Initialize new state if not resuming
+            state = State(schema=self.state_schema, data=kwargs)
+            state.set("messages", messages)
+            component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         if self.system_prompt is not None:
             messages = [ChatMessage.from_system(self.system_prompt)] + messages
@@ -355,7 +611,6 @@ class Agent:
 
         state = State(schema=self.state_schema, data=kwargs)
         state.set("messages", messages)
-        component_visits = dict.fromkeys(["chat_generator", "tool_invoker"], 0)
 
         streaming_callback = select_streaming_callback(
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=True
@@ -367,7 +622,22 @@ class Agent:
                 _deepcopy_with_exceptions({"messages": messages, "streaming_callback": streaming_callback, **kwargs}),
             )
             counter = 0
+
+            if break_point and self._agent_name is None:
+                raise ValueError("When using breakpoints, the agent_name must be provided to save the state correctly.")
+
             while counter < self.max_agent_steps:
+                # Check for breakpoint before ChatGenerator
+                self._check_chat_generator_breakpoint(
+                    break_point,
+                    component_visits,
+                    messages,
+                    generator_inputs,
+                    debug_path,
+                    kwargs,
+                    state,
+                )
+
                 # 1. Call the ChatGenerator
                 result = await AsyncPipeline._run_component_async(
                     component_name="chat_generator",
@@ -385,9 +655,20 @@ class Agent:
                     counter += 1
                     break
 
+                # Check for breakpoint before ToolInvoker
+                self._check_tool_invoker_breakpoint(
+                    break_point,
+                    component_visits,
+                    llm_messages,
+                    streaming_callback,
+                    debug_path,
+                    messages,
+                    kwargs,
+                    state,
+                )
+
                 # 3. Call the ToolInvoker
                 # We only send the messages from the LLM to the tool invoker
-                # Check if the ToolInvoker supports async execution. Currently, it doesn't.
                 tool_invoker_result = await AsyncPipeline._run_component_async(
                     component_name="tool_invoker",
                     component={"instance": self._tool_invoker},
