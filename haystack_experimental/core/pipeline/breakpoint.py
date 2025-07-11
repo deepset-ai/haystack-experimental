@@ -14,7 +14,7 @@ from haystack import logging
 from networkx import MultiDiGraph
 
 from haystack_experimental.core.errors import BreakpointException, PipelineInvalidResumeStateError
-from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
 from haystack_experimental.utils.base_serialization import _serialize_value_with_schema
 
 logger = logging.getLogger(__name__)
@@ -38,13 +38,13 @@ def _validate_breakpoint(break_point: Union[Breakpoint, AgentBreakpoint], graph:
         if not breakpoint_agent_component:
             raise ValueError(f"pipeline_breakpoint {break_point} is not a registered Agent component in the pipeline")
 
-        if break_point.tool_breakpoint:
-            for tool in breakpoint_agent_component["instance"].tools:
-                if break_point.tool_breakpoint.tool_name == tool.name:
+        if isinstance(break_point.break_point, ToolBreakpoint):
+            for tool in graph.nodes[breakpoint_agent_component]["instance"].tools:
+                if break_point.break_point.tool_name == tool.name:
                     break
             else:
                 raise ValueError(
-                    f"pipeline_breakpoint {break_point.tool_breakpoint} is not a registered tool in the Agent component"
+                    f"pipeline_breakpoint {break_point.break_point} is not a registered tool in the Agent component"
                 )
 
 

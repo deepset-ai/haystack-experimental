@@ -22,7 +22,7 @@ from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
 from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.breakpoint import _save_state
-from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
 
 from .state.state import State, _schema_from_dict, _schema_to_dict, _validate_schema
 from .state.state_utils import merge_lists
@@ -237,7 +237,7 @@ class Agent:
         :raises ValueError: If any tool name in ToolBreakpoints is not available in the agent's tools.
         """
         available_tool_names = {tool.name for tool in self.tools}
-        tool_breakpoint = agent_breakpoint.tool_breakpoint
+        tool_breakpoint = agent_breakpoint.break_point
         if (
             tool_breakpoint is not None
             and tool_breakpoint.tool_name is not None
@@ -268,8 +268,8 @@ class Agent:
         :raises AgentBreakpointException: If a breakpoint is triggered
         """
 
-        if agent_breakpoint and agent_breakpoint.generator_breakpoint:
-            break_point = agent_breakpoint.generator_breakpoint
+        if agent_breakpoint and isinstance(agent_breakpoint.break_point, Breakpoint):
+            break_point = agent_breakpoint.break_point
             if component_visits[break_point.component_name] == break_point.visit_count:
                 state_inputs = deepcopy({"messages": messages, **generator_inputs})
                 _save_state(
@@ -319,8 +319,8 @@ class Agent:
         :raises AgentBreakpointException: If a breakpoint is triggered
         """
 
-        if agent_breakpoint and agent_breakpoint.tool_breakpoint:
-            tool_breakpoint = agent_breakpoint.tool_breakpoint
+        if agent_breakpoint and isinstance(agent_breakpoint.break_point, ToolBreakpoint):
+            tool_breakpoint = agent_breakpoint.break_point
             # Check if the visit count matches
             if component_visits[tool_breakpoint.component_name] == tool_breakpoint.visit_count:
                 # Check if we should break for this specific tool or all tools
