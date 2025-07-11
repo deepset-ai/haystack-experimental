@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+
 # pylint: disable=too-many-return-statements, too-many-positional-arguments
+
 import json
 from copy import deepcopy
 from datetime import datetime
