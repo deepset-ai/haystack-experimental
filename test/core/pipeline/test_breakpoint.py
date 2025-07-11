@@ -7,7 +7,7 @@ import pytest
 
 from haystack.components.joiners import BranchJoiner
 from haystack_experimental.core.pipeline.pipeline import Pipeline
-from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, load_state, _validate_breakpoint, _validate_resume_state
+from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, load_state, _validate_break_point, _validate_resume_state
 
 
 def test_transform_json_structure_unwraps_sender_value():

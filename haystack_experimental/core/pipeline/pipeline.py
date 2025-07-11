@@ -21,11 +21,11 @@ from haystack_experimental.core.pipeline.base import PipelineBase
 from ...components.agents import Agent
 from ...dataclasses.breakpoints import AgentBreakpoint, Breakpoint
 from .breakpoint import (
-    _validate_breakpoint,
+    _validate_break_point,
     _validate_components_against_pipeline,
-    check_regular_breakpoint,
-    handle_agent_breakpoint,
-    trigger_breakpoint,
+    check_regular_break_point,
+    handle_agent_break_point,
+    trigger_break_point,
 )
 
 logger = logging.getLogger(__name__)
@@ -208,7 +208,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
 
         # make sure all breakpoints are valid, i.e. reference components in the pipeline
         if break_point:
-            _validate_breakpoint(break_point, self.graph)
+            _validate_break_point(break_point, self.graph)
 
         # TODO: Remove this warmup once we can check reliably whether a component has been warmed up or not
         # As of now it's here to make sure we don't have failing tests that assume warm_up() is called in run()
@@ -304,7 +304,7 @@ class Pipeline(HaystackPipeline, PipelineBase):
                     if isinstance(break_point, AgentBreakpoint):
                         component_instance = component["instance"]
                         if isinstance(component_instance, Agent):
-                            component_inputs = handle_agent_breakpoint(
+                            component_inputs = handle_agent_break_point(
                                 break_point,
                                 component_name,
                                 component_inputs,
@@ -317,10 +317,10 @@ class Pipeline(HaystackPipeline, PipelineBase):
                             agent_breakpoint = True
 
                     if not agent_breakpoint and isinstance(break_point, Breakpoint):
-                        breakpoint_triggered = check_regular_breakpoint(break_point, component_name, component_visits)
+                        breakpoint_triggered = check_regular_break_point(break_point, component_name, component_visits)
 
                     if breakpoint_triggered:
-                        trigger_breakpoint(
+                        trigger_break_point(
                             component_name,
                             component_inputs,
                             inputs,
