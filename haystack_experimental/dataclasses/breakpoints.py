@@ -77,7 +77,7 @@ class AgentBreakpoint:
 
     def __init__(self, agent_name: str, break_point: Union[Breakpoint, ToolBreakpoint]):
         if not isinstance(break_point, ToolBreakpoint) and break_point.component_name != "chat_generator":
-            raise ValueError("A Breakpoint must have component_name 'chat_generator'.")
+            raise ValueError("The break_point must be a Breakpoint that has the component_name 'chat_generator' or be a ToolBreakpoint.")
 
         if not break_point:
             raise ValueError("A Breakpoint must be provided.")
