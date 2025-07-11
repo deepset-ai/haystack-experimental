@@ -34,19 +34,12 @@ def _validate_breakpoint(break_point: Union[Breakpoint, AgentBreakpoint], graph:
         raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
 
     if isinstance(break_point, AgentBreakpoint):
-        breakpoint_agent_component = next(
-            (
-                node
-                for node in graph.nodes
-                if graph.nodes[node]["instance"].__component_name__ == break_point.agent_name
-            ),
-            None,
-        )
+        breakpoint_agent_component = graph.nodes.get(break_point.agent_name)
         if not breakpoint_agent_component:
             raise ValueError(f"pipeline_breakpoint {break_point} is not a registered Agent component in the pipeline")
 
         if break_point.tool_breakpoint:
-            for tool in graph.nodes[breakpoint_agent_component]["instance"].tools:
+            for tool in breakpoint_agent_component["instance"].tools:
                 if break_point.tool_breakpoint.tool_name == tool.name:
                     break
             else:
@@ -239,7 +232,6 @@ def _save_state(
     debug_path: Optional[Union[str, Path]] = None,
     original_input_data: Optional[Dict[str, Any]] = None,
     ordered_component_names: Optional[List[str]] = None,
-    is_agent: bool = False,
     agent_name: Optional[str] = None,
     main_pipeline_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -252,11 +244,8 @@ def _save_state(
     :param debug_path: The path to save the state to.
     :param original_input_data: The original input data.
     :param ordered_component_names: The ordered component names.
-    :param is_agent: Whether the pipeline is an agent pipeline. If True, the state will be saved in a different format.
     :param main_pipeline_state: Dictionary containing main pipeline state with keys: "component_visits",
                                 "ordered_component_names", "original_input_data", and "inputs".
-    :raises:
-        Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
 
     :returns:
         The dictionary containing the state of the pipeline containing the following keys:
@@ -296,6 +285,7 @@ def _save_state(
     if not debug_path:
         return state
 
+    is_agent = agent_name is not None
     _save_state_to_file(state, debug_path, dt, is_agent, agent_name, component_name)
 
     return state

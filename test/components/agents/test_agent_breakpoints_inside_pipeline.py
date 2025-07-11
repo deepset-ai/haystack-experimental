@@ -108,7 +108,7 @@ def add_database_tool(name: str, surname: str, job_title: Optional[str], other: 
     )
 
 def create_pipeline():
-    
+
     generator = OpenAIChatGenerator()
     call_count = 0
     def mock_run(messages, tools=None, **kwargs):
@@ -160,9 +160,9 @@ def create_pipeline():
                     )
                 ]
             }
-    
+
     generator.run = mock_run
-    
+
     database_assistant = Agent(
         chat_generator=generator,
         tools=[add_database_tool],
@@ -221,13 +221,13 @@ def test_chat_generator_breakpoint_in_pipeline_agent():
     
     pipeline_with_agent = create_pipeline()
     agent_generator_breakpoint = Breakpoint("chat_generator", 0)
-    agent_breakpoints = AgentBreakpoint(break_point=agent_generator_breakpoint, agent_name='database_agent')
+    agent_breakpoint = AgentBreakpoint(break_point=agent_generator_breakpoint, agent_name='database_agent')
 
     with tempfile.TemporaryDirectory() as debug_path:
         try:
             pipeline_with_agent.run(
                 data={"fetcher": {"urls": ["https://en.wikipedia.org/wiki/Deepset"]}},
-                break_point=agent_breakpoints,
+                break_point=agent_breakpoint,
                 debug_path=debug_path,
             )
             assert False, "Expected exception was not raised"

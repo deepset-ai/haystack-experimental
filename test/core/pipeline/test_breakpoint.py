@@ -10,11 +10,6 @@ from haystack_experimental.core.pipeline.pipeline import Pipeline
 from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, load_state, _validate_breakpoint, _validate_resume_state
 
 
-class TestBreakpoint:
-    """
-    This class contains only unit tests for the breakpoint module.
-    """
-
 def test_transform_json_structure_unwraps_sender_value():
     data = {
         "key1": [{"sender": None, "value": "some value"}],

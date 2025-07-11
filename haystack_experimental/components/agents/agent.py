@@ -151,6 +151,7 @@ class Agent:
             )
 
         self._is_warmed_up = False
+        self._agent_name = None
 
     def warm_up(self) -> None:
         """
@@ -278,8 +279,7 @@ class Agent:
                     debug_path=debug_path,
                     original_input_data={"messages": messages, **kwargs},
                     ordered_component_names=["chat_generator", "tool_invoker"],
-                    is_agent=True,
-                    agent_name=self.agent_name,
+                    agent_name=self._agent_name,
                     main_pipeline_state=state.data.get("main_pipeline_state", {}),
                 )
                 msg = (
@@ -345,8 +345,7 @@ class Agent:
                         debug_path=debug_path,
                         original_input_data={"messages": messages, **kwargs},
                         ordered_component_names=["chat_generator", "tool_invoker"],
-                        is_agent=True,
-                        agent_name=self.agent_name,
+                        agent_name=self._agent_name,
                         main_pipeline_state=state.data.get("main_pipeline_state", {}),
                     )
                     msg = (
@@ -405,7 +404,7 @@ class Agent:
             )
             raise ValueError(msg)
 
-        self.agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
+        self._agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
 
         # validate breakpoints
         if break_point:
@@ -453,7 +452,7 @@ class Agent:
             )
             counter = 0
 
-            if break_point and self.agent_name is None:
+            if break_point and self._agent_name is None:
                 raise ValueError("When using breakpoints, the agent_name must be provided to save the state correctly.")
 
             while counter < self.max_agent_steps:
@@ -576,7 +575,7 @@ class Agent:
             )
             raise ValueError(msg)
 
-        self.agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
+        self._agent_name = self.__component_name__ if hasattr(self, "__component_name__") else "isolated_agent"
 
         # validate breakpoints
         if break_point:
@@ -627,7 +626,7 @@ class Agent:
             )
             counter = 0
 
-            if break_point and self.agent_name is None:
+            if break_point and self._agent_name is None:
                 raise ValueError("When using breakpoints, the agent_name must be provided to save the state correctly.")
 
             while counter < self.max_agent_steps:
