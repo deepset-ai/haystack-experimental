@@ -12,7 +12,6 @@ from haystack_experimental.components.preprocessors import EmbeddingBasedDocumen
 
 class TestEmbeddingBasedDocumentSplitter:
     def test_init(self):
-        """Test initialization with valid parameters."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(
             document_embedder=mock_embedder,
@@ -29,31 +28,26 @@ class TestEmbeddingBasedDocumentSplitter:
         assert splitter.max_length == 1000
 
     def test_init_invalid_sentences_per_group(self):
-        """Test initialization with invalid sentences_per_group."""
         mock_embedder = Mock()
         with pytest.raises(ValueError, match="sentences_per_group must be greater than 0"):
             EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, sentences_per_group=0)
 
     def test_init_invalid_percentile(self):
-        """Test initialization with invalid percentile."""
         mock_embedder = Mock()
         with pytest.raises(ValueError, match="percentile must be between 0.0 and 1.0"):
             EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, percentile=1.5)
 
     def test_init_invalid_min_length(self):
-        """Test initialization with invalid min_length."""
         mock_embedder = Mock()
         with pytest.raises(ValueError, match="min_length must be greater than or equal to 0"):
             EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=-1)
 
     def test_init_invalid_max_length(self):
-        """Test initialization with invalid max_length."""
         mock_embedder = Mock()
         with pytest.raises(ValueError, match="max_length must be greater than min_length"):
             EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=100, max_length=50)
 
     def test_warm_up(self):
-        """Test warm_up method."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -69,7 +63,6 @@ class TestEmbeddingBasedDocumentSplitter:
                 mock_splitter_class.assert_called_once()
 
     def test_run_not_warmed_up(self):
-        """Test run method when not warmed up."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -77,7 +70,6 @@ class TestEmbeddingBasedDocumentSplitter:
             splitter.run(documents=[Document(content="test")])
 
     def test_run_invalid_input(self):
-        """Test run method with invalid input."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
         splitter.sentence_splitter = Mock()
@@ -87,7 +79,6 @@ class TestEmbeddingBasedDocumentSplitter:
             splitter.run(documents="not a list")
 
     def test_run_document_with_none_content(self):
-        """Test run method with document having None content."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
         splitter.sentence_splitter = Mock()
@@ -97,7 +88,6 @@ class TestEmbeddingBasedDocumentSplitter:
             splitter.run(documents=[Document(content=None)])
 
     def test_run_empty_document(self):
-        """Test run method with empty document."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
         splitter.sentence_splitter = Mock()
@@ -107,7 +97,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert result["documents"] == []
 
     def test_group_sentences_single(self):
-        """Test grouping sentences with sentences_per_group=1."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, sentences_per_group=1)
 
@@ -117,7 +106,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert groups == sentences
 
     def test_group_sentences_multiple(self):
-        """Test grouping sentences with sentences_per_group=2."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, sentences_per_group=2)
 
@@ -127,7 +115,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert groups == ["Sentence 1. Sentence 2.", "Sentence 3. Sentence 4."]
 
     def test_cosine_distance(self):
-        """Test cosine distance calculation."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -150,7 +137,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert distance == 1.0
 
     def test_find_split_points_empty(self):
-        """Test finding split points with empty embeddings."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -161,7 +147,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert split_points == []
 
     def test_find_split_points(self):
-        """Test finding split points with embeddings."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, percentile=0.5)
 
@@ -178,7 +163,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert 2 in split_points
 
     def test_create_splits_from_points(self):
-        """Test creating splits from split points."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -189,7 +173,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert splits == ["Group 1 Group 2", "Group 3 Group 4"]
 
     def test_create_splits_from_points_no_points(self):
-        """Test creating splits with no split points."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -200,7 +183,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert splits == ["Group 1 Group 2 Group 3"]
 
     def test_merge_small_splits(self):
-        """Test merging small splits."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=10)
 
@@ -213,7 +195,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert "Another short" in merged[2]
 
     def test_create_documents_from_splits(self):
-        """Test creating Document objects from splits."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -231,11 +212,9 @@ class TestEmbeddingBasedDocumentSplitter:
         assert documents[1].meta["split_id"] == 1
 
     def test_create_documents_from_splits_with_page_numbers(self):
-        """Test creating Document objects from splits with page number tracking."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
-        # Test with page breaks
         original_doc = Document(content="Page 1 content.\fPage 2 content.\f\fPage 4 content.", meta={"key": "value"})
         splits = ["Page 1 content.\f", "Page 2 content.\f\f", "Page 4 content."]
 
@@ -250,7 +229,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert documents[2].meta["page_number"] == 4
 
     def test_create_documents_from_splits_with_consecutive_page_breaks(self):
-        """Test creating Document objects from splits with consecutive page breaks at the end."""
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
@@ -268,7 +246,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert documents[1].meta["page_number"] == 2
 
     def test_calculate_embeddings(self):
-        """Test calculating embeddings using DocumentEmbedder."""
         mock_embedder = Mock()
         # Mock the document embedder to return documents with embeddings
         def mock_run(documents):
@@ -287,7 +264,6 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder.run.assert_called_once()
 
     def test_to_dict(self):
-        """Test serialization to dictionary."""
         mock_embedder = Mock()
         mock_embedder.to_dict.return_value = {"type": "MockEmbedder"}
 
@@ -311,8 +287,6 @@ class TestEmbeddingBasedDocumentSplitter:
 
     @pytest.mark.integration
     def test_embedding_based_document_splitter_integration(self):
-        """Integration test using real SentenceTransformersDocumentEmbedder."""
-        # Use a lightweight model for speed
         embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
         embedder.warm_up()
 
@@ -350,3 +324,31 @@ class TestEmbeddingBasedDocumentSplitter:
         combined = " ".join([d.content for d in split_docs]).replace(" ", "")
         original = text.replace(" ", "")
         assert combined in original or original in combined
+
+    @pytest.mark.integration
+    def test_no_extra_whitespaces_between_sentences(self):
+        embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+        embedder.warm_up()
+
+        splitter = EmbeddingBasedDocumentSplitter(
+            document_embedder=embedder,
+            sentences_per_group=1,
+            percentile=0.9,
+            min_length=10,
+            max_length=500,
+        )
+        splitter.warm_up()
+
+        text = (
+            "The weather today is beautiful. The sun is shining brightly. The temperature is perfect for a walk. "
+            "There are no clouds and no rain. Machine learning has revolutionized many industries. "
+            "Neural networks can process vast amounts of data. Deep learning models achieve remarkable accuracy on complex tasks."
+        )
+        doc = Document(content=text)
+
+        result = splitter.run(documents=[doc])
+        split_docs = result["documents"]
+        assert len(split_docs) == 2
+        # The component preserves whitespace from sentence tokenizer, so we expect double spaces
+        assert split_docs[0].content == "The weather today is beautiful.  The sun is shining brightly.  The temperature is perfect for a walk.  There are no clouds and no rain. "
+        assert split_docs[1].content == "Machine learning has revolutionized many industries.  Neural networks can process vast amounts of data.  Deep learning models achieve remarkable accuracy on complex tasks."
