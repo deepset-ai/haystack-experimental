@@ -197,11 +197,11 @@ class EmbeddingBasedDocumentSplitter:
         Group sentences into groups of sentences_per_group.
         """
         if self.sentences_per_group == 1:
-            return sentences
+            return [s.strip() for s in sentences]
 
         groups = []
         for i in range(0, len(sentences), self.sentences_per_group):
-            group = sentences[i : i + self.sentences_per_group]
+            group = [s.strip() for s in sentences[i : i + self.sentences_per_group]]
             groups.append(" ".join(group))
 
         return groups

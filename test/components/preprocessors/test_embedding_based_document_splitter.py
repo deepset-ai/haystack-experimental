@@ -286,7 +286,7 @@ class TestEmbeddingBasedDocumentSplitter:
 
 
     @pytest.mark.integration
-    def test_embedding_based_document_splitter_integration(self):
+    def test_split_document_with_multiple_topics(self):
         embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
         embedder.warm_up()
 
@@ -349,6 +349,5 @@ class TestEmbeddingBasedDocumentSplitter:
         result = splitter.run(documents=[doc])
         split_docs = result["documents"]
         assert len(split_docs) == 2
-        # The component preserves whitespace from sentence tokenizer, so we expect double spaces
-        assert split_docs[0].content == "The weather today is beautiful.  The sun is shining brightly.  The temperature is perfect for a walk.  There are no clouds and no rain. "
-        assert split_docs[1].content == "Machine learning has revolutionized many industries.  Neural networks can process vast amounts of data.  Deep learning models achieve remarkable accuracy on complex tasks."
+        assert split_docs[0].content == "The weather today is beautiful. The sun is shining brightly. The temperature is perfect for a walk. There are no clouds and no rain."
+        assert split_docs[1].content == "Machine learning has revolutionized many industries. Neural networks can process vast amounts of data. Deep learning models achieve remarkable accuracy on complex tasks."
