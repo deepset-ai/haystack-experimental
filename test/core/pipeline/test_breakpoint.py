@@ -7,47 +7,7 @@ import pytest
 
 from haystack.components.joiners import BranchJoiner
 from haystack_experimental.core.pipeline.pipeline import Pipeline
-from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, load_state, _validate_breakpoint, _validate_resume_state
-
-
-class TestBreakpoint:
-    """
-    This class contains only unit tests for the breakpoint module.
-    """
-
-    def test_validate_breakpoint(self):
-        # simple pipeline
-        joiner_1 = BranchJoiner(type_=str)
-        joiner_2 = BranchJoiner(type_=str)
-        pipeline = Pipeline()
-        pipeline.add_component("comp1", joiner_1)
-        pipeline.add_component("comp2", joiner_2)
-        pipeline.connect("comp1", "comp2")
-
-        # valid breakpoints
-        breakpoints = ("comp1", 0)
-        validated = _validate_breakpoint(breakpoints, pipeline.graph)
-        assert validated == ("comp1", 0)
-
-        # should default to 0
-        breakpoints = ("comp1", None)
-        validated = _validate_breakpoint(breakpoints, pipeline.graph)
-        assert validated == ("comp1", 0)
-
-        # should remain as it is
-        breakpoints = ("comp1", -1)
-        validated = _validate_breakpoint(breakpoints, pipeline.graph)
-        assert validated == ("comp1", -1)
-
-        # contains invalid components
-        breakpoints = ("comp3", 0)
-        with pytest.raises(ValueError, match="pipeline_breakpoint .* is not a registered component"):
-            _validate_breakpoint(breakpoints, pipeline.graph)
-
-        # no breakpoints are defined
-        breakpoint = None
-        validated = _validate_breakpoint(breakpoint, pipeline.graph)
-        assert validated is None
+from haystack_experimental.core.pipeline.breakpoint import _transform_json_structure, load_state, _validate_break_point, _validate_resume_state
 
 
 def test_transform_json_structure_unwraps_sender_value():

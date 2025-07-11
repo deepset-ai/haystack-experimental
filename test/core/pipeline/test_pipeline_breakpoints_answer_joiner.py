@@ -5,11 +5,12 @@ import pytest
 from haystack_experimental.components.builders.answer_builder import AnswerBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import AnswerJoiner
-from haystack.core.pipeline import Pipeline
+# from haystack.core.pipeline import Pipeline
 from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
-from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from haystack_experimental.dataclasses.breakpoints import Breakpoint
 from test.conftest import load_and_resume_pipeline_state
 from unittest.mock import patch
 
@@ -84,11 +85,11 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "gpt-4o",
-        "gpt-3",
-        "answer_builder_a",
-        "answer_builder_b",
-        "answer_joiner",
+        Breakpoint("gpt-4o", 0),
+        Breakpoint("gpt-3", 0),
+        Breakpoint("answer_builder_a", 0),
+        Breakpoint("answer_builder_b", 0),
+        Breakpoint("answer_joiner", 0),
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
@@ -109,9 +110,9 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = answer_join_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
-        except PipelineBreakpointException as e:
+            _ = answer_join_pipeline.run(data, break_point=component, debug_path=str(output_directory))
+        except BreakpointException as e:
             pass
 
-        result = load_and_resume_pipeline_state(answer_join_pipeline, output_directory, component, data)
+        result = load_and_resume_pipeline_state(answer_join_pipeline, output_directory, component.component_name, data)
         assert result['answer_joiner']

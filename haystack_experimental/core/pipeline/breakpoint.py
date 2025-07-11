@@ -5,39 +5,48 @@
 # pylint: disable=too-many-return-statements, too-many-positional-arguments
 
 import json
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from haystack import logging
-from haystack.utils import _serialize_value_with_schema
 from networkx import MultiDiGraph
 
-from haystack_experimental.core.errors import PipelineInvalidResumeStateError
+from haystack_experimental.core.errors import BreakpointException, PipelineInvalidResumeStateError
+from haystack_experimental.dataclasses.breakpoints import AgentBreakpoint, Breakpoint, ToolBreakpoint
+from haystack_experimental.utils.base_serialization import _serialize_value_with_schema
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_breakpoint(pipeline_breakpoint: Tuple[str, Optional[int]], graph: MultiDiGraph) -> Tuple[str, int]:
+def _validate_break_point(break_point: Union[Breakpoint, AgentBreakpoint], graph: MultiDiGraph) -> None:
     """
-    Validates the pipeline_breakpoint passed to the pipeline.
+    Validates the breakpoints passed to the pipeline.
 
     Makes sure the breakpoint contains a valid components registered in the pipeline.
-    If the visit is not given, it is assumed to be 0, it will break on the first visit.
 
-    :param pipeline_breakpoint: Tuple of component name and visit count at which the pipeline should stop.
-    :returns:
-        Tuple of component name and visit count representing the `pipeline_breakpoint`
+    :param break_point: a breakpoint to validate, can be Breakpoint or AgentBreakpoint
     """
 
-    if pipeline_breakpoint and pipeline_breakpoint[0] not in graph.nodes:
-        raise ValueError(f"pipeline_breakpoint {pipeline_breakpoint} is not a registered component in the pipeline")
-    valid_breakpoint: Tuple[str, int] = (
-        (pipeline_breakpoint[0], 0 if pipeline_breakpoint[1] is None else pipeline_breakpoint[1])
-        if pipeline_breakpoint
-        else None
-    )
-    return valid_breakpoint
+    # all Breakpoints must refer to a valid component in the pipeline
+    if isinstance(break_point, Breakpoint) and break_point.component_name not in graph.nodes:
+        raise ValueError(f"pipeline_breakpoint {break_point} is not a registered component in the pipeline")
+
+    if isinstance(break_point, AgentBreakpoint):
+        breakpoint_agent_component = graph.nodes.get(break_point.agent_name)
+        if not breakpoint_agent_component:
+            raise ValueError(f"pipeline_breakpoint {break_point} is not a registered Agent component in the pipeline")
+
+        if isinstance(break_point.break_point, ToolBreakpoint):
+            instance = breakpoint_agent_component["instance"]
+            for tool in instance.tools:
+                if break_point.break_point.tool_name == tool.name:
+                    break
+            else:
+                raise ValueError(
+                    f"pipeline_breakpoint {break_point.break_point} is not a registered tool in the Agent component"
+                )
 
 
 def _validate_components_against_pipeline(resume_state: Dict[str, Any], graph: MultiDiGraph) -> None:
@@ -150,6 +159,73 @@ def load_state(file_path: Union[str, Path]) -> Dict[str, Any]:
     return state
 
 
+def _process_main_pipeline_state(main_pipeline_state: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Process and serialize main pipeline state for agent breakpoints.
+
+    :param main_pipeline_state: Dictionary containing main pipeline state with keys: "component_visits",
+                                "ordered_component_names", "original_input_data", and "inputs".
+    :returns: Processed main pipeline state or None if not available or invalid.
+    """
+    if not main_pipeline_state:
+        return None
+
+    original_input_data = main_pipeline_state.get("original_input_data")
+    inputs = main_pipeline_state.get("inputs")
+
+    if not (original_input_data and inputs):
+        return None
+
+    return {
+        "component_visits": main_pipeline_state.get("component_visits"),
+        "ordered_component_names": main_pipeline_state.get("ordered_component_names"),
+        "original_input_data": _serialize_value_with_schema(_transform_json_structure(original_input_data)),
+        "inputs": _serialize_value_with_schema(_transform_json_structure(inputs)),
+    }
+
+
+def _save_state_to_file(
+    state: Dict[str, Any],
+    debug_path: Union[str, Path],
+    dt: datetime,
+    is_agent: bool,
+    agent_name: Optional[str],
+    component_name: str,
+) -> None:
+    """
+    Save state dictionary to a JSON file.
+
+    :param state: The state dictionary to save.
+    :param debug_path: The path where to save the file.
+    :param dt: The datetime object for timestamping.
+    :param is_agent: Whether this is an agent pipeline.
+    :param agent_name: Name of the agent (if applicable).
+    :param component_name: Name of the component that triggered the breakpoint.
+    :raises:
+        ValueError: If the debug_path is not a string or a Path object.
+        Exception: If saving the JSON state fails.
+    """
+    debug_path = Path(debug_path) if isinstance(debug_path, str) else debug_path
+    if not isinstance(debug_path, Path):
+        raise ValueError("Debug path must be a string or a Path object.")
+
+    debug_path.mkdir(exist_ok=True)
+
+    # Generate filename
+    if is_agent:
+        file_name = f"{agent_name}_{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+    else:
+        file_name = f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+
+    try:
+        with open(debug_path / file_name, "w") as f_out:
+            json.dump(state, f_out, indent=2)
+        logger.info(f"Pipeline state saved at: {file_name}")
+    except Exception as e:
+        logger.error(f"Failed to save pipeline state: {str(e)}")
+        raise
+
+
 def _save_state(
     inputs: Dict[str, Any],
     component_name: str,
@@ -157,6 +233,8 @@ def _save_state(
     debug_path: Optional[Union[str, Path]] = None,
     original_input_data: Optional[Dict[str, Any]] = None,
     ordered_component_names: Optional[List[str]] = None,
+    agent_name: Optional[str] = None,
+    main_pipeline_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Save the pipeline state to a file.
@@ -167,8 +245,8 @@ def _save_state(
     :param debug_path: The path to save the state to.
     :param original_input_data: The original input data.
     :param ordered_component_names: The ordered component names.
-    :raises:
-        Exception: If the debug_path is not a string or a Path object, or if saving the JSON state fails.
+    :param main_pipeline_state: Dictionary containing main pipeline state with keys: "component_visits",
+                                "ordered_component_names", "original_input_data", and "inputs".
 
     :returns:
         The dictionary containing the state of the pipeline containing the following keys:
@@ -181,10 +259,20 @@ def _save_state(
             - ordered_component_names: The order of components in the pipeline.
     """
     dt = datetime.now()
+
+    # remove duplicated information
+    if original_input_data:
+        original_input_data.pop("main_pipeline_state", None)
+
     transformed_original_input_data = _transform_json_structure(original_input_data)
     transformed_inputs = _transform_json_structure(inputs)
 
     state = {
+        # related to the main pipeline where the agent running as a breakpoint - only used with AgentBreakpoint
+        "agent_name": agent_name if agent_name else None,
+        "main_pipeline_state": _process_main_pipeline_state(main_pipeline_state) if agent_name else None,
+        # breakpoint - information for the component that triggered the breakpoint, can also be an Agent
+        "component_name": component_name,
         "input_data": _serialize_value_with_schema(transformed_original_input_data),  # original input data
         "timestamp": dt.isoformat(),
         "pipeline_breakpoint": {"component": component_name, "visits": component_visits[component_name]},
@@ -198,22 +286,10 @@ def _save_state(
     if not debug_path:
         return state
 
-    debug_path = Path(debug_path) if isinstance(debug_path, str) else debug_path
-    if not isinstance(debug_path, Path):
-        raise ValueError("Debug path must be a string or a Path object.")
-    debug_path.mkdir(exist_ok=True)
-    file_name = Path(f"{component_name}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json")
+    is_agent = agent_name is not None
+    _save_state_to_file(state, debug_path, dt, is_agent, agent_name, component_name)
 
-    try:
-        with open(debug_path / file_name, "w") as f_out:
-            json.dump(state, f_out, indent=2)
-        logger.info(f"Pipeline state saved at: {file_name}")
-
-        return state
-
-    except Exception as e:
-        logger.error(f"Failed to save pipeline state: {str(e)}")
-        raise
+    return state
 
 
 def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> Any:
@@ -244,3 +320,97 @@ def _transform_json_structure(data: Union[Dict[str, Any], List[Any], Any]) -> An
 
     # For other data types, just return the value as is.
     return data
+
+
+def handle_agent_break_point(
+    break_point: AgentBreakpoint,
+    component_name: str,
+    component_inputs: Dict[str, Any],
+    inputs: Dict[str, Any],
+    component_visits: Dict[str, int],
+    ordered_component_names: list,
+    data: Dict[str, Any],
+    debug_path: Optional[Union[str, Path]],
+) -> Dict[str, Any]:
+    """
+    Handle agent-specific breakpoint logic.
+
+    :param break_point: The agent breakpoint to handle
+    :param component_name: Name of the current component
+    :param component_inputs: Inputs for the current component
+    :param inputs: Global pipeline inputs
+    :param component_visits: Component visit counts
+    :param ordered_component_names: Ordered list of component names
+    :param data: Original pipeline data
+    :param debug_path: Path for debug files
+    :return: Updated component inputs
+    """
+    component_inputs["break_point"] = break_point
+    component_inputs["debug_path"] = debug_path
+
+    # Store pipeline state for agent resume
+    state_inputs_serialised = deepcopy(inputs)
+    state_inputs_serialised[component_name] = deepcopy(component_inputs)
+    component_inputs["main_pipeline_state"] = {
+        "inputs": state_inputs_serialised,
+        "component_visits": component_visits,
+        "ordered_component_names": ordered_component_names,
+        "original_input_data": data,
+    }
+
+    return component_inputs
+
+
+def check_regular_break_point(break_point: Breakpoint, component_name: str, component_visits: Dict[str, int]) -> bool:
+    """
+    Check if a regular breakpoint should be triggered.
+
+    :param break_point: The breakpoint to check
+    :param component_name: Name of the current component
+    :param component_visits: Component visit counts
+    :return: True if breakpoint should be triggered
+    """
+    return break_point.component_name == component_name and break_point.visit_count == component_visits[component_name]
+
+
+def trigger_break_point(
+    component_name: str,
+    component_inputs: Dict[str, Any],
+    inputs: Dict[str, Any],
+    component_visits: Dict[str, int],
+    debug_path: Optional[Union[str, Path]],
+    data: Dict[str, Any],
+    ordered_component_names: list,
+    pipeline_outputs: Dict[str, Any],
+) -> None:
+    """
+    Trigger a breakpoint by saving state and raising exception.
+
+    :param component_name: Name of the component where breakpoint is triggered
+    :param component_inputs: Inputs for the current component
+    :param inputs: Global pipeline inputs
+    :param component_visits: Component visit counts
+    :param debug_path: Path for debug files
+    :param data: Original pipeline data
+    :param ordered_component_names: Ordered list of component names
+    :param pipeline_outputs: Current pipeline outputs
+    :raises PipelineBreakpointException: When breakpoint is triggered
+    """
+    state_inputs_serialised = deepcopy(inputs)
+    state_inputs_serialised[component_name] = deepcopy(component_inputs)
+    _save_state(
+        inputs=state_inputs_serialised,
+        component_name=str(component_name),
+        component_visits=component_visits,
+        debug_path=debug_path,
+        original_input_data=data,
+        ordered_component_names=ordered_component_names,
+    )
+
+    msg = f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
+    raise BreakpointException(
+        message=msg,
+        component=component_name,
+        state=state_inputs_serialised,
+        results=pipeline_outputs,
+    )

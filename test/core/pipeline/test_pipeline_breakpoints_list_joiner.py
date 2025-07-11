@@ -9,8 +9,9 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.joiners import ListJoiner
 from haystack.dataclasses import ChatMessage
 from haystack.utils.auth import Secret
-from haystack_experimental.core.errors import PipelineBreakpointException
+from haystack_experimental.core.errors import BreakpointException
 from haystack_experimental.core.pipeline.pipeline import Pipeline
+from haystack_experimental.dataclasses.breakpoints import Breakpoint
 from test.conftest import load_and_resume_pipeline_state
 from unittest.mock import patch
 
@@ -103,11 +104,11 @@ class TestPipelineBreakpoints:
         return tmp_path_factory.mktemp("output_files")
 
     components = [
-        "prompt_builder",
-        "llm",
-        "feedback_prompt_builder",
-        "feedback_llm",
-        "list_joiner"
+        Breakpoint("prompt_builder", 0),
+        Breakpoint("llm", 0),
+        Breakpoint("feedback_prompt_builder", 0),
+        Breakpoint("feedback_llm", 0),
+        Breakpoint("list_joiner", 0)
     ]
     @pytest.mark.parametrize("component", components)
     @pytest.mark.integration
@@ -120,9 +121,9 @@ class TestPipelineBreakpoints:
         }
 
         try:
-            _ = list_joiner_pipeline.run(data, pipeline_breakpoint=(component, 0), debug_path=str(output_directory))
-        except PipelineBreakpointException as e:
+            _ = list_joiner_pipeline.run(data, break_point=component, debug_path=str(output_directory))
+        except BreakpointException as e:
             pass
 
-        result = load_and_resume_pipeline_state(list_joiner_pipeline, output_directory, component, data)
+        result = load_and_resume_pipeline_state(list_joiner_pipeline, output_directory, component.component_name, data)
         assert result['list_joiner']

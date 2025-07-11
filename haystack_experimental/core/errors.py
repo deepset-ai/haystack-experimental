@@ -5,7 +5,7 @@
 from typing import Any, Dict, Optional
 
 
-class PipelineBreakpointException(Exception):
+class BreakpointException(Exception):
     """
     Exception raised when a pipeline breakpoint is triggered.
     """
