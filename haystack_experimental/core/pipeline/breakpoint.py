@@ -39,7 +39,8 @@ def _validate_breakpoint(break_point: Union[Breakpoint, AgentBreakpoint], graph:
             raise ValueError(f"pipeline_breakpoint {break_point} is not a registered Agent component in the pipeline")
 
         if isinstance(break_point.break_point, ToolBreakpoint):
-            for tool in graph.nodes[breakpoint_agent_component]["instance"].tools:
+            instance = breakpoint_agent_component["instance"]
+            for tool in instance.tools:
                 if break_point.break_point.tool_name == tool.name:
                     break
             else:
