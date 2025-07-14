@@ -75,7 +75,6 @@ def load_and_resume_pipeline_state(pipeline, output_directory: Path, component: 
     for full_path in all_files:
         f_name = Path(full_path).name
         if str(f_name).startswith(component):
-            file_found = True
             resume_state = load_state(full_path)
             return pipeline.run(data=data, resume_state=resume_state)
 
