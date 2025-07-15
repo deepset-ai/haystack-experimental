@@ -197,12 +197,12 @@ class EmbeddingBasedDocumentSplitter:
         Group sentences into groups of sentences_per_group.
         """
         if self.sentences_per_group == 1:
-            return [s.strip() for s in sentences]
+            return sentences
 
         groups = []
         for i in range(0, len(sentences), self.sentences_per_group):
-            group = [s.strip() for s in sentences[i : i + self.sentences_per_group]]
-            groups.append(" ".join(group))
+            group = sentences[i : i + self.sentences_per_group]
+            groups.append("".join(group))
 
         return groups
 
@@ -263,21 +263,21 @@ class EmbeddingBasedDocumentSplitter:
         Create splits based on split points.
         """
         if not split_points:
-            return [" ".join(sentence_groups)]
+            return ["".join(sentence_groups)]
 
         splits = []
         start = 0
 
         for point in split_points:
-            split_text = " ".join(sentence_groups[start:point])
-            if split_text.strip():
+            split_text = "".join(sentence_groups[start:point])
+            if split_text:
                 splits.append(split_text)
             start = point
 
         # Add the last split
         if start < len(sentence_groups):
-            split_text = " ".join(sentence_groups[start:])
-            if split_text.strip():
+            split_text = "".join(sentence_groups[start:])
+            if split_text:
                 splits.append(split_text)
 
         return splits

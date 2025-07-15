@@ -109,10 +109,10 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, sentences_per_group=2)
 
-        sentences = ["Sentence 1.", "Sentence 2.", "Sentence 3.", "Sentence 4."]
+        sentences = ["Sentence 1. ", "Sentence 2. ", "Sentence 3. ", "Sentence 4."]
         groups = splitter._group_sentences(sentences)
 
-        assert groups == ["Sentence 1. Sentence 2.", "Sentence 3. Sentence 4."]
+        assert groups == ["Sentence 1. Sentence 2. ", "Sentence 3. Sentence 4."]
 
     def test_cosine_distance(self):
         mock_embedder = Mock()
@@ -166,17 +166,17 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
-        sentence_groups = ["Group 1", "Group 2", "Group 3", "Group 4"]
+        sentence_groups = ["Group 1 ", "Group 2 ", "Group 3 ", "Group 4"]
         split_points = [2]  # Split after index 1
 
         splits = splitter._create_splits_from_points(sentence_groups, split_points)
-        assert splits == ["Group 1 Group 2", "Group 3 Group 4"]
+        assert splits == ["Group 1 Group 2 ", "Group 3 Group 4"]
 
     def test_create_splits_from_points_no_points(self):
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
-        sentence_groups = ["Group 1", "Group 2", "Group 3"]
+        sentence_groups = ["Group 1 ", "Group 2 ", "Group 3"]
         split_points = []
 
         splits = splitter._create_splits_from_points(sentence_groups, split_points)
@@ -349,5 +349,6 @@ class TestEmbeddingBasedDocumentSplitter:
         result = splitter.run(documents=[doc])
         split_docs = result["documents"]
         assert len(split_docs) == 2
-        assert split_docs[0].content == "The weather today is beautiful. The sun is shining brightly. The temperature is perfect for a walk. There are no clouds and no rain."
+        # Expect the original whitespace structure with trailing spaces where they exist
+        assert split_docs[0].content == "The weather today is beautiful. The sun is shining brightly. The temperature is perfect for a walk. There are no clouds and no rain. "
         assert split_docs[1].content == "Machine learning has revolutionized many industries. Neural networks can process vast amounts of data. Deep learning models achieve remarkable accuracy on complex tasks."
