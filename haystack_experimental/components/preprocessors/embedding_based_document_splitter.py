@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 from haystack import Document, component, logging
-from haystack.components.preprocessors.sentence_tokenizer import Language, SentenceSplitter, nltk_imports
+from haystack.components.preprocessors.sentence_tokenizer import Language, SentenceSplitter
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict
 from haystack.utils.deserialization import deserialize_component_inplace
 
@@ -114,7 +114,6 @@ class EmbeddingBasedDocumentSplitter:
         """
         Warm up the component by initializing the sentence splitter.
         """
-        nltk_imports.check()
         self.sentence_splitter = SentenceSplitter(
             language=self.language,
             use_split_rules=self.use_split_rules,
