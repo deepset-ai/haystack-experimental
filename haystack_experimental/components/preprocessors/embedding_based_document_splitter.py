@@ -170,11 +170,6 @@ class EmbeddingBasedDocumentSplitter:
         """
         Split a single document based on embedding similarity.
         """
-        if self.sentence_splitter is None:
-            raise RuntimeError("Sentence splitter is not initialized. Call warm_up() first.")
-        if doc.content is None:
-            raise ValueError("Document content cannot be None.")
-
         sentences_result = self.sentence_splitter.split_sentences(doc.content)
         sentences = [sentence["sentence"] for sentence in sentences_result]
 
