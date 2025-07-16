@@ -110,7 +110,7 @@ class EmbeddingBasedDocumentSplitter:
         if self.max_length <= self.min_length:
             raise ValueError("max_length must be greater than min_length.")
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """
         Warm up the component by initializing the sentence splitter.
         """
@@ -170,10 +170,7 @@ class EmbeddingBasedDocumentSplitter:
         """
         Split a single document based on embedding similarity.
         """
-        assert self.sentence_splitter is not None
-        assert doc.content is not None
-
-        sentences_result = self.sentence_splitter.split_sentences(doc.content)
+        sentences_result = self.sentence_splitter.split_sentences(doc.content)  # type: ignore[union-attr,arg-type]
         sentences = [sentence["sentence"] for sentence in sentences_result]
 
         sentence_groups = self._group_sentences(sentences)
@@ -245,13 +242,13 @@ class EmbeddingBasedDocumentSplitter:
         vec1 = np.array(embedding1)
         vec2 = np.array(embedding2)
 
-        norm1 = np.linalg.norm(vec1)
-        norm2 = np.linalg.norm(vec2)
+        norm1 = float(np.linalg.norm(vec1))
+        norm2 = float(np.linalg.norm(vec2))
 
         if norm1 == 0 or norm2 == 0:
             return 1.0
 
-        cosine_sim = np.dot(vec1, vec2) / (norm1 * norm2)
+        cosine_sim = float(np.dot(vec1, vec2) / (norm1 * norm2))
 
         return 1.0 - cosine_sim
 
@@ -328,8 +325,7 @@ class EmbeddingBasedDocumentSplitter:
             else:
                 # Recursively split large splits
                 # For simplicity, split by sentences first
-                assert self.sentence_splitter is not None
-                sentences_result = self.sentence_splitter.split_sentences(split)
+                sentences_result = self.sentence_splitter.split_sentences(split)  # type: ignore[union-attr]
                 sentences = [sentence["sentence"] for sentence in sentences_result]
 
                 # Group sentences and repeat the embedding-based splitting
