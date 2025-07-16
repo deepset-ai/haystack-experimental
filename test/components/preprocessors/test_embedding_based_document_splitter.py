@@ -51,16 +51,14 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
 
-        with patch('haystack_experimental.components.preprocessors.embedding_based_document_splitter.nltk_imports') as mock_nltk:
-            mock_nltk.check.return_value = None
-            with patch('haystack_experimental.components.preprocessors.embedding_based_document_splitter.SentenceSplitter') as mock_splitter_class:
-                mock_splitter = Mock()
-                mock_splitter_class.return_value = mock_splitter
+        with patch('haystack_experimental.components.preprocessors.embedding_based_document_splitter.SentenceSplitter') as mock_splitter_class:
+            mock_splitter = Mock()
+            mock_splitter_class.return_value = mock_splitter
 
-                splitter.warm_up()
+            splitter.warm_up()
 
-                assert splitter.sentence_splitter == mock_splitter
-                mock_splitter_class.assert_called_once()
+            assert splitter.sentence_splitter == mock_splitter
+            mock_splitter_class.assert_called_once()
 
     def test_run_not_warmed_up(self):
         mock_embedder = Mock()
@@ -352,3 +350,120 @@ class TestEmbeddingBasedDocumentSplitter:
         # Expect the original whitespace structure with trailing spaces where they exist
         assert split_docs[0].content == "The weather today is beautiful. The sun is shining brightly. The temperature is perfect for a walk. There are no clouds and no rain. "
         assert split_docs[1].content == "Machine learning has revolutionized many industries. Neural networks can process vast amounts of data. Deep learning models achieve remarkable accuracy on complex tasks."
+
+    @pytest.mark.integration
+    def test_split_large_splits_recursion(self):
+        """
+        Test that _split_large_splits() works correctly without infinite loops.
+        This test uses a longer text that will trigger the recursive splitting logic.
+        If the chunk cannot be split further, it is allowed to be larger than max_length.
+        """
+        embedder = SentenceTransformersDocumentEmbedder(
+            model="sentence-transformers/all-MiniLM-L6-v2",
+            batch_size=32,
+        )
+        semantic_chunker = EmbeddingBasedDocumentSplitter(
+            document_embedder=embedder,
+            sentences_per_group=5,
+            percentile=0.95,
+            min_length=50,
+            max_length=1000,
+        )
+        semantic_chunker.warm_up()
+
+        text = """# Artificial intelligence and its Impact on Society
+## Article from Wikipedia, the free encyclopedia
+### Introduction to Artificial Intelligence
+Artificial intelligence (AI) is the capability of computational systems to perform tasks typically associated with human intelligence, such as learning, reasoning, problem-solving, perception, and decision-making. It is a field of research in computer science that develops and studies methods and software that enable machines to perceive their environment and use learning and intelligence to take actions that maximize their chances of achieving defined goals.
+
+### The History of Software
+The history of software is closely tied to the development of digital computers in the mid-20th century. Early programs were written in the machine language specific to the hardware. The introduction of high-level programming languages in 1958 allowed for more human-readable instructions, making software development easier and more portable across different computer architectures. Software in a programming language is run through a compiler or interpreter to execute on the architecture's hardware. Over time, software has become complex, owing to developments in networking, operating systems, and databases."""
+
+        doc = Document(content=text)
+        result = semantic_chunker.run(documents=[doc])
+        split_docs = result["documents"]
+
+        assert len(split_docs) == 1
+
+        # If the chunk cannot be split further, it is allowed to be larger than max_length
+        # At least one split should be larger than max_length in this test case
+        assert any(len(split_doc.content) > 1000 for split_doc in split_docs)
+
+        # Verify that the splits cover the original content
+        combined_content = "".join([d.content for d in split_docs])
+        assert combined_content.replace(" ", "").replace("\n", "") == text.replace(" ", "").replace("\n", "")
+
+        for i, split_doc in enumerate(split_docs):
+            assert split_doc.meta["source_id"] == doc.id
+            assert split_doc.meta["split_id"] == i
+            assert "page_number" in split_doc.meta
+
+    @pytest.mark.integration
+    def test_split_large_splits_actually_splits(self):
+        """
+        Test that _split_large_splits() actually works and can split long texts into multiple chunks.
+        This test uses a very long text that should be split into multiple chunks.
+        """
+        embedder = SentenceTransformersDocumentEmbedder(
+            model="sentence-transformers/all-MiniLM-L6-v2",
+            batch_size=32,
+        )
+        semantic_chunker = EmbeddingBasedDocumentSplitter(
+            document_embedder=embedder,
+            sentences_per_group=3,
+            percentile=0.85,  # Lower percentile to create more splits
+            min_length=100,
+            max_length=500,  # Smaller max_length to force more splits
+        )
+        semantic_chunker.warm_up()
+
+        # Create a very long text with multiple paragraphs and topics
+        text = """# Comprehensive Guide to Machine Learning and Artificial Intelligence
+
+## Introduction to Machine Learning
+Machine learning is a subset of artificial intelligence that focuses on the development of computer programs that can access data and use it to learn for themselves. The process of learning begins with observations or data, such as examples, direct experience, or instruction, in order to look for patterns in data and make better decisions in the future based on the examples that we provide. The primary aim is to allow the computers learn automatically without human intervention or assistance and adjust actions accordingly.
+
+## Types of Machine Learning
+There are several types of machine learning algorithms, each with their own strengths and weaknesses. Supervised learning involves training a model on a labeled dataset, where the correct answers are provided. The model learns to map inputs to outputs based on these examples. Unsupervised learning, on the other hand, deals with unlabeled data and seeks to find hidden patterns or structures within the data. Reinforcement learning is a type of learning where an agent learns to behave in an environment by performing certain actions and receiving rewards or penalties.
+
+## Deep Learning and Neural Networks
+Deep learning is a subset of machine learning that uses neural networks with multiple layers to model and understand complex patterns. Neural networks are inspired by the human brain and consist of interconnected nodes or neurons. Each connection between neurons has a weight that is adjusted during training. The network learns by adjusting these weights based on the error between predicted and actual outputs. Deep learning has been particularly successful in areas such as computer vision, natural language processing, and speech recognition.
+
+## Natural Language Processing
+Natural Language Processing (NLP) is a field of artificial intelligence that focuses on the interaction between computers and human language. It involves developing algorithms and models that can understand, interpret, and generate human language. NLP applications include machine translation, sentiment analysis, text summarization, and question answering systems. Recent advances in deep learning have significantly improved the performance of NLP systems, leading to more accurate and sophisticated language models.
+
+## Computer Vision and Image Recognition
+Computer vision is another important area of artificial intelligence that deals with how computers can gain high-level understanding from digital images or videos. It involves developing algorithms that can identify and understand visual information from the world. Applications include facial recognition, object detection, medical image analysis, and autonomous vehicle navigation. Deep learning models, particularly convolutional neural networks (CNNs), have revolutionized computer vision by achieving human-level performance on many tasks.
+
+## The Future of Artificial Intelligence
+The future of artificial intelligence holds immense potential for transforming various industries and aspects of human life. We can expect to see more sophisticated AI systems that can handle complex reasoning tasks, understand context better, and interact more naturally with humans. However, this rapid advancement also brings challenges related to ethics, privacy, and the impact on employment. It's crucial to develop AI systems that are not only powerful but also safe, fair, and beneficial to society as a whole.
+
+## Ethical Considerations in AI
+As artificial intelligence becomes more prevalent, ethical considerations become increasingly important. Issues such as bias in AI systems, privacy concerns, and the potential for misuse need to be carefully addressed. AI systems can inherit biases from their training data, leading to unfair outcomes for certain groups. Privacy concerns arise from the vast amounts of data required to train AI systems. Additionally, there are concerns about the potential for AI to be used maliciously or to replace human workers in certain industries.
+
+## Applications in Healthcare
+Artificial intelligence has the potential to revolutionize healthcare by improving diagnosis, treatment planning, and patient care. Machine learning algorithms can analyze medical images to detect diseases earlier and more accurately than human doctors. AI systems can also help in drug discovery by predicting the effectiveness of potential treatments. In addition, AI-powered chatbots and virtual assistants can provide basic healthcare information and support to patients, reducing the burden on healthcare professionals.
+
+## AI in Finance and Banking
+The financial industry has been quick to adopt artificial intelligence for various applications. AI systems can analyze market data to make investment decisions, detect fraudulent transactions, and provide personalized financial advice. Machine learning algorithms can assess credit risk more accurately than traditional methods, leading to better lending decisions. Additionally, AI-powered chatbots can handle customer service inquiries, reducing costs and improving customer satisfaction.
+
+## Transportation and Autonomous Vehicles
+Autonomous vehicles represent one of the most visible applications of artificial intelligence in transportation. Self-driving cars use a combination of sensors, cameras, and AI algorithms to navigate roads safely. These systems can detect obstacles, read traffic signs, and make decisions about speed and direction. Beyond autonomous cars, AI is also being used in logistics and supply chain management to optimize routes and reduce delivery times.
+
+## Education and Personalized Learning
+Artificial intelligence is transforming education by enabling personalized learning experiences. AI systems can adapt to individual student needs, providing customized content and pacing. Intelligent tutoring systems can provide immediate feedback and support to students, helping them learn more effectively. Additionally, AI can help educators by automating administrative tasks and providing insights into student performance and learning patterns."""
+
+        doc = Document(content=text)
+        result = semantic_chunker.run(documents=[doc])
+        split_docs = result["documents"]
+
+        assert len(split_docs) == 11
+
+        # Verify that the splits cover the original content
+        combined_content = "".join([d.content for d in split_docs])
+        assert combined_content.replace(" ", "").replace("\n", "") == text.replace(" ", "").replace("\n", "")
+
+        for i, split_doc in enumerate(split_docs):
+            assert split_doc.meta["source_id"] == doc.id
+            assert split_doc.meta["split_id"] == i
+            assert "page_number" in split_doc.meta

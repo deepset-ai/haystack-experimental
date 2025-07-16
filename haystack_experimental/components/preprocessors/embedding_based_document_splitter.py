@@ -170,6 +170,9 @@ class EmbeddingBasedDocumentSplitter:
         """
         Split a single document based on embedding similarity.
         """
+        assert self.sentence_splitter is not None
+        assert doc.content is not None
+
         sentences_result = self.sentence_splitter.split_sentences(doc.content)
         sentences = [sentence["sentence"] for sentence in sentences_result]
 
@@ -325,8 +328,7 @@ class EmbeddingBasedDocumentSplitter:
             else:
                 # Recursively split large splits
                 # For simplicity, split by sentences first
-                if self.sentence_splitter is None:
-                    raise RuntimeError("Sentence splitter is not initialized. Call warm_up() first.")
+                assert self.sentence_splitter is not None
                 sentences_result = self.sentence_splitter.split_sentences(split)
                 sentences = [sentence["sentence"] for sentence in sentences_result]
 
@@ -336,8 +338,15 @@ class EmbeddingBasedDocumentSplitter:
                 split_points = self._find_split_points(embeddings)
                 sub_splits = self._create_splits_from_points(sentence_groups, split_points)
 
-                # Recursively process sub-splits
-                final_splits.extend(self._post_process_splits(sub_splits))
+                # Stop splitting if no further split is possible or continue with recursion
+                if len(sub_splits) == 1 and sub_splits[0] == split:
+                    logger.warning(
+                        f"Could not split a chunk further below max_length={self.max_length}. "
+                        f"Returning chunk of length {len(split)}."
+                    )
+                    final_splits.append(split)
+                else:
+                    final_splits.extend(self._split_large_splits(sub_splits))
 
         return final_splits
 
