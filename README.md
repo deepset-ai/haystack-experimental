@@ -46,14 +46,12 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`InMemoryChatMessageStore`][1] | Memory Store                              | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`ChatMessageRetriever`][2]     | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
 | [`ChatMessageWriter`][3]        | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`Pipeline`][4]                 | Pipeline breakpoints for debugging        | June 2025         | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hybrid_rag_pipeline_with_breakpoints.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/281)
 | [`ImageContent`][5]; [Image Converters][6]; multimodal support in [`OpenAIChatGenerator`][7] and [`AmazonBedrockChatGenerator`][9]; [`ChatPromptBuilder` refactoring][8]; [`SentenceTransformersDocumentImageEmbedder`][10]; [`LLMDocumentContentExtractor`][11]; new [Routers][12]                 | Multimodality        | August 2025         | pypdfium2; pillow; sentence-transformers         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/multimodal_intro.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/302)
 | [`QueryExpander`][13]                 | Query Expansion Component        | October 2025         | None         | None | None  
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
 [3]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
-[4]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/core/pipeline/pipeline.py
 [5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/dataclasses/image_content.py
 [6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/converters/image
 [7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
@@ -73,6 +71,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                              | Document Splitting & Retrieval Technique | 0.8.0         |
 | `Agent`                                                                                | Simplify Agent development               | 0.8.0         |
 | `SuperComponent`                                                                       | Simplify Pipeline development            | 0.8.0         |
+| `Pipeline`                                                                             | Pipeline breakpoints for debugging       | 0.12.0        |    
 
 ### Discontinued experiments
 
