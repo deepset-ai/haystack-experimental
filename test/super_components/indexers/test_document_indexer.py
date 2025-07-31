@@ -83,6 +83,7 @@ class TestDocumentIndexer:
                                                             'bm25_parameters': {},
                                                             'bm25_tokenization_regex': '(?u)\\b\\w\\w+\\b',
                                                             'embedding_similarity_function': 'dot_product',
+                                                            'return_embedding': True,
                                                             'index': ANY},
                                         'type': 'haystack.document_stores.in_memory.document_store.InMemoryDocumentStore'},
                      'duplicate_policy': 'overwrite',

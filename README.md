@@ -43,24 +43,17 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 | Name                            | Type                                      | Expected End Date | Dependencies | Cookbook                                                                                                                                                                                                                                                  | Discussion                                                                     |
 |---------------------------------|-------------------------------------------|-------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| [`InMemoryChatMessageStore`][1] | Memory Store                              | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`ChatMessageRetriever`][2]     | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`ChatMessageWriter`][3]        | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/75)  |
-| [`ImageContent`][5]; [Image Converters][6]; multimodal support in [`OpenAIChatGenerator`][7] and [`AmazonBedrockChatGenerator`][9]; [`ChatPromptBuilder` refactoring][8]; [`SentenceTransformersDocumentImageEmbedder`][10]; [`LLMDocumentContentExtractor`][11]; new [Routers][12]                 | Multimodality        | August 2025         | pypdfium2; pillow; sentence-transformers         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/multimodal_intro.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss](https://github.com/deepset-ai/haystack-experimental/discussions/302)
-| [`QueryExpander`][13]                 | Query Expansion Component        | October 2025         | None         | None | None  
+| [`InMemoryChatMessageStore`][1] | Memory Store                              | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
+| [`ChatMessageRetriever`][2]     | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
+| [`ChatMessageWriter`][3]        | Memory Component                          | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
+| [`QueryExpander`][5]                 | Query Expansion Component        | October 2025         | None         | None | [Discuss][6]  |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
 [3]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
-[5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/dataclasses/image_content.py
-[6]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/converters/image
-[7]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
-[8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/builders/chat_prompt_builder.py
-[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/amazon_bedrock.py
-[10]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/embedders/image/sentence_transformers_doc_image_embedder.py
-[11]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/extractors/llm_document_content_extractor.py
-[12]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/routers
-[13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/query/query_expander.py
+[4]: https://github.com/deepset-ai/haystack-experimental/discussions/75
+[5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/query/query_expander.py
+[6]: https://github.com/deepset-ai/haystack-experimental/discussions/346
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
@@ -71,7 +64,8 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                              | Document Splitting & Retrieval Technique | 0.8.0         |
 | `Agent`                                                                                | Simplify Agent development               | 0.8.0         |
 | `SuperComponent`                                                                       | Simplify Pipeline development            | 0.8.0         |
-| `Pipeline`                                                                             | Pipeline breakpoints for debugging       | 0.12.0        |    
+| `Pipeline`                                                                             | Pipeline breakpoints for debugging       | 0.12.0        |
+| `ImageContent`; Image Converters; multimodal support in `OpenAIChatGenerator` and `AmazonBedrockChatGenerator`; `ChatPromptBuilder` refactoring; `SentenceTransformersDocumentImageEmbedder`; `LLMDocumentContentExtractor`; new `Routers`                                                                                | Multimodality                            | 0.12.0        |
 
 ### Discontinued experiments
 
