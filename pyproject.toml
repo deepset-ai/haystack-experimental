@@ -28,8 +28,6 @@ classifiers = [
 
 dependencies = [
   "haystack-ai>=2.15.0",
-  "filetype",  # for mime type detection in ImageContent
-  "docstring-parser",       # ComponentTool"
 ]
 
 [project.urls]
@@ -52,12 +50,6 @@ fmt-check = "ruff check {args} && ruff format --check {args}"
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  "arrow>=1.3.0",                                     # Multimodal experiment - ChatPromptBuilder
-  "pypdfium2",                                        # Multimodal experiment - PDFToImageContent
-  "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
-  "amazon-bedrock-haystack>=3.6.2",                   # Multimodal experiment - AmazonBedrockChatGenerator
-  "IPython",                                          # Multimodal experiment - ImageContent.show()
-  "sentence-transformers>=4.1.0",                     # Multimodal experiment - SentenceTransformersDocumentImageEmbedder
 
   # Type check
   "mypy",
