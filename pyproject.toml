@@ -27,7 +27,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "haystack-ai>=2.15.0",
+  "haystack-ai",
 ]
 
 [project.urls]
