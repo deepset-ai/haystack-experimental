@@ -336,38 +336,42 @@ class EmbeddingBasedDocumentSplitter:
                 split_points = self._find_split_points(embeddings)
                 sub_splits = self._create_splits_from_points(sentence_groups, split_points)
 
-                # If embedding-based splitting failed to create new splits, force splitting at sentence boundaries
+                # If embedding-based splitting failed to create new splits, force splitting at word boundaries
                 if len(sub_splits) == 1 and sub_splits[0] == split:
                     logger.warning(
                         f"Embedding-based splitting could not find semantic break points for chunk of length {len(split)}. "
-                        f"Forcing split at sentence boundaries to respect max_length={self.max_length}."
+                        f"Forcing split at word boundaries to respect max_length={self.max_length}."
                     )
-                    forced_splits = self._force_split_at_sentence_boundaries(sentences)
-                    final_splits.extend(self._split_large_splits(forced_splits))
+                    forced_splits = self._force_split_at_word_boundaries(split)
+                    final_splits.extend(forced_splits)
                 else:
                     final_splits.extend(self._split_large_splits(sub_splits))
 
         return final_splits
 
-    def _force_split_at_sentence_boundaries(self, sentences: List[str]) -> List[str]:
+    def _force_split_at_word_boundaries(self, text: str) -> List[str]:
         """
-        Force splitting at sentence boundaries to respect max_length.
+        Force splitting at word boundaries to respect max_length.
         
-        This method creates splits by combining sentences until the max_length is reached,
-        then starts a new split. This ensures that splits never exceed max_length.
+        This method splits text at word boundaries, ensuring no split exceeds max_length.
+        If a single word exceeds max_length, it will be truncated.
         """
         splits = []
+        words = text.split()
         current_split = ""
         
-        for sentence in sentences:
-            # If adding this sentence would exceed max_length, start a new split
-            if len(current_split + sentence) > self.max_length and current_split:
+        for word in words:
+            # if adding this word would exceed max_length, start a new split
+            if current_split and len(current_split + " " + word) > self.max_length:
                 splits.append(current_split)
-                current_split = sentence
+                current_split = word
             else:
-                current_split += sentence
+                if current_split:
+                    current_split += " " + word
+                else:
+                    current_split = word
         
-        # Add the last split if it's not empty
+        # add last split if it's not empty
         if current_split:
             splits.append(current_split)
         

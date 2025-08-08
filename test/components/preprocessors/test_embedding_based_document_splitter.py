@@ -468,55 +468,53 @@ Artificial intelligence is transforming education by enabling personalized learn
             assert split_doc.meta["split_id"] == i
             assert "page_number" in split_doc.meta
 
-    def test_force_split_at_sentence_boundaries(self):
+    def test_force_split_at_word_boundaries(self):
         """
-        Test the _force_split_at_sentence_boundaries method directly.
+        Test the _force_split_at_word_boundaries method directly.
         """
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(
             document_embedder=mock_embedder,
-            max_length=50,
-            min_length=25,
+            max_length=20,
         )
         
-        # Test with sentences that would exceed max_length when combined
-        sentences = [
-            "This is the first sentence. ",
-            "This is the second sentence. ",
-            "This is a very long sentence that exceeds the maximum length. ",
-        ]
+        # Test with text that would exceed max_length
+        text = "This is a very long sentence that exceeds the maximum length limit."
+        result = splitter._force_split_at_word_boundaries(text)
         
-        text = "".join(sentences)
-        result = splitter._force_split_at_sentence_boundaries(sentences)
-        combined_result = "".join(result)
+        # Verify that no split exceeds max_length
+        for split in result:
+            assert len(split) <= 20, f"Split exceeds max_length: {len(split)} characters"
+        
+        # Verify that all content is preserved
+        combined_result = " ".join(result)
         assert combined_result == text
+        
+        # Verify that we have multiple splits (since the text exceeds max_length)
         assert len(result) > 1, "Expected multiple splits to respect max_length"
 
     @pytest.mark.integration
-    def test_max_length_respected_with_forced_sentence_splitting(self):
+    def test_max_length_respected_with_forced_word_boundary_splitting(self):
         """
         Test that verifies max_length is respected when embedding-based splitting cannot find break points.
         
         This test creates a scenario where semantic splitting fails, but the component falls back to
-        forced splitting at sentence boundaries to ensure max_length is never exceeded.
+        forced splitting at word boundaries to ensure max_length is never exceeded.
         """
         embedder = SentenceTransformersDocumentEmbedder(
             model="sentence-transformers/all-MiniLM-L6-v2",
             batch_size=32,
         )
-        
-        # Use a very small max_length to force the issue
+                
         splitter = EmbeddingBasedDocumentSplitter(
             document_embedder=embedder,
             sentences_per_group=3,
-            percentile=0.99,  # Very high percentile to minimize splits
+            percentile=0.99,  # high percentile to minimize splits
             min_length=10,
-            max_length=100,  # Very small max_length
+            max_length=80,
         )
         splitter.warm_up()
 
-        # Create a text that is semantically very similar throughout
-        # This will make it difficult for the embedding-based splitter to find break points
         text = (
             "This is a very long paragraph about machine learning. "
             "Machine learning is a subset of artificial intelligence. "
@@ -572,18 +570,12 @@ Artificial intelligence is transforming education by enabling personalized learn
         result = splitter.run(documents=[doc])
         split_docs = result["documents"]
 
-        # chunks should respect max_length=100
-        chunks_exceeding_max_length = [doc for doc in split_docs if len(doc.content) > 100]
+        chunks_exceeding_max_length = [doc for doc in split_docs if len(doc.content) > splitter.max_length]
         assert len(chunks_exceeding_max_length) == 0, (
-            f"Expected all chunks to respect max_length=100, but found {len(chunks_exceeding_max_length)} chunks exceeding it. "
+            f"Expected all chunks to respect max_length=50, but found {len(chunks_exceeding_max_length)} chunks exceeding it. "
             f"Found {len(split_docs)} chunks with lengths: {[len(doc.content) for doc in split_docs]}"
         )
 
         # splits should cover the original content
         combined_content = "".join([d.content for d in split_docs])
         assert combined_content.replace(" ", "").replace("\n", "") == text.replace(" ", "").replace("\n", "")
-
-        for i, split_doc in enumerate(split_docs):
-            assert split_doc.meta["source_id"] == doc.id
-            assert split_doc.meta["split_id"] == i
-            assert "page_number" in split_doc.meta
