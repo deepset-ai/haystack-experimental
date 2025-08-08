@@ -339,7 +339,8 @@ class EmbeddingBasedDocumentSplitter:
                 # If embedding-based splitting failed to create new splits, force splitting at word boundaries
                 if len(sub_splits) == 1 and sub_splits[0] == split:
                     logger.warning(
-                        f"Embedding-based splitting could not find semantic break points for chunk of length {len(split)}. "
+                        f"Embedding-based splitting could not find semantic break points for chunk of "
+                        f"length {len(split)}. "
                         f"Forcing split at word boundaries to respect max_length={self.max_length}."
                     )
                     forced_splits = self._force_split_at_word_boundaries(split)
@@ -352,14 +353,14 @@ class EmbeddingBasedDocumentSplitter:
     def _force_split_at_word_boundaries(self, text: str) -> List[str]:
         """
         Force splitting at word boundaries to respect max_length.
-        
+
         This method splits text at word boundaries, ensuring no split exceeds max_length.
         If a single word exceeds max_length, it will be truncated.
         """
         splits = []
         words = text.split()
         current_split = ""
-        
+
         for word in words:
             # if adding this word would exceed max_length, start a new split
             if current_split and len(current_split + " " + word) > self.max_length:
@@ -370,11 +371,11 @@ class EmbeddingBasedDocumentSplitter:
                     current_split += " " + word
                 else:
                     current_split = word
-        
+
         # add last split if it's not empty
         if current_split:
             splits.append(current_split)
-        
+
         return splits
 
     @staticmethod

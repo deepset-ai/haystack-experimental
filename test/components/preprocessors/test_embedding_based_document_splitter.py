@@ -476,6 +476,7 @@ Artificial intelligence is transforming education by enabling personalized learn
         splitter = EmbeddingBasedDocumentSplitter(
             document_embedder=mock_embedder,
             max_length=20,
+            min_length=10
         )
         
         # Test with text that would exceed max_length
