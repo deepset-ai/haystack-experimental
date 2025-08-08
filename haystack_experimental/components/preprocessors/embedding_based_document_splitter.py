@@ -174,21 +174,21 @@ class EmbeddingBasedDocumentSplitter:
         sentences = [sentence["sentence"] for sentence in sentences_result]
 
         sentence_groups = self._group_sentences(sentences)
-
         embeddings = self._calculate_embeddings(sentence_groups)
 
         split_points = self._find_split_points(embeddings)
-
-        splits = self._create_splits_from_points(sentence_groups, split_points)
+        splits = EmbeddingBasedDocumentSplitter._create_splits_from_points(sentence_groups, split_points)
 
         # Merge small splits and split large splits
         final_splits = self._post_process_splits(splits)
 
-        return self._create_documents_from_splits(final_splits, doc)
+        return EmbeddingBasedDocumentSplitter._create_documents_from_splits(final_splits, doc)
 
     def _group_sentences(self, sentences: List[str]) -> List[str]:
         """
         Group sentences into groups of sentences_per_group.
+
+        Concatenates the text of each group into a single string.
         """
         if self.sentences_per_group == 1:
             return sentences
@@ -221,7 +221,7 @@ class EmbeddingBasedDocumentSplitter:
         # Calculate cosine distances between sequential pairs
         distances = []
         for i in range(len(embeddings) - 1):
-            distance = self._cosine_distance(embeddings[i], embeddings[i + 1])
+            distance = EmbeddingBasedDocumentSplitter._cosine_distance(embeddings[i], embeddings[i + 1])
             distances.append(distance)
 
         # Calculate threshold based on percentile
@@ -235,7 +235,8 @@ class EmbeddingBasedDocumentSplitter:
 
         return split_points
 
-    def _cosine_distance(self, embedding1: List[float], embedding2: List[float]) -> float:
+    @staticmethod
+    def _cosine_distance(embedding1: List[float], embedding2: List[float]) -> float:
         """
         Calculate cosine distance between two embeddings.
         """
@@ -252,7 +253,8 @@ class EmbeddingBasedDocumentSplitter:
 
         return 1.0 - cosine_sim
 
-    def _create_splits_from_points(self, sentence_groups: List[str], split_points: List[int]) -> List[str]:
+    @staticmethod
+    def _create_splits_from_points(sentence_groups: List[str], split_points: List[int]) -> List[str]:
         """
         Create splits based on split points.
         """
@@ -334,19 +336,45 @@ class EmbeddingBasedDocumentSplitter:
                 split_points = self._find_split_points(embeddings)
                 sub_splits = self._create_splits_from_points(sentence_groups, split_points)
 
-                # Stop splitting if no further split is possible or continue with recursion
+                # If embedding-based splitting failed to create new splits, force splitting at sentence boundaries
                 if len(sub_splits) == 1 and sub_splits[0] == split:
                     logger.warning(
-                        f"Could not split a chunk further below max_length={self.max_length}. "
-                        f"Returning chunk of length {len(split)}."
+                        f"Embedding-based splitting could not find semantic break points for chunk of length {len(split)}. "
+                        f"Forcing split at sentence boundaries to respect max_length={self.max_length}."
                     )
-                    final_splits.append(split)
+                    forced_splits = self._force_split_at_sentence_boundaries(sentences)
+                    final_splits.extend(self._split_large_splits(forced_splits))
                 else:
                     final_splits.extend(self._split_large_splits(sub_splits))
 
         return final_splits
 
-    def _create_documents_from_splits(self, splits: List[str], original_doc: Document) -> List[Document]:
+    def _force_split_at_sentence_boundaries(self, sentences: List[str]) -> List[str]:
+        """
+        Force splitting at sentence boundaries to respect max_length.
+        
+        This method creates splits by combining sentences until the max_length is reached,
+        then starts a new split. This ensures that splits never exceed max_length.
+        """
+        splits = []
+        current_split = ""
+        
+        for sentence in sentences:
+            # If adding this sentence would exceed max_length, start a new split
+            if len(current_split + sentence) > self.max_length and current_split:
+                splits.append(current_split)
+                current_split = sentence
+            else:
+                current_split += sentence
+        
+        # Add the last split if it's not empty
+        if current_split:
+            splits.append(current_split)
+        
+        return splits
+
+    @staticmethod
+    def _create_documents_from_splits(splits: List[str], original_doc: Document) -> List[Document]:
         """
         Create Document objects from splits.
         """
