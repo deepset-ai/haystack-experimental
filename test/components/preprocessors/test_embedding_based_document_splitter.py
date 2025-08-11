@@ -285,6 +285,10 @@ class TestEmbeddingBasedDocumentSplitter:
 
     @pytest.mark.integration
     def test_split_document_with_multiple_topics(self):
+        # Force CPU usage to avoid MPS issues on macOS
+        torch.set_num_threads(1)
+        device = "cpu"
+
         embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
         embedder.warm_up()
 
