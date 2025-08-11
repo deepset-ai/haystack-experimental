@@ -50,14 +50,6 @@ fmt-check = "ruff check {args} && ruff format --check {args}"
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  "colorama",                                         # Pipeline checkpoints experiment
-  "transformers[torch,sentencepiece]>=4.52.4,<4.53",  # Pipeline checkpoints experiment
-  "arrow>=1.3.0",                                     # Multimodal experiment - ChatPromptBuilder
-  "pypdfium2",                                        # Multimodal experiment - PDFToImageContent
-  "pillow",                                           # Multimodal experiment - ImageFileToImageContent, PDFToImageContent
-  "amazon-bedrock-haystack>=3.6.2",                   # Multimodal experiment - AmazonBedrockChatGenerator
-  "IPython",                                          # Multimodal experiment - ImageContent.show()
-  "sentence-transformers>=4.1.0",                     # Multimodal experiment - SentenceTransformersDocumentImageEmbedder
   "nltk>=3.9.1",                                      # EmbeddingBasedDocumentSplitter
 
   # Type check
