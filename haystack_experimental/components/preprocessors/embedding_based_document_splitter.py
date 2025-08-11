@@ -184,7 +184,7 @@ class EmbeddingBasedDocumentSplitter:
         # Merge small splits and split large splits
         final_splits = self._post_process_splits(splits)
 
-        return self._create_documents_from_splits(final_splits, doc)
+        return EmbeddingBasedDocumentSplitter._create_documents_from_splits(final_splits, doc)
 
     def _group_sentences(self, sentences: List[str]) -> List[str]:
         """
@@ -221,7 +221,7 @@ class EmbeddingBasedDocumentSplitter:
         # Calculate cosine distances between sequential pairs
         distances = []
         for i in range(len(embeddings) - 1):
-            distance = self._cosine_distance(embeddings[i], embeddings[i + 1])
+            distance = EmbeddingBasedDocumentSplitter._cosine_distance(embeddings[i], embeddings[i + 1])
             distances.append(distance)
 
         # Calculate threshold based on percentile
@@ -235,7 +235,8 @@ class EmbeddingBasedDocumentSplitter:
 
         return split_points
 
-    def _cosine_distance(self, embedding1: List[float], embedding2: List[float]) -> float:
+    @staticmethod
+    def _cosine_distance(embedding1: List[float], embedding2: List[float]) -> float:
         """
         Calculate cosine distance between two embeddings.
         """
@@ -252,7 +253,8 @@ class EmbeddingBasedDocumentSplitter:
 
         return 1.0 - cosine_sim
 
-    def _create_splits_from_points(self, sentence_groups: List[str], split_points: List[int]) -> List[str]:
+    @staticmethod
+    def _create_splits_from_points(sentence_groups: List[str], split_points: List[int]) -> List[str]:
         """
         Create splits based on split points.
         """
@@ -332,7 +334,7 @@ class EmbeddingBasedDocumentSplitter:
                 sentence_groups = self._group_sentences(sentences)
                 embeddings = self._calculate_embeddings(sentence_groups)
                 split_points = self._find_split_points(embeddings)
-                sub_splits = self._create_splits_from_points(sentence_groups, split_points)
+                sub_splits = EmbeddingBasedDocumentSplitter._create_splits_from_points(sentence_groups, split_points)
 
                 # Stop splitting if no further split is possible or continue with recursion
                 if len(sub_splits) == 1 and sub_splits[0] == split:
@@ -346,7 +348,8 @@ class EmbeddingBasedDocumentSplitter:
 
         return final_splits
 
-    def _create_documents_from_splits(self, splits: List[str], original_doc: Document) -> List[Document]:
+    @staticmethod
+    def _create_documents_from_splits(splits: List[str], original_doc: Document) -> List[Document]:
         """
         Create Document objects from splits.
         """
