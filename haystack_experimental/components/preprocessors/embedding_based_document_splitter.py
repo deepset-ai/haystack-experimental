@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class EmbeddingBasedDocumentSplitter:
     """
     Splits documents based on embedding similarity using cosine distances between sequential sentence groups.
+
     This component first splits text into sentences, optionally groups them, calculates embeddings for each group,
     and then uses cosine distance between sequential embeddings to determine split points. Any distance above
     the specified percentile is treated as a break point. The component also tracks page numbers based on form feed
@@ -63,6 +64,7 @@ class EmbeddingBasedDocumentSplitter:
     ):
         """
         Initialize EmbeddingBasedDocumentSplitter.
+
         :param document_embedder: The DocumentEmbedder to use for calculating embeddings.
         :param sentences_per_group: Number of sentences to group together before embedding.
         :param percentile: Percentile threshold for cosine distance. Distances above this percentile
@@ -120,6 +122,7 @@ class EmbeddingBasedDocumentSplitter:
     def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """
         Split documents based on embedding similarity.
+
         :param documents: The documents to split.
         :returns: A dictionary with the following key:
             - `documents`: List of documents with the split texts. Each document includes:
@@ -177,6 +180,7 @@ class EmbeddingBasedDocumentSplitter:
     def _group_sentences(self, sentences: List[str]) -> List[str]:
         """
         Group sentences into groups of sentences_per_group.
+
         Concatenates the text of each group into a single string.
         """
         if self.sentences_per_group == 1:
@@ -342,6 +346,7 @@ class EmbeddingBasedDocumentSplitter:
     def _force_split_at_word_boundaries(self, text: str) -> List[str]:
         """
         Force splitting at word boundaries to respect max_length.
+
         This method splits text at word boundaries, ensuring no split exceeds max_length.
         If a single word exceeds max_length, it will be truncated.
         """

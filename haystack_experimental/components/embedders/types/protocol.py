@@ -18,6 +18,7 @@ class DocumentEmbedder(Protocol):
     def run(self, documents: List[Document]) -> Dict[str, Any]:
         """
         Generate embeddings for the input documents.
+
         Implementing classes may accept additional optional parameters in their run method.
         For example: `def run (self, documents: List[Document], param_a="default", param_b="another_default")`.
         :param documents:
