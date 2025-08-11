@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import pytest
 from haystack.utils import ComponentDevice
 from unittest.mock import Mock, patch
@@ -10,6 +11,11 @@ from haystack import Document
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder
 from haystack_experimental.components.preprocessors import EmbeddingBasedDocumentSplitter
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# disable tqdm entirely for tests
+from tqdm import tqdm
+tqdm.disable = True
 
 class TestEmbeddingBasedDocumentSplitter:
     def test_init(self):
