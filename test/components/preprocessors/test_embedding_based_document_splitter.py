@@ -299,7 +299,8 @@ class TestEmbeddingBasedDocumentSplitter:
         embedder = SentenceTransformersDocumentEmbedder(
             # model="sentence-transformers/all-MiniLM-L6-v2",
             model="sentence-transformers/all-MiniLM-L12-v2",
-            device=ComponentDevice.from_str("cpu")
+            device=ComponentDevice.from_str("cpu"),
+            batch_size=1
         )
         embedder.warm_up()
 
