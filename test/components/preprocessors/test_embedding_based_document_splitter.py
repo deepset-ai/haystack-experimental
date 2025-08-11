@@ -292,12 +292,18 @@ class TestEmbeddingBasedDocumentSplitter:
 
     @pytest.mark.integration
     def test_split_document_with_multiple_topics(self):
+        import torch
+        import os
+
+        # Force CPU usage to avoid MPS memory issues
+        os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+        torch.backends.mps.is_available = lambda: False
 
         embedder = SentenceTransformersDocumentEmbedder(
             model="sentence-transformers/all-MiniLM-L6-v2",
             device=ComponentDevice.from_str("cpu"),
-            batch_size=1
         )
+
         embedder.warm_up()
 
         splitter = EmbeddingBasedDocumentSplitter(
