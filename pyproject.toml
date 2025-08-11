@@ -61,6 +61,7 @@ extra-dependencies = [
   "pytest-asyncio",
   # Linting
   "pylint",
+  "nltk>=3.9.1"   # EmbeddingBasedDocumentSplitter
 ]
 
 [tool.hatch.envs.test.scripts]
