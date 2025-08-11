@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+from haystack.utils import ComponentDevice
 from unittest.mock import Mock, patch
 
 from haystack import Document
@@ -286,10 +287,13 @@ class TestEmbeddingBasedDocumentSplitter:
     @pytest.mark.integration
     def test_split_document_with_multiple_topics(self):
         # Force CPU usage to avoid MPS issues on macOS
+        import torch
         torch.set_num_threads(1)
-        device = "cpu"
 
-        embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+        embedder = SentenceTransformersDocumentEmbedder(
+            model="sentence-transformers/all-MiniLM-L6-v2",
+            device=ComponentDevice.from_str("cpu")
+        )
         embedder.warm_up()
 
         splitter = EmbeddingBasedDocumentSplitter(
