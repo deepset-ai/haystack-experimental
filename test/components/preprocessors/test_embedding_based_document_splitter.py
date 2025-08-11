@@ -297,7 +297,8 @@ class TestEmbeddingBasedDocumentSplitter:
         torch.set_num_threads(1)
 
         embedder = SentenceTransformersDocumentEmbedder(
-            model="sentence-transformers/all-MiniLM-L6-v2",
+            # model="sentence-transformers/all-MiniLM-L6-v2",
+            model="sentence-transformers/all-MiniLM-L12-v2",
             device=ComponentDevice.from_str("cpu")
         )
         embedder.warm_up()
