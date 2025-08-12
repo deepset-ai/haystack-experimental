@@ -337,8 +337,8 @@ class TestEmbeddingBasedDocumentSplitter:
             assert split_doc.content.strip() != ""
             assert len(split_doc.content) >= 30
         # The splits should cover the original text
-        combined = " ".join([d.content for d in split_docs]).replace(" ", "")
-        original = text.replace(" ", "")
+        combined = "".join([d.content for d in split_docs])
+        original = text
         assert combined in original or original in combined
 
     @pytest.mark.integration
