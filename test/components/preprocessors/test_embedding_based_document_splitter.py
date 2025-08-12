@@ -409,7 +409,7 @@ The history of software is closely tied to the development of digital computers 
 
         # Verify that the splits cover the original content
         combined_content = "".join([d.content for d in split_docs])
-        assert combined_content.replace(" ", "").replace("\n", "") == text.replace(" ", "").replace("\n", "")
+        assert combined_content == text
 
         for i, split_doc in enumerate(split_docs):
             assert split_doc.meta["source_id"] == doc.id
