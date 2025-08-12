@@ -447,6 +447,8 @@ There are several types of machine learning algorithms, each with their own stre
 ## Deep Learning and Neural Networks
 Deep learning is a subset of machine learning that uses neural networks with multiple layers to model and understand complex patterns. Neural networks are inspired by the human brain and consist of interconnected nodes or neurons. Each connection between neurons has a weight that is adjusted during training. The network learns by adjusting these weights based on the error between predicted and actual outputs. Deep learning has been particularly successful in areas such as computer vision, natural language processing, and speech recognition.
 
+\f
+
 ## Natural Language Processing
 Natural Language Processing (NLP) is a field of artificial intelligence that focuses on the interaction between computers and human language. It involves developing algorithms and models that can understand, interpret, and generate human language. NLP applications include machine translation, sentiment analysis, text summarization, and question answering systems. Recent advances in deep learning have significantly improved the performance of NLP systems, leading to more accurate and sophisticated language models.
 
@@ -456,6 +458,8 @@ Computer vision is another important area of artificial intelligence that deals 
 ## The Future of Artificial Intelligence
 The future of artificial intelligence holds immense potential for transforming various industries and aspects of human life. We can expect to see more sophisticated AI systems that can handle complex reasoning tasks, understand context better, and interact more naturally with humans. However, this rapid advancement also brings challenges related to ethics, privacy, and the impact on employment. It's crucial to develop AI systems that are not only powerful but also safe, fair, and beneficial to society as a whole.
 
+\f
+
 ## Ethical Considerations in AI
 As artificial intelligence becomes more prevalent, ethical considerations become increasingly important. Issues such as bias in AI systems, privacy concerns, and the potential for misuse need to be carefully addressed. AI systems can inherit biases from their training data, leading to unfair outcomes for certain groups. Privacy concerns arise from the vast amounts of data required to train AI systems. Additionally, there are concerns about the potential for AI to be used maliciously or to replace human workers in certain industries.
 
@@ -464,6 +468,8 @@ Artificial intelligence has the potential to revolutionize healthcare by improvi
 
 ## AI in Finance and Banking
 The financial industry has been quick to adopt artificial intelligence for various applications. AI systems can analyze market data to make investment decisions, detect fraudulent transactions, and provide personalized financial advice. Machine learning algorithms can assess credit risk more accurately than traditional methods, leading to better lending decisions. Additionally, AI-powered chatbots can handle customer service inquiries, reducing costs and improving customer satisfaction.
+
+\f
 
 ## Transportation and Autonomous Vehicles
 Autonomous vehicles represent one of the most visible applications of artificial intelligence in transportation. Self-driving cars use a combination of sensors, cameras, and AI algorithms to navigate roads safely. These systems can detect obstacles, read traffic signs, and make decisions about speed and direction. Beyond autonomous cars, AI is also being used in logistics and supply chain management to optimize routes and reduce delivery times.
@@ -485,3 +491,12 @@ Artificial intelligence is transforming education by enabling personalized learn
             assert split_doc.meta["source_id"] == doc.id
             assert split_doc.meta["split_id"] == i
             assert "page_number" in split_doc.meta
+
+            if i in [0, 1, 2, 3]:
+                assert split_doc.meta["page_number"] == 1
+            if i in [4, 5, 6]:
+                assert split_doc.meta["page_number"] == 2
+            if i in [7, 8]:
+                assert split_doc.meta["page_number"] == 3
+            if i in [9, 10]:
+                assert split_doc.meta["page_number"] == 4

@@ -324,7 +324,6 @@ class EmbeddingBasedDocumentSplitter:
         # the splits are always done at a sentence level, inbetween two sentence there's always an empty space
         # which is lost if we merge sentences from two different groups/splits
         for split in splits:
-
             if len(split) <= self.max_length:
                 final_splits.append(split)
             else:
@@ -334,15 +333,15 @@ class EmbeddingBasedDocumentSplitter:
                 # store any characters after the "." in the last sentence of the split
                 last_dot_location = split.rfind(".")
                 if last_dot_location != -1:
-                    remaining_text = split[last_dot_location+1:]
+                    remaining_text = split[last_dot_location + 1 :]
 
                 sentences_result = self.sentence_splitter.split_sentences(split)  # type: ignore[union-attr]
 
-                # if there are any characters after the "." we need to add them again ensuring they're not lost in the sentence_splitting process
+                # if there are any characters after the "." we need to add them again ensuring they're not lost in
+                # the sentence_splitting process
                 if last_dot_location != -1:
-                    sentences_result[-1]['sentence'] = sentences_result[-1]['sentence'] + remaining_text
-                    sentences_result[-1]['end'] += len(remaining_text)
-
+                    sentences_result[-1]["sentence"] = sentences_result[-1]["sentence"] + remaining_text
+                    sentences_result[-1]["end"] += len(remaining_text)
 
                 sentences = [sentence["sentence"] for sentence in sentences_result]
 
