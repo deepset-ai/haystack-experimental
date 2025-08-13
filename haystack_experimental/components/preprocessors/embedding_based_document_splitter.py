@@ -187,8 +187,9 @@ class EmbeddingBasedDocumentSplitter:
         Split a text into smaller chunks based on embedding similarity.
         """
 
-        # NOTE: `self.sentence_splitter.split_sentences` strips white spaces at the end of the provided text.
-        #       So to not lose them, we need keep track of them and add them back to the last sentence.
+        # NOTE: `self.sentence_splitter.split_sentences` strips all white space types (e.g. new lines, page breaks,
+        # etc.) at the end of the provided text. So to not lose them, we need keep track of them and add them back to
+        # the last sentence.
         rstripped_text = text.rstrip()
         trailing_whitespaces = text[len(rstripped_text) :]
 
