@@ -313,9 +313,9 @@ class EmbeddingBasedDocumentSplitter:
         current_split = splits[0]
 
         for split in splits[1:]:
-            # NOTE: This is a naive way to do this. It assumes that the newly merged split is now longer than
-            #       min_length. And it doesn't check that it would not exceed max_length.
-            if len(current_split) < self.min_length:
+            # We merge splits that are smaller than min_length but only if the newly merged split is still below
+            # max_length.
+            if len(current_split) < self.min_length and len(current_split) + len(split) < self.max_length:
                 # Merge with next split
                 current_split += split
             else:

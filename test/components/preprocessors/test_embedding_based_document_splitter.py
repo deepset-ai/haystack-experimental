@@ -199,6 +199,19 @@ class TestEmbeddingBasedDocumentSplitter:
         assert "Long enough text " == merged[1]
         assert "Another short" == merged[2]
 
+    def test_merge_small_splits_respect_max_length(self):
+        mock_embedder = Mock()
+        splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=10, max_length=15)
+
+        splits = ["123456", "123456789", "1234"]
+        merged = splitter._merge_small_splits(splits=splits)
+
+        assert len(merged) == 2
+        # First split remains beneath min_length b/c next split is too long
+        assert "123456" == merged[0]
+        # Second split is merged with third split to get above min_length and still beneath max_length
+        assert "1234567891234" == merged[1]
+
     def test_create_documents_from_splits(self):
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder)
