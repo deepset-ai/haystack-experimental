@@ -171,7 +171,7 @@ class EmbeddingBasedDocumentSplitter:
         Split a single document based on embedding similarity.
         """
         # Create an initial split of the document content into smaller chunks
-        splits = self._split_text(text=doc.content)  # type: ignore[union-attr]
+        splits = self._split_text(text=doc.content)  # type: ignore[union-attr, arg-type]
 
         # Merge splits smaller than min_length
         merged_splits = self._merge_small_splits(splits=splits)
@@ -190,10 +190,10 @@ class EmbeddingBasedDocumentSplitter:
         # NOTE: `self.sentence_splitter.split_sentences` strips white spaces at the end of the provided text.
         #       So to not lose them, we need keep track of them and add them back to the last sentence.
         rstripped_text = text.rstrip()
-        trailing_whitespaces = text[len(rstripped_text):]
+        trailing_whitespaces = text[len(rstripped_text) :]
 
         # Split the text into sentences
-        sentences_result = self.sentence_splitter.split_sentences(rstripped_text)
+        sentences_result = self.sentence_splitter.split_sentences(rstripped_text)  # type: ignore[union-attr]
 
         # Add back the stripped white spaces to the last sentence
         if sentences_result and trailing_whitespaces:
