@@ -55,7 +55,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [4]: https://github.com/deepset-ai/haystack-experimental/discussions/75
 [5]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/query/query_expander.py
 [6]: https://github.com/deepset-ai/haystack-experimental/discussions/346
-[7]: https://github.com/deepset-ai/haystack-experimental/discussions/<placeholder>
+[7]: https://github.com/deepset-ai/haystack-experimental/discussions/356
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
