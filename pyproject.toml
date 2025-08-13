@@ -50,6 +50,8 @@ fmt-check = "ruff check {args} && ruff format --check {args}"
 
 [tool.hatch.envs.test]
 extra-dependencies = [
+  "sentence-transformers>=4.1.0",                     # EmbeddingBasedDocumentSplitter
+  "nltk>=3.9.1",                                      # EmbeddingBasedDocumentSplitter
 
   # Type check
   "mypy",
