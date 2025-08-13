@@ -191,13 +191,13 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=10)
 
-        splits = ["Short", "Also short", "Long enough text", "Another short"]
+        splits = ["Short ", "Also short ", "Long enough text ", "Another short"]
         merged = splitter._merge_small_splits(splits)
 
         assert len(merged) == 3
-        assert "Short Also short" in merged[0]
-        assert "Long enough text" in merged[1]
-        assert "Another short" in merged[2]
+        assert "Short Also short " == merged[0]
+        assert "Long enough text " == merged[1]
+        assert "Another short" == merged[2]
 
     def test_create_documents_from_splits(self):
         mock_embedder = Mock()
@@ -288,7 +288,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert result["init_parameters"]["min_length"] == 50
         assert result["init_parameters"]["max_length"] == 1000
         assert "document_embedder" in result["init_parameters"]
-
 
     @pytest.mark.integration
     def test_split_document_with_multiple_topics(self):
