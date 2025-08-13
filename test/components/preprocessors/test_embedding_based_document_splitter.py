@@ -341,6 +341,29 @@ class TestEmbeddingBasedDocumentSplitter:
         assert combined in original or original in combined
 
     @pytest.mark.integration
+    def test_trailing_whitespace_is_preserved(self):
+        embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+        embedder.warm_up()
+
+        splitter = EmbeddingBasedDocumentSplitter(document_embedder=embedder, sentences_per_group=1)
+        splitter.warm_up()
+
+        # Normal trailing whitespace
+        text = "The weather today is beautiful.  "
+        result = splitter.run(documents=[Document(content=text)])
+        assert result["documents"][0].content == text
+
+        # Newline at the end
+        text = "The weather today is beautiful.\n"
+        result = splitter.run(documents=[Document(content=text)])
+        assert result["documents"][0].content == text
+
+        # Page break at the end
+        text = "The weather today is beautiful.\f"
+        result = splitter.run(documents=[Document(content=text)])
+        assert result["documents"][0].content == text
+
+    @pytest.mark.integration
     def test_no_extra_whitespaces_between_sentences(self):
         embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
         embedder.warm_up()

@@ -161,7 +161,7 @@ class EmbeddingBasedDocumentSplitter:
                 logger.warning("Document ID {doc_id} has an empty content. Skipping this document.", doc_id=doc.id)
                 continue
 
-            doc_splits = self._split_document(doc)
+            doc_splits = self._split_document(doc=doc)
             split_docs.extend(doc_splits)
 
         return {"documents": split_docs}
@@ -170,18 +170,43 @@ class EmbeddingBasedDocumentSplitter:
         """
         Split a single document based on embedding similarity.
         """
-        sentences_result = self.sentence_splitter.split_sentences(text=doc.content)  # type: ignore[union-attr,arg-type]
+        # Create an initial split of the document content into smaller chunks
+        splits = self._split_text(text=doc.content)  # type: ignore[union-attr]
+
+        # Merge splits smaller than min_length
+        merged_splits = self._merge_small_splits(splits=splits)
+
+        # Recursively split splits larger than max_length
+        final_splits = self._split_large_splits(splits=merged_splits)
+
+        # Create Document objects from the final splits
+        return EmbeddingBasedDocumentSplitter._create_documents_from_splits(splits=final_splits, original_doc=doc)
+
+    def _split_text(self, text: str) -> List[str]:
+        """
+        Split a text into smaller chunks based on embedding similarity.
+        """
+
+        # NOTE: `self.sentence_splitter.split_sentences` strips white spaces at the end of the provided text.
+        #       So to not lose them, we need keep track of them and add them back to the last sentence.
+        rstripped_text = text.rstrip()
+        trailing_whitespaces = text[len(rstripped_text):]
+
+        # Split the text into sentences
+        sentences_result = self.sentence_splitter.split_sentences(rstripped_text)
+
+        # Add back the stripped white spaces to the last sentence
+        if sentences_result and trailing_whitespaces:
+            sentences_result[-1]["sentence"] += trailing_whitespaces
+            sentences_result[-1]["end"] += len(trailing_whitespaces)
+
         sentences = [sentence["sentence"] for sentence in sentences_result]
         sentence_groups = self._group_sentences(sentences=sentences)
         embeddings = self._calculate_embeddings(sentence_groups=sentence_groups)
         split_points = self._find_split_points(embeddings=embeddings)
-        splits = self._create_splits_from_points(sentence_groups=sentence_groups, split_points=split_points)
+        sub_splits = self._create_splits_from_points(sentence_groups=sentence_groups, split_points=split_points)
 
-        # Merge small splits and split large splits
-        merged_splits = self._merge_small_splits(splits=splits)
-        final_splits = self._split_large_splits(splits=merged_splits)
-
-        return EmbeddingBasedDocumentSplitter._create_documents_from_splits(splits=final_splits, original_doc=doc)
+        return sub_splits
 
     def _group_sentences(self, sentences: List[str]) -> List[str]:
         """
@@ -320,22 +345,9 @@ class EmbeddingBasedDocumentSplitter:
                 final_splits.append(split)
             else:
                 # Recursively split large splits
-
-                # NOTE: `split_sentences` strips white spaces at the end of the provided text.
-                #       So to not lose them, we need keep track of them and add them back to the last sentence.
-                rstripped_split = split.rstrip()
-                trailing_whitespaces = split[len(rstripped_split) :]
-                sentences_result = self.sentence_splitter.split_sentences(rstripped_split)  # type: ignore[union-attr]
-                # Add back the stripped white spaces to the last sentence
-                if sentences_result and trailing_whitespaces:
-                    sentences_result[-1]["sentence"] += trailing_whitespaces
-                    sentences_result[-1]["end"] += len(trailing_whitespaces)
-                sentences = [sentence["sentence"] for sentence in sentences_result]
-
-                sentence_groups = self._group_sentences(sentences=sentences)
-                embeddings = self._calculate_embeddings(sentence_groups=sentence_groups)
-                split_points = self._find_split_points(embeddings=embeddings)
-                sub_splits = self._create_splits_from_points(sentence_groups=sentence_groups, split_points=split_points)
+                # We can reuse the same _split_text method to split the text into smaller chunks because the threshold
+                # for splits is calculated dynamically based on embeddings from `split`.
+                sub_splits = self._split_text(text=split)
 
                 # Stop splitting if no further split is possible or continue with recursion
                 if len(sub_splits) == 1:
