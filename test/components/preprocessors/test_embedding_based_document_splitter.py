@@ -191,13 +191,26 @@ class TestEmbeddingBasedDocumentSplitter:
         mock_embedder = Mock()
         splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=10)
 
-        splits = ["Short", "Also short", "Long enough text", "Another short"]
+        splits = ["Short ", "Also short ", "Long enough text ", "Another short"]
         merged = splitter._merge_small_splits(splits)
 
         assert len(merged) == 3
-        assert "Short Also short" in merged[0]
-        assert "Long enough text" in merged[1]
-        assert "Another short" in merged[2]
+        assert "Short Also short " == merged[0]
+        assert "Long enough text " == merged[1]
+        assert "Another short" == merged[2]
+
+    def test_merge_small_splits_respect_max_length(self):
+        mock_embedder = Mock()
+        splitter = EmbeddingBasedDocumentSplitter(document_embedder=mock_embedder, min_length=10, max_length=15)
+
+        splits = ["123456", "123456789", "1234"]
+        merged = splitter._merge_small_splits(splits=splits)
+
+        assert len(merged) == 2
+        # First split remains beneath min_length b/c next split is too long
+        assert "123456" == merged[0]
+        # Second split is merged with third split to get above min_length and still beneath max_length
+        assert "1234567891234" == merged[1]
 
     def test_create_documents_from_splits(self):
         mock_embedder = Mock()
@@ -289,7 +302,6 @@ class TestEmbeddingBasedDocumentSplitter:
         assert result["init_parameters"]["max_length"] == 1000
         assert "document_embedder" in result["init_parameters"]
 
-
     @pytest.mark.integration
     def test_split_document_with_multiple_topics(self):
         import torch
@@ -340,6 +352,29 @@ class TestEmbeddingBasedDocumentSplitter:
         combined = "".join([d.content for d in split_docs])
         original = text
         assert combined in original or original in combined
+
+    @pytest.mark.integration
+    def test_trailing_whitespace_is_preserved(self):
+        embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+        embedder.warm_up()
+
+        splitter = EmbeddingBasedDocumentSplitter(document_embedder=embedder, sentences_per_group=1)
+        splitter.warm_up()
+
+        # Normal trailing whitespace
+        text = "The weather today is beautiful.  "
+        result = splitter.run(documents=[Document(content=text)])
+        assert result["documents"][0].content == text
+
+        # Newline at the end
+        text = "The weather today is beautiful.\n"
+        result = splitter.run(documents=[Document(content=text)])
+        assert result["documents"][0].content == text
+
+        # Page break at the end
+        text = "The weather today is beautiful.\f"
+        result = splitter.run(documents=[Document(content=text)])
+        assert result["documents"][0].content == text
 
     @pytest.mark.integration
     def test_no_extra_whitespaces_between_sentences(self):

@@ -161,7 +161,7 @@ class EmbeddingBasedDocumentSplitter:
                 logger.warning("Document ID {doc_id} has an empty content. Skipping this document.", doc_id=doc.id)
                 continue
 
-            doc_splits = self._split_document(doc)
+            doc_splits = self._split_document(doc=doc)
             split_docs.extend(doc_splits)
 
         return {"documents": split_docs}
@@ -170,21 +170,44 @@ class EmbeddingBasedDocumentSplitter:
         """
         Split a single document based on embedding similarity.
         """
-        sentences_result = self.sentence_splitter.split_sentences(doc.content)  # type: ignore[union-attr,arg-type]
+        # Create an initial split of the document content into smaller chunks
+        splits = self._split_text(text=doc.content)  # type: ignore[union-attr, arg-type]
+
+        # Merge splits smaller than min_length
+        merged_splits = self._merge_small_splits(splits=splits)
+
+        # Recursively split splits larger than max_length
+        final_splits = self._split_large_splits(splits=merged_splits)
+
+        # Create Document objects from the final splits
+        return EmbeddingBasedDocumentSplitter._create_documents_from_splits(splits=final_splits, original_doc=doc)
+
+    def _split_text(self, text: str) -> List[str]:
+        """
+        Split a text into smaller chunks based on embedding similarity.
+        """
+
+        # NOTE: `self.sentence_splitter.split_sentences` strips all white space types (e.g. new lines, page breaks,
+        # etc.) at the end of the provided text. So to not lose them, we need keep track of them and add them back to
+        # the last sentence.
+        rstripped_text = text.rstrip()
+        trailing_whitespaces = text[len(rstripped_text) :]
+
+        # Split the text into sentences
+        sentences_result = self.sentence_splitter.split_sentences(rstripped_text)  # type: ignore[union-attr]
+
+        # Add back the stripped white spaces to the last sentence
+        if sentences_result and trailing_whitespaces:
+            sentences_result[-1]["sentence"] += trailing_whitespaces
+            sentences_result[-1]["end"] += len(trailing_whitespaces)
+
         sentences = [sentence["sentence"] for sentence in sentences_result]
+        sentence_groups = self._group_sentences(sentences=sentences)
+        embeddings = self._calculate_embeddings(sentence_groups=sentence_groups)
+        split_points = self._find_split_points(embeddings=embeddings)
+        sub_splits = self._create_splits_from_points(sentence_groups=sentence_groups, split_points=split_points)
 
-        sentence_groups = self._group_sentences(sentences)
-
-        embeddings = self._calculate_embeddings(sentence_groups)
-
-        split_points = self._find_split_points(embeddings)
-
-        splits = self._create_splits_from_points(sentence_groups, split_points)
-
-        # Merge small splits and split large splits
-        final_splits = self._post_process_splits(splits)
-
-        return EmbeddingBasedDocumentSplitter._create_documents_from_splits(final_splits, doc)
+        return sub_splits
 
     def _group_sentences(self, sentences: List[str]) -> List[str]:
         """
@@ -221,7 +244,9 @@ class EmbeddingBasedDocumentSplitter:
         # Calculate cosine distances between sequential pairs
         distances = []
         for i in range(len(embeddings) - 1):
-            distance = EmbeddingBasedDocumentSplitter._cosine_distance(embeddings[i], embeddings[i + 1])
+            distance = EmbeddingBasedDocumentSplitter._cosine_distance(
+                embedding1=embeddings[i], embedding2=embeddings[i + 1]
+            )
             distances.append(distance)
 
         # Calculate threshold based on percentile
@@ -278,19 +303,6 @@ class EmbeddingBasedDocumentSplitter:
 
         return splits
 
-    def _post_process_splits(self, splits: List[str]) -> List[str]:
-        """
-        Post-process splits: merge small ones and split large ones.
-        """
-        if not splits:
-            return splits
-
-        merged_splits = self._merge_small_splits(splits)
-
-        final_splits = self._split_large_splits(merged_splits)
-
-        return final_splits
-
     def _merge_small_splits(self, splits: List[str]) -> List[str]:
         """
         Merge splits that are below min_length.
@@ -302,9 +314,11 @@ class EmbeddingBasedDocumentSplitter:
         current_split = splits[0]
 
         for split in splits[1:]:
-            if len(current_split) < self.min_length:
+            # We merge splits that are smaller than min_length but only if the newly merged split is still below
+            # max_length.
+            if len(current_split) < self.min_length and len(current_split) + len(split) < self.max_length:
                 # Merge with next split
-                current_split += " " + split
+                current_split += split
             else:
                 # Current split is long enough, save it and start a new one
                 merged.append(current_split)
@@ -318,48 +332,33 @@ class EmbeddingBasedDocumentSplitter:
     def _split_large_splits(self, splits: List[str]) -> List[str]:
         """
         Recursively split splits that are above max_length.
+
+        This method checks each split and if it exceeds max_length, it attempts to split it further using the same
+        embedding-based approach. This is done recursively until all splits are within the max_length limit or no
+        further splitting is possible.
+
+        This is works because the threshold for splits is calculated dynamically based on the provided of embeddings.
         """
         final_splits = []
 
-        # the splits are always done at a sentence level, inbetween two sentence there's always an empty space
-        # which is lost if we merge sentences from two different groups/splits
         for split in splits:
             if len(split) <= self.max_length:
                 final_splits.append(split)
             else:
                 # Recursively split large splits
-                # For simplicity, split by sentences first
-
-                # store any characters after the "." in the last sentence of the split
-                last_dot_location = split.rfind(".")
-                if last_dot_location != -1:
-                    remaining_text = split[last_dot_location + 1 :]
-
-                sentences_result = self.sentence_splitter.split_sentences(split)  # type: ignore[union-attr]
-
-                # if there are any characters after the "." we need to add them again ensuring they're not lost in
-                # the sentence_splitting process
-                if last_dot_location != -1:
-                    sentences_result[-1]["sentence"] = sentences_result[-1]["sentence"] + remaining_text
-                    sentences_result[-1]["end"] += len(remaining_text)
-
-                sentences = [sentence["sentence"] for sentence in sentences_result]
-
-                # Group sentences and repeat the embedding-based splitting
-                sentence_groups = self._group_sentences(sentences)
-                embeddings = self._calculate_embeddings(sentence_groups)
-                split_points = self._find_split_points(embeddings)
-                sub_splits = EmbeddingBasedDocumentSplitter._create_splits_from_points(sentence_groups, split_points)
+                # We can reuse the same _split_text method to split the text into smaller chunks because the threshold
+                # for splits is calculated dynamically based on embeddings from `split`.
+                sub_splits = self._split_text(text=split)
 
                 # Stop splitting if no further split is possible or continue with recursion
-                if len(sub_splits) == 1 and sub_splits[0] == split:
+                if len(sub_splits) == 1:
                     logger.warning(
                         f"Could not split a chunk further below max_length={self.max_length}. "
                         f"Returning chunk of length {len(split)}."
                     )
                     final_splits.append(split)
                 else:
-                    final_splits.extend(self._split_large_splits(sub_splits))
+                    final_splits.extend(self._split_large_splits(splits=sub_splits))
 
         return final_splits
 
