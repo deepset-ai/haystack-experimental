@@ -22,9 +22,14 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["haystack-ai", "pydantic"]
+
+dependencies = [
+  "haystack-ai",
+]
+
 [project.urls]
 "CI: GitHub" = "https://github.com/deepset-ai/haystack-experimental/actions"
 "GitHub: issues" = "https://github.com/deepset-ai/haystack-experimental/issues"
@@ -36,6 +41,18 @@ installer = "uv"
 dependencies = [
   # Pre-commit hook
   "pre-commit",
+  "ruff",
+]
+
+[tool.hatch.envs.default.scripts]
+fmt = "ruff check --fix {args} && ruff format {args}"
+fmt-check = "ruff check {args} && ruff format --check {args}"
+
+[tool.hatch.envs.test]
+extra-dependencies = [
+  "sentence-transformers>=4.1.0",                     # EmbeddingBasedDocumentSplitter
+  "nltk>=3.9.1",                                      # EmbeddingBasedDocumentSplitter
+
   # Type check
   "mypy",
   "pip",
@@ -43,50 +60,19 @@ dependencies = [
   "pytest",
   "pytest-rerunfailures",
   "pytest-cov",
-  "pytest-bdd",
   "pytest-asyncio",
   # Linting
   "pylint",
-  "ruff",
-  # PipelineBase.show
-  "ipython"
-]
-
-[tool.hatch.envs.test]
-extra-dependencies = [
-  "transformers>=4.47.0, <4.48.0", # https://github.com/huggingface/transformers/issues/35639
-  # RAG evaluation harness (SAS evaluator)
-  "sentence-transformers>=3.0.0",
-  # LLMMetadataExtractor dependencies
-  "amazon-bedrock-haystack>=1.1.1",
-  "google-vertex-haystack>=2.0.0",
-  # HierachicalSplitter w/ split_by="sentence"
-  "nltk",
-  # Needed for type checking in Agent
-  "anthropic-haystack",
-  # Tests for MultiFileConverter
-  "python-docx",
-  "trafilatura",
-  "markdown-it-py",
-  "mdit_plain",
-  "pypdf",
-  "python-pptx",
-  "openpyxl",
-  # Summarizer
-  "tiktoken"
 ]
 
 [tool.hatch.envs.test.scripts]
 unit = 'pytest --cov-report xml:coverage.xml --cov="haystack_experimental" -m "not integration" {args:test}'
-integration = 'pytest --reruns 3 --reruns-delay 60 -x --maxfail=5 -m "integration and not unstable" {args:test}'
-typing = "mypy --install-types --non-interactive {args:haystack_experimental}"
-lint = [
-  "ruff check {args:haystack_experimental}",
-  "pylint -ry -j 0 {args:haystack_experimental}",
-]
-test-cov = "coverage run -m pytest -m \"not unstable\" {args:test}"
-cov-report = ["- coverage combine", "coverage xml"]
-cov = ["test-cov", "cov-report"]
+integration = 'pytest -m "integration" {args:test}'
+integration-retry = 'pytest -m "integration" --reruns 3 --reruns-delay 60 -x --maxfail=5 {args:test}'
+all = 'pytest {args:test}'
+
+types = "mypy --install-types --non-interactive {args:haystack_experimental}"
+lint = "pylint -ry -j 0 {args:haystack_experimental}"
 
 [tool.hatch.envs.readme]
 installer = "uv"
@@ -126,6 +112,9 @@ disable = [
   # To keep
   "fixme",
   "c-extension-no-member",
+  # we re-export symbols for correct type checking
+  # https://typing.python.org/en/latest/spec/distributing.html#import-conventions
+  "useless-import-alias",
 
   # To review:
   "missing-docstring",
@@ -189,20 +178,22 @@ minversion = "6.0"
 addopts = "--strict-markers"
 markers = [
   "integration: integration tests",
-  "unstable(reason): Mark tests that are unstable or depend on unreliable services.",
 ]
 log_cli = true
 asyncio_mode = "auto"
 
 [tool.mypy]
+python_version = "3.9"
+disallow_incomplete_defs = true
 warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
+check_untyped_defs = true
 
 [tool.ruff]
 line-length = 120
 target-version = "py38"
-exclude = ["test", ".github"]
+exclude = ["test", ".github", "examples"]
 
 [tool.ruff.lint]
 select = [
@@ -248,7 +239,9 @@ ignore = [
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM115",  # open-file-with-context-handler
   "SIM118",  # in-dict-keys
-  "PLR0913", # too-many-arguments
+  "PLR0913", # too-many-arguments,
+  "PLC0414", # useless-import-alias,
+  "PLC0415", # import-outside-top-level,
 ]
 
 [tool.ruff.lint.pylint]
