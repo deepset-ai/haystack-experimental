@@ -51,6 +51,12 @@ class Summarizer:
 
     It's inspired by code from the OpenAI blog post: https://cookbook.openai.com/examples/summarizing_long_documents
 
+    To run this example you need to install the `wikipedia` package:
+
+    ```bash
+        pip install wikipedia
+    ```
+
     Example
     ```python
     import wikipedia
@@ -238,7 +244,8 @@ class Summarizer:
 
         # warning if chunks were dropped
         if dropped_chunk_count > 0:
-            logger.warning(f"{dropped_chunk_count} chunks were dropped due to overflow")
+            msg = f"{dropped_chunk_count} chunks were dropped due to overflow. "
+            logger.warning(msg)
 
         # add delimiters
         return [f"{chunk}{delimiter}" for chunk in combined_chunks]
