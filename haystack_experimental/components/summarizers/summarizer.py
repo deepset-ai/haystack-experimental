@@ -24,11 +24,8 @@ with LazyImport(message="Run 'pip install \"google-vertex-haystack>=2.0.0\"'") a
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = "Rewrite this text in summarized form."
-
 
 class LLMProvider(Enum):
-
     OPENAI = "openai"
     OPENAI_AZURE = "openai_azure"
     AWS_BEDROCK = "aws_bedrock"
@@ -42,19 +39,15 @@ class LLMProvider(Enum):
         provider_map = {e.value: e for e in LLMProvider}
         provider = provider_map.get(string)
         if provider is None:
-            msg = (
-                f"Invalid LLMProvider '{string}'"
-                f"Supported LLMProviders are: {list(provider_map.keys())}"
-            )
+            msg = f"Invalid LLMProvider '{string}'Supported LLMProviders are: {list(provider_map.keys())}"
             raise ValueError(msg)
         return provider
-
 
 
 @component
 class Summarizer:
     """
-    This component is used to summarize text using a language model.
+    Summarizes text using a language model.
 
     It's inspired by code from the OpenAI blog post: https://cookbook.openai.com/examples/summarizing_long_documents
 
@@ -73,20 +66,23 @@ class Summarizer:
     ```
     """
 
-    def __init__(   # pylint: disable=too-many-positional-arguments
+    def __init__(  # pylint: disable=too-many-positional-arguments
         self,
         generator_api: Union[str, LLMProvider],
         generator_api_params: Optional[dict[str, Any]] = None,
+        system_prompt: Optional[str] = "Rewrite this text in summarized form.",
         summary_detail: float = 0,
         minimum_chunk_size: Optional[int] = 500,
         chunk_delimiter: str = ".",
-        summarize_recursively = False
+        summarize_recursively=False,
     ):
         """
         Initialize the Summarizer component.
 
         :param generator_api: The API to use for summarization.
         :param generator_api_params: Parameters for the generator API.
+        :param system_prompt: The prompt to instruct the LLM to summarise text, if not given defaults to:
+            "Rewrite this text in summarized form."
         :param summary_detail: The level of detail for the summary (0-1), defaults to 0.
         :param minimum_chunk_size: The minimum token count per chunk, defaults to 500
         :param chunk_delimiter: The character used to split the text into chunks, defaults to "."
@@ -95,16 +91,17 @@ class Summarizer:
         self.detail = summary_detail
         self.minimum_chunk_size = minimum_chunk_size
         self.chunk_delimiter = chunk_delimiter
+        self.system_prompt = system_prompt
         self.summarize_recursively = summarize_recursively
-        self.generator_api = generator_api if isinstance(generator_api, LLMProvider) \
-            else LLMProvider.from_str(generator_api)
+        self.generator_api = (
+            generator_api if isinstance(generator_api, LLMProvider) else LLMProvider.from_str(generator_api)
+        )
         self.generator_api_params = generator_api_params or {}
         self.llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
 
     @staticmethod
     def _init_generator(
-        generator_api: LLMProvider,
-        generator_api_params: Optional[dict[str, Any]]
+        generator_api: LLMProvider, generator_api_params: Optional[dict[str, Any]]
     ) -> Union[
         OpenAIChatGenerator, AzureOpenAIChatGenerator, "AmazonBedrockChatGenerator", "VertexAIGeminiChatGenerator"
     ]:
@@ -123,7 +120,6 @@ class Summarizer:
             return VertexAIGeminiChatGenerator(**generator_api_params)
         else:
             raise ValueError(f"Unsupported generator API: {generator_api}")
-
 
     def warm_up(self):
         """
@@ -148,7 +144,7 @@ class Summarizer:
             summary_detail=self.detail,
             minimum_chunk_size=self.minimum_chunk_size,
             chunk_delimiter=self.chunk_delimiter,
-            summarize_recursively=self.summarize_recursively
+            summarize_recursively=self.summarize_recursively,
         )
 
     @classmethod
@@ -171,7 +167,11 @@ class Summarizer:
 
             # AWS
             aws_bedrock_keys = [
-                "aws_access_key_id", "aws_secret_access_key", "aws_session_token", "aws_region_name", "aws_profile_name"
+                "aws_access_key_id",
+                "aws_secret_access_key",
+                "aws_session_token",
+                "aws_region_name",
+                "aws_profile_name",
             ]
             deserialize_secrets_inplace(
                 data["init_parameters"]["generator_api_params"],
@@ -233,10 +233,7 @@ class Summarizer:
 
         # combine chunks to optimize token usage
         combined_chunks, _, dropped_chunk_count = self._combine_chunks(
-            chunks,
-            max_tokens,
-            chunk_delimiter=delimiter,
-            add_ellipsis_overflow=True
+            chunks, max_tokens, chunk_delimiter=delimiter, add_ellipsis_overflow=True
         )
 
         # warning if chunks were dropped
@@ -247,11 +244,7 @@ class Summarizer:
         return [f"{chunk}{delimiter}" for chunk in combined_chunks]
 
     def _combine_chunks(
-        self,
-        chunks: list[str],
-        max_tokens: int,
-        chunk_delimiter="\n\n",
-        add_ellipsis_overflow=False
+        self, chunks: list[str], max_tokens: int, chunk_delimiter="\n\n", add_ellipsis_overflow=False
     ) -> tuple[list[str], list[list[int]], int]:
         """
         Combines chunks into larger blocks without exceeding a specified token count.
@@ -329,21 +322,21 @@ class Summarizer:
             if summarize_recursively and accumulated_summaries:
                 accumulated_summaries_string = "\n\n".join(accumulated_summaries)
                 user_message_content = (
-                    f"Previous summaries:\n\n{accumulated_summaries_string}\n\n"
-                    f"Text to summarize next:\n\n{chunk}"
+                    f"Previous summaries:\n\n{accumulated_summaries_string}\n\nText to summarize next:\n\n{chunk}"
                 )
             else:
                 user_message_content = chunk
 
             # prepare the message and make the LLM call
-            messages = [ChatMessage.from_system(SYSTEM_PROMPT), ChatMessage.from_user(user_message_content)]
+            messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)]
             # ToDo: some error handling here
             result = self.llm_provider.run(messages=messages)
             accumulated_summaries.append(result["replies"][0].text)
 
         return accumulated_summaries
 
-    def summarize(self,
+    def summarize(
+        self,
         text: str,
         detail: float,
         minimum_chunk_size: int,
@@ -379,7 +372,8 @@ class Summarizer:
         documents: list[Document],
         detail: Optional[float] = None,
         minimum_chunk_size: Optional[int] = None,
-        summarize_recursively: Optional[bool] = None
+        summarize_recursively: Optional[bool] = None,
+        system_prompt: Optional[str] = None,
     ):
         """
         Run the summarizer on a list of documents.
@@ -388,6 +382,7 @@ class Summarizer:
         :param detail: The level of detail for the summary (0-1), defaults to 0 overwriting the component's default.
         :param minimum_chunk_size: The minimum token count per chunk, defaults to 500 overwriting the
                                    component's default.
+        :param system_prompt: If given it will overwrite prompt given at init time or the default one.
         :param summarize_recursively: Whether to use previous summaries as context, defaults to False overwriting the
                                       component's default.
         """
@@ -396,13 +391,14 @@ class Summarizer:
         detail = self.detail if detail is None else detail
         minimum_chunk_size = self.minimum_chunk_size if minimum_chunk_size is None else minimum_chunk_size
         summarize_recursively = self.summarize_recursively if summarize_recursively is None else summarize_recursively
+        self.system_prompt = system_prompt if system_prompt else self.system_prompt
 
         for doc in documents:
             summary = self.summarize(
                 doc.content,
                 detail=detail,
                 minimum_chunk_size=minimum_chunk_size,  # type: ignore # already checked, cannot be None here
-                summarize_recursively=summarize_recursively
+                summarize_recursively=summarize_recursively,
             )
             doc.meta["summary_detail"] = summary
 
