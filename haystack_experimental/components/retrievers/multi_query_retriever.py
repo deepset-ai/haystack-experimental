@@ -1,14 +1,17 @@
-from haystack import component, Document
+from haystack import component, Document, default_to_dict, default_from_dict
+from haystack.core.serialization import component_to_dict
+from haystack.utils.deserialization import deserialize_component_inplace
 
-from typing import List
+from typing import List, Any
 
-from haystack.components.retrievers.types.protocol import BM25Retriever
+from haystack_experimental.components.retrievers.types import KeywordRetriever
+from haystack_experimental.components.retrievers.types import EmbeddingRetriever
 
 
 @component
-class MultiQueryInMemoryBM25Retriever:
+class MultiQueryKeywordRetriever:
 
-    def __init__(self, retriever: BM25Retriever, top_k: int = 3):
+    def __init__(self, retriever: KeywordRetriever, top_k: int = 3):
         self.retriever = retriever
         self.top_k = top_k
 
@@ -25,3 +28,20 @@ class MultiQueryInMemoryBM25Retriever:
         docs.sort(key=lambda x: x.score, reverse=True)
 
         return {"documents": docs}
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serializes the component to a dictionary.
+        """
+        return default_to_dict(
+            self,
+            retriever=component_to_dict(obj=self.retriever),
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MultiQueryKeywordRetriever":
+        """
+        Deserializes the component from a dictionary.
+        """
+        deserialize_component_inplace(data["init_parameters"], key="document_embedder")
+        return default_from_dict(cls, data)
