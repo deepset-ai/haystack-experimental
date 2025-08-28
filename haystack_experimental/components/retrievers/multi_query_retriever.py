@@ -2,13 +2,13 @@ from haystack import component, Document
 
 from typing import List
 
-from haystack.components.retrievers import InMemoryBM25Retriever
+from haystack.components.retrievers.types.protocol import BM25Retriever
 
 
 @component
 class MultiQueryInMemoryBM25Retriever:
 
-    def __init__(self, retriever: InMemoryBM25Retriever, top_k: int = 3):
+    def __init__(self, retriever: BM25Retriever, top_k: int = 3):
         self.retriever = retriever
         self.top_k = top_k
 
