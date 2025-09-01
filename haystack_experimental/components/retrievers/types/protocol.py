@@ -42,14 +42,14 @@ class EmbeddingRetriever(Protocol):
     """
 
     def run(
-        self, query_embeddings: list[float], filters: Optional[dict[str, Any]] = None, top_k: Optional[int] = None
+        self, query_embedding: list[float], filters: Optional[dict[str, Any]] = None, top_k: Optional[int] = None
     ) -> dict[str, Any]:
         """
         Retrieve documents that are relevant to the query.
 
         Implementing classes may accept additional optional parameters in their run method.
 
-        :param query_embeddings:
+        :param query_embedding:
         :param filters:
         :param top_k:
         :return:
