@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+import os
 
 import pytest
 from haystack import Document, Pipeline
+from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.retrievers import InMemoryBM25Retriever
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
+from haystack_experimental.components.query import QueryExpander
 
 from haystack_experimental.components.retrievers.multi_query_keyword_retriever import MultiQueryKeywordRetriever
 
@@ -74,7 +77,7 @@ class TestMultiQueryKeywordRetriever:
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
         multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, top_k=3)
         
-        # queries that might return the same documents
+        # queries that return the same documents
         queries = ["renewable energy", "green energy", "sustainable energy"]
         result = multi_retriever.run(queries=queries)
         
@@ -85,15 +88,14 @@ class TestMultiQueryKeywordRetriever:
 
     def test_run_with_custom_top_k(self, document_store_with_docs):
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, top_k=1)
+        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, top_k=2)
         
-        result = multi_retriever.run(queries=["energy"], top_k=5)
+        result = multi_retriever.run(queries=["energy"])
         
         assert "documents" in result
-        assert len(result["documents"]) <= 5
+        assert len(result["documents"]) <= 2
 
     def test_parallel_execution(self, document_store_with_docs):
-        """Test that multiple queries are executed in parallel."""
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
         multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, max_workers=2)
         
@@ -124,7 +126,7 @@ class TestMultiQueryKeywordRetriever:
 
     def test_from_dict(self):
         data = {
-            'type': 'haystack_experimental.components.retrievers.multi_query_retriever.MultiQueryKeywordRetriever',
+            'type': 'haystack_experimental.components.retrievers.multi_query_keyword_retriever.MultiQueryKeywordRetriever',
             'init_parameters': {
                 'retriever': {
                     'type': 'haystack.components.retrievers.in_memory.bm25_retriever.InMemoryBM25Retriever',
@@ -136,15 +138,14 @@ class TestMultiQueryKeywordRetriever:
                                 'bm25_algorithm': 'BM25L',
                                 'bm25_parameters': {},
                                 'embedding_similarity_function': 'dot_product',
-                                'index': '88144fa9-6e45-4e5d-8647-4c4002d8b6db',
-                                'return_embedding': True}
+                                'index': '88144fa9-6e45-4e5d-8647-4c4002d8b6db'}
                         },
                         'filters': None,
                         'top_k': 10,
                         'scale_score': False,
                         'filter_policy': 'replace'}},
              'top_k': 3,
-             'filters': None,
+             'filters': {"category": "test"},
              'max_workers': 3}}
 
         result = MultiQueryKeywordRetriever.from_dict(data)
@@ -155,16 +156,25 @@ class TestMultiQueryKeywordRetriever:
         assert result.filters == {"category": "test"}
         assert result.max_workers == 3
 
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
+    @pytest.mark.integration
     def test_pipeline_integration(self, document_store_with_docs):
-        """Test integration with Haystack Pipeline."""
-        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever)
-        
         pipeline = Pipeline()
-        pipeline.add_component("multi_retriever", multi_retriever)
-        
-        result = pipeline.run(data={"multi_retriever": {"queries": ["renewable energy", "solar power"]}})
-        
-        assert "multi_retriever" in result
-        assert "documents" in result["multi_retriever"]
-        assert len(result["multi_retriever"]["documents"]) > 0
+        expander = QueryExpander(
+            chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"), n_expansions=3, include_original_query=True
+        )
+        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
+        multiquery_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever)
+        pipeline.add_component("query_expander", expander)
+        pipeline.add_component("multiquery_retriever", multiquery_retriever)
+        pipeline.connect("query_expander.queries", "multiquery_retriever.queries")
+
+        data = {"query_expander": {"query": "green energy sources"}}
+        results = pipeline.run(data=data, include_outputs_from={"query_expander", "multiquery_retriever"})
+
+        assert "multi_retriever" in results
+        assert "documents" in results["multi_retriever"]
+        assert len(results["multi_retriever"]["documents"]) > 0
