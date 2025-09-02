@@ -276,7 +276,6 @@ class TestMultiQueryEmbeddingRetriever:
                     'type': 'haystack.components.embedders.sentence_transformers_text_embedder.SentenceTransformersTextEmbedder',
                     'init_parameters': {
                         'model': 'sentence-transformers/all-MiniLM-L6-v2',
-                        'device': {'type': 'single', 'device': 'mps'},
                         'token': {'type': 'env_var', 'env_vars': ['HF_API_TOKEN', 'HF_TOKEN'], 'strict': False},
                         'prefix': '',
                         'suffix': '',
