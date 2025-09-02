@@ -23,11 +23,7 @@ from haystack.dataclasses import (
 )
 from haystack.tools import Tool, Toolset
 
-from haystack_experimental.utils.hallucination_risk_calculator import (
-    OpenAIBackend,
-    OpenAIItem,
-    OpenAIPlanner,
-)
+from haystack_experimental.utils.hallucination_risk_calculator import OpenAIItem, OpenAIPlanner
 
 
 @component
@@ -83,9 +79,8 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
         # Calculate the hallucination score pre-emptively on the last user message
         hallucination_meta = {}
         if hallucination_score:
-            backend = OpenAIBackend(model="gpt-4o-mini", api_key=self.api_key.resolve_value())
             item = OpenAIItem(prompt=messages[-1].text, n_samples=7, m=6, skeleton_policy="closed_book")
-            planner = OpenAIPlanner(backend, temperature=0.3)
+            planner = OpenAIPlanner(OpenAIChatGenerator(model="gpt-4o-mini", api_key=self.api_key), temperature=0.3)
             metrics = planner.run(
                 [item], h_star=0.05, isr_threshold=1.0, margin_extra_bits=0.2, B_clip=12.0, clip_mode="one-sided"
             )
@@ -193,9 +188,8 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
         # Calculate the hallucination score pre-emptively on the last user message
         hallucination_meta = {}
         if hallucination_score:
-            backend = OpenAIBackend(model="gpt-4o-mini", api_key=await self.api_key.resolve_value())
             item = OpenAIItem(prompt=messages[-1].text, n_samples=7, m=6, skeleton_policy="closed_book")
-            planner = OpenAIPlanner(backend, temperature=0.3)
+            planner = OpenAIPlanner(OpenAIChatGenerator(model="gpt-4o-mini", api_key=self.api_key), temperature=0.3)
             metrics = planner.run(
                 [item], h_star=0.05, isr_threshold=1.0, margin_extra_bits=0.2, B_clip=12.0, clip_mode="one-sided"
             )

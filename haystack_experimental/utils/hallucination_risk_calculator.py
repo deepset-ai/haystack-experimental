@@ -45,43 +45,7 @@ from typing import Literal, Optional, Sequence
 # OpenAI Backend
 # ------------------------------------------------------------------------------------
 
-from openai import OpenAI
-
-
-class OpenAIBackend:
-    def __init__(
-        self,
-        model: str = "gpt-4o-mini",
-        api_key: Optional[str] = None,
-        request_timeout: float = 60.0,
-    ) -> None:
-        self.model = model
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
-        if not self.api_key:
-            raise RuntimeError("OPENAI_API_KEY not set.")
-        self.client = OpenAI(api_key=self.api_key)
-        self.request_timeout = float(request_timeout)
-
-    def chat_create(self, messages: list[dict], **kwargs):
-        params = dict(model=self.model, messages=messages, max_tokens=8, temperature=0.7)
-        params.update(kwargs)
-        if "timeout" in params:
-            params["request_timeout"] = params.pop("timeout")
-        return self.client.chat.completions.create(**params)
-
-    def multi_choice(self, messages: list[dict], n: int = 1, **kwargs):
-        try:
-            resp = self.chat_create(messages, n=n, **kwargs)
-            choices = getattr(resp, "choices", None) or []
-            if len(choices) == n:
-                return choices
-        except Exception:
-            pass
-        choices = []
-        for _ in range(n):
-            resp = self.chat_create(messages, **kwargs)
-            choices.append(resp.choices[0])
-        return choices
+from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
 
 # ------------------------------------------------------------------------------------
@@ -595,7 +559,7 @@ def _choices_to_decisions(choices) -> list[str]:
 
 
 def estimate_event_signals_sampling(
-    backend: OpenAIBackend,
+    backend: OpenAIChatGenerator,
     prompt: str,
     skeletons: list[str],
     n_samples: int = 3,
@@ -606,7 +570,8 @@ def estimate_event_signals_sampling(
 ) -> tuple[float, list[float], list[float], str]:
     # Posterior (full prompt)
     msgs = decision_messages_closed_book(prompt) if closed_book else decision_messages_evidence(prompt)
-    choices = backend.multi_choice(msgs, n=n_samples, temperature=temperature, max_tokens=max_tokens)
+    params = dict(model=backend.model, messages=msgs, max_tokens=max_tokens, temperature=temperature, n=n_samples)
+    choices = backend.client.chat.completions.create(**params).choices
     post_decisions = _choices_to_decisions(choices)
     if sleep_between > 0:
         time.sleep(sleep_between)
@@ -618,7 +583,8 @@ def estimate_event_signals_sampling(
     q_list: list[float] = []
     for sk in skeletons:
         msgs_k = decision_messages_closed_book(sk) if closed_book else decision_messages_evidence(sk)
-        choices_k = backend.multi_choice(msgs_k, n=n_samples, temperature=temperature, max_tokens=max_tokens)
+        params = dict(model=backend.model, messages=msgs_k, max_tokens=max_tokens, temperature=temperature, n=n_samples)
+        choices_k = backend.client.chat.completions.create(**params).choices
         dec_k = _choices_to_decisions(choices_k)
         if sleep_between > 0:
             time.sleep(sleep_between)
@@ -638,7 +604,7 @@ def estimate_event_signals_sampling(
 class OpenAIPlanner:
     def __init__(
         self,
-        backend: OpenAIBackend,
+        backend: OpenAIChatGenerator,
         temperature: float = 0.5,
         max_tokens_decision: int = 8,
         q_floor: Optional[float] = None,  # prior floor to stabilize closed-book
