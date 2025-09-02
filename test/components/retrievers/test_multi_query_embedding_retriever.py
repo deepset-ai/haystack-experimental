@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+
 import numpy as np
 from unittest.mock import patch, MagicMock
 
@@ -215,7 +216,6 @@ class TestMultiQueryEmbeddingRetriever:
         result = multi_retriever.run(queries=["energy"])
         assert "documents" in result
         assert all(doc.meta.get("category") == "solar" for doc in result["documents"])
-
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),

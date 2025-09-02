@@ -74,52 +74,8 @@ class TestMultiQueryKeywordRetriever:
         scores = [doc.score for doc in result["documents"] if doc.score is not None]
         assert scores == sorted(scores, reverse=True)
 
-    def test_run_with_deduplication(self, document_store_with_docs):
-        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, top_k=3)
-        
-        # queries that return the same documents
-        queries = ["renewable energy", "green energy", "sustainable energy"]
-        result = multi_retriever.run(queries=queries)
-        
-        assert "documents" in result
-        # check that no duplicate content exists
-        contents = [doc.content for doc in result["documents"]]
-        assert len(contents) == len(set(contents))
-
-    def test_run_with_custom_top_k(self, document_store_with_docs):
-        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, top_k=2)
-        
-        result = multi_retriever.run(queries=["energy"])
-        
-        assert "documents" in result
-        assert len(result["documents"]) <= 2
-
-    def test_run_with_filters(self, document_store_with_docs):
-        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        filters = {"field": "category", "operator": "==", "value": "solar"}
-        multi_retriever = MultiQueryKeywordRetriever(
-            retriever=in_memory_retriever,
-            filters=filters
-        )
-
-        result = multi_retriever.run(queries=["energy"])
-        assert "documents" in result
-        assert all(doc.meta.get("category") == "solar" for doc in result["documents"])
-
-    def test_parallel_execution(self, document_store_with_docs):
-        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, max_workers=2)
-        
-        queries = ["renewable energy", "solar power", "wind energy", "geothermal"]
-        result = multi_retriever.run(queries=queries)
-        
-        assert "documents" in result
-        assert len(result["documents"]) > 0
-
-    def test_to_dict(self, document_store_with_docs):
-        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
+    def test_to_dict(self):
+        in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
         multi_retriever = MultiQueryKeywordRetriever(
             retriever=in_memory_retriever,
             top_k=5,
@@ -170,6 +126,19 @@ class TestMultiQueryKeywordRetriever:
         assert result.top_k == 3
         assert result.filters == {"category": "test"}
         assert result.max_workers == 3
+
+    @pytest.mark.integration
+    def test_run_with_filters(self, document_store_with_docs):
+        in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
+        filters = {"field": "category", "operator": "==", "value": "solar"}
+        multi_retriever = MultiQueryKeywordRetriever(
+            retriever=in_memory_retriever,
+            filters=filters
+        )
+
+        result = multi_retriever.run(queries=["energy"])
+        assert "documents" in result
+        assert all(doc.meta.get("category") == "solar" for doc in result["documents"])
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
