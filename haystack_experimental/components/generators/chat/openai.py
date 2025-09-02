@@ -23,7 +23,7 @@ from haystack.dataclasses import (
 )
 from haystack.tools import Tool, Toolset
 
-from haystack_experimental.utils.hallucination_risk_calculator.hallucination_risk_calculator import OpenAIPlanner
+from haystack_experimental.utils.hallucination_risk_calculator.openai_planner import OpenAIPlanner
 from haystack_experimental.utils.hallucination_risk_calculator.dataclasses import OpenAIItem
 
 
