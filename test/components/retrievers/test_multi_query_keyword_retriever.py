@@ -190,6 +190,9 @@ class TestMultiQueryKeywordRetriever:
         data = {"query_expander": {"query": "green energy sources"}}
         results = pipeline.run(data=data, include_outputs_from={"query_expander", "multiquery_retriever"})
 
-        assert "multi_retriever" in results
-        assert "documents" in results["multi_retriever"]
-        assert len(results["multi_retriever"]["documents"]) > 0
+        assert "multiquery_retriever" in results
+        assert "documents" in results["multiquery_retriever"]
+        assert len(results["multiquery_retriever"]["documents"]) > 0
+        assert "query_expander" in results
+        assert "queries" in results["query_expander"]
+        assert len(results["query_expander"]["queries"]) == 4

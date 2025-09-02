@@ -1,15 +1,18 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+import os
 
 import pytest
 from haystack import Document, Pipeline
 from haystack.components.embedders import SentenceTransformersTextEmbedder
 from haystack.components.embedders.sentence_transformers_document_embedder import SentenceTransformersDocumentEmbedder
+from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.components.retrievers import InMemoryEmbeddingRetriever
 from haystack.components.writers import DocumentWriter
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
+from haystack_experimental.components.query import QueryExpander
 
 from haystack_experimental.components.retrievers.multi_query_embedding_retriever import MultiQueryEmbeddingRetriever
 
@@ -166,53 +169,7 @@ class TestMultiQueryEmbeddingRetriever:
         
         assert "documents" in result
         assert result["documents"] == []
-
-    def test_run_on_thread_method(self, mock_retriever, mock_query_embedder):
-        
-        mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3]}
-        mock_retriever.run.return_value = {"documents": [Document(content="test")]}
-        multi_retriever = MultiQueryEmbeddingRetriever(
-            retriever=mock_retriever,
-            query_embedder=mock_query_embedder
-        )
-        
-        result = multi_retriever._run_on_thread("test query", top_k=1, filters=None)
-        
-        assert result == [Document(content="test")]
-        mock_query_embedder.run.assert_called_once_with(text="test query")
-        mock_retriever.run.assert_called_once_with(
-            query_embedding=[0.1, 0.2, 0.3],
-            filters=None,
-            top_k=1
-        )
-
-    def test_run_on_thread_with_none_result(self, mock_retriever, mock_query_embedder):
-        
-        mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3]}
-        mock_retriever.run.return_value = None
-        multi_retriever = MultiQueryEmbeddingRetriever(
-            retriever=mock_retriever,
-            query_embedder=mock_query_embedder
-        )
-        
-        result = multi_retriever._run_on_thread("test query", top_k=1, filters=None)
-        
-        assert result is None
-
-    def test_run_on_thread_with_no_documents(self, mock_retriever, mock_query_embedder):
-        
-        mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3]}
-        mock_retriever.run.return_value = {"documents": []}
-        multi_retriever = MultiQueryEmbeddingRetriever(
-            retriever=mock_retriever,
-            query_embedder=mock_query_embedder
-        )
-        
-        result = multi_retriever._run_on_thread("test query", top_k=1, filters=None)
-        
-        assert result == []
     """
-
     def test_parallel_execution(self, document_store_with_embeddings):
 
         in_memory_retriever = InMemoryEmbeddingRetriever(document_store=document_store_with_embeddings)
@@ -305,93 +262,32 @@ class TestMultiQueryEmbeddingRetriever:
         assert result.filters == {'field': 'category', 'operator': '==', 'value': 'solar'}
         assert result.max_workers == 2
 
-    # def test_pipeline_integration(self, document_store_with_embeddings):
-    #     """Test integration with Haystack Pipeline."""
-    #     in_memory_retriever = InMemoryEmbeddingRetriever(document_store=document_store_with_embeddings)
-    #     query_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
-    #     multi_retriever = MultiQueryEmbeddingRetriever(
-    #         retriever=in_memory_retriever,
-    #         query_embedder=query_embedder
-    #     )
-    #
-    #     pipeline = Pipeline()
-    #     pipeline.add_component("multi_retriever", multi_retriever)
-    #
-    #     result = pipeline.run(data={"multi_retriever": {"queries": ["renewable energy", "solar power"]}})
-    #
-    #     assert "multi_retriever" in result
-    #     assert "documents" in result["multi_retriever"]
-    #     assert len(result["multi_retriever"]["documents"]) > 0
-    #
-    # def test_embedding_retrieval_process(self, mock_retriever, mock_query_embedder):
-    #     """Test the complete embedding retrieval process."""
-    #     mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3, 0.4, 0.5]}
-    #     mock_retriever.run.return_value = {
-    #         "documents": [
-    #             Document(content="Test document 1", score=0.9),
-    #             Document(content="Test document 2", score=0.8)
-    #         ]
-    #     }
-    #
-    #     multi_retriever = MultiQueryEmbeddingRetriever(
-    #         retriever=mock_retriever,
-    #         query_embedder=mock_query_embedder
-    #     )
-    #
-    #     result = multi_retriever.run(queries=["test query"])
-    #
-    #     assert "documents" in result
-    #     assert len(result["documents"]) == 2
-    #     assert result["documents"][0].content == "Test document 1"
-    #     assert result["documents"][1].content == "Test document 2"
-    #
-    #     # Verify that embedder was called with the query
-    #     mock_query_embedder.run.assert_called_with(text="test query")
-    #
-    #     # Verify that retriever was called with the embedding
-    #     mock_retriever.run.assert_called_with(
-    #         query_embedding=[0.1, 0.2, 0.3, 0.4, 0.5],
-    #         filters=None,
-    #         top_k=3
-    #     )
-    #
-    # def test_filters_parameter_handling(self, mock_retriever, mock_query_embedder):
-    #     """Test that filters are properly passed through the retrieval process."""
-    #     mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3]}
-    #     mock_retriever.run.return_value = {"documents": [Document(content="Test")]}
-    #
-    #     filters = {"category": "energy", "type": "renewable"}
-    #     multi_retriever = MultiQueryEmbeddingRetriever(
-    #         retriever=mock_retriever,
-    #         query_embedder=mock_query_embedder,
-    #         filters=filters
-    #     )
-    #
-    #     result = multi_retriever.run(queries=["test"])
-    #
-    #     # Verify that retriever was called with the correct filters
-    #     mock_retriever.run.assert_called_with(
-    #         query_embedding=[0.1, 0.2, 0.3],
-    #         filters=filters,
-    #         top_k=3
-    #     )
-    #
-    # def test_custom_top_k_override(self, mock_retriever, mock_query_embedder):
-    #     """Test that custom top_k in run method overrides initialization top_k."""
-    #     mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3]}
-    #     mock_retriever.run.return_value = {"documents": [Document(content="Test")]}
-    #
-    #     multi_retriever = MultiQueryEmbeddingRetriever(
-    #         retriever=mock_retriever,
-    #         query_embedder=mock_query_embedder,
-    #         top_k=5  # Initialize with top_k=5
-    #     )
-    #
-    #     result = multi_retriever.run(queries=["test"], top_k=2)  # Override with top_k=2
-    #
-    #     # Verify that retriever was called with the overridden top_k
-    #     mock_retriever.run.assert_called_with(
-    #         query_embedding=[0.1, 0.2, 0.3],
-    #         filters=None,
-    #         top_k=2  # Should use the overridden value
-    #     )
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
+    @pytest.mark.integration
+    def test_pipeline_integration(self, document_store_with_embeddings):
+        expander = QueryExpander(
+            chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"), n_expansions=3, include_original_query=True
+        )
+        in_memory_retriever = InMemoryEmbeddingRetriever(document_store=document_store_with_embeddings)
+        query_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+        multiquery_retriever = MultiQueryEmbeddingRetriever(
+            retriever=in_memory_retriever, query_embedder=query_embedder
+        )
+
+        pipeline = Pipeline()
+        pipeline.add_component("query_expander", expander)
+        pipeline.add_component("multiquery_retriever", multiquery_retriever)
+        pipeline.connect("query_expander.queries", "multiquery_retriever.queries")
+
+        data = {"query_expander" : {"query": "green energy sources"}}
+        results = pipeline.run(data=data, include_outputs_from={"query_expander", "multiquery_retriever"})
+
+        assert "multiquery_retriever" in results
+        assert "documents" in results["multiquery_retriever"]
+        assert len(results["multiquery_retriever"]["documents"]) > 0
+        assert "query_expander" in results
+        assert "queries" in results["query_expander"]
+        assert len(results["query_expander"]["queries"]) == 4
