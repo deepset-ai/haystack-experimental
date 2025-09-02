@@ -3,49 +3,17 @@
 # Licensed under the MIT License.
 # Modified by deepset, 2025.
 #
-"""
-Hallucination Risk Calculator (OpenAI-only) — Closed-Book Ready
-================================================================
-
-This update adds a robust **closed-book mode** so you can assess hallucination risk
-on *any* input prompt (variable length, no evidence). It preserves the EDFL/B2T/ISR
-framework while replacing the "evidence-erase" skeletons with **semantic masking**
-skeletons that (a) remove *specific content hints* (entities, numbers, quoted titles)
-and (b) keep task structure intact. This avoids collapsing the conservative prior q_lo
-to ~0 for ordinary questions, enabling useful Δ̄ and bounded RoH without user-supplied
-evidence.
-
-Key additions
--------------
-- `skeleton_policy`: "auto" | "evidence_erase" | "closed_book"
-  * auto: uses evidence erasure if evidence fields are present or configured;
-          otherwise uses closed-book masking.
-- Closed-book skeletons: progressive **entity/number masking** (regex, seeded).
-- Decision head updated for closed-book: “answer if you know from pretrained knowledge,
-  otherwise refuse.” (No hard evidence requirement.)
-- `q_floor`: optional prior floor to avoid pathological q_lo→0 in closed-book;
-  defaults to Laplace floor 1/(n_samples+2) (can be increased).
-- Higher default `B_clip=12.0` and recommended `clip_mode="one-sided"` to reflect
-  larger Δ̄ needed when q_lo is small but nonzero.
-- Backwards compatible with evidence-providing workflows.
-
-All info measures remain in **nats**. OpenAI API only.
-"""
 
 import json
 import math
-import os
 import random
 import re
 import time
-from dataclasses import asdict, dataclass
-from typing import Literal, Optional, Sequence
-
-# ------------------------------------------------------------------------------------
-# OpenAI Backend
-# ------------------------------------------------------------------------------------
+from typing import Optional, Sequence
 
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
+
+from .dataclasses import Decision, ItemMetrics, OpenAIItem
 
 
 # ------------------------------------------------------------------------------------
@@ -161,14 +129,14 @@ def delta_bar_from_logs(
     logP_y: float, logS_list_y: Sequence[float], B: float = 12.0, clip_mode: str = "one-sided"
 ) -> float:
     diffs = [logP_y - s for s in logS_list_y]
-    clipped = [clip_one_sided(u, B) if clip_mode == "one-sided" else clip_symmetric(u, B) for u in diffs]
+    clipped = [clip_one_sided(u=u, B=B) if clip_mode == "one-sided" else clip_symmetric(u=u, B=B) for u in diffs]
     return sum(clipped) / len(clipped) if clipped else 0.0
 
 
 def delta_bar_from_probs(P_y: float, S_list_y: Sequence[float], B: float = 12.0, clip_mode: str = "one-sided") -> float:
-    logP = _safe_log(P_y)
-    logS = [_safe_log(s) for s in S_list_y]
-    return delta_bar_from_logs(logP, logS, B=B, clip_mode=clip_mode)
+    logP = _safe_log(x=P_y)
+    logS = [_safe_log(x=s) for s in S_list_y]
+    return delta_bar_from_logs(logP_y=logP, logS_list_y=logS, B=B, clip_mode=clip_mode)
 
 
 def bits_to_trust(q_conservative: float, h_star: float) -> float:
@@ -190,17 +158,6 @@ def isr(delta_bar: float, b2t: float) -> float:
 # ------------------------------------------------------------------------------------
 
 
-@dataclass
-class Decision:
-    answer: bool
-    isr: float
-    b2t: float
-    roh_bound: float
-    margin: float
-    threshold: float
-    rationale: str
-
-
 def decision_rule(
     delta_bar: float,
     q_conservative: float,
@@ -209,147 +166,36 @@ def decision_rule(
     isr_threshold: float = 1.0,
     margin_extra_bits: float = 0.0,
 ) -> Decision:
+    """
+    Decision rule: answer if ISR >= threshold and Δ̄ >= B2T + margin.
+
+    :param delta_bar: EDFL Δ̄ (nats)
+    :param q_conservative: conservative prior q_lo (0-1)
+    :param q_avg: average prior q̄ (0-1)
+    :param h_star: target hallucination rate (0-1)
+    :param isr_threshold: ISR threshold (default 1.0)
+    :param margin_extra_bits: extra bits margin (default 0.0)
+
+    :returns:
+        Decision dataclass
+    """
     b2t_val = bits_to_trust(q_conservative, h_star)
     isr_val = isr(delta_bar, b2t_val)
-    will_answer = (isr_val >= isr_threshold) and (delta_bar >= b2t_val + max(0.0, margin_extra_bits))
     roh = roh_upper_bound(delta_bar, q_avg)
     rationale = (
         f"Δ̄={delta_bar:.4f} nats, B2T={b2t_val:.4f}, ISR={isr_val:.3f} "
         f"(thr={isr_threshold:.3f}), extra_bits={margin_extra_bits:.3f}; "
         f"EDFL RoH bound={roh:.3f}"
     )
-    return Decision(will_answer, isr_val, b2t_val, roh, margin_extra_bits, isr_threshold, rationale)
-
-
-def _norm_ppf(p: float) -> float:
-    a = [
-        -3.969683028665376e01,
-        2.209460984245205e02,
-        -2.759285104469687e02,
-        1.383577518672690e02,
-        -3.066479806614716e01,
-        2.506628277459239e00,
-    ]
-    b = [
-        -5.447609879822406e01,
-        1.615858368580409e02,
-        -1.556989798598866e02,
-        6.680131188771972e01,
-        -1.328068155288572e01,
-    ]
-    c = [
-        -7.784894002430293e-03,
-        -3.223964580411365e-01,
-        -2.400758277161838e00,
-        -2.549732539343734e00,
-        4.374664141464968e00,
-        2.938163982698783e00,
-    ]
-    d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e00, 3.754408661907416e00]
-    plow = 0.02425
-    phigh = 1 - plow
-    if not (0 < p < 1):
-        raise ValueError("p in (0,1)")
-    if p < plow:
-        q = math.sqrt(-2 * math.log(p))
-        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
-            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
-        )
-    if p > phigh:
-        q = math.sqrt(-2 * math.log(1 - p))
-        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
-            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
-        )
-    q = p - 0.5
-    r = q * q
-    return (
-        (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5])
-        * q
-        / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+    return Decision(
+        answer=(isr_val >= isr_threshold) and (delta_bar >= b2t_val + max(0.0, margin_extra_bits)),
+        isr=isr_val,
+        b2t=b2t_val,
+        roh_bound=roh,
+        margin=margin_extra_bits,
+        threshold=isr_threshold,
+        rationale=rationale
     )
-
-
-def wilson_interval_upper(k: int, n: int, alpha: float = 0.05) -> float:
-    if n <= 0:
-        return 1.0
-    phat = k / n
-    z = _norm_ppf(1.0 - alpha / 2.0)
-    z2 = z * z
-    denom = 1.0 + z2 / n
-    center = (phat + z2 / (2 * n)) / denom
-    half = (z * math.sqrt(phat * (1 - phat) / n + z2 / (4 * n * n))) / denom
-    return min(1.0, max(0.0, center + half))
-
-
-# ------------------------------------------------------------------------------------
-# Data containers
-# ------------------------------------------------------------------------------------
-
-
-@dataclass
-class OpenAIItem:
-    prompt: str
-    n_samples: int = 3
-    m: int = 6
-    seeds: Optional[list[int]] = None
-    fields_to_erase: Optional[list[str]] = None  # evidence-based mode
-    mask_token: str = "[…]"
-    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "auto"
-    attempted: Optional[bool] = None
-    answered_correctly: Optional[bool] = None
-    meta: Optional[dict] = None
-
-
-@dataclass
-class ItemMetrics:
-    item_id: int
-    delta_bar: float
-    q_avg: float
-    q_conservative: float
-    b2t: float
-    isr: float
-    roh_bound: float
-    decision_answer: bool
-    rationale: str
-    attempted: Optional[bool] = None
-    answered_correctly: Optional[bool] = None
-    meta: Optional[dict] = None
-
-
-@dataclass
-class AggregateReport:
-    n_items: int
-    answer_rate: float
-    abstention_rate: float
-    n_answered_with_labels: int
-    hallucinations_observed: int
-    empirical_hallucination_rate: Optional[float]
-    wilson_upper: Optional[float]
-    worst_item_roh_bound: float
-    median_item_roh_bound: float
-    h_star: float
-    isr_threshold: float
-    margin_extra_bits: float
-
-
-@dataclass
-class SLACertificate:
-    model_name: str
-    policy: str
-    h_star: float
-    isr_threshold: float
-    margin_extra_bits: float
-    confidence_1_minus_alpha: float
-    answer_rate: float
-    abstention_rate: float
-    empirical_hallucination_rate: Optional[float]
-    wilson_upper_bound: Optional[float]
-    edfl_worst_item_roh_bound: float
-    edfl_median_item_roh_bound: float
-    n_items: int
-    n_answered_with_labels: int
-    hallucinations_observed: int
-    assumptions: list[str]
 
 
 # ------------------------------------------------------------------------------------
@@ -528,6 +374,12 @@ def decision_messages_evidence(user_prompt: str) -> list[dict]:
 
 
 def _parse_decision(text: str) -> str:
+    """
+    Parse model output to extract decision: "answer" or "refuse".
+    Defaults to "refuse" if parsing fails or invalid.
+
+    :param text: Model output text.
+    """
     try:
         obj = json.loads(text)
         d = str(obj.get("decision", "")).strip().lower()
@@ -546,18 +398,6 @@ def _parse_decision(text: str) -> str:
     return "refuse"
 
 
-def _choices_to_decisions(choices) -> list[str]:
-    outs = []
-    for ch in choices:
-        content = ""
-        try:
-            content = ch.message.content or ""
-        except Exception:
-            content = getattr(ch, "text", "") or ""
-        outs.append(_parse_decision(content))
-    return outs
-
-
 def estimate_event_signals_sampling(
     backend: OpenAIChatGenerator,
     prompt: str,
@@ -572,7 +412,7 @@ def estimate_event_signals_sampling(
     msgs = decision_messages_closed_book(prompt) if closed_book else decision_messages_evidence(prompt)
     params = dict(model=backend.model, messages=msgs, max_tokens=max_tokens, temperature=temperature, n=n_samples)
     choices = backend.client.chat.completions.create(**params).choices
-    post_decisions = _choices_to_decisions(choices)
+    post_decisions = [_parse_decision(c.message.content or "") for c in choices]
     if sleep_between > 0:
         time.sleep(sleep_between)
     y_label = post_decisions[0] if post_decisions else "refuse"
@@ -585,7 +425,7 @@ def estimate_event_signals_sampling(
         msgs_k = decision_messages_closed_book(sk) if closed_book else decision_messages_evidence(sk)
         params = dict(model=backend.model, messages=msgs_k, max_tokens=max_tokens, temperature=temperature, n=n_samples)
         choices_k = backend.client.chat.completions.create(**params).choices
-        dec_k = _choices_to_decisions(choices_k)
+        dec_k = [_parse_decision(c.message.content or "") for c in choices_k]
         if sleep_between > 0:
             time.sleep(sleep_between)
         qk = sum(1 for d in dec_k if d == "answer") / max(1, len(dec_k))
@@ -713,87 +553,3 @@ class OpenAIPlanner:
             )
             for i, it in enumerate(items)
         ]
-
-    def aggregate(
-        self,
-        items: Sequence[OpenAIItem],
-        metrics: list[ItemMetrics],
-        alpha: float = 0.05,
-        h_star: float = 0.05,
-        isr_threshold: float = 1.0,
-        margin_extra_bits: float = 0.0,
-    ) -> AggregateReport:
-        n = len(metrics)
-        ans = sum(1 for m in metrics if m.decision_answer)
-        abst = n - ans
-
-        answered_ids = [m.item_id for m in metrics if m.decision_answer]
-        labeled = [items[i] for i in answered_ids if items[i].answered_correctly is not None]
-        n_lab = len(labeled)
-        if n_lab > 0:
-            halluc = sum(1 for x in labeled if not bool(x.answered_correctly))
-            empirical_rate = halluc / n_lab
-            w_upper = wilson_interval_upper(halluc, n_lab, alpha=alpha)
-        else:
-            halluc = 0
-            empirical_rate = None
-            w_upper = None
-
-        roh_values = [m.roh_bound for m in metrics if m.decision_answer]
-        worst_roh = max(roh_values) if roh_values else 1.0
-        median_roh = sorted(roh_values)[len(roh_values) // 2] if roh_values else 1.0
-
-        return AggregateReport(
-            n_items=n,
-            answer_rate=ans / n if n else 0.0,
-            abstention_rate=abst / n if n else 0.0,
-            n_answered_with_labels=n_lab,
-            hallucinations_observed=halluc,
-            empirical_hallucination_rate=empirical_rate,
-            wilson_upper=w_upper,
-            worst_item_roh_bound=worst_roh,
-            median_item_roh_bound=median_roh,
-            h_star=h_star,
-            isr_threshold=isr_threshold,
-            margin_extra_bits=margin_extra_bits,
-        )
-
-
-# ------------------------------------------------------------------------------------
-# SLA helpers
-# ------------------------------------------------------------------------------------
-
-
-def make_sla_certificate(
-    report: AggregateReport, model_name: str, confidence_1_minus_alpha: float = 0.95
-) -> SLACertificate:
-    assumptions = [
-        "Skeleton family is pre-registered; no post-hoc selection.",
-        "Clipping parameter B and decision policy are fixed before evaluation.",
-        "EDFL bounds hold for the chosen rolling-prior construction.",
-        "Closed-book policy uses semantic masking (entities/numbers/quotes).",
-        "Hallucination labels (if used) reflect correctness per spec.",
-    ]
-    return SLACertificate(
-        model_name=model_name,
-        policy=f"ANSWER iff ISR >= {report.isr_threshold:.3f} and Δ̄ >= B2T + {report.margin_extra_bits:.3f} nats",
-        h_star=report.h_star,
-        isr_threshold=report.isr_threshold,
-        margin_extra_bits=report.margin_extra_bits,
-        confidence_1_minus_alpha=confidence_1_minus_alpha,
-        answer_rate=report.answer_rate,
-        abstention_rate=report.abstention_rate,
-        empirical_hallucination_rate=report.empirical_hallucination_rate,
-        wilson_upper_bound=report.wilson_upper,
-        edfl_worst_item_roh_bound=report.worst_item_roh_bound,
-        edfl_median_item_roh_bound=report.median_item_roh_bound,
-        n_items=report.n_items,
-        n_answered_with_labels=report.n_answered_with_labels,
-        hallucinations_observed=report.hallucinations_observed,
-        assumptions=assumptions,
-    )
-
-
-def save_sla_certificate_json(cert: SLACertificate, path: str) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(asdict(cert), f, indent=2)
