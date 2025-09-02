@@ -111,7 +111,7 @@ class MultiQueryKeywordRetriever:
                         seen_contents.add(doc.content)
 
         docs.sort(key=lambda x: x.score or 0.0, reverse=True)
-        return {"documents": docs}
+        return {"documents": docs[:top_k_to_use]}
 
     def _run_on_thread(
         self, query: str, top_k: Optional[int], filters: Optional[dict[str, Any]]

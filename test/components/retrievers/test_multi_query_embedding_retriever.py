@@ -257,4 +257,4 @@ class TestMultiQueryEmbeddingRetriever:
         assert len(contents) == len(set(contents))
 
         # should respect the custom top_k from run method
-        assert len(results["documents"]) <= 3
+        assert len(results["multiquery_retriever"]["documents"]) <= 3

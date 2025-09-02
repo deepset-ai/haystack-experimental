@@ -182,7 +182,7 @@ class TestMultiQueryKeywordRetriever:
             chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"), n_expansions=3, include_original_query=True
         )
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multiquery_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever)
+        multiquery_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, max_workers=3, top_k=3)
         pipeline.add_component("query_expander", expander)
         pipeline.add_component("multiquery_retriever", multiquery_retriever)
         pipeline.connect("query_expander.queries", "multiquery_retriever.queries")
@@ -196,3 +196,14 @@ class TestMultiQueryKeywordRetriever:
         assert "query_expander" in results
         assert "queries" in results["query_expander"]
         assert len(results["query_expander"]["queries"]) == 4
+
+        # assert that documents are sorted by score (highest first)
+        scores = [doc.score for doc in results["multiquery_retriever"]["documents"] if doc.score is not None]
+        assert scores == sorted(scores, reverse=True)
+
+        # assert there are not duplicates
+        contents = [doc.content for doc in results["multiquery_retriever"]["documents"]]
+        assert len(contents) == len(set(contents))
+
+        # should respect the custom top_k from run method
+        assert len(results["multiquery_retriever"]["documents"]) <= 3
