@@ -32,8 +32,6 @@ Key additions
 All info measures remain in **nats**. OpenAI API only.
 """
 
-from __future__ import annotations
-
 import json
 import math
 import os
@@ -41,16 +39,13 @@ import random
 import re
 import time
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Literal, Optional, Sequence
 
 # ------------------------------------------------------------------------------------
 # OpenAI Backend
 # ------------------------------------------------------------------------------------
 
-try:
-    from openai import OpenAI  # type: ignore
-except Exception:  # pragma: no cover
-    OpenAI = None
+from openai import OpenAI
 
 
 class OpenAIBackend:
@@ -60,8 +55,6 @@ class OpenAIBackend:
         api_key: Optional[str] = None,
         request_timeout: float = 60.0,
     ) -> None:
-        if OpenAI is None:
-            raise ImportError("Install `openai>=1.0.0` and set OPENAI_API_KEY.")
         self.model = model
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         if not self.api_key:
@@ -69,14 +62,14 @@ class OpenAIBackend:
         self.client = OpenAI(api_key=self.api_key)
         self.request_timeout = float(request_timeout)
 
-    def chat_create(self, messages: List[Dict], **kwargs):
+    def chat_create(self, messages: list[dict], **kwargs):
         params = dict(model=self.model, messages=messages, max_tokens=8, temperature=0.7)
         params.update(kwargs)
         if "timeout" in params:
             params["request_timeout"] = params.pop("timeout")
         return self.client.chat.completions.create(**params)
 
-    def multi_choice(self, messages: List[Dict], n: int = 1, **kwargs):
+    def multi_choice(self, messages: list[dict], n: int = 1, **kwargs):
         try:
             resp = self.chat_create(messages, n=n, **kwargs)
             choices = getattr(resp, "choices", None) or []
@@ -334,13 +327,13 @@ class OpenAIItem:
     prompt: str
     n_samples: int = 3
     m: int = 6
-    seeds: Optional[List[int]] = None
-    fields_to_erase: Optional[List[str]] = None  # evidence-based mode
+    seeds: Optional[list[int]] = None
+    fields_to_erase: Optional[list[str]] = None  # evidence-based mode
     mask_token: str = "[…]"
-    skeleton_policy: str = "auto"  # "auto" | "evidence_erase" | "closed_book"
+    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "auto"
     attempted: Optional[bool] = None
     answered_correctly: Optional[bool] = None
-    meta: Optional[Dict] = None
+    meta: Optional[dict] = None
 
 
 @dataclass
@@ -356,7 +349,7 @@ class ItemMetrics:
     rationale: str
     attempted: Optional[bool] = None
     answered_correctly: Optional[bool] = None
-    meta: Optional[Dict] = None
+    meta: Optional[dict] = None
 
 
 @dataclass
@@ -392,7 +385,7 @@ class SLACertificate:
     n_items: int
     n_answered_with_labels: int
     hallucinations_observed: int
-    assumptions: List[str]
+    assumptions: list[str]
 
 
 # ------------------------------------------------------------------------------------
@@ -419,7 +412,7 @@ def skeletonize_prompt(text: str, fields_to_erase: Optional[Sequence[str]] = Non
     return out
 
 
-def _extract_blocks(text: str) -> List[str]:
+def _extract_blocks(text: str) -> list[str]:
     lines = [ln for ln in text.splitlines() if ln.strip() != ""]
     return lines if len(lines) >= 2 else [text]
 
@@ -462,7 +455,7 @@ def make_skeletons_closed_book(
     mask_levels: Sequence[float] = (0.25, 0.35, 0.5, 0.65, 0.8, 0.9),
     mask_token: str = "[…]",
     preserve_roles: bool = True,
-) -> List[str]:
+) -> list[str]:
     if len(seeds) < m:
         raise ValueError("Provide at least m seeds.")
     levels = list(mask_levels)
@@ -498,7 +491,7 @@ def make_skeletons_evidence_erase(
     fields_to_erase: Optional[Sequence[str]] = None,
     mask_token: str = "[…]",
     preserve_roles: bool = True,
-) -> List[str]:
+) -> list[str]:
     base = skeletonize_prompt(text, fields_to_erase=fields_to_erase, mask_token=mask_token)
     out = []
     for k in range(m):
@@ -523,7 +516,7 @@ def make_skeleton_ensemble_auto(
     fields_to_erase: Optional[Sequence[str]] = None,
     mask_token: str = "[…]",
     skeleton_policy: str = "auto",
-) -> List[str]:
+) -> list[str]:
     seeds = list(seeds) if seeds is not None else list(range(m))
 
     # Auto policy: if explicit evidence fields present or configured → evidence-erase;
@@ -550,7 +543,7 @@ def make_skeleton_ensemble_auto(
 _DECISION_ALLOWED = ("answer", "refuse")
 
 
-def decision_messages_closed_book(user_prompt: str) -> List[Dict]:
+def decision_messages_closed_book(user_prompt: str) -> list[dict]:
     system = (
         "You are a safety-critical QA assistant operating **without external evidence**. "
         "Decide whether to answer based on your pretrained knowledge and the prompt alone. "
@@ -560,7 +553,7 @@ def decision_messages_closed_book(user_prompt: str) -> List[Dict]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def decision_messages_evidence(user_prompt: str) -> List[Dict]:
+def decision_messages_evidence(user_prompt: str) -> list[dict]:
     system = (
         "You are a safety-critical QA assistant. Decide whether to answer based on the "
         "provided prompt and its internal evidence/context. If evidence is insufficient or "
@@ -589,7 +582,7 @@ def _parse_decision(text: str) -> str:
     return "refuse"
 
 
-def _choices_to_decisions(choices) -> List[str]:
+def _choices_to_decisions(choices) -> list[str]:
     outs = []
     for ch in choices:
         content = ""
@@ -604,13 +597,13 @@ def _choices_to_decisions(choices) -> List[str]:
 def estimate_event_signals_sampling(
     backend: OpenAIBackend,
     prompt: str,
-    skeletons: List[str],
+    skeletons: list[str],
     n_samples: int = 3,
     temperature: float = 0.5,
     max_tokens: int = 8,
     closed_book: bool = True,
     sleep_between: float = 0.0,
-) -> Tuple[float, List[float], List[float], str]:
+) -> tuple[float, list[float], list[float], str]:
     # Posterior (full prompt)
     msgs = decision_messages_closed_book(prompt) if closed_book else decision_messages_evidence(prompt)
     choices = backend.multi_choice(msgs, n=n_samples, temperature=temperature, max_tokens=max_tokens)
@@ -621,8 +614,8 @@ def estimate_event_signals_sampling(
     P_y = sum(1 for d in post_decisions if d == y_label) / max(1, len(post_decisions))
 
     # Priors across skeletons
-    S_list_y: List[float] = []
-    q_list: List[float] = []
+    S_list_y: list[float] = []
+    q_list: list[float] = []
     for sk in skeletons:
         msgs_k = decision_messages_closed_book(sk) if closed_book else decision_messages_evidence(sk)
         choices_k = backend.multi_choice(msgs_k, n=n_samples, temperature=temperature, max_tokens=max_tokens)
@@ -655,7 +648,7 @@ class OpenAIPlanner:
         self.max_tokens_decision = int(max_tokens_decision)
         self.q_floor = q_floor  # if None, per-item Laplace floor applied
 
-    def _build_skeletons(self, item: OpenAIItem) -> Tuple[List[str], bool]:
+    def _build_skeletons(self, item: OpenAIItem) -> tuple[list[str], bool]:
         seeds = item.seeds if item.seeds is not None else list(range(item.m))
         if item.skeleton_policy == "evidence_erase":
             return make_skeletons_evidence_erase(
@@ -741,7 +734,7 @@ class OpenAIPlanner:
         margin_extra_bits: float = 0.0,
         B_clip: float = 12.0,
         clip_mode: str = "one-sided",
-    ) -> List[ItemMetrics]:
+    ) -> list[ItemMetrics]:
         return [
             self.evaluate_item(
                 idx=i,
@@ -758,7 +751,7 @@ class OpenAIPlanner:
     def aggregate(
         self,
         items: Sequence[OpenAIItem],
-        metrics: List[ItemMetrics],
+        metrics: list[ItemMetrics],
         alpha: float = 0.05,
         h_star: float = 0.05,
         isr_threshold: float = 1.0,
@@ -838,38 +831,3 @@ def make_sla_certificate(
 def save_sla_certificate_json(cert: SLACertificate, path: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(asdict(cert), f, indent=2)
-
-
-# ------------------------------------------------------------------------------------
-# Optional answer generation (unchanged)
-# ------------------------------------------------------------------------------------
-
-
-def _answer_messages(user_prompt: str) -> List[Dict]:
-    system = "You are a precise assistant. Provide a concise, well-grounded answer."
-    return [{"role": "system", "content": system}, {"role": "user", "content": user_prompt}]
-
-
-def generate_answer_if_allowed(
-    backend: OpenAIBackend,
-    item: OpenAIItem,
-    metric: ItemMetrics,
-    max_tokens_answer: int = 512,
-    temperature: float = 0.2,
-) -> Optional[str]:
-    if not metric.decision_answer:
-        return None
-    msgs = _answer_messages(item.prompt)
-    resp = backend.chat_create(msgs, max_tokens=max_tokens_answer, temperature=temperature)
-    try:
-        return resp.choices[0].message.content or ""
-    except Exception:
-        return ""
-
-
-# ------------------------------------------------------------------------------------
-# __main__
-# ------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    print("Closed-book ready hallucination toolkit loaded (OpenAI-only).")
