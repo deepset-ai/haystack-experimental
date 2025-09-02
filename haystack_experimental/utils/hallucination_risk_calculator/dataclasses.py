@@ -21,9 +21,9 @@ class Decision:
     Represents the decision made by the model regarding whether to answer a question or abstain.
 
     :param answer: A boolean indicating whether the model decided to answer (True) or abstain (False).
-    :param isr: The Inverse Scaling Rate (ISR) associated with the decision.
-    :param b2t: The bits-to-threshold (B2T) value associated with the decision.
-    :param roh_bound: The risk of hallucination (ROH) bound associated with the decision.
+    :param isr: The Information Sufficiency Ratio (ISR) associated with the decision.
+    :param b2t: The Bits-to-Trust (B2T) value associated with the decision.
+    :param roh_bound: The EDFL hallucination risk bound associated with the decision.
     :param margin: The margin of safety in bits for the decision.
     :param threshold: The threshold value in bits for making the decision.
     :param rationale: A string providing the rationale behind the decision.

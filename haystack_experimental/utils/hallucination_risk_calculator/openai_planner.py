@@ -88,7 +88,7 @@ def estimate_event_signals_sampling(
     msgs = decision_messages_closed_book(prompt) if closed_book else decision_messages_evidence(prompt)
     params = dict(model=backend.model, messages=msgs, max_tokens=max_tokens, temperature=temperature, n=n_samples)
     choices = backend.client.chat.completions.create(**params).choices
-    post_decisions = [_parse_decision(c.message.content or "") for c in choices]
+    post_decisions = [_parse_decision(text=c.message.content or "") for c in choices]
     if sleep_between > 0:
         time.sleep(sleep_between)
     y_label = post_decisions[0] if post_decisions else "refuse"
@@ -101,7 +101,7 @@ def estimate_event_signals_sampling(
         msgs_k = decision_messages_closed_book(sk) if closed_book else decision_messages_evidence(sk)
         params = dict(model=backend.model, messages=msgs_k, max_tokens=max_tokens, temperature=temperature, n=n_samples)
         choices_k = backend.client.chat.completions.create(**params).choices
-        dec_k = [_parse_decision(c.message.content or "") for c in choices_k]
+        dec_k = [_parse_decision(text=c.message.content or "") for c in choices_k]
         if sleep_between > 0:
             time.sleep(sleep_between)
         qk = sum(1 for d in dec_k if d == "answer") / max(1, len(dec_k))
