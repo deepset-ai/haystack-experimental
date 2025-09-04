@@ -188,6 +188,7 @@ class TestMultiQueryEmbeddingRetriever:
         in_memory_retriever = InMemoryEmbeddingRetriever(document_store=document_store_with_embeddings)
         query_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
         multi_retriever = MultiQueryEmbeddingRetriever(retriever=in_memory_retriever, query_embedder=query_embedder)
+        multi_retriever.warm_up()
         kwargs = {"filters": {"field": "category", "operator": "==", "value": "solar"}}
         result = multi_retriever.run(["energy"], kwargs)
         assert "documents" in result
