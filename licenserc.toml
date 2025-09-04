@@ -8,6 +8,7 @@ excludes = [
     "proposals",
     "releasenotes",
     "test",
+    "haystack_experimental/utils/hallucination_risk_calculator",
     "CITATION.cff",
     "*.ini",
     "*.jinja2",
