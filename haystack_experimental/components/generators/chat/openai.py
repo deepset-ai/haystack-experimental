@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+
 from dataclasses import replace
 from typing import Any, Optional, Union
 
@@ -76,9 +77,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         # Add hallucination scoring if configured
         if hallucination_score_config:
             hallucination_meta = calculate_hallucination_metrics(
-                prompt=messages[-1].text,
-                hallucination_score_config=hallucination_score_config,
-                chat_generator=self
+                prompt=messages[-1].text, hallucination_score_config=hallucination_score_config, chat_generator=self
             )
             completions = [replace(m, _meta={**m.meta, **hallucination_meta}) for m in completions]
 
@@ -149,9 +148,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         # Add hallucination scoring if configured
         if hallucination_score_config:
             hallucination_meta = calculate_hallucination_metrics(
-                prompt=messages[-1].text,
-                hallucination_score_config=hallucination_score_config,
-                chat_generator=self
+                prompt=messages[-1].text, hallucination_score_config=hallucination_score_config, chat_generator=self
             )
             completions = [replace(m, _meta={**m.meta, **hallucination_meta}) for m in completions]
 
