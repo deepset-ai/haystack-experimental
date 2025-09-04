@@ -45,7 +45,7 @@ class MultiQueryTextRetriever:
     doc_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.SKIP)
     doc_writer.run(documents=documents)
 
-    in_memory_retriever = InMemoryBM25Retriever(document_store=document_store)
+    in_memory_retriever = InMemoryBM25Retriever(document_store=document_store, top_k=1)
     multiquery_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
     results = multiquery_retriever.run(queries=["renewable energy?", "Geothermal", "Hydropower"])
     print(results["documents"])
