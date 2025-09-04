@@ -146,7 +146,7 @@ def _make_skeleton_ensemble_auto(
     if skeleton_policy == "closed_book":
         return _make_skeletons_closed_book(text=text, m=m, seeds=seeds, mask_token=mask_token)
     # auto detection
-    evidence_fields = set(*(fields_to_erase or []), *_ERASE_DEFAULT_FIELDS)
+    evidence_fields: set[str] = set(*(fields_to_erase or []), *_ERASE_DEFAULT_FIELDS)
     if any((f + ":") in text for f in evidence_fields):
         return _make_skeletons_evidence_erase(
             text=text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token

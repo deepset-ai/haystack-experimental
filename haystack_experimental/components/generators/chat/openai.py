@@ -26,7 +26,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         tools: Optional[Union[list[Tool], Toolset]] = None,
         tools_strict: Optional[bool] = None,
         hallucination_score_config: Optional[HallucinationScoreConfig] = None,
-    ):
+    ) -> dict[str, list[ChatMessage]]:
         """
         Invokes chat completion based on the provided messages and generation parameters.
 
@@ -75,7 +75,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         completions = result["replies"]
 
         # Add hallucination scoring if configured
-        if hallucination_score_config:
+        if hallucination_score_config and messages[-1].text:
             hallucination_meta = calculate_hallucination_metrics(
                 prompt=messages[-1].text, hallucination_score_config=hallucination_score_config, chat_generator=self
             )
@@ -93,7 +93,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         tools: Optional[Union[list[Tool], Toolset]] = None,
         tools_strict: Optional[bool] = None,
         hallucination_score_config: Optional[HallucinationScoreConfig] = None,
-    ):
+    ) -> dict[str, list[ChatMessage]]:
         """
         Asynchronously invokes chat completion based on the provided messages and generation parameters.
 
@@ -146,7 +146,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         completions = result["replies"]
 
         # Add hallucination scoring if configured
-        if hallucination_score_config:
+        if hallucination_score_config and messages[-1].text:
             hallucination_meta = calculate_hallucination_metrics(
                 prompt=messages[-1].text, hallucination_score_config=hallucination_score_config, chat_generator=self
             )

@@ -5,9 +5,10 @@
 import json
 import re
 import time
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, Union
 
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
+from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
 from .core_math import bits_to_trust, delta_bar_from_probs, isr, q_bar, q_lo, roh_upper_bound
 from .dataclasses import Decision, HallucinationScoreConfig, ItemMetrics, OpenAIItem
@@ -21,7 +22,9 @@ from .skeletonization import (
 _DECISION_ALLOWED = ("answer", "refuse")
 
 
-def _decision_messages_closed_book(user_prompt: str) -> list[dict]:
+def _decision_messages_closed_book(
+    user_prompt: str,
+) -> list[Union[ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam]]:
     system = (
         "You are a safety-critical QA assistant operating **without external evidence**. "
         "Decide whether to answer based on your pretrained knowledge and the prompt alone. "
@@ -31,7 +34,9 @@ def _decision_messages_closed_book(user_prompt: str) -> list[dict]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def _decision_messages_evidence(user_prompt: str) -> list[dict]:
+def _decision_messages_evidence(
+    user_prompt: str,
+) -> list[Union[ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam]]:
     system = (
         "You are a safety-critical QA assistant. Decide whether to answer based on the "
         "provided prompt and its internal evidence/context. If evidence is insufficient or "
@@ -80,14 +85,9 @@ def _estimate_event_signals_sampling(
 ) -> tuple[float, list[float], list[float], str]:
     # Posterior (full prompt)
     msgs = _decision_messages_closed_book(prompt) if closed_book else _decision_messages_evidence(prompt)
-    params = {
-        "model": backend.model,
-        "messages": msgs,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "n": n_samples,
-    }
-    choices = backend.client.chat.completions.create(**params).choices
+    choices = backend.client.chat.completions.create(
+        model=backend.model, messages=msgs, max_tokens=max_tokens, temperature=temperature, n=n_samples
+    ).choices
     post_decisions = [_parse_decision(text=c.message.content or "") for c in choices]
     if sleep_between > 0:
         time.sleep(sleep_between)
@@ -99,14 +99,9 @@ def _estimate_event_signals_sampling(
     q_list: list[float] = []
     for sk in skeletons:
         msgs_k = _decision_messages_closed_book(sk) if closed_book else _decision_messages_evidence(sk)
-        params = {
-            "model": backend.model,
-            "messages": msgs_k,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "n": n_samples,
-        }
-        choices_k = backend.client.chat.completions.create(**params).choices
+        choices_k = backend.client.chat.completions.create(
+            model=backend.model, messages=msgs_k, max_tokens=max_tokens, temperature=temperature, n=n_samples
+        ).choices
         dec_k = [_parse_decision(text=c.message.content or "") for c in choices_k]
         if sleep_between > 0:
             time.sleep(sleep_between)
