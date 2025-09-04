@@ -48,12 +48,12 @@ class MultiQueryTextRetriever:
     in_memory_retriever = InMemoryBM25Retriever(document_store=document_store, top_k=1)
     multiquery_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
     results = multiquery_retriever.run(queries=["renewable energy?", "Geothermal", "Hydropower"])
-    print(results["documents"])
+    for doc in results["documents"]:
+        print(f"Content: {doc.content}, Score: {doc.score}")
     >>
-    >> Document(id=..., content: 'Geothermal energy is heat that comes from the sub-surface of the earth.', score: 1.6474448833731097)
-    >> Document(id=..., content: 'Renewable energy is energy that is collected from renewable resources.', score: 1.5255309812344944)
-    >> Document(id=..., content: 'Hydropower is a form of renewable energy using the flow of water to generate electricity.', score: 1.1218095927314788)
-    >> Document(id=..., content: 'Solar energy is a type of green energy that is harnessed from the sun.', score: 0.6769389901560819)
+    >> Content: Geothermal energy is heat that comes from the sub-surface of the earth., Score: 1.6474448833731097
+    >> Content: Hydropower is a form of renewable energy using the flow of water to generate electricity., Score: 1.6157822790079805
+    >> Content: Renewable energy is energy that is collected from renewable resources., Score: 1.5255309812344944
     ```
     """  # noqa E501
 
@@ -71,7 +71,6 @@ class MultiQueryTextRetriever:
         self.retriever = retriever
         self.max_workers = max_workers
         self._is_warmed_up = False
-        self.warm_up()
 
     def warm_up(self) -> None:
         """

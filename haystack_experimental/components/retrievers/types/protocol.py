@@ -2,13 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Protocol, TypeVar
+from typing import Any, Optional, Protocol
 
 # Ellipsis are needed to define the Protocol but pylint complains. See https://github.com/pylint-dev/pylint/issues/9319.
 # pylint: disable=unnecessary-ellipsis
-
-TextRetrieverT = TypeVar("TextRetrieverT", bound="TextRetriever")
-EmbeddingRetrieverT = TypeVar("EmbeddingRetrieverT", bound="EmbeddingRetriever")
 
 
 class TextRetriever(Protocol):

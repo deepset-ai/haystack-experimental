@@ -41,13 +41,15 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 
 ### Active experiments
 
-| Name                                  | Type                               | Expected End Date | Dependencies | Cookbook                                                                                                                                                                                                                                                  | Discussion   |
-|---------------------------------------|------------------------------------|-------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| [`InMemoryChatMessageStore`][1]       | Memory Store                       | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4] |
-| [`ChatMessageRetriever`][2]           | Memory Component                   | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4] |
-| [`ChatMessageWriter`][3]              | Memory Component                   | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4] |
-| [`QueryExpander`][5]                  | Query Expansion Component          | October 2025      | None         | None | [Discuss][6] |
-| [`EmbeddingBasedDocumentSplitter`][8] | EmbeddingBasedDocumentSplitter     | August 2025       | None         | None | [Discuss][7] |
+| Name                                  | Type                           | Expected End Date | Dependencies | Cookbook                                                                                                                                                                                                                                                  | Discussion    |
+|---------------------------------------|--------------------------------|-------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| [`InMemoryChatMessageStore`][1]       | Memory Store                   | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
+| [`ChatMessageRetriever`][2]           | Memory Component               | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
+| [`ChatMessageWriter`][3]              | Memory Component               | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
+| [`QueryExpander`][5]                  | Query Expansion Component      | October 2025      | None         | None | [Discuss][6]  |
+| [`EmbeddingBasedDocumentSplitter`][8] | EmbeddingBasedDocumentSplitter | August 2025       | None         | None | [Discuss][7]  |
+| [`MultiQueryEmbeddingRetriever`][9]   | MultiQueryEmbeddingRetriever   | November 2025     | None         | None | [Discuss][11] |
+| [`MultiQueryTextRetriever`][10]       | MultiQueryTextRetriever        | November 2025     | None         | None | [Discuss][12] |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
@@ -57,6 +59,10 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [6]: https://github.com/deepset-ai/haystack-experimental/discussions/346
 [7]: https://github.com/deepset-ai/haystack-experimental/discussions/356
 [8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/preprocessors/embedding_based_document_splitter.py
+[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_embedding_retriever.py
+[10]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_text_retriever.py
+[11]: https://github.com/deepset-ai/haystack-experimental/discussions/<>
+[12]: https://github.com/deepset-ai/haystack-experimental/discussions/<>
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
