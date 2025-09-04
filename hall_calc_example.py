@@ -15,7 +15,7 @@ llm = OpenAIChatGenerator(model="gpt-4o")
 # Closed Book Example
 closed_book_result = llm.run(
     messages=[ChatMessage.from_user(text="Who won the 2019 Nobel Prize in Physics?")],
-    hallucination_score_config=HallucinationScoreConfig(skeleton_policy="closed_book")
+    hallucination_score_config=HallucinationScoreConfig(skeleton_policy="closed_book"),
 )
 print(f"Decision: {closed_book_result['replies'][0].meta['hallucination_decision']}")
 print(f"Risk bound: {closed_book_result['replies'][0].meta['hallucination_risk']:.3f}")
@@ -28,10 +28,10 @@ rag_result = llm.run(
     messages=[
         ChatMessage.from_user(
             text="Task: Answer strictly based on the evidence provided below.\n"
-                 "Question: Who won the Nobel Prize in Physics in 2019?\n"
-                 "Evidence:\n"
-                 "- Nobel Prize press release (2019): James Peebles (1/2); Michel Mayor & Didier Queloz (1/2).\n"
-                 "Constraints: If evidence is insufficient or conflicting, refuse."
+            "Question: Who won the Nobel Prize in Physics in 2019?\n"
+            "Evidence:\n"
+            "- Nobel Prize press release (2019): James Peebles (1/2); Michel Mayor & Didier Queloz (1/2).\n"
+            "Constraints: If evidence is insufficient or conflicting, refuse."
         )
     ],
     hallucination_score_config=HallucinationScoreConfig(skeleton_policy="evidence_erase"),
