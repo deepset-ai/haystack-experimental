@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
+# import os
 
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.generators.chat.openai import HallucinationScoreConfig, OpenAIChatGenerator
 
-os.environ["OPENAI_API_KEY"] = ""
+# os.environ["OPENAI_API_KEY"] = ""
 
 llm = OpenAIChatGenerator(model="gpt-4o")
 
@@ -19,7 +19,7 @@ closed_book_result = llm.run(
 )
 print(f"Decision: {closed_book_result['replies'][0].meta['hallucination_decision']}")
 print(f"Risk bound: {closed_book_result['replies'][0].meta['hallucination_risk']:.3f}")
-print(f"Risk bound: {closed_book_result['replies'][0].meta['hallucination_rationale']}")
+print(f"Rationale: {closed_book_result['replies'][0].meta['hallucination_rationale']}")
 print(f"Answer:\n{closed_book_result['replies'][0].text}")
 print("---\n")
 

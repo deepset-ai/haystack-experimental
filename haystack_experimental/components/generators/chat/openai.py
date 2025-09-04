@@ -52,6 +52,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
             This involves generating multiple samples and analyzing their consistency, which may increase
             latency and cost. Use this option when you need to assess the reliability of the generated content
             in scenarios where accuracy is critical.
+            For details, see the [research paper](https://arxiv.org/abs/2507.11768)
 
         :returns:
             A dictionary with the following key:
@@ -123,6 +124,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
             This involves generating multiple samples and analyzing their consistency, which may increase
             latency and cost. Use this option when you need to assess the reliability of the generated content
             in scenarios where accuracy is critical.
+            For details, see the [research paper](https://arxiv.org/abs/2507.11768)
 
         :returns:
             A dictionary with the following key:
