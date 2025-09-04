@@ -25,7 +25,7 @@ class MultiQueryEmbeddingRetriever:
     ### Usage example
 
     ```python
-    from haystack.components.embedders import SentenceTransformersQueryEmbedder
+    from haystack.components.embedders import SentenceTransformersTextEmbedder
     from haystack_experimental.components.retrievers import MultiQueryEmbeddingRetriever
     from haystack_integrations.components.retrievers.opensearch import OpenSearchEmbeddingRetriever
 
