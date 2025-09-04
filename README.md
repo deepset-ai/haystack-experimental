@@ -50,6 +50,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`EmbeddingBasedDocumentSplitter`][8] | EmbeddingBasedDocumentSplitter | August 2025       | None         | None | [Discuss][7]  |
 | [`MultiQueryEmbeddingRetriever`][9]   | MultiQueryEmbeddingRetriever   | November 2025     | None         | None | [Discuss][11] |
 | [`MultiQueryTextRetriever`][10]       | MultiQueryTextRetriever        | November 2025     | None         | None | [Discuss][12] |
+| [`OpenAIChatGenerator`][9]            | Chat Generator Component       | November 2025     | None         | None | [Discuss][10] |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
@@ -59,10 +60,12 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [6]: https://github.com/deepset-ai/haystack-experimental/discussions/346
 [7]: https://github.com/deepset-ai/haystack-experimental/discussions/356
 [8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/preprocessors/embedding_based_document_splitter.py
-[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_embedding_retriever.py
-[10]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_text_retriever.py
+[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
+[10]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
 [11]: https://github.com/deepset-ai/haystack-experimental/discussions/<>
 [12]: https://github.com/deepset-ai/haystack-experimental/discussions/<>
+[13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_embedding_retriever.py
+[14]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_text_retriever.py
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
