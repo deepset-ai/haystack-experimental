@@ -47,7 +47,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     print(f"Decision: {rag_result['replies'][0].meta['hallucination_decision']}")
     print(f"Risk bound: {rag_result['replies'][0].meta['hallucination_risk']:.3f}")
     print(f"Rationale: {rag_result['replies'][0].meta['hallucination_rationale']}")
-    print(f"Answer:\n{closed_book_result['replies'][0].text}")
+    print(f"Answer:\n{rag_result['replies'][0].text}")
     print("---")
     ```
     """
