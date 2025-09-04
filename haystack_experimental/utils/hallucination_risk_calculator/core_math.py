@@ -1,3 +1,4 @@
+# ruff: noqa: D103
 # Original code Copyright (c) 2024 Hassana Labs
 # Licensed under the MIT License (see LICENSE-MIT).
 # Modified by deepset, 2025.
@@ -5,7 +6,6 @@
 
 import math
 from typing import Sequence
-
 
 # ------------------------------------------------------------------------------------
 # Core math (EDFL etc., nats)

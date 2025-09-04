@@ -14,7 +14,7 @@ _NUMBER = re.compile(r"\b\d+(?:\.\d+)?\b")
 _QUOTED = re.compile(r"([“\"'])(.+?)\1")
 
 
-def skeletonize_prompt(text: str, fields_to_erase: Optional[Sequence[str]] = None, mask_token: str = "[…]") -> str:
+def _skeletonize_prompt(text: str, fields_to_erase: Optional[Sequence[str]] = None, mask_token: str = "[…]") -> str:
     fields = list(fields_to_erase) if fields_to_erase else list(_ERASE_DEFAULT_FIELDS)
     out = text
     for field in fields:
@@ -31,7 +31,7 @@ def _extract_blocks(text: str) -> list[str]:
     return lines if len(lines) >= 2 else [text]
 
 
-def permute_prompt_blocks(text: str, seed: int) -> str:
+def _permute_prompt_blocks(text: str, seed: int) -> str:
     rng = random.Random(seed)
     blocks = _extract_blocks(text)
     idx = list(range(len(blocks)))
@@ -42,6 +42,7 @@ def permute_prompt_blocks(text: str, seed: int) -> str:
 def mask_entities_numbers(text: str, strength: float, rng: random.Random, mask_token: str = "[…]") -> str:
     """
     Heuristic closed-book masker: with probability 'strength', mask each match:
+
       - Multi-word Capitalized sequences (names, orgs)
       - Years and numbers
       - Quoted spans
@@ -62,7 +63,7 @@ def mask_entities_numbers(text: str, strength: float, rng: random.Random, mask_t
     return s
 
 
-def make_skeletons_closed_book(
+def _make_skeletons_closed_book(
     text: str,
     m: int,
     seeds: Sequence[int],
@@ -83,13 +84,13 @@ def make_skeletons_closed_book(
         rng = random.Random(int(seeds[k]))
         lvl = float(levels[k])
         masked = mask_entities_numbers(text, lvl, rng, mask_token=mask_token)
-        perm = permute_prompt_blocks(masked, seed=int(seeds[k]))
+        perm = _permute_prompt_blocks(masked, seed=int(seeds[k]))
         if preserve_roles:
             lines = text.splitlines()
             if len(lines) >= 2:
                 head = lines[0]
                 tail = "\n".join(lines[1:])
-                tail_perm = permute_prompt_blocks(
+                tail_perm = _permute_prompt_blocks(
                     mask_entities_numbers(tail, lvl, rng, mask_token=mask_token), seed=int(seeds[k])
                 )
                 ensemble.append(head + "\n" + tail_perm)
@@ -98,7 +99,7 @@ def make_skeletons_closed_book(
     return ensemble
 
 
-def make_skeletons_evidence_erase(
+def _make_skeletons_evidence_erase(
     text: str,
     m: int,
     seeds: Sequence[int],
@@ -106,24 +107,24 @@ def make_skeletons_evidence_erase(
     mask_token: str = "[…]",
     preserve_roles: bool = True,
 ) -> list[str]:
-    base = skeletonize_prompt(text, fields_to_erase=fields_to_erase, mask_token=mask_token)
+    base = _skeletonize_prompt(text, fields_to_erase=fields_to_erase, mask_token=mask_token)
     out = []
     for k in range(m):
         s = int(seeds[k])
-        perm = permute_prompt_blocks(base, seed=s)
+        perm = _permute_prompt_blocks(base, seed=s)
         if preserve_roles:
             lines = base.splitlines()
             if len(lines) >= 2:
                 head = lines[0]
                 tail = "\n".join(lines[1:])
-                tail_perm = permute_prompt_blocks(tail, seed=s)
+                tail_perm = _permute_prompt_blocks(tail, seed=s)
                 out.append(head + "\n" + tail_perm)
                 continue
         out.append(perm)
     return out
 
 
-def make_skeleton_ensemble_auto(
+def _make_skeleton_ensemble_auto(
     text: str,
     m: int = 6,
     seeds: Optional[Sequence[int]] = None,
@@ -136,15 +137,15 @@ def make_skeleton_ensemble_auto(
     # Auto policy: if explicit evidence fields present or configured → evidence-erase;
     # otherwise closed-book masking.
     if skeleton_policy == "evidence_erase":
-        return make_skeletons_evidence_erase(
+        return _make_skeletons_evidence_erase(
             text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token
         )
     if skeleton_policy == "closed_book":
-        return make_skeletons_closed_book(text, m=m, seeds=seeds, mask_token=mask_token)
+        return _make_skeletons_closed_book(text, m=m, seeds=seeds, mask_token=mask_token)
     # auto detection
-    evidence_fields = set([*(fields_to_erase or []), *_ERASE_DEFAULT_FIELDS])
+    evidence_fields = set(*(fields_to_erase or []), *_ERASE_DEFAULT_FIELDS)
     if any((f + ":") in text for f in evidence_fields):
-        return make_skeletons_evidence_erase(
+        return _make_skeletons_evidence_erase(
             text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token
         )
-    return make_skeletons_closed_book(text, m=m, seeds=seeds, mask_token=mask_token)
+    return _make_skeletons_closed_book(text, m=m, seeds=seeds, mask_token=mask_token)

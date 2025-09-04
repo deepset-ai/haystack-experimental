@@ -9,26 +9,19 @@ from typing import Optional, Sequence
 
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
+from .core_math import bits_to_trust, delta_bar_from_probs, isr, q_bar, q_lo, roh_upper_bound
 from .dataclasses import Decision, ItemMetrics, OpenAIItem
-from .core_math import (
-    bits_to_trust,
-    delta_bar_from_probs,
-    isr,
-    q_bar,
-    q_lo,
-    roh_upper_bound
-)
 from .skeletonization import (
-    make_skeletons_evidence_erase,
-    make_skeletons_closed_book,
-    make_skeleton_ensemble_auto,
     _ERASE_DEFAULT_FIELDS,
+    _make_skeleton_ensemble_auto,
+    _make_skeletons_closed_book,
+    _make_skeletons_evidence_erase,
 )
 
 _DECISION_ALLOWED = ("answer", "refuse")
 
 
-def decision_messages_closed_book(user_prompt: str) -> list[dict]:
+def _decision_messages_closed_book(user_prompt: str) -> list[dict]:
     system = (
         "You are a safety-critical QA assistant operating **without external evidence**. "
         "Decide whether to answer based on your pretrained knowledge and the prompt alone. "
@@ -38,7 +31,7 @@ def decision_messages_closed_book(user_prompt: str) -> list[dict]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def decision_messages_evidence(user_prompt: str) -> list[dict]:
+def _decision_messages_evidence(user_prompt: str) -> list[dict]:
     system = (
         "You are a safety-critical QA assistant. Decide whether to answer based on the "
         "provided prompt and its internal evidence/context. If evidence is insufficient or "
@@ -51,6 +44,7 @@ def decision_messages_evidence(user_prompt: str) -> list[dict]:
 def _parse_decision(text: str) -> str:
     """
     Parse model output to extract decision: "answer" or "refuse".
+
     Defaults to "refuse" if parsing fails or invalid.
 
     :param text: Model output text.
@@ -73,7 +67,7 @@ def _parse_decision(text: str) -> str:
     return "refuse"
 
 
-def estimate_event_signals_sampling(
+def _estimate_event_signals_sampling(
     backend: OpenAIChatGenerator,
     prompt: str,
     skeletons: list[str],
@@ -84,8 +78,14 @@ def estimate_event_signals_sampling(
     sleep_between: float = 0.0,
 ) -> tuple[float, list[float], list[float], str]:
     # Posterior (full prompt)
-    msgs = decision_messages_closed_book(prompt) if closed_book else decision_messages_evidence(prompt)
-    params = dict(model=backend.model, messages=msgs, max_tokens=max_tokens, temperature=temperature, n=n_samples)
+    msgs = _decision_messages_closed_book(prompt) if closed_book else _decision_messages_evidence(prompt)
+    params = {
+        "model": backend.model,
+        "messages": msgs,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "n": n_samples,
+    }
     choices = backend.client.chat.completions.create(**params).choices
     post_decisions = [_parse_decision(text=c.message.content or "") for c in choices]
     if sleep_between > 0:
@@ -97,8 +97,14 @@ def estimate_event_signals_sampling(
     S_list_y: list[float] = []
     q_list: list[float] = []
     for sk in skeletons:
-        msgs_k = decision_messages_closed_book(sk) if closed_book else decision_messages_evidence(sk)
-        params = dict(model=backend.model, messages=msgs_k, max_tokens=max_tokens, temperature=temperature, n=n_samples)
+        msgs_k = _decision_messages_closed_book(sk) if closed_book else _decision_messages_evidence(sk)
+        params = {
+            "model": backend.model,
+            "messages": msgs_k,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "n": n_samples,
+        }
         choices_k = backend.client.chat.completions.create(**params).choices
         dec_k = [_parse_decision(text=c.message.content or "") for c in choices_k]
         if sleep_between > 0:
@@ -147,7 +153,7 @@ def decision_rule(
         roh_bound=roh,
         margin=margin_extra_bits,
         threshold=isr_threshold,
-        rationale=rationale
+        rationale=rationale,
     )
 
 
@@ -160,6 +166,8 @@ class OpenAIPlanner:
         q_floor: Optional[float] = None,
     ) -> None:
         """
+        Initialize OpenAIPlanner with given parameters.
+
         :param backend: OpenAIChatGenerator instance for API calls.
         :param temperature: Sampling temperature for decision calls.
         :param max_tokens_decision: Max tokens for decision response.
@@ -174,20 +182,20 @@ class OpenAIPlanner:
     def _build_skeletons(self, item: OpenAIItem) -> tuple[list[str], bool]:
         seeds = item.seeds if item.seeds is not None else list(range(item.m))
         if item.skeleton_policy == "evidence_erase":
-            return make_skeletons_evidence_erase(
+            return _make_skeletons_evidence_erase(
                 item.prompt, m=item.m, seeds=seeds, fields_to_erase=item.fields_to_erase
             ), False
         if item.skeleton_policy == "closed_book":
-            return make_skeletons_closed_book(item.prompt, m=item.m, seeds=seeds), True
+            return _make_skeletons_closed_book(item.prompt, m=item.m, seeds=seeds), True
         # auto
-        sk = make_skeleton_ensemble_auto(
+        sk = _make_skeleton_ensemble_auto(
             item.prompt, m=item.m, seeds=seeds, fields_to_erase=item.fields_to_erase, skeleton_policy="auto"
         )
         # detect whether auto chose closed_book (no explicit evidence fields present)
         closed_book = not any((f + ":") in item.prompt for f in (item.fields_to_erase or _ERASE_DEFAULT_FIELDS))
         return sk, closed_book
 
-    def evaluate_item(
+    def _evaluate_item(
         self,
         idx: int,
         item: OpenAIItem,
@@ -199,7 +207,7 @@ class OpenAIPlanner:
     ) -> ItemMetrics:
         skeletons, closed_book = self._build_skeletons(item=item)
 
-        P_y, S_list_y, q_list, y_label = estimate_event_signals_sampling(
+        P_y, S_list_y, q_list, y_label = _estimate_event_signals_sampling(
             backend=self.backend,
             prompt=item.prompt,
             skeletons=skeletons,
@@ -258,8 +266,11 @@ class OpenAIPlanner:
         B_clip: float = 12.0,
         clip_mode: str = "one-sided",
     ) -> list[ItemMetrics]:
+        """
+        Evaluate a sequence of OpenAIItem instances.
+        """
         return [
-            self.evaluate_item(
+            self._evaluate_item(
                 idx=i,
                 item=it,
                 h_star=h_star,

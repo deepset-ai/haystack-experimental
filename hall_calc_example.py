@@ -1,7 +1,8 @@
 import os
 
 from haystack.dataclasses import ChatMessage
-from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, HallucinationScoreConfig
+
+from haystack_experimental.components.generators.chat.openai import HallucinationScoreConfig, OpenAIChatGenerator
 
 # os.environ["OPENAI_API_KEY"] = ""
 

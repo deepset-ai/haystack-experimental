@@ -4,17 +4,11 @@
 from dataclasses import dataclass, replace
 from typing import Any, Literal, Optional, Union
 
-from openai import AsyncStream, Stream
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionChunk,
-)
-
 from haystack import component
 from haystack.components.generators.chat.openai import (
     OpenAIChatGenerator,
-    _convert_chat_completion_to_chat_message,
     _check_finish_reason,
+    _convert_chat_completion_to_chat_message,
 )
 from haystack.dataclasses import (
     ChatMessage,
@@ -22,9 +16,14 @@ from haystack.dataclasses import (
     select_streaming_callback,
 )
 from haystack.tools import Tool, Toolset
+from openai import AsyncStream, Stream
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionChunk,
+)
 
-from haystack_experimental.utils.hallucination_risk_calculator.openai_planner import OpenAIPlanner
 from haystack_experimental.utils.hallucination_risk_calculator.dataclasses import OpenAIItem
+from haystack_experimental.utils.hallucination_risk_calculator.openai_planner import OpenAIPlanner
 
 
 @dataclass
@@ -32,6 +31,7 @@ class HallucinationScoreConfig:
     """
     Configuration for hallucination risk assessment using OpenAIPlanner.
     """
+
     n_samples: int = 7
     m: int = 6
     skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "closed_book"
@@ -113,7 +113,7 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
                 isr_threshold=hallucination_score_config.isr_threshold,
                 margin_extra_bits=hallucination_score_config.margin_extra_bits,
                 B_clip=hallucination_score_config.B_clip,
-                clip_mode=hallucination_score_config.clip_mode
+                clip_mode=hallucination_score_config.clip_mode,
             )
             hallucination_meta = {
                 "hallucination_decision": "ANSWER" if metrics[0].decision_answer else "REFUSE",
