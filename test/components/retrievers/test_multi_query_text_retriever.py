@@ -40,31 +40,19 @@ class TestMultiQueryTextRetriever:
     def test_init_with_default_parameters(self):
         in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
         retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
-        
         assert retriever.retriever == in_memory_retriever
-        assert retriever.top_k == 3
-        assert retriever.filters is None
         assert retriever.max_workers == 3
 
     def test_init_with_custom_parameters(self):
         in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
         filters = {"field": "category", "operator": "==", "value": "solar"}
-        retriever = MultiQueryTextRetriever(
-            retriever=in_memory_retriever,
-            top_k=5,
-            filters=filters,
-            max_workers=2
-        )
-        
+        retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, max_workers=2)
         assert retriever.retriever == in_memory_retriever
-        assert retriever.top_k == 5
-        assert retriever.filters == filters
         assert retriever.max_workers == 2
 
     def test_run_with_multiple_queries(self, document_store_with_docs):
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, top_k=2)
-        
+        multi_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
         queries = ["renewable energy", "solar power", "wind turbines"]
         result = multi_retriever.run(queries=queries)
         
@@ -76,26 +64,18 @@ class TestMultiQueryTextRetriever:
 
     def test_to_dict(self):
         in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
-        multi_retriever = MultiQueryTextRetriever(
-            retriever=in_memory_retriever,
-            top_k=5,
-            filters={"field": "category", "operator": "==", "value": "solar"},
-            max_workers=2
-        )
-        
+        multi_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, max_workers=2)
         result = multi_retriever.to_dict()
-        
         assert "type" in result
         assert "init_parameters" in result
-        assert result["init_parameters"]["top_k"] == 5
-        assert result["init_parameters"]["filters"] == {"field": "category", "operator": "==", "value": "solar"}
         assert result["init_parameters"]["max_workers"] == 2
         assert "retriever" in result["init_parameters"]
-        assert result["init_parameters"]["retriever"]["type"] == "haystack.components.retrievers.in_memory.bm25_retriever.InMemoryBM25Retriever"
+        assert (result["init_parameters"]["retriever"]["type"] ==
+                "haystack.components.retrievers.in_memory.bm25_retriever.InMemoryBM25Retriever")
 
     def test_from_dict(self):
         data = {
-            'type': 'haystack_experimental.components.retrievers.multi_query_keyword_retriever.MultiQueryKeywordRetriever',
+            'type': 'haystack_experimental.components.retrievers.multi_query_text_retriever.MultiQueryTextRetriever',
             'init_parameters': {
                 'retriever': {
                     'type': 'haystack.components.retrievers.in_memory.bm25_retriever.InMemoryBM25Retriever',
@@ -115,28 +95,20 @@ class TestMultiQueryTextRetriever:
                         'top_k': 10,
                         'scale_score': False,
                         'filter_policy': 'replace'}},
-             'top_k': 3,
-             'filters': {"category": "test"},
              'max_workers': 3}}
 
         result = MultiQueryTextRetriever.from_dict(data)
 
         assert isinstance(result, MultiQueryTextRetriever)
         assert result.retriever.__class__.__name__ == "InMemoryBM25Retriever"
-        assert result.top_k == 3
-        assert result.filters == {"category": "test"}
         assert result.max_workers == 3
 
     @pytest.mark.integration
     def test_run_with_filters(self, document_store_with_docs):
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
         filters = {"field": "category", "operator": "==", "value": "solar"}
-        multi_retriever = MultiQueryTextRetriever(
-            retriever=in_memory_retriever,
-            filters=filters
-        )
-
-        result = multi_retriever.run(queries=["energy"])
+        multi_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
+        result = multi_retriever.run(queries=["energy"], retriever_kwargs={"filters": filters})
         assert "documents" in result
         assert all(doc.meta.get("category") == "solar" for doc in result["documents"])
 
@@ -151,12 +123,15 @@ class TestMultiQueryTextRetriever:
             chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"), n_expansions=3, include_original_query=True
         )
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multiquery_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, max_workers=3, top_k=3)
+        multiquery_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, max_workers=3)
         pipeline.add_component("query_expander", expander)
         pipeline.add_component("multiquery_retriever", multiquery_retriever)
         pipeline.connect("query_expander.queries", "multiquery_retriever.queries")
 
-        data = {"query_expander": {"query": "green energy sources"}}
+        data = {
+            "query_expander": {"query": "green energy sources"},
+            "multiquery_retriever": {"retriever_kwargs": {"top_k": 3}}
+        }
         results = pipeline.run(data=data, include_outputs_from={"query_expander", "multiquery_retriever"})
 
         assert "multiquery_retriever" in results
@@ -173,6 +148,3 @@ class TestMultiQueryTextRetriever:
         # assert there are not duplicates
         contents = [doc.content for doc in results["multiquery_retriever"]["documents"]]
         assert len(contents) == len(set(contents))
-
-        # should respect the custom top_k from run method
-        assert len(results["multiquery_retriever"]["documents"]) <= 3
