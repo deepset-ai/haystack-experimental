@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .protocol import EmbeddingRetriever, KeywordRetriever
+from .protocol import EmbeddingRetriever, TextRetriever
 
-__all__ = ["KeywordRetriever", "EmbeddingRetriever"]
+__all__ = ["TextRetriever", "EmbeddingRetriever"]

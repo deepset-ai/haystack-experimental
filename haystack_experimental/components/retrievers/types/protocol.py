@@ -7,11 +7,11 @@ from typing import Any, Optional, Protocol, TypeVar
 # Ellipsis are needed to define the Protocol but pylint complains. See https://github.com/pylint-dev/pylint/issues/9319.
 # pylint: disable=unnecessary-ellipsis
 
-KeywordRetrieverT = TypeVar("KeywordRetrieverT", bound="KeywordRetriever")
+TextRetrieverT = TypeVar("TextRetrieverT", bound="TextRetriever")
 EmbeddingRetrieverT = TypeVar("EmbeddingRetrieverT", bound="EmbeddingRetriever")
 
 
-class KeywordRetriever(Protocol):
+class TextRetriever(Protocol):
     """
     This protocol defines the minimal interface that all keyword-based BM25 Retrievers must implement.
 
@@ -25,10 +25,13 @@ class KeywordRetriever(Protocol):
 
         Implementing classes may accept additional optional parameters in their run method.
 
-        :param query:
-        :param filters:
-        :param top_k:
-        :return:
+        :param query: The input query string.
+        :param filters: A dictionary of filters to apply when retrieving documents.
+        :param top_k: The maximum number of documents to return.
+
+        :returns:
+            A dictionary containing:
+                `documents`: List of retrieved documents sorted by relevance score.
         """
         ...
 
@@ -49,9 +52,11 @@ class EmbeddingRetriever(Protocol):
 
         Implementing classes may accept additional optional parameters in their run method.
 
-        :param query_embedding:
-        :param filters:
-        :param top_k:
-        :return:
+        :param query_embedding: The input query embedding.
+        :param filters: A dictionary of filters to apply when retrieving documents.
+        :param top_k: The maximum number of documents to return.
+        :returns:
+            A dictionary containing:
+                `documents`: List of retrieved documents sorted by relevance score.
         """
         ...

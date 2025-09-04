@@ -50,8 +50,6 @@ class MultiQueryEmbeddingRetriever:
         *,
         retriever: EmbeddingRetriever,
         query_embedder: TextEmbedder,
-        top_k: int = 3,
-        filters: Optional[dict[str, Any]] = None,
         max_workers: int = 3,
     ):
         """
@@ -59,40 +57,46 @@ class MultiQueryEmbeddingRetriever:
 
         :param retriever: The embedding-based retriever to use for document retrieval.
         :param query_embedder: The query embedder to convert text queries to embeddings.
-        :param top_k: Number of documents to retrieve per query.
         :param max_workers: Maximum number of worker threads for parallel processing.
         """
         self.retriever = retriever
         self.query_embedder = query_embedder
-        self.top_k = top_k
-        self.filters = filters
         self.max_workers = max_workers
-        if hasattr(self.query_embedder, "warm_up") and callable(getattr(self.query_embedder, "warm_up")):
-            self.query_embedder.warm_up()
+        self._is_warmed_up = False
+        self.warm_up()
+
+    def warm_up(self) -> None:
+        """
+        Warm up the query embedder and the retriever if any has a warm_up method.
+        """
+        if not self._is_warmed_up:
+            if hasattr(self.query_embedder, "warm_up") and callable(getattr(self.query_embedder, "warm_up")):
+                self.query_embedder.warm_up()
+            if hasattr(self.retriever, "warm_up") and callable(getattr(self.retriever, "warm_up")):
+                self.retriever.warm_up()
+            self._is_warmed_up = True
 
     @component.output_types(documents=List[Document])
     def run(
-        self, queries: List[str], top_k: Optional[int] = None, filters: Optional[dict[str, Any]] = None
+        self,
+        queries: List[str],
+        retriever_kwargs: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Retrieve documents using multiple queries in parallel.
 
         :param queries: List of text queries to process.
-        :param top_k: Number of documents to retrieve per query. If provided, overrides the instance top_k.
-        :param filters: Optional filters to apply to the retrieval.
+        :param retriever_kwargs: Optional dictionary of arguments to pass to the retriever's run method.
         :returns:
             A dictionary containing:
                 - `documents`: List of retrieved documents sorted by relevance score.
         """
-        top_k_to_use = top_k if top_k is not None else self.top_k
-        filters_to_use = filters if filters is not None else self.filters
-
-        docs = []
+        docs: list[Document] = []
         seen_contents = set()
+        retriever_kwargs = retriever_kwargs or {}
+
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            queries_results = executor.map(
-                lambda query: self._run_on_thread(query, top_k_to_use, filters_to_use), queries
-            )
+            queries_results = executor.map(lambda query: self._run_on_thread(query, retriever_kwargs), queries)
             for result in queries_results:
                 if not result:
                     continue
@@ -103,20 +107,19 @@ class MultiQueryEmbeddingRetriever:
                         seen_contents.add(doc.content)
 
         docs.sort(key=lambda x: x.score or 0.0, reverse=True)
-        return {"documents": docs[:top_k_to_use]}
+        return {"documents": docs}
 
-    def _run_on_thread(self, query: str, top_k: int, filters: Optional[dict[str, Any]]) -> Optional[List[Document]]:
+    def _run_on_thread(self, query: str, retriever_kwargs: Optional[dict[str, Any]] = None) -> Optional[List[Document]]:
         """
         Process a single query on a separate thread.
 
         :param query: The text query to process.
-        :param filters: Optional filters to apply to the retrieval.
         :returns:
             List of retrieved documents or None if no results.
         """
         embedding_result = self.query_embedder.run(text=query)
         query_embedding = embedding_result["embedding"]
-        result = self.retriever.run(query_embedding=query_embedding, filters=filters, top_k=top_k)
+        result = self.retriever.run(query_embedding=query_embedding, **(retriever_kwargs or {}))
         if result and "documents" in result:
             return result["documents"]
         return None
@@ -132,8 +135,6 @@ class MultiQueryEmbeddingRetriever:
             self,
             retriever=component_to_dict(obj=self.retriever, name="retriever"),
             query_embedder=component_to_dict(obj=self.query_embedder, name="query_embedder"),
-            top_k=self.top_k,
-            filters=self.filters,
             max_workers=self.max_workers,
         )
 

@@ -13,10 +13,10 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 from haystack_experimental.components.query import QueryExpander
 
-from haystack_experimental.components.retrievers.multi_query_keyword_retriever import MultiQueryKeywordRetriever
+from haystack_experimental.components.retrievers.multi_query_text_retriever import MultiQueryTextRetriever
 
 
-class TestMultiQueryKeywordRetriever:
+class TestMultiQueryTextRetriever:
 
     @pytest.fixture
     def sample_documents(self):
@@ -39,7 +39,7 @@ class TestMultiQueryKeywordRetriever:
 
     def test_init_with_default_parameters(self):
         in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
-        retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever)
+        retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
         
         assert retriever.retriever == in_memory_retriever
         assert retriever.top_k == 3
@@ -49,7 +49,7 @@ class TestMultiQueryKeywordRetriever:
     def test_init_with_custom_parameters(self):
         in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
         filters = {"field": "category", "operator": "==", "value": "solar"}
-        retriever = MultiQueryKeywordRetriever(
+        retriever = MultiQueryTextRetriever(
             retriever=in_memory_retriever,
             top_k=5,
             filters=filters,
@@ -63,7 +63,7 @@ class TestMultiQueryKeywordRetriever:
 
     def test_run_with_multiple_queries(self, document_store_with_docs):
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multi_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, top_k=2)
+        multi_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, top_k=2)
         
         queries = ["renewable energy", "solar power", "wind turbines"]
         result = multi_retriever.run(queries=queries)
@@ -76,7 +76,7 @@ class TestMultiQueryKeywordRetriever:
 
     def test_to_dict(self):
         in_memory_retriever = InMemoryBM25Retriever(document_store=InMemoryDocumentStore())
-        multi_retriever = MultiQueryKeywordRetriever(
+        multi_retriever = MultiQueryTextRetriever(
             retriever=in_memory_retriever,
             top_k=5,
             filters={"field": "category", "operator": "==", "value": "solar"},
@@ -119,9 +119,9 @@ class TestMultiQueryKeywordRetriever:
              'filters': {"category": "test"},
              'max_workers': 3}}
 
-        result = MultiQueryKeywordRetriever.from_dict(data)
+        result = MultiQueryTextRetriever.from_dict(data)
 
-        assert isinstance(result, MultiQueryKeywordRetriever)
+        assert isinstance(result, MultiQueryTextRetriever)
         assert result.retriever.__class__.__name__ == "InMemoryBM25Retriever"
         assert result.top_k == 3
         assert result.filters == {"category": "test"}
@@ -131,7 +131,7 @@ class TestMultiQueryKeywordRetriever:
     def test_run_with_filters(self, document_store_with_docs):
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
         filters = {"field": "category", "operator": "==", "value": "solar"}
-        multi_retriever = MultiQueryKeywordRetriever(
+        multi_retriever = MultiQueryTextRetriever(
             retriever=in_memory_retriever,
             filters=filters
         )
@@ -151,7 +151,7 @@ class TestMultiQueryKeywordRetriever:
             chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"), n_expansions=3, include_original_query=True
         )
         in_memory_retriever = InMemoryBM25Retriever(document_store=document_store_with_docs)
-        multiquery_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever, max_workers=3, top_k=3)
+        multiquery_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever, max_workers=3, top_k=3)
         pipeline.add_component("query_expander", expander)
         pipeline.add_component("multiquery_retriever", multiquery_retriever)
         pipeline.connect("query_expander.queries", "multiquery_retriever.queries")

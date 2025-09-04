@@ -9,15 +9,15 @@ from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.core.serialization import component_to_dict
 from haystack.utils.deserialization import deserialize_component_inplace
 
-from haystack_experimental.components.retrievers.types import KeywordRetriever
+from haystack_experimental.components.retrievers.types import TextRetriever
 
 
 @component
-class MultiQueryKeywordRetriever:
+class MultiQueryTextRetriever:
     """
-    A component that retrieves documents using multiple queries in parallel with a keyword-based retriever.
+    A component that retrieves documents using multiple queries in parallel with a text-based retriever.
 
-    This component takes a list of text queries and uses a keyword-based retriever to find relevant documents for each
+    This component takes a list of text queries and uses a text-based retriever to find relevant documents for each
     query in parallel, using a thread pool to manage concurrent execution. The results are combined and sorted by
     relevance score.
 
@@ -31,7 +31,7 @@ class MultiQueryKeywordRetriever:
     from haystack.document_stores.types import DuplicatePolicy
     from haystack.components.retrievers import InMemoryBM25Retriever
     from haystack_experimental.components.query import QueryExpander
-    from haystack_experimental.components.retrievers.multi_query_retriever import MultiQueryKeywordRetriever
+    from haystack_experimental.components.retrievers.multi_query_retriever import MultiQueryTextRetriever
 
     documents = [
         Document(content="Renewable energy is energy that is collected from renewable resources."),
@@ -46,7 +46,7 @@ class MultiQueryKeywordRetriever:
     doc_writer.run(documents=documents)
 
     in_memory_retriever = InMemoryBM25Retriever(document_store=document_store)
-    multiquery_retriever = MultiQueryKeywordRetriever(retriever=in_memory_retriever)
+    multiquery_retriever = MultiQueryTextRetriever(retriever=in_memory_retriever)
     results = multiquery_retriever.run(queries=["renewable energy?", "Geothermal", "Hydropower"])
     print(results["documents"])
     >>
@@ -59,48 +59,50 @@ class MultiQueryKeywordRetriever:
 
     def __init__(
         self,
-        retriever: KeywordRetriever,
-        top_k: int = 3,
-        filters: Optional[dict[str, Any]] = None,
+        retriever: TextRetriever,
         max_workers: int = 3,
     ):
         """
-        Initialize MultiQueryKeywordRetriever.
+        Initialize MultiQueryTextRetriever.
 
-        :param retriever: The keyword-based retriever to use for document retrieval.
-        :param top_k: Number of documents to retrieve per query. Default is 3.
-        :param filters: Optional filters to apply to the retrieval.
+        :param retriever: The text-based retriever to use for document retrieval.
         :param max_workers: Maximum number of worker threads for parallel processing. Default is 3.
         """
         self.retriever = retriever
-        self.top_k = top_k
-        self.filters = filters
         self.max_workers = max_workers
+        self._is_warmed_up = False
+        self.warm_up()
+
+    def warm_up(self) -> None:
+        """
+        Warm up the retriever if it has a warm_up method.
+        """
+        if not self._is_warmed_up:
+            if hasattr(self.retriever, "warm_up") and callable(getattr(self.retriever, "warm_up")):
+                self.retriever.warm_up()
+            self._is_warmed_up = True
 
     @component.output_types(documents=list[Document])
     def run(
-        self, queries: List[str], top_k: Optional[int] = None, filters: Optional[dict[str, Any]] = None
+        self,
+        queries: List[str],
+        retriever_kwargs: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Retrieve documents using multiple queries in parallel.
 
         :param queries: List of text queries to process.
-        :param top_k: Number of documents to retrieve per query. If provided, overrides the top_k from initialization.
-        :param filters: Optional filters to apply to the retrieval.
+        :param retriever_kwargs: Optional dictionary of arguments to pass to the retriever's run method.
         :returns:
             A dictionary containing:
                 `documents`: List of retrieved documents sorted by relevance score.
         """
-        top_k_to_use = top_k if top_k is not None else self.top_k
-        filters_to_use = filters if filters is not None else self.filters
-
         docs: list[Document] = []
         seen_contents = set()
+        retriever_kwargs = retriever_kwargs or {}
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            queries_results = executor.map(
-                lambda query: self._run_on_thread(query, top_k_to_use, filters_to_use), queries
-            )
+            queries_results = executor.map(lambda query: self._run_on_thread(query, retriever_kwargs), queries)
             for result in queries_results:
                 if not result:
                     continue
@@ -111,20 +113,22 @@ class MultiQueryKeywordRetriever:
                         seen_contents.add(doc.content)
 
         docs.sort(key=lambda x: x.score or 0.0, reverse=True)
-        return {"documents": docs[:top_k_to_use]}
+        return {"documents": docs}
 
     def _run_on_thread(
-        self, query: str, top_k: Optional[int], filters: Optional[dict[str, Any]]
+        self,
+        query: str,
+        retriever_kwargs: Optional[dict[str, Any]] = None,
     ) -> Optional[list[Document]]:
         """
         Process a single query on a separate thread.
 
         :param query: The text query to process.
-        :param filters: Optional filters to apply to the retrieval.
+        :param retriever_kwargs: Optional dictionary of arguments to pass to the retriever's run method.
         :returns:
             List of retrieved documents or None if no results.
         """
-        result = self.retriever.run(query=query, top_k=top_k, filters=filters)
+        result = self.retriever.run(query=query, **(retriever_kwargs or {}))
         if result and "documents" in result:
             return result["documents"]
         return None
@@ -139,13 +143,11 @@ class MultiQueryKeywordRetriever:
         return default_to_dict(
             self,
             retriever=component_to_dict(obj=self.retriever, name="retriever"),
-            top_k=self.top_k,
-            filters=self.filters,
             max_workers=self.max_workers,
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MultiQueryKeywordRetriever":
+    def from_dict(cls, data: dict[str, Any]) -> "MultiQueryTextRetriever":
         """
         Deserializes the component from a dictionary.
 

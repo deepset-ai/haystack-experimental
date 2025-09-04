@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+from keyword import kwlist
 
 import numpy as np
 from unittest.mock import patch, MagicMock
@@ -71,7 +72,6 @@ class TestMultiQueryEmbeddingRetriever:
             return embedder
 
     def test_init_with_default_parameters(self, mock_query_embedder):
-
         embedding_retriever = InMemoryEmbeddingRetriever(document_store=InMemoryDocumentStore())
         query_embedder = mock_query_embedder
 
@@ -79,27 +79,19 @@ class TestMultiQueryEmbeddingRetriever:
         
         assert retriever.retriever == embedding_retriever
         assert retriever.query_embedder == mock_query_embedder
-        assert retriever.top_k == 3
-        assert retriever.filters is None
         assert retriever.max_workers == 3
 
     def test_init_with_custom_parameters(self, mock_query_embedder):
-        filters = {"category": "energy"}
         embedding_retriever = InMemoryEmbeddingRetriever(document_store=InMemoryDocumentStore())
         query_embedder = mock_query_embedder
-
         retriever = MultiQueryEmbeddingRetriever(
             retriever=embedding_retriever,
             query_embedder=query_embedder,
-            top_k=5,
-            filters=filters,
             max_workers=2
         )
         
         assert retriever.retriever == embedding_retriever
         assert retriever.query_embedder == mock_query_embedder
-        assert retriever.top_k == 5
-        assert retriever.filters == filters
         assert retriever.max_workers == 2
 
     def test_run_with_empty_queries(self, mock_query_embedder):
@@ -113,16 +105,13 @@ class TestMultiQueryEmbeddingRetriever:
         assert "documents" in result
         assert result["documents"] == []
 
-    def test_run_with_missing_documents_key(self, mock_query_embedder):
-        
+    def test_run_with_empty_results(self, mock_query_embedder):
         mock_query_embedder.run.return_value = {"embedding": [0.1, 0.2, 0.3]}
         multi_retriever = MultiQueryEmbeddingRetriever(
             retriever=InMemoryEmbeddingRetriever(document_store=InMemoryDocumentStore()),
             query_embedder=mock_query_embedder
         )
-        
         result = multi_retriever.run(queries=["query"])
-        
         assert "documents" in result
         assert result["documents"] == []
 
@@ -130,8 +119,6 @@ class TestMultiQueryEmbeddingRetriever:
         multi_retriever = MultiQueryEmbeddingRetriever(
             retriever=InMemoryEmbeddingRetriever(document_store=InMemoryDocumentStore()),
             query_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2"),
-            top_k=5,
-            filters = {"field": "category", "operator": "==", "value": "solar"},
             max_workers=2
         )
         
@@ -139,8 +126,6 @@ class TestMultiQueryEmbeddingRetriever:
         
         assert "type" in result
         assert "init_parameters" in result
-        assert result["init_parameters"]["top_k"] == 5
-        assert result["init_parameters"]["filters"] == {"field": "category", "operator": "==", "value": "solar"}
         assert result["init_parameters"]["max_workers"] == 2
         assert "retriever" in result["init_parameters"]
         assert "query_embedder" in result["init_parameters"]
@@ -190,30 +175,21 @@ class TestMultiQueryEmbeddingRetriever:
                         'backend': 'torch'
                     }
                 },
-                'top_k': 5,
-                'filters': {'field': 'category', 'operator': '==', 'value': 'solar'},
                 'max_workers': 2}
         }
             
         result = MultiQueryEmbeddingRetriever.from_dict(data)
 
         assert isinstance(result, MultiQueryEmbeddingRetriever)
-        assert result.top_k == 5
-        assert result.filters == {'field': 'category', 'operator': '==', 'value': 'solar'}
         assert result.max_workers == 2
 
     @pytest.mark.integration
     def test_run_with_filters(self, document_store_with_embeddings):
         in_memory_retriever = InMemoryEmbeddingRetriever(document_store=document_store_with_embeddings)
         query_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
-        filters = {"field": "category", "operator": "==", "value": "solar"}
-        multi_retriever = MultiQueryEmbeddingRetriever(
-            retriever=in_memory_retriever,
-            query_embedder=query_embedder,
-            filters=filters
-        )
-
-        result = multi_retriever.run(queries=["energy"])
+        multi_retriever = MultiQueryEmbeddingRetriever(retriever=in_memory_retriever, query_embedder=query_embedder)
+        kwargs = {"filters": {"field": "category", "operator": "==", "value": "solar"}}
+        result = multi_retriever.run(["energy"], kwargs)
         assert "documents" in result
         assert all(doc.meta.get("category") == "solar" for doc in result["documents"])
 
@@ -223,14 +199,15 @@ class TestMultiQueryEmbeddingRetriever:
     )
     @pytest.mark.integration
     def test_pipeline_integration(self, document_store_with_embeddings):
-        """Test end-to-end pipeline integration with QueryExpander and MultiQueryEmbeddingRetriever."""
         expander = QueryExpander(
             chat_generator=OpenAIChatGenerator(model="gpt-4.1-mini"), n_expansions=3, include_original_query=True
         )
         in_memory_retriever = InMemoryEmbeddingRetriever(document_store=document_store_with_embeddings)
         query_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
         multiquery_retriever = MultiQueryEmbeddingRetriever(
-            retriever=in_memory_retriever, query_embedder=query_embedder, max_workers=3, top_k=3
+            retriever=in_memory_retriever,
+            query_embedder=query_embedder,
+            max_workers=3
         )
 
         pipeline = Pipeline()
@@ -238,7 +215,10 @@ class TestMultiQueryEmbeddingRetriever:
         pipeline.add_component("multiquery_retriever", multiquery_retriever)
         pipeline.connect("query_expander.queries", "multiquery_retriever.queries")
 
-        data = {"query_expander" : {"query": "green energy sources"}}
+        data = {
+            "query_expander" : {"query": "green energy sources"},
+            "multiquery_retriever": {"retriever_kwargs": {"top_k": 3}}
+        }
         results = pipeline.run(data=data, include_outputs_from={"query_expander", "multiquery_retriever"})
 
         assert "multiquery_retriever" in results
@@ -255,6 +235,3 @@ class TestMultiQueryEmbeddingRetriever:
         # assert there are not duplicates
         contents = [doc.content for doc in results["multiquery_retriever"]["documents"]]
         assert len(contents) == len(set(contents))
-
-        # should respect the custom top_k from run method
-        assert len(results["multiquery_retriever"]["documents"]) <= 3
