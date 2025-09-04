@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from dataclasses import replace
-from typing import Any, Optional, Union
+from dataclasses import dataclass, replace
+from typing import Any, Literal, Optional, Union
 
 from openai import AsyncStream, Stream
 from openai.types.chat import (
@@ -27,6 +27,22 @@ from haystack_experimental.utils.hallucination_risk_calculator.openai_planner im
 from haystack_experimental.utils.hallucination_risk_calculator.dataclasses import OpenAIItem
 
 
+@dataclass
+class HallucinationScoreConfig:
+    """
+    Configuration for hallucination risk assessment using OpenAIPlanner.
+    """
+    n_samples: int = 7
+    m: int = 6
+    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "closed_book"
+    temperature: float = 0.3
+    h_star: float = 0.05
+    isr_threshold: float = 1.0
+    margin_extra_bits: float = 0.2
+    B_clip: float = 12.0
+    clip_mode: Literal["one-sided", "symmetric"] = "one-sided"
+
+
 @component
 class OpenAIChatGenerator(OpenAIChatGenerator):
     @component.output_types(replies=list[ChatMessage])
@@ -38,7 +54,7 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
         *,
         tools: Optional[Union[list[Tool], Toolset]] = None,
         tools_strict: Optional[bool] = None,
-        hallucination_score: bool = False,
+        hallucination_score_config: Optional[HallucinationScoreConfig] = None,
     ):
         """
         Invokes chat completion based on the provided messages and generation parameters.
@@ -59,8 +75,8 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
             If set, it will override the `tools_strict` parameter set during component initialization.
-        :param hallucination_score:
-            If set to `True`, the generator will evaluate the hallucination risk of its responses using
+        :param hallucination_score_config:
+            If provided, the generator will evaluate the hallucination risk of its responses using
             the OpenAIPlanner and annotate each response with hallucination metrics.
             This involves generating multiple samples and analyzing their consistency, which may increase
             latency and cost. Use this option when you need to assess the reliability of the generated content
@@ -79,11 +95,25 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
 
         # Calculate the hallucination score pre-emptively on the last user message
         hallucination_meta = {}
-        if hallucination_score:
-            item = OpenAIItem(prompt=messages[-1].text, n_samples=7, m=6, skeleton_policy="closed_book")
-            planner = OpenAIPlanner(OpenAIChatGenerator(model="gpt-4o-mini", api_key=self.api_key), temperature=0.3)
+        if hallucination_score_config:
+            item = OpenAIItem(
+                prompt=messages[-1].text,
+                n_samples=hallucination_score_config.n_samples,
+                m=hallucination_score_config.m,
+                skeleton_policy=hallucination_score_config.skeleton_policy,
+            )
+
+            planner = OpenAIPlanner(
+                OpenAIChatGenerator(model=self.model, api_key=self.api_key),
+                temperature=hallucination_score_config.temperature,
+            )
             metrics = planner.run(
-                [item], h_star=0.05, isr_threshold=1.0, margin_extra_bits=0.2, B_clip=12.0, clip_mode="one-sided"
+                [item],
+                h_star=hallucination_score_config.h_star,
+                isr_threshold=hallucination_score_config.isr_threshold,
+                margin_extra_bits=hallucination_score_config.margin_extra_bits,
+                B_clip=hallucination_score_config.B_clip,
+                clip_mode=hallucination_score_config.clip_mode
             )
             hallucination_meta = {
                 "hallucination_decision": "ANSWER" if metrics[0].decision_answer else "REFUSE",

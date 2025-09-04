@@ -1,7 +1,7 @@
 import os
 
 from haystack.dataclasses import ChatMessage
-from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator
+from haystack_experimental.components.generators.chat.openai import OpenAIChatGenerator, HallucinationScoreConfig
 
 # os.environ["OPENAI_API_KEY"] = ""
 
@@ -10,7 +10,7 @@ llm = OpenAIChatGenerator(model="gpt-4o")
 # Closed Book Example
 closed_book_result = llm.run(
     messages=[ChatMessage.from_user(text="Who won the 2019 Nobel Prize in Physics?")],
-    hallucination_score=True
+    hallucination_score_config=HallucinationScoreConfig(skeleton_policy="closed_book")
 )
 print(f"Decision: {closed_book_result['replies'][0].meta['hallucination_decision']}")
 print(f"Risk bound: {closed_book_result['replies'][0].meta['hallucination_risk']:.3f}")
@@ -29,7 +29,7 @@ rag_result = llm.run(
                  "Constraints: If evidence is insufficient or conflicting, refuse."
         )
     ],
-    hallucination_score=True
+    hallucination_score_config=HallucinationScoreConfig(skeleton_policy="evidence_erase"),
 )
 print(f"Decision: {rag_result['replies'][0].meta['hallucination_decision']}")
 print(f"Risk bound: {rag_result['replies'][0].meta['hallucination_risk']:.3f}")
