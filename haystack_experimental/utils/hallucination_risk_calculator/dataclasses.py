@@ -12,9 +12,9 @@ class HallucinationScoreConfig:
     Configuration for hallucination risk assessment using OpenAIPlanner.
     """
 
+    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "closed_book"
     n_samples: int = 7
     m: int = 6
-    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "closed_book"
     temperature: float = 0.3
     h_star: float = 0.05
     isr_threshold: float = 1.0
