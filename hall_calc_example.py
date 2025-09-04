@@ -8,7 +8,7 @@ from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.generators.chat.openai import HallucinationScoreConfig, OpenAIChatGenerator
 
-# os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = ""
 
 llm = OpenAIChatGenerator(model="gpt-4o")
 

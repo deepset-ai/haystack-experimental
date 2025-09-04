@@ -68,6 +68,7 @@ def _parse_decision(text: str) -> str:
 
 
 def _estimate_event_signals_sampling(
+    *,
     backend: OpenAIChatGenerator,
     prompt: str,
     skeletons: list[str],
@@ -118,6 +119,7 @@ def _estimate_event_signals_sampling(
 
 
 def decision_rule(
+    *,
     delta_bar: float,
     q_conservative: float,
     q_avg: float,
@@ -183,13 +185,13 @@ class OpenAIPlanner:
         seeds = item.seeds if item.seeds is not None else list(range(item.m))
         if item.skeleton_policy == "evidence_erase":
             return _make_skeletons_evidence_erase(
-                item.prompt, m=item.m, seeds=seeds, fields_to_erase=item.fields_to_erase
+                text=item.prompt, m=item.m, seeds=seeds, fields_to_erase=item.fields_to_erase
             ), False
         if item.skeleton_policy == "closed_book":
-            return _make_skeletons_closed_book(item.prompt, m=item.m, seeds=seeds), True
+            return _make_skeletons_closed_book(text=item.prompt, m=item.m, seeds=seeds), True
         # auto
         sk = _make_skeleton_ensemble_auto(
-            item.prompt, m=item.m, seeds=seeds, fields_to_erase=item.fields_to_erase, skeleton_policy="auto"
+            text=item.prompt, m=item.m, seeds=seeds, fields_to_erase=item.fields_to_erase, skeleton_policy="auto"
         )
         # detect whether auto chose closed_book (no explicit evidence fields present)
         closed_book = not any((f + ":") in item.prompt for f in (item.fields_to_erase or _ERASE_DEFAULT_FIELDS))
@@ -197,6 +199,7 @@ class OpenAIPlanner:
 
     def _evaluate_item(
         self,
+        *,
         idx: int,
         item: OpenAIItem,
         h_star: float,
@@ -225,7 +228,7 @@ class OpenAIPlanner:
 
         dbar = delta_bar_from_probs(P_y, S_list_y, B=B_clip, clip_mode=clip_mode)
         dec = decision_rule(
-            dbar,
+            delta_bar=dbar,
             q_conservative=qcons,
             q_avg=qavg,
             h_star=h_star,
@@ -260,6 +263,7 @@ class OpenAIPlanner:
     def run(
         self,
         items: Sequence[OpenAIItem],
+        *,
         h_star: float = 0.05,
         isr_threshold: float = 1.0,
         margin_extra_bits: float = 0.0,

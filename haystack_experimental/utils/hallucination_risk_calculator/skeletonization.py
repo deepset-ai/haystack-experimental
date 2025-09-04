@@ -64,6 +64,7 @@ def mask_entities_numbers(text: str, strength: float, rng: random.Random, mask_t
 
 
 def _make_skeletons_closed_book(
+    *,
     text: str,
     m: int,
     seeds: Sequence[int],
@@ -100,6 +101,7 @@ def _make_skeletons_closed_book(
 
 
 def _make_skeletons_evidence_erase(
+    *,
     text: str,
     m: int,
     seeds: Sequence[int],
@@ -125,6 +127,7 @@ def _make_skeletons_evidence_erase(
 
 
 def _make_skeleton_ensemble_auto(
+    *,
     text: str,
     m: int = 6,
     seeds: Optional[Sequence[int]] = None,
@@ -138,14 +141,14 @@ def _make_skeleton_ensemble_auto(
     # otherwise closed-book masking.
     if skeleton_policy == "evidence_erase":
         return _make_skeletons_evidence_erase(
-            text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token
+            text=text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token
         )
     if skeleton_policy == "closed_book":
-        return _make_skeletons_closed_book(text, m=m, seeds=seeds, mask_token=mask_token)
+        return _make_skeletons_closed_book(text=text, m=m, seeds=seeds, mask_token=mask_token)
     # auto detection
     evidence_fields = set(*(fields_to_erase or []), *_ERASE_DEFAULT_FIELDS)
     if any((f + ":") in text for f in evidence_fields):
         return _make_skeletons_evidence_erase(
-            text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token
+            text=text, m=m, seeds=seeds, fields_to_erase=fields_to_erase, mask_token=mask_token
         )
-    return _make_skeletons_closed_book(text, m=m, seeds=seeds, mask_token=mask_token)
+    return _make_skeletons_closed_book(text=text, m=m, seeds=seeds, mask_token=mask_token)
