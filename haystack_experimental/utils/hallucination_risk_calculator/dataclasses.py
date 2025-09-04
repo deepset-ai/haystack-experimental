@@ -7,6 +7,23 @@ from typing import Literal, Optional
 
 
 @dataclass
+class HallucinationScoreConfig:
+    """
+    Configuration for hallucination risk assessment using OpenAIPlanner.
+    """
+
+    n_samples: int = 7
+    m: int = 6
+    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "closed_book"
+    temperature: float = 0.3
+    h_star: float = 0.05
+    isr_threshold: float = 1.0
+    margin_extra_bits: float = 0.2
+    B_clip: float = 12.0
+    clip_mode: Literal["one-sided", "symmetric"] = "one-sided"
+
+
+@dataclass
 class Decision:
     answer: bool
     isr: float

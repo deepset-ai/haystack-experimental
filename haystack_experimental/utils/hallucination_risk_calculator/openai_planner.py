@@ -5,12 +5,12 @@
 import json
 import re
 import time
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
 from .core_math import bits_to_trust, delta_bar_from_probs, isr, q_bar, q_lo, roh_upper_bound
-from .dataclasses import Decision, ItemMetrics, OpenAIItem
+from .dataclasses import Decision, HallucinationScoreConfig, ItemMetrics, OpenAIItem
 from .skeletonization import (
     _ERASE_DEFAULT_FIELDS,
     _make_skeleton_ensemble_auto,
@@ -281,3 +281,37 @@ class OpenAIPlanner:
             )
             for i, it in enumerate(items)
         ]
+
+
+def calculate_hallucination_metrics(
+    prompt: str,
+    hallucination_score_config: HallucinationScoreConfig,
+    chat_generator: OpenAIChatGenerator,
+) -> dict[str, Any]:
+    """
+    Calculate hallucination metrics for a given prompt using the OpenAIPlanner.
+    """
+    item = OpenAIItem(
+        prompt=prompt,
+        n_samples=hallucination_score_config.n_samples,
+        m=hallucination_score_config.m,
+        skeleton_policy=hallucination_score_config.skeleton_policy,
+    )
+    planner = OpenAIPlanner(
+        chat_generator,
+        temperature=hallucination_score_config.temperature,
+    )
+    metrics = planner.run(
+        [item],
+        h_star=hallucination_score_config.h_star,
+        isr_threshold=hallucination_score_config.isr_threshold,
+        margin_extra_bits=hallucination_score_config.margin_extra_bits,
+        B_clip=hallucination_score_config.B_clip,
+        clip_mode=hallucination_score_config.clip_mode,
+    )
+    hallucination_meta = {
+        "hallucination_decision": "ANSWER" if metrics[0].decision_answer else "REFUSE",
+        "hallucination_risk": metrics[0].roh_bound,
+        "hallucination_rationale": metrics[0].rationale,
+    }
+    return hallucination_meta

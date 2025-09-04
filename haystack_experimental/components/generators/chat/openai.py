@@ -1,50 +1,20 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
-from dataclasses import dataclass, replace
-from typing import Any, Literal, Optional, Union
+from dataclasses import replace
+from typing import Any, Optional, Union
 
 from haystack import component
-from haystack.components.generators.chat.openai import (
-    OpenAIChatGenerator,
-    _check_finish_reason,
-    _convert_chat_completion_to_chat_message,
-)
-from haystack.dataclasses import (
-    ChatMessage,
-    StreamingCallbackT,
-    select_streaming_callback,
-)
+from haystack.components.generators.chat.openai import OpenAIChatGenerator as BaseOpenAIChatGenerator
+from haystack.dataclasses import ChatMessage, StreamingCallbackT
 from haystack.tools import Tool, Toolset
-from openai import AsyncStream, Stream
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionChunk,
-)
 
-from haystack_experimental.utils.hallucination_risk_calculator.dataclasses import OpenAIItem
-from haystack_experimental.utils.hallucination_risk_calculator.openai_planner import OpenAIPlanner
-
-
-@dataclass
-class HallucinationScoreConfig:
-    """
-    Configuration for hallucination risk assessment using OpenAIPlanner.
-    """
-
-    n_samples: int = 7
-    m: int = 6
-    skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "closed_book"
-    temperature: float = 0.3
-    h_star: float = 0.05
-    isr_threshold: float = 1.0
-    margin_extra_bits: float = 0.2
-    B_clip: float = 12.0
-    clip_mode: Literal["one-sided", "symmetric"] = "one-sided"
+from haystack_experimental.utils.hallucination_risk_calculator.dataclasses import HallucinationScoreConfig
+from haystack_experimental.utils.hallucination_risk_calculator.openai_planner import calculate_hallucination_metrics
 
 
 @component
-class OpenAIChatGenerator(OpenAIChatGenerator):
+class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     @component.output_types(replies=list[ChatMessage])
     def run(
         self,
@@ -84,74 +54,33 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
 
         :returns:
             A dictionary with the following key:
-            - `replies`: A list containing the generated responses as ChatMessage instances.
+            - `replies`: A list containing the generated responses as ChatMessage instances. If hallucination
+              scoring is enabled, each message will include additional metadata:
+                - `hallucination_decision`: "ANSWER" if the model decided to answer, "REFUSE" if it abstained.
+                - `hallucination_risk`: The EDFL hallucination risk bound.
+                - `hallucination_rationale`: The rationale behind the hallucination decision.
         """
         if len(messages) == 0:
             return {"replies": []}
 
-        streaming_callback = select_streaming_callback(
-            init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=False
-        )
-
-        # Calculate the hallucination score pre-emptively on the last user message
-        hallucination_meta = {}
-        if hallucination_score_config:
-            item = OpenAIItem(
-                prompt=messages[-1].text,
-                n_samples=hallucination_score_config.n_samples,
-                m=hallucination_score_config.m,
-                skeleton_policy=hallucination_score_config.skeleton_policy,
-            )
-
-            planner = OpenAIPlanner(
-                OpenAIChatGenerator(model=self.model, api_key=self.api_key),
-                temperature=hallucination_score_config.temperature,
-            )
-            metrics = planner.run(
-                [item],
-                h_star=hallucination_score_config.h_star,
-                isr_threshold=hallucination_score_config.isr_threshold,
-                margin_extra_bits=hallucination_score_config.margin_extra_bits,
-                B_clip=hallucination_score_config.B_clip,
-                clip_mode=hallucination_score_config.clip_mode,
-            )
-            hallucination_meta = {
-                "hallucination_decision": "ANSWER" if metrics[0].decision_answer else "REFUSE",
-                "hallucination_risk": metrics[0].roh_bound,
-                "hallucination_rationale": metrics[0].rationale,
-            }
-
-        api_args = self._prepare_api_call(
+        # Call parent implementation
+        result = super(OpenAIChatGenerator, self).run(
             messages=messages,
             streaming_callback=streaming_callback,
             generation_kwargs=generation_kwargs,
             tools=tools,
             tools_strict=tools_strict,
         )
-        chat_completion: Union[Stream[ChatCompletionChunk], ChatCompletion] = self.client.chat.completions.create(
-            **api_args
-        )
+        completions = result["replies"]
 
-        if streaming_callback is not None:
-            completions = self._handle_stream_response(
-                # we cannot check isinstance(chat_completion, Stream) because some observability tools wrap Stream
-                # and return a different type. See https://github.com/deepset-ai/haystack/issues/9014.
-                chat_completion,  # type: ignore
-                streaming_callback,
+        # Add hallucination scoring if configured
+        if hallucination_score_config:
+            hallucination_meta = calculate_hallucination_metrics(
+                prompt=messages[-1].text,
+                hallucination_score_config=hallucination_score_config,
+                chat_generator=self
             )
-
-        else:
-            assert isinstance(chat_completion, ChatCompletion), "Unexpected response type for non-streaming request."
-            completions = [
-                _convert_chat_completion_to_chat_message(chat_completion, choice) for choice in chat_completion.choices
-            ]
-
-        # before returning, do post-processing of the completions
-        for message in completions:
-            _check_finish_reason(message.meta)
-
-        if hallucination_meta:
-            completions = [replace(message, _meta={**message.meta, **hallucination_meta}) for message in completions]
+            completions = [replace(m, _meta={**m.meta, **hallucination_meta}) for m in completions]
 
         return {"replies": completions}
 
@@ -164,7 +93,7 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
         *,
         tools: Optional[Union[list[Tool], Toolset]] = None,
         tools_strict: Optional[bool] = None,
-        hallucination_score: bool = False,
+        hallucination_score_config: Optional[HallucinationScoreConfig] = None,
     ):
         """
         Asynchronously invokes chat completion based on the provided messages and generation parameters.
@@ -189,8 +118,8 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
             Whether to enable strict schema adherence for tool calls. If set to `True`, the model will follow exactly
             the schema provided in the `parameters` field of the tool definition, but this may increase latency.
             If set, it will override the `tools_strict` parameter set during component initialization.
-        :param hallucination_score:
-            If set to `True`, the generator will evaluate the hallucination risk of its responses using
+        :param hallucination_score_config:
+            If provided, the generator will evaluate the hallucination risk of its responses using
             the OpenAIPlanner and annotate each response with hallucination metrics.
             This involves generating multiple samples and analyzing their consistency, which may increase
             latency and cost. Use this option when you need to assess the reliability of the generated content
@@ -198,61 +127,32 @@ class OpenAIChatGenerator(OpenAIChatGenerator):
 
         :returns:
             A dictionary with the following key:
-            - `replies`: A list containing the generated responses as ChatMessage instances.
+            - `replies`: A list containing the generated responses as ChatMessage instances. If hallucination
+              scoring is enabled, each message will include additional metadata:
+                - `hallucination_decision`: "ANSWER" if the model decided to answer, "REFUSE" if it abstained.
+                - `hallucination_risk`: The EDFL hallucination risk bound.
+                - `hallucination_rationale`: The rationale behind the hallucination decision.
         """
-        # validate and select the streaming callback
-        streaming_callback = select_streaming_callback(
-            init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=True
-        )
-
         if len(messages) == 0:
             return {"replies": []}
 
-        api_args = self._prepare_api_call(
+        # Call parent implementation
+        result = await super(OpenAIChatGenerator, self).run_async(
             messages=messages,
             streaming_callback=streaming_callback,
             generation_kwargs=generation_kwargs,
             tools=tools,
             tools_strict=tools_strict,
         )
+        completions = result["replies"]
 
-        # Calculate the hallucination score pre-emptively on the last user message
-        hallucination_meta = {}
-        if hallucination_score:
-            item = OpenAIItem(prompt=messages[-1].text, n_samples=7, m=6, skeleton_policy="closed_book")
-            planner = OpenAIPlanner(OpenAIChatGenerator(model="gpt-4o-mini", api_key=self.api_key), temperature=0.3)
-            metrics = planner.run(
-                [item], h_star=0.05, isr_threshold=1.0, margin_extra_bits=0.2, B_clip=12.0, clip_mode="one-sided"
+        # Add hallucination scoring if configured
+        if hallucination_score_config:
+            hallucination_meta = calculate_hallucination_metrics(
+                prompt=messages[-1].text,
+                hallucination_score_config=hallucination_score_config,
+                chat_generator=self
             )
-            hallucination_meta = {
-                "hallucination_decision": "ANSWER" if metrics[0].decision_answer else "REFUSE",
-                "hallucination_risk": metrics[0].roh_bound,
-                "hallucination_rationale": metrics[0].rationale,
-            }
-
-        chat_completion: Union[
-            AsyncStream[ChatCompletionChunk], ChatCompletion
-        ] = await self.async_client.chat.completions.create(**api_args)
-
-        if streaming_callback is not None:
-            completions = await self._handle_async_stream_response(
-                # we cannot check isinstance(chat_completion, AsyncStream) because some observability tools wrap
-                # AsyncStream and return a different type. See https://github.com/deepset-ai/haystack/issues/9014.
-                chat_completion,  # type: ignore
-                streaming_callback,
-            )
-
-        else:
-            assert isinstance(chat_completion, ChatCompletion), "Unexpected response type for non-streaming request."
-            completions = [
-                _convert_chat_completion_to_chat_message(chat_completion, choice) for choice in chat_completion.choices
-            ]
-
-        # before returning, do post-processing of the completions
-        for message in completions:
-            _check_finish_reason(message.meta)
-
-        if hallucination_meta:
-            completions = [replace(message, _meta={**message.meta, **hallucination_meta}) for message in completions]
+            completions = [replace(m, _meta={**m.meta, **hallucination_meta}) for m in completions]
 
         return {"replies": completions}
