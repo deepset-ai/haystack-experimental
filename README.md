@@ -48,8 +48,8 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`ChatMessageWriter`][3]              | Memory Component               | December 2024     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>      | [Discuss][4]  |
 | [`QueryExpander`][5]                  | Query Expansion Component      | October 2025      | None         | None | [Discuss][6]  |
 | [`EmbeddingBasedDocumentSplitter`][8] | EmbeddingBasedDocumentSplitter | August 2025       | None         | None | [Discuss][7]  |
-| [`MultiQueryEmbeddingRetriever`][9]   | MultiQueryEmbeddingRetriever   | November 2025     | None         | None | [Discuss][11] |
-| [`MultiQueryTextRetriever`][10]       | MultiQueryTextRetriever        | November 2025     | None         | None | [Discuss][12] |
+| [`MultiQueryEmbeddingRetriever`][13]  | MultiQueryEmbeddingRetriever   | November 2025     | None         | None | [Discuss][11] |
+| [`MultiQueryTextRetriever`][14]       | MultiQueryTextRetriever        | November 2025     | None         | None | [Discuss][12] |
 | [`OpenAIChatGenerator`][9]            | Chat Generator Component       | November 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hallucination_score_calculator.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [Discuss][10] |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
@@ -62,8 +62,8 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [8]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/preprocessors/embedding_based_document_splitter.py
 [9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
 [10]: https://github.com/deepset-ai/haystack-experimental/discussions/361
-[11]: https://github.com/deepset-ai/haystack-experimental/discussions/<>
-[12]: https://github.com/deepset-ai/haystack-experimental/discussions/<>
+[11]: https://github.com/deepset-ai/haystack-experimental/discussions/363
+[12]: https://github.com/deepset-ai/haystack-experimental/discussions/364
 [13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_embedding_retriever.py
 [14]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_text_retriever.py
 
