@@ -2,21 +2,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from rich.console import Console
-
-from haystack.dataclasses import ChatMessage
 from haystack.components.agents import Agent
 from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage
 from haystack.tools import create_tool_from_function
+from rich.console import Console
 
 from haystack_experimental.tools.human_in_the_loop import (
-    confirmation_wrapper,
-    SimpleInputPrompt,
     RichConsolePrompt,
+    SimpleInputPrompt,
+    confirmation_wrapper,
 )
 
 
 def get_bank_balance(account_id: str) -> str:
+    """
+    Simulate fetching a bank balance for a given account ID.
+
+    :param account_id: The ID of the bank account.
+    :returns:
+        A string representing the bank balance.
+    """
     return f"Balance for account {account_id} is $1,234.56"
 
 
@@ -53,7 +59,7 @@ agent = Agent(
     tools=[console_tool],  # or simple_tool
     system_prompt="""
 You are a helpful financial assistant. Use the provided tool to get bank balances when needed.
-"""
+""",
 )
 
 result = agent.run([ChatMessage.from_user("What's the balance of account 56789?")])

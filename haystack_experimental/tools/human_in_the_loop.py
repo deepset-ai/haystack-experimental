@@ -5,11 +5,10 @@
 from dataclasses import dataclass, replace
 from typing import Any
 
+from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-
-from haystack.tools import Tool
 
 from haystack_experimental.tools.types.protocol import ConfirmationPrompt, ExecutionPolicy
 
@@ -23,7 +22,8 @@ class ConfirmationResult:
     :param feedback: Optional feedback message if the action is "reject".
     :param new_params: Optional new parameters if the action is "modify".
     """
-    action: str   # This is left as a string to allow users to define their own actions if needed.
+
+    action: str  # This is left as a string to allow users to define their own actions if needed.
     feedback: str | None = None
     new_params: dict[str, Any] | None = None
 
@@ -32,6 +32,7 @@ class RichConsolePrompt:
     """
     Confirmation prompt using Rich library for enhanced console interaction.
     """
+
     def __init__(self, console: Console | None = None) -> None:
         """
         :param console: Optional Rich Console instance. If None, a new Console will be created.
@@ -79,6 +80,7 @@ class SimpleInputPrompt:
     """
     Simple confirmation prompt using standard input/output.
     """
+
     def confirm(self, tool_name: str, params: dict[str, Any]) -> ConfirmationResult:
         """
         Ask for user confirmation before executing a tool.
@@ -112,18 +114,22 @@ class SimpleInputPrompt:
 class DefaultPolicy:
     """
     Default execution policy:
+
     - If confirmed, run the tool with original params.
     - If rejected, return a rejection message.
     - If modified, run the tool immediately with new params.
     """
+
     def handle(self, result: ConfirmationResult, tool: Tool, kwargs: dict[str, Any]) -> Any:
         """
         Handle the confirmation result and execute the tool accordingly.
+
         :param result: The result from the confirmation prompt.
         :param tool: The tool to potentially execute.
         :param kwargs: The original parameters for the tool.
 
-        :returns: The result of the tool execution or a rejection message.
+        :returns:
+            The result of the tool execution or a rejection message.
         """
         if result.action == "reject":
             return {
@@ -141,6 +147,7 @@ class AutoConfirmPolicy:
     """
     Always confirm and run the tool, ignoring user input.
     """
+
     def handle(self, result: ConfirmationResult, tool: Tool, kwargs: dict[str, Any]) -> Any:
         """
         Always execute the tool, ignoring any rejection from the user.
@@ -168,7 +175,9 @@ def confirmation_wrapper(
     :param policy: The execution policy to apply based on user input.
     :return: A new Tool instance with confirmation logic.
     """
+
     def wrapped_function(**kwargs: Any) -> Any:
         result = strategy.confirm(tool.name, kwargs)
         return policy.handle(result, tool, kwargs)
+
     return replace(tool, function=wrapped_function)

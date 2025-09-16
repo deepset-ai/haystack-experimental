@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from haystack.tools import Tool
+
     from haystack_experimental.tools.human_in_the_loop import ConfirmationResult
 
 
