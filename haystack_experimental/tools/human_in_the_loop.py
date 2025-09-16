@@ -17,13 +17,13 @@ from haystack_experimental.tools.types.protocol import ConfirmationPrompt, Execu
 @dataclass
 class ConfirmationResult:
     """
-    Result of the confirmation prompt.
+    Result of the confirmation prompt to capture a user's decision.
 
-    :param action: The action chosen by the user ("confirm", "reject", or "modify").
+    :param action: The action chosen by the user (e.g. "confirm", "reject", or "modify").
     :param feedback: Optional feedback message if the action is "reject".
     :param new_params: Optional new parameters if the action is "modify".
     """
-    action: str   # "confirm" | "reject" | "modify"
+    action: str   # This is left as a string to allow users to define their own actions if needed.
     feedback: str | None = None
     new_params: dict[str, Any] | None = None
 
