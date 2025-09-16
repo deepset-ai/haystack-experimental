@@ -23,4 +23,14 @@ class ConfirmationPrompt(Protocol):
 
 class ExecutionPolicy(Protocol):
     def handle(self, result: "ConfirmationResult", tool: "Tool", kwargs: dict[str, Any]) -> Any:
+        """
+        Handle the execution policy based on the user's confirmation result.
+
+        :param result: The result from the confirmation prompt.
+        :param tool: The tool to be executed.
+        :param kwargs: The parameters to be passed to the tool.
+
+        :returns:
+            The result of the execution policy (e.g., tool output, rejection message, etc.).
+        """
         ...
