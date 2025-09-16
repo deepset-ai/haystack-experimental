@@ -34,4 +34,3 @@ class ExecutionPolicy(Protocol):
         :returns:
             The result of the execution policy (e.g., tool output, rejection message, etc.).
         """
-        ...

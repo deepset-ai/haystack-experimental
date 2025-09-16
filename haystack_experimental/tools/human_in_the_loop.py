@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Optional
 
 from haystack.tools import Tool
 from rich.console import Console
@@ -24,8 +24,8 @@ class ConfirmationResult:
     """
 
     action: str  # This is left as a string to allow users to define their own actions if needed.
-    feedback: str | None = None
-    new_params: dict[str, Any] | None = None
+    feedback: Optional[str] = None
+    new_params: Optional[dict[str, Any]] = None
 
 
 class RichConsolePrompt:
@@ -33,7 +33,7 @@ class RichConsolePrompt:
     Confirmation prompt using Rich library for enhanced console interaction.
     """
 
-    def __init__(self, console: Console | None = None) -> None:
+    def __init__(self, console: Optional[Console] = None) -> None:
         """
         :param console: Optional Rich Console instance. If None, a new Console will be created.
         """
