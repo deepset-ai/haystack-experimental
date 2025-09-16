@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class ConfirmationPrompt(Protocol):
-    def confirm(self, tool_name: str, params: dict[str, Any]) -> ConfirmationResult:
+    def confirm(self, tool_name: str, params: dict[str, Any]) -> "ConfirmationResult":
         """
         Ask for user confirmation before executing a tool.
 
@@ -22,5 +22,5 @@ class ConfirmationPrompt(Protocol):
 
 
 class ExecutionPolicy(Protocol):
-    def handle(self, result: ConfirmationResult, tool: Tool, kwargs: dict[str, Any]) -> Any:
+    def handle(self, result: "ConfirmationResult", tool: "Tool", kwargs: dict[str, Any]) -> Any:
         ...

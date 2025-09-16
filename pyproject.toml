@@ -28,6 +28,7 @@ classifiers = [
 
 dependencies = [
   "haystack-ai",
+  "rich", # For pretty printing in the console used by human-in-the-loop utilities
 ]
 
 [project.urls]
