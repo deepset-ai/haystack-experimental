@@ -2,16 +2,38 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack.components.agents import Agent
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 from haystack.tools import create_tool_from_function
 from rich.console import Console
 
-from haystack_experimental.tools.human_in_the_loop import (
-    RichConsolePrompt,
-    SimpleInputPrompt,
-    confirmation_wrapper,
+from haystack_experimental.components.agents.agent import Agent
+from haystack_experimental.tools.hitl import (
+    HumanInTheLoopStrategy,
+    AlwaysAskPolicy,
+    AskOncePolicy,
+    NeverAskPolicy,
+    RichConsoleUI,
+    SimpleConsoleUI,
+)
+
+
+def addition(a: float, b: float) -> float:
+    """
+    A simple addition function.
+
+    :param a: First float.
+    :param b: Second float.
+    :returns:
+        Sum of a and b.
+    """
+    return a + b
+
+
+addition_tool = create_tool_from_function(
+    function=addition,
+    name="addition",
+    description="Add two floats together.",
 )
 
 
@@ -32,36 +54,55 @@ balance_tool = create_tool_from_function(
     description="Get the bank balance for a given account ID.",
 )
 
-#
-# Example: Run Tool individually with different Prompts
-#
 
-# Use the console version
-cons = Console()
-console_tool = confirmation_wrapper(balance_tool, RichConsolePrompt(cons))
-cons.print("\n[bold]Using console confirmation tool:[/bold]")
-res = console_tool.invoke(account_id="123456")
-cons.print(f"\n[bold green]Result:[/bold green] {res}")
+def get_phone_number(name: str) -> str:
+    """
+    Simulate fetching a phone number for a given name.
 
-# Use the simple input version
-simple_tool = confirmation_wrapper(balance_tool, SimpleInputPrompt())
-print("\nUsing simple input confirmation tool:")
-res = simple_tool.invoke(account_id="123456")
-print(f"\nResult: {res}")
+    :param name: The name of the person.
+    :returns:
+        A string representing the phone number.
+    """
+    return f"The phone number for {name} is (123) 456-7890"
 
 
-#
-# Example: Running with an Agent
-#
-
-agent = Agent(
-    chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
-    tools=[console_tool],  # or simple_tool
-    system_prompt="""
-You are a helpful financial assistant. Use the provided tool to get bank balances when needed.
-""",
+phone_tool = create_tool_from_function(
+    function=get_phone_number,
+    name="get_phone_number",
+    description="Get the phone number for a given name.",
 )
 
+
+cons = Console()
+agent = Agent(
+    chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
+    tools=[balance_tool, addition_tool, phone_tool],
+    system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
+    tool_invoker_kwargs={
+        "confirmation_strategies": {
+            "get_bank_balance": HumanInTheLoopStrategy(policy=AlwaysAskPolicy(), ui=RichConsoleUI(console=cons)),
+            "addition": HumanInTheLoopStrategy(policy=NeverAskPolicy(), ui=SimpleConsoleUI()),
+            "get_phone_number": HumanInTheLoopStrategy(policy=AskOncePolicy(), ui=SimpleConsoleUI()),
+        }
+    }
+)
+
+# Call bank tool with confirmation (Always Ask)
 result = agent.run([ChatMessage.from_user("What's the balance of account 56789?")])
 last_message = result["last_message"]
 cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
+
+# Call addition tool with confirmation (Never Ask)
+result = agent.run([ChatMessage.from_user("What is 5.5 + 3.2?")])
+last_message = result["last_message"]
+print(f"\nAgent Result: {last_message.text}")
+
+# Call phone tool with confirmation (Ask Once)
+result = agent.run([ChatMessage.from_user("What is the phone number of Alice?")])
+last_message = result["last_message"]
+print(f"\nAgent Result: {last_message.text}")
+
+# Call phone tool again to see that it doesn't ask for confirmation again
+result = agent.run([ChatMessage.from_user("What is the phone number of Alice?")])
+last_message = result["last_message"]
+print(f"\nAgent Result: {last_message.text}")

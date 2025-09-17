@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .protocol import ConfirmationPrompt, ExecutionPolicy
+from .protocol import ConfirmationPolicy, ConfirmationStrategy, UserInterface
 
-__all__ = ["ConfirmationPrompt", "ExecutionPolicy"]
+__all__ = ["ConfirmationPolicy", "ConfirmationStrategy", "UserInterface"]

@@ -7,30 +7,60 @@ from typing import TYPE_CHECKING, Any, Protocol
 if TYPE_CHECKING:
     from haystack.tools import Tool
 
-    from haystack_experimental.tools.human_in_the_loop import ConfirmationResult
+    from haystack_experimental.tools.hitl import ConfirmationResult
 
 
-class ConfirmationPrompt(Protocol):
-    def confirm(self, tool_name: str, params: dict[str, Any]) -> "ConfirmationResult":
+class ConfirmationPolicy(Protocol):
+    """Protocol for confirmation policies."""
+
+    def should_ask(self, tool: "Tool", tool_params: dict[str, Any]) -> bool:
+        """Determine whether to ask for confirmation."""
+        ...
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the policy to a dictionary."""
+        ...
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationPolicy":
+        """Deserialize the policy from a dictionary."""
+        ...
+
+
+class UserInterface(Protocol):
+    """Protocol for user interaction strategies."""
+
+    def get_user_confirmation(self, tool: "Tool", tool_params: dict[str, Any]) -> "ConfirmationResult":
+        """Get user confirmation for tool execution."""
+        ...
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the UI to a dictionary."""
+        ...
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "UserInterface":
+        """Deserialize the UI from a dictionary."""
+        ...
+
+
+class ConfirmationStrategy(Protocol):
+    def run(self, tool: "Tool", tool_params: dict[str, Any]) -> "ConfirmationResult":
         """
-        Ask for user confirmation before executing a tool.
+        Run the confirmation strategy for a given tool and its parameters.
 
-        :param tool_name: Name of the tool to be executed.
-        :param params: Parameters to be passed to the tool.
+        :param tool: The tool to be confirmed.
+        :param tool_params: The parameters to be passed to the tool.
+
         :returns:
-            ConfirmationResult with action (e.g. "confirm" or "reject") and optional feedback message.
+            The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
         """
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the strategy to a dictionary."""
+        ...
 
-class ExecutionPolicy(Protocol):
-    def handle(self, result: "ConfirmationResult", tool: "Tool", kwargs: dict[str, Any]) -> Any:
-        """
-        Handle the execution policy based on the user's confirmation result.
-
-        :param result: The result from the confirmation prompt.
-        :param tool: The tool to be executed.
-        :param kwargs: The parameters to be passed to the tool.
-
-        :returns:
-            The result of the execution policy (e.g., tool output, rejection message, etc.).
-        """
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationStrategy":
+        """Deserialize the strategy from a dictionary."""
+        ...
