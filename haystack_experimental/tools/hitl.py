@@ -5,12 +5,11 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from haystack.core.serialization import generate_qualified_class_name, import_class_by_name
 from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-
-from haystack.core.serialization import generate_qualified_class_name, import_class_by_name
 
 from haystack_experimental.tools.types.protocol import ConfirmationPolicy, UserInterface
 
@@ -102,7 +101,7 @@ class RichConsoleUI:
     def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
         lines = [f"[bold yellow]Tool:[/bold yellow] {tool.name}"]
 
-        if hasattr(tool, 'description') and tool.description:
+        if hasattr(tool, "description") and tool.description:
             lines.append(f"[bold yellow]Description:[/bold yellow] {tool.description}")
 
         if tool_params:
@@ -110,11 +109,7 @@ class RichConsoleUI:
             for k, v in tool_params.items():
                 lines.append(f"[cyan]{k}:[/cyan] {v}")
 
-        self.console.print(Panel(
-            "\n".join(lines),
-            title="🔧 Tool Execution Request",
-            title_align="left"
-        ))
+        self.console.print(Panel("\n".join(lines), title="🔧 Tool Execution Request", title_align="left"))
 
     def _process_choice(self, choice: str, tool_params: dict[str, Any]) -> ConfirmationResult:
         if choice == "y":
@@ -132,7 +127,7 @@ class RichConsoleUI:
             # Try to preserve original type
             try:
                 if isinstance(v, bool):
-                    new_params[k] = new_val.lower() in ('true', 'yes', '1', 'on')
+                    new_params[k] = new_val.lower() in ("true", "yes", "1", "on")
                 elif isinstance(v, int):
                     new_params[k] = int(new_val)
                 elif isinstance(v, float):
@@ -164,10 +159,10 @@ class SimpleConsoleUI:
         return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
-        print(f"\n--- Tool Execution Request ---")
+        print("\n--- Tool Execution Request ---")
         print(f"Tool: {tool.name}")
 
-        if hasattr(tool, 'description') and tool.description:
+        if hasattr(tool, "description") and tool.description:
             print(f"Description: {tool.description}")
 
         if tool_params:
@@ -192,7 +187,7 @@ class SimpleConsoleUI:
             # Try to preserve original type
             try:
                 if isinstance(v, bool):
-                    new_params[k] = new_val.lower() in ('true', 'yes', '1', 'on')
+                    new_params[k] = new_val.lower() in ("true", "yes", "1", "on")
                 elif isinstance(v, int):
                     new_params[k] = int(new_val)
                 elif isinstance(v, float):

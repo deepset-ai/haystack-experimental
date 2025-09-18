@@ -10,7 +10,7 @@ from haystack.components.agents import State
 from haystack.components.tools.tool_invoker import ToolInvoker as HaystackToolInvoker
 from haystack.components.tools.tool_invoker import ToolOutputMergeError
 from haystack.core.component.component import component
-from haystack.core.serialization import default_from_dict, default_to_dict, logging, import_class_by_name
+from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name, logging
 from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, StreamingChunk, select_streaming_callback
 from haystack.tools import (

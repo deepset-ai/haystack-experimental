@@ -7,15 +7,14 @@ from typing import Any, Optional, Union
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
+from haystack.components.agents.state.state import _validate_schema
+from haystack.components.agents.state.state_utils import merge_lists
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.component.component import component
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import Tool, Toolset
-
-from haystack.components.agents.state.state import _validate_schema
-from haystack.components.agents.state.state_utils import merge_lists
 
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
 

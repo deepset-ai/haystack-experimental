@@ -9,9 +9,9 @@ from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.tools.hitl import (
-    HumanInTheLoopStrategy,
     AlwaysAskPolicy,
     AskOncePolicy,
+    HumanInTheLoopStrategy,
     NeverAskPolicy,
     RichConsoleUI,
     SimpleConsoleUI,
