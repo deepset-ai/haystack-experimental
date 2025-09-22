@@ -10,6 +10,7 @@ from haystack.components.agents import State
 from haystack.components.tools.tool_invoker import ToolInvoker as HaystackToolInvoker
 from haystack.components.tools.tool_invoker import ToolOutputMergeError
 from haystack.core.component.component import component
+from haystack.core.errors import DeserializationError
 from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name, logging
 from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, StreamingChunk, select_streaming_callback
@@ -183,7 +184,7 @@ class ToolInvoker(HaystackToolInvoker):
             enable_streaming_callback_passthrough=enable_streaming_callback_passthrough,
             max_workers=max_workers,
         )
-        self.confirmation_strategies = confirmation_strategies or []
+        self.confirmation_strategies = confirmation_strategies or {}
 
     def _handle_confirmation_strategies(
         self, tool_calls: list[ToolCall], tool_call_params: list[dict[str, Any]]
@@ -208,7 +209,7 @@ class ToolInvoker(HaystackToolInvoker):
                 # Tool execution was rejected with a message
                 tool_messages.append(
                     ChatMessage.from_tool(
-                        tool_result=tool_execution_decision.feedback,
+                        tool_result=tool_execution_decision.feedback or "",
                         origin=tool_call,
                         error=True,
                     )
@@ -532,7 +533,7 @@ class ToolInvoker(HaystackToolInvoker):
             streaming_callback=streaming_callback,
             enable_streaming_callback_passthrough=self.enable_streaming_callback_passthrough,
             max_workers=self.max_workers,
-            confirmation_strategies=[c.to_dict() for c in self.confirmation_strategies],
+            confirmation_strategies={name: c.to_dict() for name, c in self.confirmation_strategies.items()},
         )
 
     @classmethod
@@ -551,10 +552,16 @@ class ToolInvoker(HaystackToolInvoker):
                 data["init_parameters"]["streaming_callback"]
             )
 
-        deserialized_strats = {}
+        deserialized_strats: dict[str, ConfirmationStrategy] = {}
         if confirmation_strategies_data := data["init_parameters"].get("confirmation_strategies"):
-            for tool_name, strat in confirmation_strategies_data:
+            for tool_name, strat in confirmation_strategies_data.items():
                 strat_class = import_class_by_name(strat["type"])
-                deserialized_strats[tool_name](strat_class.from_dict(strat))
+                if hasattr(strat_class, "from_dict"):
+                    deserialized_strats[tool_name] = strat_class.from_dict(strat)
+                else:
+                    raise DeserializationError(
+                        f"Cannot deserialize confirmation strategy of type '{strat_class}' for tool '{tool_name}'. "
+                        f"The confirmation strategy class {strat_class} does not implement a `from_dict` method."
+                    )
             data["init_parameters"]["confirmation_strategies"] = deserialized_strats
         return default_from_dict(cls, data)

@@ -16,8 +16,8 @@ from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import Tool, Toolset
 
-from haystack_experimental.tools.types import ConfirmationStrategy
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
+from haystack_experimental.tools.types import ConfirmationStrategy
 
 logger = logging.getLogger(__name__)
 

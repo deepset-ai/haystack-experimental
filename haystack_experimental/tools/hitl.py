@@ -5,13 +5,11 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from haystack.core.serialization import import_class_by_name, default_to_dict, default_from_dict
+from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name
 from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-
-from haystack_experimental.tools.types.protocol import ConfirmationPolicy, ConfirmationUI
 
 
 @dataclass
@@ -54,7 +52,24 @@ class ToolExecutionDecision:
 
 
 # Confirmation policy implementations
-class AlwaysAskPolicy:
+class ConfirmationPolicy:
+    """Base class for confirmation policies."""
+
+    def should_ask(self, tool: Tool, tool_params: dict[str, Any]) -> bool:
+        """Determine whether to ask for confirmation."""
+        raise NotImplementedError
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the policy to a dictionary."""
+        return default_to_dict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationPolicy":
+        """Deserialize the policy from a dictionary."""
+        return default_from_dict(cls, data)
+
+
+class AlwaysAskPolicy(ConfirmationPolicy):
     """Always ask for confirmation."""
 
     def should_ask(self, tool: Tool, tool_params: dict[str, Any]) -> bool:
@@ -67,15 +82,8 @@ class AlwaysAskPolicy:
         """
         return True
 
-    def to_dict(self) -> dict[str, Any]:
-        return default_to_dict(self)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AlwaysAskPolicy":
-        return default_from_dict(cls, data)
-
-
-class NeverAskPolicy:
+class NeverAskPolicy(ConfirmationPolicy):
     """Never ask for confirmation."""
 
     def should_ask(self, tool: Tool, tool_params: dict[str, Any]) -> bool:
@@ -88,15 +96,8 @@ class NeverAskPolicy:
         """
         return False
 
-    def to_dict(self) -> dict[str, Any]:
-        return default_to_dict(self)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "NeverAskPolicy":
-        return default_from_dict(cls, data)
-
-
-class AskOncePolicy:
+class AskOncePolicy(ConfirmationPolicy):
     """Ask only once per tool with specific parameters."""
 
     def __init__(self):
@@ -115,21 +116,39 @@ class AskOncePolicy:
         self._asked_tools[tool.name] = tool_params
         return True
 
+
+# Confirmation UI implementations
+class ConfirmationUI:
+    """Base class for confirmation UIs."""
+
+    def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+        """Get user confirmation for tool execution."""
+        raise NotImplementedError
+
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the UI to a dictionary."""
         return default_to_dict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AskOncePolicy":
+    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationUI":
+        """Deserialize the ConfirmationUI from a dictionary."""
         return default_from_dict(cls, data)
 
 
-class RichConsoleConfirmationUI:
+class RichConsoleConfirmationUI(ConfirmationUI):
     """Rich console interface for user interaction."""
 
     def __init__(self, console: Optional[Console] = None):
         self.console = console or Console()
 
     def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+        """
+        Get user confirmation for tool execution via rich console prompts.
+
+        :param tool: The tool to be executed.
+        :param tool_params: The parameters to be passed to the tool.
+        :returns: ConfirmationUIResult based on user input.
+        """
         self._display_tool_info(tool, tool_params)
 
         choice = Prompt.ask(
@@ -163,7 +182,7 @@ class RichConsoleConfirmationUI:
             return ConfirmationUIResult(action="reject", feedback=feedback or None)
 
     def _modify_params(self, tool_params: dict[str, Any]) -> ConfirmationUIResult:
-        new_params = {}
+        new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
             new_val = Prompt.ask(f"Modify '{k}'", default=str(v))
             # Try to preserve original type
@@ -182,15 +201,17 @@ class RichConsoleConfirmationUI:
         return ConfirmationUIResult(action="modify", new_tool_params=new_params)
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Serializes the RichConsoleConfirmationUI to a dictionary.
+
+        :returns:
+            Dictionary with serialized data.
+        """
         # Note: Console object is not serializable; we store None
         return default_to_dict(self, console=None)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RichConsoleConfirmationUI":
-        return default_from_dict(cls, data)
 
-
-class SimpleConsoleConfirmationUI:
+class SimpleConsoleConfirmationUI(ConfirmationUI):
     """Simple console interface using standard input/output."""
 
     def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
@@ -227,7 +248,7 @@ class SimpleConsoleConfirmationUI:
             return ConfirmationUIResult(action="reject", feedback=feedback or None)
 
     def _modify_params(self, tool_params: dict[str, Any]) -> ConfirmationUIResult:
-        new_params = {}
+        new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
             new_val = input(f"Modify '{k}' [{v}]: ").strip() or v
             # Try to preserve original type
@@ -245,20 +266,14 @@ class SimpleConsoleConfirmationUI:
 
         return ConfirmationUIResult(action="modify", new_tool_params=new_params)
 
-    def to_dict(self) -> dict[str, Any]:
-        return default_to_dict(self)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SimpleConsoleConfirmationUI":
-        return default_from_dict(cls, data)
-
-
+# Human-in-the-loop strategy
 class HumanInTheLoopStrategy:
     """
     Human-in-the-loop strategy for tool execution confirmation.
     """
 
-    def __init__(self, confirmation_policy: ConfirmationPolicy, confirmation_ui: ConfirmationUI):
+    def __init__(self, confirmation_policy: ConfirmationPolicy, confirmation_ui: ConfirmationUI) -> None:
         """
         Initialize the HumanInTheLoopStrategy with a confirmation policy and UI.
 
@@ -317,6 +332,7 @@ class HumanInTheLoopStrategy:
     def from_dict(cls, data: dict[str, Any]) -> "HumanInTheLoopStrategy":
         """
         Deserializes the HumanInTheLoopStrategy from a dictionary.
+
         :param data:
             Dictionary to deserialize from.
 
@@ -327,11 +343,11 @@ class HumanInTheLoopStrategy:
         ui_data = data["data"]["ui"]
 
         policy_class = import_class_by_name(policy_data["type"])
-        if not hasattr(policy_class, "from_dict") or not callable(getattr(policy_class, "from_dict")):
-            raise TypeError(f"Class '{policy_class}' does not have a 'from_dict' method")
+        if not issubclass(policy_class, ConfirmationPolicy):
+            raise TypeError(f"Class '{policy_class}' is not a subclass of ConfirmationPolicy")
 
         ui_class = import_class_by_name(ui_data["type"])
-        if not hasattr(ui_class, "from_dict") or not callable(getattr(ui_class, "from_dict")):
-            raise TypeError(f"Class '{ui_class}' does not have a 'from_dict' method")
+        if not issubclass(ui_class, ConfirmationUI):
+            raise TypeError(f"Class '{ui_class}' is not a subclass of ConfirmationUI")
 
         return cls(confirmation_policy=policy_class.from_dict(policy_data), confirmation_ui=ui_class.from_dict(ui_data))
