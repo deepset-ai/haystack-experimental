@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-from haystack_experimental.tools.types.protocol import ConfirmationPolicy, UserInterface
+from haystack_experimental.tools.types.protocol import ConfirmationPolicy, ConfirmationUI
 
 
 @dataclass
@@ -30,6 +30,24 @@ class ConfirmationResult:
     action: str  # "confirm", "reject", "modify"
     feedback: Optional[str] = None
     new_tool_params: Optional[dict[str, Any]] = None
+
+
+@dataclass
+class ToolExecutionDecision:
+    """
+    Decision made regarding tool execution.
+
+    :param tool_name:
+        The name of the tool to be executed.
+    :param feedback:
+        Optional feedback message if the tool execution was rejected.
+    :param final_tool_params:
+        Optional final parameters for the tool if execution is confirmed or modified.
+    """
+
+    tool_name: str
+    feedback: Optional[str] = None
+    final_tool_params: Optional[dict[str, Any]] = None
 
 
 # Confirmation policy implementations
@@ -81,7 +99,7 @@ class AskOncePolicy:
         return cls()
 
 
-class RichConsoleUI:
+class RichConsoleConfirmationUI:
     """Rich console interface for user interaction."""
 
     def __init__(self, console: Optional[Console] = None):
@@ -144,11 +162,11 @@ class RichConsoleUI:
         return {"type": generate_qualified_class_name(type(self)), "data": {"console": None}}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RichConsoleUI":
+    def from_dict(cls, data: dict[str, Any]) -> "RichConsoleConfirmationUI":
         return cls(console=None)
 
 
-class SimpleConsoleUI:
+class SimpleConsoleConfirmationUI:
     """Simple console interface using standard input/output."""
 
     def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationResult:
@@ -203,7 +221,7 @@ class SimpleConsoleUI:
         return {"type": generate_qualified_class_name(type(self)), "data": {}}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SimpleConsoleUI":
+    def from_dict(cls, data: dict[str, Any]) -> "SimpleConsoleConfirmationUI":
         return cls()
 
 
@@ -213,20 +231,34 @@ class HumanInTheLoopStrategy:
     Separates policy decisions from UI interactions.
     """
 
-    def __init__(self, policy: ConfirmationPolicy, ui: UserInterface):
+    def __init__(self, policy: ConfirmationPolicy, ui: ConfirmationUI):
         self.policy = policy
         self.ui = ui
 
-    def run(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationResult:
+    def run(self, tool: Tool, tool_params: dict[str, Any]) -> ToolExecutionDecision:
         """
         Main entry point for human-in-the-loop confirmation.
         """
         # Check if we should ask based on policy
         if not self.policy.should_ask(tool, tool_params):
-            return ConfirmationResult(action="confirm")
+            return ToolExecutionDecision(tool_name=tool.name, final_tool_params=tool_params)
 
         # Get user confirmation through UI
-        return self.ui.get_user_confirmation(tool, tool_params)
+        confirmation_result = self.ui.get_user_confirmation(tool, tool_params)
+
+        # Process the confirmation result
+        final_args = {}
+        if confirmation_result.action == "reject":
+            tool_result_message = f"Tool execution for '{tool.name}' rejected by user"
+            if confirmation_result.feedback:
+                tool_result_message += f" with feedback: {confirmation_result.feedback}"
+            return ToolExecutionDecision(tool_name=tool.name, feedback=tool_result_message)
+        elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
+            # Update the tool call params with the new params
+            final_args.update(confirmation_result.new_tool_params)
+            return ToolExecutionDecision(tool_name=tool.name, final_tool_params=final_args)
+        else:  # action == "confirm"
+            return ToolExecutionDecision(tool_name=tool.name, final_tool_params=tool_params)
 
     def to_dict(self) -> dict[str, Any]:
         return {

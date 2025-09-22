@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, Union
 
 if TYPE_CHECKING:
     from haystack.tools import Tool
 
-    from haystack_experimental.tools.hitl import ConfirmationResult
+    from haystack_experimental.tools.hitl import ConfirmationResult, ToolExecutionDecision
 
 
 class ConfirmationPolicy(Protocol):
@@ -27,8 +27,8 @@ class ConfirmationPolicy(Protocol):
         ...
 
 
-class UserInterface(Protocol):
-    """Protocol for user interaction strategies."""
+class ConfirmationUI(Protocol):
+    """Protocol for confirmation user interfaces."""
 
     def get_user_confirmation(self, tool: "Tool", tool_params: dict[str, Any]) -> "ConfirmationResult":
         """Get user confirmation for tool execution."""
@@ -39,13 +39,13 @@ class UserInterface(Protocol):
         ...
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "UserInterface":
+    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationUI":
         """Deserialize the UI from a dictionary."""
         ...
 
 
 class ConfirmationStrategy(Protocol):
-    def run(self, tool: "Tool", tool_params: dict[str, Any]) -> "ConfirmationResult":
+    def run(self, tool: "Tool", tool_params: dict[str, Any]) -> "ToolExecutionDecision":
         """
         Run the confirmation strategy for a given tool and its parameters.
 

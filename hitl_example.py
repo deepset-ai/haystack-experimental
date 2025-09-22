@@ -13,8 +13,8 @@ from haystack_experimental.tools.hitl import (
     AskOncePolicy,
     HumanInTheLoopStrategy,
     NeverAskPolicy,
-    RichConsoleUI,
-    SimpleConsoleUI,
+    RichConsoleConfirmationUI,
+    SimpleConsoleConfirmationUI,
 )
 
 
@@ -78,13 +78,11 @@ agent = Agent(
     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
     tools=[balance_tool, addition_tool, phone_tool],
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
-    tool_invoker_kwargs={
-        "confirmation_strategies": {
-            "get_bank_balance": HumanInTheLoopStrategy(policy=AlwaysAskPolicy(), ui=RichConsoleUI(console=cons)),
-            "addition": HumanInTheLoopStrategy(policy=NeverAskPolicy(), ui=SimpleConsoleUI()),
-            "get_phone_number": HumanInTheLoopStrategy(policy=AskOncePolicy(), ui=SimpleConsoleUI()),
-        }
-    }
+    confirmation_strategies={
+            balance_tool.name: HumanInTheLoopStrategy(policy=AlwaysAskPolicy(), ui=RichConsoleConfirmationUI(console=cons)),
+            addition_tool.name: HumanInTheLoopStrategy(policy=NeverAskPolicy(), ui=SimpleConsoleConfirmationUI()),
+            phone_tool.name: HumanInTheLoopStrategy(policy=AskOncePolicy(), ui=SimpleConsoleConfirmationUI()),
+    },
 )
 
 # Call bank tool with confirmation (Always Ask)

@@ -16,6 +16,7 @@ from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import Tool, Toolset
 
+from haystack_experimental.tools.types import ConfirmationStrategy
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class Agent(HaystackAgent):
         max_agent_steps: int = 100,
         streaming_callback: Optional[StreamingCallbackT] = None,
         raise_on_tool_invocation_failure: bool = False,
+        confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
         tool_invoker_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """
@@ -101,12 +103,14 @@ class Agent(HaystackAgent):
             component.set_input_type(self, name=param, type=config["type"], default=None)
         component.set_output_types(self, **output_types)
 
+        self._confirmation_strategies = confirmation_strategies or {}
         self.tool_invoker_kwargs = tool_invoker_kwargs
         self._tool_invoker = None
         if self.tools:
             resolved_tool_invoker_kwargs = {
                 "tools": self.tools,
                 "raise_on_failure": self.raise_on_tool_invocation_failure,
+                "confirmation_strategies": self._confirmation_strategies,
                 **(tool_invoker_kwargs or {}),
             }
             self._tool_invoker = ToolInvoker(**resolved_tool_invoker_kwargs)

@@ -166,6 +166,12 @@ class ToolInvoker(HaystackToolInvoker):
         :param max_workers:
             The maximum number of workers to use in the thread pool executor.
             This also decides the maximum number of concurrent tool invocations.
+        :param confirmation_strategies:
+            A dictionary mapping tool names to their corresponding confirmation strategies.
+            If a tool name is present in this dictionary, the associated confirmation strategy
+            will be executed before invoking the tool.
+            If the tool execution is rejected by the strategy, the tool will not be invoked,
+            and an appropriate message will be returned instead.
         :raises ValueError:
             If no tools are provided or if duplicate tool names are found.
         """
@@ -194,26 +200,21 @@ class ToolInvoker(HaystackToolInvoker):
                 confirmed_tool_call_params.append(params)
                 continue
 
-            confirmation_result = self.confirmation_strategies[tool_name].run(
+            tool_execution_decision = self.confirmation_strategies[tool_name].run(
                 tool=params["tool_to_invoke"], tool_params=params["final_args"]
             )
-            if confirmation_result.action == "reject":
-                tool_result_message = f"Tool execution for '{tool_name}' rejected by user"
-                if confirmation_result.feedback:
-                    tool_result_message += f" with feedback: {confirmation_result.feedback}"
+
+            if tool_execution_decision.feedback is not None:
+                # Tool execution was rejected with a message
                 tool_messages.append(
                     ChatMessage.from_tool(
-                        tool_result=tool_result_message,
+                        tool_result=tool_execution_decision.feedback,
                         origin=tool_call,
                         error=True,
                     )
                 )
-            elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
-                # Update the tool call params with the new params
-                params["final_args"].update(confirmation_result.new_tool_params)
-                confirmed_tool_calls.append(tool_call)
-                confirmed_tool_call_params.append(params)
-            else:  # action == "confirm"
+            else:
+                params["final_args"].update(tool_execution_decision.final_tool_params)
                 confirmed_tool_calls.append(tool_call)
                 confirmed_tool_call_params.append(params)
 
