@@ -79,9 +79,15 @@ agent = Agent(
     tools=[balance_tool, addition_tool, phone_tool],
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
     confirmation_strategies={
-            balance_tool.name: HumanInTheLoopStrategy(policy=AlwaysAskPolicy(), ui=RichConsoleConfirmationUI(console=cons)),
-            addition_tool.name: HumanInTheLoopStrategy(policy=NeverAskPolicy(), ui=SimpleConsoleConfirmationUI()),
-            phone_tool.name: HumanInTheLoopStrategy(policy=AskOncePolicy(), ui=SimpleConsoleConfirmationUI()),
+        balance_tool.name: HumanInTheLoopStrategy(
+            confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleConfirmationUI(console=cons)
+        ),
+        addition_tool.name: HumanInTheLoopStrategy(
+            confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleConfirmationUI()
+        ),
+        phone_tool.name: HumanInTheLoopStrategy(
+            confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleConfirmationUI()
+        ),
     },
 )
 

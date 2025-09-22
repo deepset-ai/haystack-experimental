@@ -204,7 +204,7 @@ class ToolInvoker(HaystackToolInvoker):
                 tool=params["tool_to_invoke"], tool_params=params["final_args"]
             )
 
-            if tool_execution_decision.feedback is not None:
+            if tool_execution_decision.final_tool_params is None:
                 # Tool execution was rejected with a message
                 tool_messages.append(
                     ChatMessage.from_tool(

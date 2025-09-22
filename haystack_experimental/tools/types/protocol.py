@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Protocol, Union
 if TYPE_CHECKING:
     from haystack.tools import Tool
 
-    from haystack_experimental.tools.hitl import ConfirmationResult, ToolExecutionDecision
+    from haystack_experimental.tools.hitl import ConfirmationUIResult, ToolExecutionDecision
 
 
 class ConfirmationPolicy(Protocol):
@@ -30,7 +30,7 @@ class ConfirmationPolicy(Protocol):
 class ConfirmationUI(Protocol):
     """Protocol for confirmation user interfaces."""
 
-    def get_user_confirmation(self, tool: "Tool", tool_params: dict[str, Any]) -> "ConfirmationResult":
+    def get_user_confirmation(self, tool: "Tool", tool_params: dict[str, Any]) -> "ConfirmationUIResult":
         """Get user confirmation for tool execution."""
         ...
 
