@@ -187,29 +187,35 @@ class ToolInvoker(HaystackToolInvoker):
         tool_messages = []
         for tool_call, params in zip(tool_calls, tool_call_params):
             tool_name = params["tool_to_invoke"].name
-            if tool_name in self.confirmation_strategies:
-                confirmation_result = self.confirmation_strategies[tool_name].run(
-                    tool=params["tool_to_invoke"], tool_params=params["final_args"]
-                )
-                if confirmation_result.action == "reject":
-                    tool_result_message = f"Tool execution for '{tool_name}' rejected by user"
-                    if confirmation_result.feedback:
-                        tool_result_message += f" with feedback: {confirmation_result.feedback}"
-                    tool_messages.append(
-                        ChatMessage.from_tool(
-                            tool_result=tool_result_message,
-                            origin=tool_call,
-                            error=True,
-                        )
+
+            # If no confirmation strategy is defined for this tool, proceed with execution
+            if tool_name not in self.confirmation_strategies:
+                confirmed_tool_calls.append(tool_call)
+                confirmed_tool_call_params.append(params)
+                continue
+
+            confirmation_result = self.confirmation_strategies[tool_name].run(
+                tool=params["tool_to_invoke"], tool_params=params["final_args"]
+            )
+            if confirmation_result.action == "reject":
+                tool_result_message = f"Tool execution for '{tool_name}' rejected by user"
+                if confirmation_result.feedback:
+                    tool_result_message += f" with feedback: {confirmation_result.feedback}"
+                tool_messages.append(
+                    ChatMessage.from_tool(
+                        tool_result=tool_result_message,
+                        origin=tool_call,
+                        error=True,
                     )
-                elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
-                    # Update the tool call params with the new params
-                    params["final_args"].update(confirmation_result.new_tool_params)
-                    confirmed_tool_calls.append(tool_call)
-                    confirmed_tool_call_params.append(params)
-                else:  # action == "confirm"
-                    confirmed_tool_calls.append(tool_call)
-                    confirmed_tool_call_params.append(params)
+                )
+            elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
+                # Update the tool call params with the new params
+                params["final_args"].update(confirmation_result.new_tool_params)
+                confirmed_tool_calls.append(tool_call)
+                confirmed_tool_call_params.append(params)
+            else:  # action == "confirm"
+                confirmed_tool_calls.append(tool_call)
+                confirmed_tool_call_params.append(params)
 
         return confirmed_tool_calls, confirmed_tool_call_params, tool_messages
 
@@ -331,7 +337,9 @@ class ToolInvoker(HaystackToolInvoker):
                             )
                         )
                     except Exception as e:
-                        error = ToolOutputMergeError.from_exception(tool_name=tool_call.tool_name, error=e)
+                        error = ToolOutputMergeError(
+                            f"Failed to merge tool outputs from tool {tool_call.tool_name} into State: {e}"
+                        )
                         if self.raise_on_failure:
                             raise error from e
                         logger.error("{error_exception}", error_exception=error)
@@ -438,7 +446,9 @@ class ToolInvoker(HaystackToolInvoker):
             return {"tool_messages": tool_messages, "state": state}
 
         # Apply confirmation strategies before executing tool calls
-        tool_call_params, rejection_messages = self._handle_confirmation_strategies(tool_call_params)
+        tool_calls, tool_call_params, rejection_messages = self._handle_confirmation_strategies(
+            tool_calls=tool_calls, tool_call_params=tool_call_params
+        )
         tool_messages.extend(rejection_messages)
 
         # Early exit if no valid tool calls after confirmation strategies
@@ -475,7 +485,9 @@ class ToolInvoker(HaystackToolInvoker):
                             )
                         )
                     except Exception as e:
-                        error = ToolOutputMergeError.from_exception(tool_name=tool_call.tool_name, error=e)
+                        error = ToolOutputMergeError(
+                            f"Failed to merge tool outputs from tool {tool_call.tool_name} into State: {e}"
+                        )
                         if self.raise_on_failure:
                             raise error from e
                         logger.error("{error_exception}", error_exception=error)
