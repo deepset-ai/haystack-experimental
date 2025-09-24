@@ -4,13 +4,13 @@
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
-from haystack.tools import create_tool_from_function, ComponentTool
+from haystack.tools import ComponentTool, create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop.policies import AlwaysAskPolicy
-from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import RichConsoleUI
 from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
+from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import RichConsoleUI
 
 
 def addition(a: float, b: float) -> float:
@@ -78,7 +78,7 @@ math_agent = Agent(
         addition_tool.name: HumanInTheLoopStrategy(
             # We use AlwaysAskPolicy here for demonstration; in real scenarios, you might choose NeverAskPolicy
             confirmation_policy=AlwaysAskPolicy(),
-            confirmation_ui=RichConsoleUI(console=cons)
+            confirmation_ui=RichConsoleUI(console=cons),
         ),
     },
 )

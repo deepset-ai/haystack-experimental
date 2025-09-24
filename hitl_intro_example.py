@@ -13,11 +13,11 @@ from haystack_experimental.components.agents.human_in_the_loop.policies import (
     AskOncePolicy,
     NeverAskPolicy,
 )
+from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
 from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import (
     RichConsoleUI,
     SimpleConsoleUI,
 )
-from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
 
 
 def addition(a: float, b: float) -> float:
@@ -89,9 +89,7 @@ agent = Agent(
         addition_tool.name: HumanInTheLoopStrategy(
             confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleUI()
         ),
-        phone_tool.name: HumanInTheLoopStrategy(
-            confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()
-        ),
+        phone_tool.name: HumanInTheLoopStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()),
     },
 )
 
