@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Any
-from haystack.tools import Tool
+
 from haystack.core.serialization import default_from_dict, default_to_dict
+from haystack.tools import Tool
 
 
 class ConfirmationPolicy:

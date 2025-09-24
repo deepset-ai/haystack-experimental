@@ -4,14 +4,14 @@
 
 from typing import TYPE_CHECKING, Any, Protocol
 
+from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
+
 if TYPE_CHECKING:
     from haystack.tools import Tool
 
-    from haystack_experimental.tools.hitl import ToolExecutionDecision
-
 
 class ConfirmationStrategy(Protocol):
-    def run(self, tool: "Tool", tool_params: dict[str, Any]) -> "ToolExecutionDecision":
+    def run(self, tool: "Tool", tool_params: dict[str, Any]) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
 

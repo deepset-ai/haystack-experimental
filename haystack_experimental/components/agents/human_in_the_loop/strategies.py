@@ -7,12 +7,11 @@ from typing import Any
 from haystack.core.serialization import default_to_dict, import_class_by_name
 from haystack.tools import Tool
 
-from haystack_experimental.components.agents.human_in_the_loop.confirmation_policies import ConfirmationPolicy
-from haystack_experimental.components.agents.human_in_the_loop.confirmation_uis import ConfirmationUI
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
+from haystack_experimental.components.agents.human_in_the_loop.policies import ConfirmationPolicy
+from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import ConfirmationUI
 
 
-# Human-in-the-loop strategy
 class HumanInTheLoopStrategy:
     """
     Human-in-the-loop strategy for tool execution confirmation.
