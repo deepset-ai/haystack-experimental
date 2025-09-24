@@ -111,6 +111,7 @@ last_message = result["last_message"]
 print(f"\nAgent Result: {last_message.text}")
 
 # Make bank balance request and addition request to planner agent
+# NOTE: This will try and invoke both sub-agents in parallel requiring a thread-safe UI
 result = planner_agent.run([ChatMessage.from_user("What's the balance of account 56789 and what is 5.5 + 3.2?")])
 last_message = result["last_message"]
 print(f"\nAgent Result: {last_message.text}")
