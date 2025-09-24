@@ -37,22 +37,31 @@ class EmbeddingBasedDocumentSplitter:
     from haystack.components.embedders import SentenceTransformersDocumentEmbedder
     from haystack_experimental.components.preprocessors import EmbeddingBasedDocumentSplitter
 
+    # Create a document with content that has a clear topic shift
     doc = Document(
         content="This is a first sentence. This is a second sentence. This is a third sentence. "
         "Completely different topic. The same completely different topic."
     )
 
+    # Initialize the embedder to calculate semantic similarities
     embedder = SentenceTransformersDocumentEmbedder()
 
+    # Configure the splitter with parameters that control splitting behavior
     splitter = EmbeddingBasedDocumentSplitter(
         document_embedder=embedder,
-        sentences_per_group=2,
-        percentile=0.95,
-        min_length=50,
-        max_length=1000
+        sentences_per_group=2,      # Group 2 sentences before calculating embeddings
+        percentile=0.95,            # Split when cosine distance exceeds 95th percentile
+        min_length=50,              # Merge splits shorter than 50 characters
+        max_length=1000             # Further split chunks longer than 1000 characters
     )
     splitter.warm_up()
     result = splitter.run(documents=[doc])
+    
+    # The result contains a list of Document objects, each representing a semantic chunk
+    # Each split document includes metadata: source_id, split_id, and page_number
+    print(f"Original document split into {len(result['documents'])} chunks")
+    for i, split_doc in enumerate(result['documents']):
+        print(f"Chunk {i}: {split_doc.content[:50]}...")
     ```
     """
 
@@ -78,8 +87,11 @@ class EmbeddingBasedDocumentSplitter:
         :param min_length: Minimum length of splits in characters. Splits below this length will be merged.
         :param max_length: Maximum length of splits in characters. Splits above this length will be recursively split.
         :param language: Language for sentence tokenization.
-        :param use_split_rules: Whether to use additional split rules for sentence tokenization.
-        :param extend_abbreviations: Whether to extend NLTK abbreviations.
+        :param use_split_rules: Whether to use additional split rules for sentence tokenization. Applies additional
+            split rules from SentenceSplitter to the sentence spans.
+        :param extend_abbreviations: If True, the abbreviations used by NLTK's PunktTokenizer are extended by a list
+            of curated abbreviations. Currently supported languages are: en, de.
+            If False, the default abbreviations are used.
         """
         self.document_embedder = document_embedder
         self.sentences_per_group = sentences_per_group
