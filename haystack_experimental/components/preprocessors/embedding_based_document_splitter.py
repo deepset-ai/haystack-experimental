@@ -56,7 +56,7 @@ class EmbeddingBasedDocumentSplitter:
     )
     splitter.warm_up()
     result = splitter.run(documents=[doc])
-    
+
     # The result contains a list of Document objects, each representing a semantic chunk
     # Each split document includes metadata: source_id, split_id, and page_number
     print(f"Original document split into {len(result['documents'])} chunks")
