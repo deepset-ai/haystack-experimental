@@ -3,11 +3,11 @@ loaders:
     search_path: [../../../]
     modules: [
       "haystack_experimental.components.agents.agent",
-      "haystack_experimental.components.agents.agent.human_in_the_loop_agent.dataclasses",
-      "haystack_experimental.components.agents.agent.human_in_the_loop_agent.policies",
-      "haystack_experimental.components.agents.agent.human_in_the_loop_agent.protocol",
-      "haystack_experimental.components.agents.agent.human_in_the_loop_agent.strategies",
-      "haystack_experimental.components.agents.agent.human_in_the_loop_agent.user_interfaces",
+      "haystack_experimental.components.agents.human_in_the_loop_agent.dataclasses",
+      "haystack_experimental.components.agents.human_in_the_loop_agent.policies",
+      "haystack_experimental.components.agents.human_in_the_loop_agent.protocol",
+      "haystack_experimental.components.agents.human_in_the_loop_agent.strategies",
+      "haystack_experimental.components.agents.human_in_the_loop_agent.user_interfaces",
     ]
     ignore_when_discovered: ["__init__"]
 processors:
