@@ -23,7 +23,7 @@ from haystack.tools import (
 from haystack.tools.errors import ToolInvocationError
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 
-from haystack_experimental.tools.types.protocol import ConfirmationStrategy
+from haystack_experimental.components.agents.human_in_the_loop.protocol import ConfirmationStrategy
 
 logger = logging.getLogger(__name__)
 

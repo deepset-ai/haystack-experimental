@@ -8,11 +8,9 @@ from haystack.tools import create_tool_from_function, ComponentTool
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.tools.hitl import (
-    AlwaysAskPolicy,
-    HumanInTheLoopStrategy,
-    RichConsoleUI,
-)
+from haystack_experimental.components.agents.human_in_the_loop.confirmation_policies import AlwaysAskPolicy
+from haystack_experimental.components.agents.human_in_the_loop.confirmation_uis import RichConsoleUI
+from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
 
 
 def addition(a: float, b: float) -> float:
