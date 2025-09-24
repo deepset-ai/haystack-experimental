@@ -13,8 +13,8 @@ from haystack_experimental.tools.hitl import (
     AskOncePolicy,
     HumanInTheLoopStrategy,
     NeverAskPolicy,
-    RichConsoleConfirmationUI,
-    SimpleConsoleConfirmationUI,
+    RichConsoleUI,
+    SimpleConsoleUI,
 )
 
 
@@ -72,26 +72,28 @@ phone_tool = create_tool_from_function(
     description="Get the phone number for a given name.",
 )
 
-
+# Define shared console
 cons = Console()
+
+# Define Main Agent with multiple tools and different confirmation strategies
 agent = Agent(
     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
     tools=[balance_tool, addition_tool, phone_tool],
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
     confirmation_strategies={
         balance_tool.name: HumanInTheLoopStrategy(
-            confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleConfirmationUI(console=cons)
+            confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleUI(console=cons)
         ),
         addition_tool.name: HumanInTheLoopStrategy(
-            confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleConfirmationUI()
+            confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleUI()
         ),
         phone_tool.name: HumanInTheLoopStrategy(
-            confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleConfirmationUI()
+            confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()
         ),
     },
 )
 
-# Call bank tool with confirmation (Always Ask)
+# Call bank tool with confirmation (Always Ask) using RichConsoleUI
 result = agent.run([ChatMessage.from_user("What's the balance of account 56789?")])
 last_message = result["last_message"]
 cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
@@ -101,12 +103,12 @@ result = agent.run([ChatMessage.from_user("What is 5.5 + 3.2?")])
 last_message = result["last_message"]
 print(f"\nAgent Result: {last_message.text}")
 
-# Call phone tool with confirmation (Ask Once)
+# Call phone tool with confirmation (Ask Once) using SimpleConsoleUI
 result = agent.run([ChatMessage.from_user("What is the phone number of Alice?")])
 last_message = result["last_message"]
 print(f"\nAgent Result: {last_message.text}")
 
-# Call phone tool again to see that it doesn't ask for confirmation again
+# Call phone tool again to see that it doesn't ask for confirmation the second time
 result = agent.run([ChatMessage.from_user("What is the phone number of Alice?")])
 last_message = result["last_message"]
 print(f"\nAgent Result: {last_message.text}")

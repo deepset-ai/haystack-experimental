@@ -135,7 +135,7 @@ class ConfirmationUI:
         return default_from_dict(cls, data)
 
 
-class RichConsoleConfirmationUI(ConfirmationUI):
+class RichConsoleUI(ConfirmationUI):
     """Rich console interface for user interaction."""
 
     def __init__(self, console: Optional[Console] = None):
@@ -211,7 +211,7 @@ class RichConsoleConfirmationUI(ConfirmationUI):
         return default_to_dict(self, console=None)
 
 
-class SimpleConsoleConfirmationUI(ConfirmationUI):
+class SimpleConsoleUI(ConfirmationUI):
     """Simple console interface using standard input/output."""
 
     def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
