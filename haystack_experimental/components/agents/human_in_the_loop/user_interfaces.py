@@ -5,12 +5,11 @@
 from threading import Lock
 from typing import Any, Optional
 
+from haystack.core.serialization import default_from_dict, default_to_dict
+from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-
-from haystack.core.serialization import default_from_dict, default_to_dict
-from haystack.tools import Tool
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ConfirmationUIResult
 
