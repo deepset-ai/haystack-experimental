@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class Agent(HaystackAgent):
+    # pylint: disable=super-init-not-called
     def __init__(
         self,
         *,
