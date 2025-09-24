@@ -2,15 +2,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from threading import Lock
 from typing import Any, Optional
 
-from haystack.core.serialization import default_from_dict, default_to_dict
-from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 
+from haystack.core.serialization import default_from_dict, default_to_dict
+from haystack.tools import Tool
+
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ConfirmationUIResult
+
+_ui_lock = Lock()
 
 
 class ConfirmationUI:
@@ -44,15 +48,11 @@ class RichConsoleUI(ConfirmationUI):
         :param tool_params: The parameters to be passed to the tool.
         :returns: ConfirmationUIResult based on user input.
         """
-        self._display_tool_info(tool, tool_params)
-
-        choice = Prompt.ask(
-            "\nYour choice",
-            choices=["y", "n", "m"],  # confirm, reject, modify
-            default="y",
-        )
-
-        return self._process_choice(choice, tool_params)
+        with _ui_lock:
+            self._display_tool_info(tool, tool_params)
+            # y: confirm, n: reject, m: modify
+            choice = Prompt.ask("\nYour choice", choices=["y", "n", "m"], default="y")
+            return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
         lines = [f"[bold yellow]Tool:[/bold yellow] {tool.name}"]
@@ -116,9 +116,10 @@ class SimpleConsoleUI(ConfirmationUI):
         :param tool: The tool to be executed.
         :param tool_params: The parameters to be passed to the tool.
         """
-        self._display_tool_info(tool, tool_params)
-        choice = input("Confirm execution? (y=confirm / n=reject / m=modify): ").strip().lower()
-        return self._process_choice(choice, tool_params)
+        with _ui_lock:
+            self._display_tool_info(tool, tool_params)
+            choice = input("Confirm execution? (y=confirm / n=reject / m=modify): ").strip().lower()
+            return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
         print("\n--- Tool Execution Request ---")
