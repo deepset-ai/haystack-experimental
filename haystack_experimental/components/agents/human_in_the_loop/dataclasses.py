@@ -34,12 +34,17 @@ class ToolExecutionDecision:
 
     :param tool_name:
         The name of the tool to be executed.
+    :param execute:
+        A boolean indicating whether to execute the tool with the provided parameters.
     :param feedback:
-        Optional feedback message if the tool execution was rejected.
+        Optional feedback message.
+        For example, if the tool execution is rejected, this can contain the reason. Or if the tool parameters were
+        modified, this can contain the modification details.
     :param final_tool_params:
         Optional final parameters for the tool if execution is confirmed or modified.
     """
 
     tool_name: str
+    execute: bool
     feedback: Optional[str] = None
     final_tool_params: Optional[dict[str, Any]] = None

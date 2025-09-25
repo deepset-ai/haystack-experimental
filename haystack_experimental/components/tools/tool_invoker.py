@@ -205,7 +205,14 @@ class ToolInvoker(HaystackToolInvoker):
                 tool=params["tool_to_invoke"], tool_params=params["final_args"]
             )
 
-            if tool_execution_decision.final_tool_params is None:
+            if tool_execution_decision.execute:
+                # TODO Need to figure out a way to forward the feedback message here if not empty
+                #      This is relevant if tool params were modified by the user
+                # additional_feedback = tool_execution_decision.feedback
+                params["final_args"].update(tool_execution_decision.final_tool_params)
+                confirmed_tool_calls.append(tool_call)
+                confirmed_tool_call_params.append(params)
+            else:
                 # Tool execution was rejected with a message
                 tool_messages.append(
                     ChatMessage.from_tool(
@@ -214,10 +221,6 @@ class ToolInvoker(HaystackToolInvoker):
                         error=True,
                     )
                 )
-            else:
-                params["final_args"].update(tool_execution_decision.final_tool_params)
-                confirmed_tool_calls.append(tool_call)
-                confirmed_tool_call_params.append(params)
 
         return confirmed_tool_calls, confirmed_tool_call_params, tool_messages
 

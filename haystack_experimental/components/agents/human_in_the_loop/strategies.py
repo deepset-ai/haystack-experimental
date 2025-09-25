@@ -44,7 +44,7 @@ class HumanInTheLoopStrategy:
         """
         # Check if we should ask based on policy
         if not self.confirmation_policy.should_ask(tool, tool_params):
-            return ToolExecutionDecision(tool_name=tool.name, final_tool_params=tool_params)
+            return ToolExecutionDecision(tool_name=tool.name, execute=True, final_tool_params=tool_params)
 
         # Get user confirmation through UI
         confirmation_result = self.confirmation_ui.get_user_confirmation(tool, tool_params)
@@ -58,13 +58,18 @@ class HumanInTheLoopStrategy:
             tool_result_message = f"Tool execution for '{tool.name}' rejected by user"
             if confirmation_result.feedback:
                 tool_result_message += f" with feedback: {confirmation_result.feedback}"
-            return ToolExecutionDecision(tool_name=tool.name, feedback=tool_result_message)
+            return ToolExecutionDecision(tool_name=tool.name, execute=False, feedback=tool_result_message)
         elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
             # Update the tool call params with the new params
             final_args.update(confirmation_result.new_tool_params)
-            return ToolExecutionDecision(tool_name=tool.name, final_tool_params=final_args)
+            return ToolExecutionDecision(
+                tool_name=tool.name,
+                execute=True,
+                feedback=f"The tool parameters for {tool.name} were modified by the user.",
+                final_tool_params=final_args
+            )
         else:  # action == "confirm"
-            return ToolExecutionDecision(tool_name=tool.name, final_tool_params=tool_params)
+            return ToolExecutionDecision(tool_name=tool.name, execute=True, final_tool_params=tool_params)
 
     def to_dict(self) -> dict[str, Any]:
         """

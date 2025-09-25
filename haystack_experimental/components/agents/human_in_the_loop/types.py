@@ -12,6 +12,9 @@ from haystack_experimental.components.agents.human_in_the_loop.dataclasses impor
     ToolExecutionDecision,
 )
 
+# Ellipsis are needed to define the Protocol but pylint complains. See https://github.com/pylint-dev/pylint/issues/9319.
+# pylint: disable=unnecessary-ellipsis
+
 
 class ConfirmationUI(Protocol):
     """Base class for confirmation UIs."""
@@ -64,10 +67,13 @@ class ConfirmationStrategy(Protocol):
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
         """
+        ...
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the strategy to a dictionary."""
+        ...
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ConfirmationStrategy":
         """Deserialize the strategy from a dictionary."""
+        ...
