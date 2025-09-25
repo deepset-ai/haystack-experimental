@@ -84,12 +84,18 @@ class RichConsoleUI(ConfirmationUI):
         """
         new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
-            default_val = json.dumps(v)
+            # We don't JSON dump strings to avoid users needing to input extra quotes
+            default_val = json.dumps(v) if not isinstance(v, str) else v
             while True:
                 new_val = Prompt.ask(f"Modify '{k}'", default=default_val)
                 try:
-                    new_params[k] = json.loads(new_val)
-                    break  # valid JSON, exit loop
+                    if isinstance(v, str):
+                        # Always treat input as string
+                        new_params[k] = new_val
+                    else:
+                        # Parse JSON for all non-string types
+                        new_params[k] = json.loads(new_val)
+                    break
                 except json.JSONDecodeError:
                     self.console.print("[red]❌ Invalid JSON, please try again.[/red]")
 
@@ -167,12 +173,18 @@ class SimpleConsoleUI(ConfirmationUI):
         """
         new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
-            default_val = json.dumps(v)
+            # We don't JSON dump strings to avoid users needing to input extra quotes
+            default_val = json.dumps(v) if not isinstance(v, str) else v
             while True:
                 new_val = input(f"Modify '{k}' (current: {default_val}): ").strip() or default_val
                 try:
-                    new_params[k] = json.loads(new_val)
-                    break  # valid JSON, exit loop
+                    if isinstance(v, str):
+                        # Always treat input as string
+                        new_params[k] = new_val
+                    else:
+                        # Parse JSON for all non-string types
+                        new_params[k] = json.loads(new_val)
+                    break
                 except json.JSONDecodeError:
                     print("❌ Invalid JSON, please try again.")
 
