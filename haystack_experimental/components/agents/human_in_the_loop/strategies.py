@@ -73,7 +73,11 @@ class HumanInTheLoopStrategy:
         :returns:
             Dictionary with serialized data.
         """
-        return default_to_dict(self, policy=self.confirmation_policy.to_dict(), ui=self.confirmation_ui.to_dict())
+        return default_to_dict(
+            self,
+            confirmation_policy=self.confirmation_policy.to_dict(),
+            confirmation_ui=self.confirmation_ui.to_dict()
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "HumanInTheLoopStrategy":
@@ -86,11 +90,11 @@ class HumanInTheLoopStrategy:
         :returns:
             Deserialized HumanInTheLoopStrategy.
         """
-        policy_data = data["data"]["policy"]
-        ui_data = data["data"]["ui"]
+        policy_data = data["init_parameters"]["confirmation_policy"]
         policy_class = import_class_by_name(policy_data["type"])
         if not hasattr(policy_class, "from_dict"):
             raise ValueError(f"Class {policy_class} does not implement from_dict method.")
+        ui_data = data["init_parameters"]["confirmation_ui"]
         ui_class = import_class_by_name(ui_data["type"])
         if not hasattr(ui_class, "from_dict"):
             raise ValueError(f"Class {ui_class} does not implement from_dict method.")

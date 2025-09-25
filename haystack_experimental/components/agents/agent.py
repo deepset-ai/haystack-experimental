@@ -7,14 +7,17 @@ from typing import Any, Optional, Union
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
-from haystack.components.agents.state.state import _validate_schema
+from haystack.components.agents.state.state import _schema_from_dict, _schema_to_dict, _validate_schema
 from haystack.components.agents.state.state_utils import merge_lists
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.component.component import component
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
+from haystack.core.serialization import default_from_dict, default_to_dict, component_to_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
-from haystack.tools import Tool, Toolset
+from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
+from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
+from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
 from haystack_experimental.components.agents.human_in_the_loop.types import ConfirmationStrategy
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
@@ -122,3 +125,56 @@ class Agent(HaystackAgent):
             )
 
         self._is_warmed_up = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serialize the component to a dictionary.
+
+        :return: Dictionary with serialized data
+        """
+        return default_to_dict(
+            self,
+            chat_generator=component_to_dict(obj=self.chat_generator, name="chat_generator"),
+            tools=serialize_tools_or_toolset(self.tools),
+            system_prompt=self.system_prompt,
+            exit_conditions=self.exit_conditions,
+            # We serialize the original state schema, not the resolved one to reflect the original user input
+            state_schema=_schema_to_dict(self._state_schema),
+            max_agent_steps=self.max_agent_steps,
+            streaming_callback=serialize_callable(self.streaming_callback) if self.streaming_callback else None,
+            raise_on_tool_invocation_failure=self.raise_on_tool_invocation_failure,
+            tool_invoker_kwargs=self.tool_invoker_kwargs,
+            confirmation_strategies={
+                name: strategy.to_dict() for name, strategy in self._confirmation_strategies.items()
+            } if self._confirmation_strategies else None,
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Agent":
+        """
+        Deserialize the agent from a dictionary.
+
+        :param data: Dictionary to deserialize from
+        :return: Deserialized agent
+        """
+        init_params = data.get("init_parameters", {})
+
+        deserialize_chatgenerator_inplace(init_params, key="chat_generator")
+
+        if "state_schema" in init_params:
+            init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
+
+        if init_params.get("streaming_callback") is not None:
+            init_params["streaming_callback"] = deserialize_callable(init_params["streaming_callback"])
+
+        deserialize_tools_or_toolset_inplace(init_params, key="tools")
+
+        if "confirmation_strategies" in init_params and init_params["confirmation_strategies"] is not None:
+            for name, strategy_dict in init_params["confirmation_strategies"].items():
+                strategy_class = import_class_by_name(strategy_dict["type"])
+                if not hasattr(strategy_class, "from_dict"):
+                    raise TypeError(f"{strategy_class} does not have from_dict method implemented.")
+                init_params["confirmation_strategies"][name] = strategy_class.from_dict(strategy_dict)
+
+        return default_from_dict(cls, data)
+
