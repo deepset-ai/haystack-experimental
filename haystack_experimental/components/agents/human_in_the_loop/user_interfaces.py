@@ -5,32 +5,16 @@
 from threading import Lock
 from typing import Any, Optional
 
-from haystack.core.serialization import default_from_dict, default_to_dict
+from haystack.core.serialization import default_to_dict
 from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ConfirmationUIResult
+from haystack_experimental.components.agents.human_in_the_loop.types import ConfirmationUI
 
 _ui_lock = Lock()
-
-
-class ConfirmationUI:
-    """Base class for confirmation UIs."""
-
-    def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
-        """Get user confirmation for tool execution."""
-        raise NotImplementedError
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the UI to a dictionary."""
-        return default_to_dict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationUI":
-        """Deserialize the ConfirmationUI from a dictionary."""
-        return default_from_dict(cls, data)
 
 
 class RichConsoleUI(ConfirmationUI):

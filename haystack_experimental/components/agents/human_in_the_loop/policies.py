@@ -4,33 +4,10 @@
 
 from typing import Any
 
-from haystack.core.serialization import default_from_dict, default_to_dict
 from haystack.tools import Tool
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ConfirmationUIResult
-
-
-class ConfirmationPolicy:
-    """Base class for confirmation policies."""
-
-    def should_ask(self, tool: Tool, tool_params: dict[str, Any]) -> bool:
-        """Determine whether to ask for confirmation."""
-        raise NotImplementedError
-
-    def update_after_confirmation(
-        self, tool: Tool, tool_params: dict[str, Any], confirmation_result: ConfirmationUIResult
-    ) -> None:
-        """Update the policy based on the confirmation UI result."""
-        pass
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the policy to a dictionary."""
-        return default_to_dict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationPolicy":
-        """Deserialize the policy from a dictionary."""
-        return default_from_dict(cls, data)
+from haystack_experimental.components.agents.human_in_the_loop.types import ConfirmationPolicy
 
 
 class AlwaysAskPolicy(ConfirmationPolicy):
@@ -75,9 +52,8 @@ class AskOncePolicy(ConfirmationPolicy):
         :param tool_params: The parameters to be passed to the tool.
         :returns: True if confirmation is needed, False if already asked with the same parameters.
         """
-        if tool.name in self._asked_tools and self._asked_tools[tool.name] == tool_params:
-            return False
-        return True
+        # Don't ask again if we've already asked for this tool with the same parameters
+        return not (tool.name in self._asked_tools and self._asked_tools[tool.name] == tool_params)
 
     def update_after_confirmation(
         self, tool: Tool, tool_params: dict[str, Any], confirmation_result: ConfirmationUIResult

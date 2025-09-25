@@ -88,13 +88,10 @@ class HumanInTheLoopStrategy:
         """
         policy_data = data["data"]["policy"]
         ui_data = data["data"]["ui"]
-
         policy_class = import_class_by_name(policy_data["type"])
-        if not issubclass(policy_class, ConfirmationPolicy):
-            raise TypeError(f"Class '{policy_class}' is not a subclass of ConfirmationPolicy")
-
+        if not hasattr(policy_class, "from_dict"):
+            raise ValueError(f"Class {policy_class} does not implement from_dict method.")
         ui_class = import_class_by_name(ui_data["type"])
-        if not issubclass(ui_class, ConfirmationUI):
-            raise TypeError(f"Class '{ui_class}' is not a subclass of ConfirmationUI")
-
+        if not hasattr(ui_class, "from_dict"):
+            raise ValueError(f"Class {ui_class} does not implement from_dict method.")
         return cls(confirmation_policy=policy_class.from_dict(policy_data), confirmation_ui=ui_class.from_dict(ui_data))
