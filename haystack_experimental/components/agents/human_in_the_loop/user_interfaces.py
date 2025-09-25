@@ -84,14 +84,14 @@ class RichConsoleUI(ConfirmationUI):
         """
         new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
-            new_val = Prompt.ask(f"Modify '{k}'", default=json.dumps(v))
-            try:
-                # Try to parse JSON back into original type
-                parsed = json.loads(new_val)
-                new_params[k] = parsed
-            except (json.JSONDecodeError, TypeError):
-                # Fallback to raw string if not valid JSON
-                new_params[k] = new_val
+            default_val = json.dumps(v)
+            while True:
+                new_val = Prompt.ask(f"Modify '{k}'", default=default_val)
+                try:
+                    new_params[k] = json.loads(new_val)
+                    break  # valid JSON, exit loop
+                except json.JSONDecodeError:
+                    self.console.print("[red]❌ Invalid JSON, please try again.[/red]")
 
         return ConfirmationUIResult(action="modify", new_tool_params=new_params)
 
@@ -167,13 +167,13 @@ class SimpleConsoleUI(ConfirmationUI):
         """
         new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
-            new_val = Prompt.ask(f"Modify '{k}'", default=json.dumps(v))
-            try:
-                # Try to parse JSON back into original type
-                parsed = json.loads(new_val)
-                new_params[k] = parsed
-            except (json.JSONDecodeError, TypeError):
-                # Fallback to raw string if not valid JSON
-                new_params[k] = new_val
+            default_val = json.dumps(v)
+            while True:
+                new_val = input(f"Modify '{k}' (current: {default_val}): ").strip() or default_val
+                try:
+                    new_params[k] = json.loads(new_val)
+                    break  # valid JSON, exit loop
+                except json.JSONDecodeError:
+                    print("❌ Invalid JSON, please try again.")
 
         return ConfirmationUIResult(action="modify", new_tool_params=new_params)
