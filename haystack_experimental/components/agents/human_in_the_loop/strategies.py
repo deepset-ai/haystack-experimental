@@ -66,7 +66,7 @@ class HumanInTheLoopStrategy:
                 tool_name=tool.name,
                 execute=True,
                 feedback=f"The tool parameters for {tool.name} were modified by the user.",
-                final_tool_params=final_args
+                final_tool_params=final_args,
             )
         else:  # action == "confirm"
             return ToolExecutionDecision(tool_name=tool.name, execute=True, final_tool_params=tool_params)

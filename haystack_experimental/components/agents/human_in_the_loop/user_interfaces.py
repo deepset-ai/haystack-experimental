@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from threading import Lock
 from typing import Any, Optional
 
@@ -38,6 +39,12 @@ class RichConsoleUI(ConfirmationUI):
             return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
+        """
+        Display tool information and parameters in a rich panel.
+
+        :param tool: The tool to be executed.
+        :param tool_params: The parameters to be passed to the tool.
+        """
         lines = [f"[bold yellow]Tool:[/bold yellow] {tool.name}"]
 
         if hasattr(tool, "description") and tool.description:
@@ -51,6 +58,14 @@ class RichConsoleUI(ConfirmationUI):
         self.console.print(Panel("\n".join(lines), title="🔧 Tool Execution Request", title_align="left"))
 
     def _process_choice(self, choice: str, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+        """
+        Process the user's choice and return the corresponding ConfirmationUIResult.
+
+        :param choice: The user's choice ('y', 'n', or 'm').
+        :param tool_params: The original tool parameters.
+        :returns:
+            ConfirmationUIResult based on user input.
+        """
         if choice == "y":
             return ConfirmationUIResult(action="confirm")
         elif choice == "m":
@@ -60,20 +75,22 @@ class RichConsoleUI(ConfirmationUI):
             return ConfirmationUIResult(action="reject", feedback=feedback or None)
 
     def _modify_params(self, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+        """
+        Prompt the user to modify tool parameters.
+
+        :param tool_params: The original tool parameters.
+        :returns:
+            ConfirmationUIResult with modified parameters.
+        """
         new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
-            new_val = Prompt.ask(f"Modify '{k}'", default=str(v))
-            # Try to preserve original type
+            new_val = Prompt.ask(f"Modify '{k}'", default=json.dumps(v))
             try:
-                if isinstance(v, bool):
-                    new_params[k] = new_val.lower() in ("true", "yes", "1", "on")
-                elif isinstance(v, int):
-                    new_params[k] = int(new_val)
-                elif isinstance(v, float):
-                    new_params[k] = float(new_val)
-                else:
-                    new_params[k] = new_val
-            except (ValueError, TypeError):
+                # Try to parse JSON back into original type
+                parsed = json.loads(new_val)
+                new_params[k] = parsed
+            except (json.JSONDecodeError, TypeError):
+                # Fallback to raw string if not valid JSON
                 new_params[k] = new_val
 
         return ConfirmationUIResult(action="modify", new_tool_params=new_params)
@@ -105,6 +122,12 @@ class SimpleConsoleUI(ConfirmationUI):
             return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
+        """
+        Display tool information and parameters in the console.
+
+        :param tool: The tool to be executed.
+        :param tool_params: The parameters to be passed to the tool.
+        """
         print("\n--- Tool Execution Request ---")
         print(f"Tool: {tool.name}")
 
@@ -118,6 +141,14 @@ class SimpleConsoleUI(ConfirmationUI):
         print("-" * 30)
 
     def _process_choice(self, choice: str, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+        """
+        Process the user's choice and return the corresponding ConfirmationUIResult.
+
+        :param choice: The user's choice ('y', 'n', or 'm').
+        :param tool_params: The original tool parameters.
+        :returns:
+            ConfirmationUIResult based on user input.
+        """
         if choice in ("y", "yes"):
             return ConfirmationUIResult(action="confirm")
         elif choice in ("m", "modify"):
@@ -127,20 +158,22 @@ class SimpleConsoleUI(ConfirmationUI):
             return ConfirmationUIResult(action="reject", feedback=feedback or None)
 
     def _modify_params(self, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+        """
+        Prompt the user to modify tool parameters.
+
+        :param tool_params: The original tool parameters.
+        :returns:
+            ConfirmationUIResult with modified parameters.
+        """
         new_params: dict[str, Any] = {}
         for k, v in tool_params.items():
-            new_val = input(f"Modify '{k}' [{v}]: ").strip() or v
-            # Try to preserve original type
+            new_val = Prompt.ask(f"Modify '{k}'", default=json.dumps(v))
             try:
-                if isinstance(v, bool):
-                    new_params[k] = new_val.lower() in ("true", "yes", "1", "on")
-                elif isinstance(v, int):
-                    new_params[k] = int(new_val)
-                elif isinstance(v, float):
-                    new_params[k] = float(new_val)
-                else:
-                    new_params[k] = new_val
-            except (ValueError, TypeError):
+                # Try to parse JSON back into original type
+                parsed = json.loads(new_val)
+                new_params[k] = parsed
+            except (json.JSONDecodeError, TypeError):
+                # Fallback to raw string if not valid JSON
                 new_params[k] = new_val
 
         return ConfirmationUIResult(action="modify", new_tool_params=new_params)
