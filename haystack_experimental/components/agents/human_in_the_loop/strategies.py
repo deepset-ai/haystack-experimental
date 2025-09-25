@@ -74,9 +74,7 @@ class HumanInTheLoopStrategy:
             Dictionary with serialized data.
         """
         return default_to_dict(
-            self,
-            confirmation_policy=self.confirmation_policy.to_dict(),
-            confirmation_ui=self.confirmation_ui.to_dict()
+            self, confirmation_policy=self.confirmation_policy.to_dict(), confirmation_ui=self.confirmation_ui.to_dict()
         )
 
     @classmethod

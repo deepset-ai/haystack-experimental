@@ -12,7 +12,7 @@ from haystack.components.agents.state.state_utils import merge_lists
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.component.component import component
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
-from haystack.core.serialization import default_from_dict, default_to_dict, component_to_dict, import_class_by_name
+from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
@@ -146,7 +146,9 @@ class Agent(HaystackAgent):
             tool_invoker_kwargs=self.tool_invoker_kwargs,
             confirmation_strategies={
                 name: strategy.to_dict() for name, strategy in self._confirmation_strategies.items()
-            } if self._confirmation_strategies else None,
+            }
+            if self._confirmation_strategies
+            else None,
         )
 
     @classmethod
@@ -177,4 +179,3 @@ class Agent(HaystackAgent):
                 init_params["confirmation_strategies"][name] = strategy_class.from_dict(strategy_dict)
 
         return default_from_dict(cls, data)
-
