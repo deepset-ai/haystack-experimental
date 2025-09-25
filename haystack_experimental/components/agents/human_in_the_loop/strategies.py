@@ -11,6 +11,7 @@ from haystack_experimental.components.agents.human_in_the_loop.policies import C
 from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import ConfirmationUI
 
 
+# TODO Consider renaming to BlockingConfirmationStrategy – emphasizes that execution waits for immediate confirmation.
 class HumanInTheLoopStrategy:
     """
     Human-in-the-loop strategy for tool execution confirmation.
@@ -107,3 +108,9 @@ class HumanInTheLoopStrategy:
         if not hasattr(ui_class, "from_dict"):
             raise ValueError(f"Class {ui_class} does not implement from_dict method.")
         return cls(confirmation_policy=policy_class.from_dict(policy_data), confirmation_ui=ui_class.from_dict(ui_data))
+
+
+# TODO Add a BreakpointConfirmationStrategy that:
+#  1. Uses AgentBreakPoint to trigger a BreakpointException
+#  2. Can resume from a snapshot and any modified tool parameters
+#  - The user feedback gathering is pushed outside of this strategy b/c this is meant to be used in a backend service

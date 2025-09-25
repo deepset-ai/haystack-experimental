@@ -11,9 +11,11 @@ from haystack.components.agents.state.state import _schema_from_dict, _schema_to
 from haystack.components.agents.state.state_utils import merge_lists
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.component.component import component
+from haystack.core.pipeline.breakpoint import _validate_tool_breakpoint_is_valid
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
+from haystack.dataclasses.breakpoints import AgentBreakpoint, AgentSnapshot, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
@@ -175,6 +177,41 @@ class Agent(HaystackAgent):
             )
 
         self._is_warmed_up = False
+
+    def _runtime_checks(self, break_point: Optional[AgentBreakpoint], snapshot: Optional[AgentSnapshot]) -> None:
+        """
+        Perform runtime checks before running the agent.
+
+        NOTE: This differs from the parent class by allowing the agent to run with a snapshot and break point
+        at the same time.
+
+        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
+            for "tool_invoker".
+        :param snapshot: An AgentSnapshot containing the state of a previously saved agent execution.
+        :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
+        :raises ValueError: If both break_point and snapshot are provided, or if the break_point is invalid.
+        """
+        if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
+            raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
+
+        # Provide some warnings for potentially unintended usage if both snapshot and break_point are provided
+        if break_point.break_point.visit_count < snapshot.component_visits.get(
+            break_point.break_point.component_name, 0
+        ):
+            logger.warning(
+                "The visit_count of the provided break_point is less than the visit count in the snapshot. "
+                "This may cause the breakpoint to never trigger."
+            )
+        elif break_point.break_point.visit_count == snapshot.component_visits.get(
+            break_point.break_point.component_name, 0
+        ):
+            logger.warning(
+                "The visit_count of the provided break_point is equal to the visit count in the snapshot. "
+                "This may cause the breakpoint to trigger immediately."
+            )
+
+        if break_point and isinstance(break_point.break_point, ToolBreakpoint):
+            _validate_tool_breakpoint_is_valid(agent_breakpoint=break_point, tools=self.tools)
 
     def to_dict(self) -> dict[str, Any]:
         """
