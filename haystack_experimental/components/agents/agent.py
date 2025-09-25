@@ -26,6 +26,56 @@ logger = logging.getLogger(__name__)
 
 
 class Agent(HaystackAgent):
+    """
+    A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
+
+    NOTE: This class extends Haystack's Agent component to add support for human-in-the-loop confirmation strategies.
+
+    The component processes messages and executes tools until an exit condition is met.
+    The exit condition can be triggered either by a direct text response or by invoking a specific designated tool.
+    Multiple exit conditions can be specified.
+
+    When you call an Agent without tools, it acts as a ChatGenerator, produces one response, then exits.
+
+    ### Usage example
+    ```python
+    from haystack.components.generators.chat import OpenAIChatGenerator
+    from haystack.dataclasses import ChatMessage
+    from haystack.tools.tool import Tool
+
+    from haystack_experimental.components.agents import Agent
+    from haystack_experimental.components.agents.human_in_the_loop import (
+        HumanInTheLoopStrategy,
+        AlwaysAskPolicy,
+        NeverAskPolicy,
+        SimpleConsoleUI,
+    )
+
+    calculator_tool = Tool(name="calculator", description="A tool for performing mathematical calculations.", ...)
+    search_tool = Tool(name="search", description="A tool for searching the web.", ...)
+
+    agent = Agent(
+        chat_generator=OpenAIChatGenerator(),
+        tools=[calculator_tool, search_tool],
+        confirmation_strategies={
+            calculator_tool.name: HumanInTheLoopStrategy(
+                confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleUI()
+            ),
+            search_tool.name: HumanInTheLoopStrategy(
+                confirmation_policy=AlwaysAskPolicy(), confirmation_ui=SimpleConsoleUI()
+            ),
+        },
+    )
+
+    # Run the agent
+    result = agent.run(
+        messages=[ChatMessage.from_user("Find information about Haystack")]
+    )
+
+    assert "messages" in result  # Contains conversation history
+    ```
+    """
+
     # pylint: disable=super-init-not-called
     def __init__(
         self,
