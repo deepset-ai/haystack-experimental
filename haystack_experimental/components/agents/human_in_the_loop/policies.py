@@ -7,6 +7,8 @@ from typing import Any
 from haystack.core.serialization import default_from_dict, default_to_dict
 from haystack.tools import Tool
 
+from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ConfirmationUIResult
+
 
 class ConfirmationPolicy:
     """Base class for confirmation policies."""
@@ -14,6 +16,12 @@ class ConfirmationPolicy:
     def should_ask(self, tool: Tool, tool_params: dict[str, Any]) -> bool:
         """Determine whether to ask for confirmation."""
         raise NotImplementedError
+
+    def update_after_confirmation(
+        self, tool: Tool, tool_params: dict[str, Any], confirmation_result: ConfirmationUIResult
+    ) -> None:
+        """Update the policy based on the confirmation UI result."""
+        pass
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the policy to a dictionary."""
@@ -69,5 +77,20 @@ class AskOncePolicy(ConfirmationPolicy):
         """
         if tool.name in self._asked_tools and self._asked_tools[tool.name] == tool_params:
             return False
-        self._asked_tools[tool.name] = tool_params
         return True
+
+    def update_after_confirmation(
+        self, tool: Tool, tool_params: dict[str, Any], confirmation_result: ConfirmationUIResult
+    ) -> None:
+        """
+        Store the tool and parameters if the action was "confirm" to avoid asking again.
+
+        This method updates the internal state to remember that the user has already confirmed the execution of the
+        tool with the given parameters.
+
+        :param tool: The tool that was executed.
+        :param tool_params: The parameters that were passed to the tool.
+        :param confirmation_result: The result from the confirmation UI.
+        """
+        if confirmation_result.action == "confirm":
+            self._asked_tools[tool.name] = tool_params

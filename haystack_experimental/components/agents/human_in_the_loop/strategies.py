@@ -49,6 +49,9 @@ class HumanInTheLoopStrategy:
         # Get user confirmation through UI
         confirmation_result = self.confirmation_ui.get_user_confirmation(tool, tool_params)
 
+        # Pass back the result to the policy for any learning/updating
+        self.confirmation_policy.update_after_confirmation(tool, tool_params, confirmation_result)
+
         # Process the confirmation result
         final_args = {}
         if confirmation_result.action == "reject":
