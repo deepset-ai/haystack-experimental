@@ -93,7 +93,7 @@ snapshot = load_pipeline_snapshot(latest_snapshot_file)
 # ----
 try:
     _ = agent.run(
-        messages=messages,
+        messages=[],
         snapshot=snapshot.agent_snapshot,
         # This break point should trigger again b/c the agent needs to call the tool a second time since the bank account
         # balance for account 56789 is below $2000
@@ -121,7 +121,7 @@ snapshot = load_pipeline_snapshot(latest_snapshot_file)
 # Step 5: Restart execution after breakpoint
 # ----
 result = agent.run(
-    messages=messages,
+    messages=[],
     snapshot=snapshot.agent_snapshot,
     # Increment the visit count so break point only triggers if there is a 3rd tool call (which there shouldn't be)
     break_point=replace(
