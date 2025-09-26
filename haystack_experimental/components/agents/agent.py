@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
+from haystack.components.agents.agent import _ExecutionContext, State
 from haystack.components.agents.state.state import _schema_from_dict, _schema_to_dict, _validate_schema
 from haystack.components.agents.state.state_utils import merge_lists
 from haystack.components.generators.chat.types import ChatGenerator
@@ -16,10 +17,11 @@ from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, AgentSnapshot, ToolBreakpoint
-from haystack.dataclasses.streaming_chunk import StreamingCallbackT
+from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
+from haystack.utils import _deserialize_value_with_schema
 
 from haystack_experimental.components.agents.human_in_the_loop.types import ConfirmationStrategy
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
@@ -177,6 +179,62 @@ class Agent(HaystackAgent):
             )
 
         self._is_warmed_up = False
+
+    def _initialize_from_snapshot(
+        self,
+        snapshot: AgentSnapshot,
+        streaming_callback: Optional[StreamingCallbackT],
+        requires_async: bool,
+        *,
+        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+    ) -> _ExecutionContext:
+        """
+        Initialize execution context from an AgentSnapshot.
+
+        :param snapshot: An AgentSnapshot containing the state of a previously saved agent execution.
+        :param streaming_callback: Optional callback for streaming responses.
+        :param requires_async: Whether the agent run requires asynchronous execution.
+        :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
+            When passing tool names, tools are selected from the Agent's originally configured tools.
+        """
+        component_visits = snapshot.component_visits
+        current_inputs = {
+            "chat_generator": _deserialize_value_with_schema(snapshot.component_inputs["chat_generator"]),
+            "tool_invoker": _deserialize_value_with_schema(snapshot.component_inputs["tool_invoker"]),
+        }
+
+        state_data = current_inputs["tool_invoker"]["state"].data
+        state = State(schema=self.state_schema, data=state_data)
+
+        # NOTE: Only difference from parent class is to make this check more robust
+        # Handles edge case where restarting from a snapshot with an updated chat history where the last message
+        # is a tool call result (e.g. after human feedback like a rejection)
+        skip_chat_generator = False
+        if isinstance(snapshot.break_point.break_point, ToolBreakpoint) and state.get("messages")[-1].is_from(
+            "assistant"
+        ):
+            skip_chat_generator = True
+
+        streaming_callback = current_inputs["chat_generator"].get("streaming_callback", streaming_callback)
+        streaming_callback = select_streaming_callback(  # type: ignore[call-overload]
+            init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=requires_async
+        )
+
+        selected_tools = self._select_tools(tools)
+        tool_invoker_inputs: dict[str, Any] = {"tools": selected_tools}
+        generator_inputs: dict[str, Any] = {"tools": selected_tools}
+        if streaming_callback is not None:
+            tool_invoker_inputs["streaming_callback"] = streaming_callback
+            generator_inputs["streaming_callback"] = streaming_callback
+
+        return _ExecutionContext(
+            state=state,
+            component_visits=component_visits,
+            chat_generator_inputs=generator_inputs,
+            tool_invoker_inputs=tool_invoker_inputs,
+            counter=snapshot.break_point.break_point.visit_count,
+            skip_chat_generator=skip_chat_generator,
+        )
 
     def _runtime_checks(self, break_point: Optional[AgentBreakpoint], snapshot: Optional[AgentSnapshot]) -> None:
         """
