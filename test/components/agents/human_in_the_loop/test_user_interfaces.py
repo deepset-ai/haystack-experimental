@@ -27,8 +27,6 @@ class TestRichConsoleUI:
     @pytest.mark.parametrize("choice,expected", [
         ("y", "confirm"),
         ("n", "reject"),
-        # TODO Need to put modify in a separate test
-        # ("m", "modify"),
     ])
     def test_process_choice(self, tool, choice, expected):
         ui = RichConsoleUI(console=MagicMock())
@@ -36,7 +34,7 @@ class TestRichConsoleUI:
 
         with patch(
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
-            side_effect=[choice, "feedback", '{"x": 2}']
+            side_effect=[choice, "feedback"]
         ):
             result = ui.get_user_confirmation(tool, params)
 
@@ -47,6 +45,20 @@ class TestRichConsoleUI:
         if expected == "modify":
             assert result.new_tool_params == {"x": 2}
 
+    def test_process_choice_modify(self, tool):
+        ui = RichConsoleUI(console=MagicMock())
+        params = {"x": 1}
+
+        with patch(
+            "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
+            side_effect=["m", "2"]
+        ):
+            result = ui.get_user_confirmation(tool, params)
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {"x": 2}
+
     def test_to_dict(self):
         ui = RichConsoleUI()
         data = ui.to_dict()
@@ -54,6 +66,12 @@ class TestRichConsoleUI:
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.RichConsoleUI"
         )
         assert data["init_parameters"]["console"] is None
+
+    def test_from_dict(self):
+        ui = RichConsoleUI()
+        data = ui.to_dict()
+        new_ui = RichConsoleUI.from_dict(data)
+        assert isinstance(new_ui, RichConsoleUI)
 
 
 class TestSimpleConsoleUI:
@@ -89,3 +107,9 @@ class TestSimpleConsoleUI:
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.SimpleConsoleUI"
         )
         assert data["init_parameters"] == {}
+
+    def test_from_dict(self):
+        ui = SimpleConsoleUI()
+        data = ui.to_dict()
+        new_ui = SimpleConsoleUI.from_dict(data)
+        assert isinstance(new_ui, SimpleConsoleUI)
