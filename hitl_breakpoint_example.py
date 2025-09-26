@@ -11,7 +11,7 @@ from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
-from haystack.tools import create_tool_from_function
+from haystack.tools import Tool, create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
@@ -54,6 +54,9 @@ agent = Agent(
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
 )
 
+# ----
+# Step 1: Run agent with breakpoint
+# ----
 # This breakpoint will cause a BreakpointException to raise after the tool is selected but before execution
 agent_break_point = AgentBreakpoint(
     agent_name="agent",
@@ -63,14 +66,11 @@ agent_break_point = AgentBreakpoint(
         component_name="tool_invoker",
         visit_count=0,
         snapshot_file_path="pipeline_snapshots",
-    )
+    ),
 )
 messages = [ChatMessage.from_user("What's the balance of account 56789?")]
 try:
-    _ = agent.run(
-        messages=messages,
-        break_point=agent_break_point
-    )
+    _ = agent.run(messages=messages, break_point=agent_break_point)
 except BreakpointException:
     cons.print("[bold red]Execution paused at breakpoint.[/bold red]")
 
@@ -79,9 +79,87 @@ possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("p
 latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
 snapshot = load_pipeline_snapshot(latest_snapshot_file)
 
-# TODO Ask for user feedback to modify tool parameters
+# ----
+# Step 2: Gather user input to optionally update tool parameters before resuming execution
+# ----
+# ----
+# Step 2.1: Extract info to send to "front-end"
+# ----
+# Sends:
+# - tool_calls: List[ToolCall]
+# - tool_descriptions: Dict[str, str] {"tool_name": "tool_description"}
+serialized_tool_call_messages = snapshot.agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["messages"]
+tool_call_messages = [ChatMessage.from_dict(m) for m in serialized_tool_call_messages]
+tool_calls = []
+for msg in tool_call_messages:
+    if msg.tool_calls:
+        tool_calls.extend(msg.tool_calls)
+serialized_tools = snapshot.agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["tools"]
+tool_infos = {
+    t["data"]["name"]: {"description": t["data"]["description"], "name": t["data"]["name"]} for t in serialized_tools
+}
+# TODO Not ideal to have to reconstruct the tool, better to update confirmation strategy to need only tool.name and
+#      tool.description explicitly
+tools = {t["data"]["name"]: Tool.from_dict(**t) for t in serialized_tools}
+serialized_state = snapshot.agent_snapshot.component_inputs["tool_invoker"]["state"]
 
-# Restart execution after breakpoint
+# ----
+# Step 2.1: Mimic the front-end
+# ----
+# Receives:
+# - tool_calls: List[ToolCall]
+# - tools: Dict[str, Tool] --> Needs to change to tool_descriptions
+# Sends back:
+# - tool_execution_decisions: List[ToolExecutionDecision]
+# - snapshot_id: str --> Needed to know which snapshot to load
+confirmation_strategy = HumanInTheLoopStrategy(
+    confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleUI(console=cons)
+)
+tool_execution_decisions = []
+for tc in tool_calls:
+    tool_execution_decision = confirmation_strategy.run(
+        tool=tools[tc.tool_name],
+        # TODO This is not the fully correct arguments since we are potentially missing the injection of State arguments
+        tool_params=tc.arguments,
+    )
+    tool_execution_decisions.append(tool_execution_decision)
+
+# ----
+# Step 2.2: Update tool call messages and state based on feedback from the "front-end"
+# ----
+# Receives:
+# - tool_execution_decisions: List[ToolExecutionDecision]
+# - snapshot_id: str --> Needed to know which snapshot to load
+tool_name_to_tool_call_message = {tc.tool_name: tc for tc in tool_calls}
+new_tool_call_messages = []
+additional_state_messages = []
+for tool_execution_decision in tool_execution_decisions:
+    if tool_execution_decision.execute:
+        # Covers confirm and modify cases
+        # NOTE: The modification case slightly differs from not using break points since here we modify the
+        #       arguments directly on the tool call message. In the non-breakpoint case we leave the tool call message
+        #       as-is and add a string to the tool call result message explaining the modification.
+        new_tool_call_messages.append(
+            replace(
+                tool_name_to_tool_call_message[tool_execution_decision.tool_name],
+                arguments=tool_execution_decision.final_tool_params)
+        )
+    else:
+        # Reject case
+        # We create a tool call result message using the feedback from the confirmation strategy
+        # Then we move both the tool call message and the tool call result message to the chat history in State
+        additional_state_messages.append(tool_name_to_tool_call_message[tool_execution_decision.tool_name])
+        additional_state_messages.append(
+            ChatMessage.from_tool(
+                tool_result=tool_execution_decision.feedback or "",
+                origin=tool_name_to_tool_call_message[tool_execution_decision.tool_name],
+                error=True,
+            )
+        )
+
+# ----
+# Step 3: Restart execution after breakpoint with updated snapshot
+# ----
 # NOTE: We extended the Agent in haystack-experimental to allow running with a snapshot and a breakpoint
 result = agent.run(
     # TODO Messages are still required but are ignored when passing in a snapshot
@@ -93,116 +171,9 @@ result = agent.run(
         snapshot.agent_snapshot.break_point,
         break_point=replace(
             snapshot.agent_snapshot.break_point.break_point,
-            visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1
-        )
-    ),
-)
-last_message = result["last_message"]
-cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
-
-
-# ============
-# Using Only Breakpoint Feature: Multiple sequential Tool Calls
-# ============
-cons.print("\n[bold blue]=== Multiple Sequential Tool Calls Example ===[/bold blue]\n")
-agent = Agent(
-    chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
-    tools=[balance_tool],
-    system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
-)
-
-
-# This breakpoint will cause a BreakpointException to raise after the tool is selected but before execution
-agent_break_point = AgentBreakpoint(
-    agent_name="agent",
-    break_point=ToolBreakpoint(
-        tool_name=balance_tool.name,
-        component_name="tool_invoker",
-        visit_count=0,
-        snapshot_file_path="pipeline_snapshots",
-    )
-)
-messages = [
-    ChatMessage.from_user(
-        # We create a scenario where the agent needs to call the tool multiple times in a single run sequentially
-        "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?"
-    )
-]
-try:
-    _ = agent.run(
-        messages=messages,
-        break_point=agent_break_point
-    )
-except BreakpointException:
-    cons.print("[bold red]Execution paused at breakpoint.[/bold red]")
-
-# Load the snapshot
-possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
-latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
-snapshot = load_pipeline_snapshot(latest_snapshot_file)
-
-# TODO Ask for user feedback to modify tool parameters
-
-# Restart execution after breakpoint
-# NOTE: We extended the Agent in haystack-experimental to allow running with a snapshot and a breakpoint
-try:
-    _ = agent.run(
-        messages=messages,
-        snapshot=snapshot.agent_snapshot,
-        # This break point should trigger again b/c the agent needs to call the tool a second time since the bank account
-        # balance for account 56789 is below $2000
-        break_point=replace(
-            snapshot.agent_snapshot.break_point,
-            break_point=replace(
-                snapshot.agent_snapshot.break_point.break_point,
-                visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1
-            )
+            visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1,
         ),
-    )
-except BreakpointException:
-    cons.print("[bold red]Execution paused at breakpoint (2nd time).[/bold red]")
-
-# Load the snapshot
-possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
-latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
-snapshot = load_pipeline_snapshot(latest_snapshot_file)
-
-# Restart execution after breakpoint
-result = agent.run(
-    messages=messages,
-    snapshot=snapshot.agent_snapshot,
-    # Increment the visit count so break point only triggers if there is a 3rd tool call (which there shouldn't be)
-    break_point=replace(
-        snapshot.agent_snapshot.break_point,
-        break_point=replace(
-            snapshot.agent_snapshot.break_point.break_point,
-            visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1
-        )
     ),
 )
 last_message = result["last_message"]
 cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
-
-
-# ============
-# Combining breakpoint and confirmation strategies
-# ============
-# cons.print("\n[bold blue]=== Combining Breakpoint and Confirmation Strategies ===[/bold blue]\n")
-
-# Is it possible to follow the above pattern but use a confirmation strategy instead to trigger the breakpoint?
-
-# - Probably necessitates a new ConfirmationStrategy that is capable of triggering a breakpoint and then also resuming
-# - Could optionally still use the existing UI to get user feedback on modifying tool parameters before triggering the
-#   break point. This would have to be optional b/c the UIs are not suitable for a backend service.
-
-# agent = Agent(
-#     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
-#     tools=[balance_tool],
-#     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
-#     confirmation_strategies={
-#         balance_tool.name: HumanInTheLoopStrategy(
-#             confirmation_policy=AlwaysAskPolicy(),
-#             confirmation_ui=RichConsoleUI(console=cons)
-#         ),
-#     },
-# )
