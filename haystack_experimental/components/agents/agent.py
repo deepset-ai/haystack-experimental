@@ -195,20 +195,21 @@ class Agent(HaystackAgent):
             raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
 
         # Provide some warnings for potentially unintended usage if both snapshot and break_point are provided
-        if break_point.break_point.visit_count < snapshot.component_visits.get(
-            break_point.break_point.component_name, 0
-        ):
-            logger.warning(
-                "The visit_count of the provided break_point is less than the visit count in the snapshot. "
-                "This may cause the breakpoint to never trigger."
-            )
-        elif break_point.break_point.visit_count == snapshot.component_visits.get(
-            break_point.break_point.component_name, 0
-        ):
-            logger.warning(
-                "The visit_count of the provided break_point is equal to the visit count in the snapshot. "
-                "This may cause the breakpoint to trigger immediately."
-            )
+        if break_point and snapshot:
+            if break_point.break_point.visit_count < snapshot.component_visits.get(
+                break_point.break_point.component_name, 0
+            ):
+                logger.warning(
+                    "The visit_count of the provided break_point is less than the visit count in the snapshot. "
+                    "This may cause the breakpoint to never trigger."
+                )
+            elif break_point.break_point.visit_count == snapshot.component_visits.get(
+                break_point.break_point.component_name, 0
+            ):
+                logger.warning(
+                    "The visit_count of the provided break_point is equal to the visit count in the snapshot. "
+                    "This may cause the breakpoint to trigger immediately."
+                )
 
         if break_point and isinstance(break_point.break_point, ToolBreakpoint):
             _validate_tool_breakpoint_is_valid(agent_breakpoint=break_point, tools=self.tools)

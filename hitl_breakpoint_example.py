@@ -47,6 +47,7 @@ cons = Console()
 # ============
 # Using Only Breakpoint Feature
 # ============
+cons.print("\n[bold blue]=== Using Only Breakpoint Feature ===[/bold blue]\n")
 agent = Agent(
     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
     tools=[balance_tool],
@@ -74,9 +75,9 @@ except BreakpointException:
     cons.print("[bold red]Execution paused at breakpoint.[/bold red]")
 
 # NOTE: Opened issue to make it easier to find the latest snapshot: https://github.com/deepset-ai/haystack/issues/9828
-possible_snapshots = os.listdir(Path("pipeline_snapshots"))
+possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
 latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
-snapshot = load_pipeline_snapshot(Path("pipeline_snapshots") / latest_snapshot_file)
+snapshot = load_pipeline_snapshot(latest_snapshot_file)
 
 # TODO Ask for user feedback to modify tool parameters
 
@@ -86,11 +87,14 @@ result = agent.run(
     # TODO Messages are still required but are ignored when passing in a snapshot
     messages=messages,
     snapshot=snapshot.agent_snapshot,
-    # This break point shouldn't trigger again, since the agent will exit after the last llm call to give the
+    # This break point shouldn't trigger again, since the agent will exit after the next llm call to give the
     # final answer.
     break_point=replace(
-        agent_break_point,
-        break_point=replace(agent_break_point.break_point, visit_count=agent_break_point.break_point.visit_count + 1)
+        snapshot.agent_snapshot.break_point,
+        break_point=replace(
+            snapshot.agent_snapshot.break_point.break_point,
+            visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1
+        )
     ),
 )
 last_message = result["last_message"]
@@ -100,6 +104,7 @@ cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
 # ============
 # Using Only Breakpoint Feature: Multiple sequential Tool Calls
 # ============
+cons.print("\n[bold blue]=== Multiple Sequential Tool Calls Example ===[/bold blue]\n")
 agent = Agent(
     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
     tools=[balance_tool],
@@ -132,22 +137,47 @@ except BreakpointException:
     cons.print("[bold red]Execution paused at breakpoint.[/bold red]")
 
 # Load the snapshot
-possible_snapshots = os.listdir(Path("pipeline_snapshots"))
+possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
 latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
-snapshot = load_pipeline_snapshot(Path("pipeline_snapshots") / latest_snapshot_file)
+snapshot = load_pipeline_snapshot(latest_snapshot_file)
 
 # TODO Ask for user feedback to modify tool parameters
 
 # Restart execution after breakpoint
 # NOTE: We extended the Agent in haystack-experimental to allow running with a snapshot and a breakpoint
+try:
+    _ = agent.run(
+        messages=messages,
+        snapshot=snapshot.agent_snapshot,
+        # This break point should trigger again b/c the agent needs to call the tool a second time since the bank account
+        # balance for account 56789 is below $2000
+        break_point=replace(
+            snapshot.agent_snapshot.break_point,
+            break_point=replace(
+                snapshot.agent_snapshot.break_point.break_point,
+                visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1
+            )
+        ),
+    )
+except BreakpointException:
+    cons.print("[bold red]Execution paused at breakpoint (2nd time).[/bold red]")
+
+# Load the snapshot
+possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
+latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
+snapshot = load_pipeline_snapshot(latest_snapshot_file)
+
+# Restart execution after breakpoint
 result = agent.run(
     messages=messages,
     snapshot=snapshot.agent_snapshot,
-    # This break point should trigger again b/c the agent needs to call the tool a second time since the bank account
-    # balance for account 56789 is below $2000
+    # Increment the visit count so break point only triggers if there is a 3rd tool call (which there shouldn't be)
     break_point=replace(
-        agent_break_point,
-        break_point=replace(agent_break_point.break_point, visit_count=agent_break_point.break_point.visit_count + 1)
+        snapshot.agent_snapshot.break_point,
+        break_point=replace(
+            snapshot.agent_snapshot.break_point.break_point,
+            visit_count=snapshot.agent_snapshot.break_point.break_point.visit_count + 1
+        )
     ),
 )
 last_message = result["last_message"]
@@ -157,6 +187,7 @@ cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
 # ============
 # Combining breakpoint and confirmation strategies
 # ============
+# cons.print("\n[bold blue]=== Combining Breakpoint and Confirmation Strategies ===[/bold blue]\n")
 
 # Is it possible to follow the above pattern but use a confirmation strategy instead to trigger the breakpoint?
 
@@ -164,14 +195,14 @@ cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
 # - Could optionally still use the existing UI to get user feedback on modifying tool parameters before triggering the
 #   break point. This would have to be optional b/c the UIs are not suitable for a backend service.
 
-agent = Agent(
-    chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
-    tools=[balance_tool],
-    system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
-    confirmation_strategies={
-        balance_tool.name: HumanInTheLoopStrategy(
-            confirmation_policy=AlwaysAskPolicy(),
-            confirmation_ui=RichConsoleUI(console=cons)
-        ),
-    },
-)
+# agent = Agent(
+#     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
+#     tools=[balance_tool],
+#     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
+#     confirmation_strategies={
+#         balance_tool.name: HumanInTheLoopStrategy(
+#             confirmation_policy=AlwaysAskPolicy(),
+#             confirmation_ui=RichConsoleUI(console=cons)
+#         ),
+#     },
+# )
