@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import re
-from typing import List, Optional
 
 from haystack import Document, component, logging
 
@@ -22,13 +21,13 @@ class MarkdownHeaderLevelInferrer:
         """
         self._header_pattern = r"(?m)^(#{1,6}) (.+)$"
 
-    @component.output_types(documents=List[Document])
-    def run(self, documents: List[Document]) -> dict:
+    @component.output_types(documents=list[Document])
+    def run(self, documents: list[Document]) -> dict:
         """
         Infers and rewrites the header levels in the content for documents that use uniform header levels.
 
         Args:
-            documents (List[Document]): List of Document objects to process.
+            documents (list[Document]): List of Document objects to process.
 
         Returns:
             dict: A dictionary with the key 'documents' containing the processed Document objects.
@@ -39,6 +38,13 @@ class MarkdownHeaderLevelInferrer:
         processed_docs = []
         for doc in documents:
             content = doc.content
+            if content is None:
+                logger.warning(
+                    "Document content is None; skipping header level inference.",
+                )
+                processed_docs.append(doc)
+                continue
+
             matches = list(re.finditer(self._header_pattern, content))
             if not matches:
                 logger.info(
@@ -61,8 +67,9 @@ class MarkdownHeaderLevelInferrer:
                 if i > 0:
                     prev_end = matches[i - 1].end()
                     current_start = match.start()
-                    content_between = content[prev_end:current_start].strip()
-                    has_content = bool(content_between)
+                    content_between = content[prev_end:current_start]
+                    if content_between is not None:
+                        has_content = bool(content_between.strip())
 
                 if i == 0:
                     inferred_level = 1
@@ -91,13 +98,12 @@ class MarkdownHeaderLevelInferrer:
             # Create a new Document with updated content, preserving other fields
             processed_docs.append(
                 Document(
-                    id=doc.id if hasattr(doc, "id") else None,
+                    id=doc.id if hasattr(doc, "id") and doc.id is not None else "",
                     content=modified_text,
                     blob=getattr(doc, "blob", None),
-                    meta=getattr(doc, "meta", None),
+                    meta=getattr(doc, "meta", {}) if getattr(doc, "meta", None) is not None else {},
                     score=getattr(doc, "score", None),
                     embedding=getattr(doc, "embedding", None),
-                    id_hash_keys=getattr(doc, "id_hash_keys", None),
                 )
             )
 
