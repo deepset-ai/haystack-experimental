@@ -11,7 +11,7 @@ from haystack.components.agents.state.state_utils import replace_values
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
-from haystack.dataclasses import ChatMessage, ToolCall
+from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.tools import create_tool_from_function
 from rich.console import Console
@@ -124,13 +124,14 @@ confirmation_strategy = HumanInTheLoopStrategy(
 )
 tool_execution_decisions = []
 for tc in serialized_tool_calls:
-    ted = confirmation_strategy.run(
-        tool_name=tc["tool_name"],
-        tool_description=tool_descriptions[tc["tool_name"]],
-        tool_id=tc["id"],
-        tool_params=tc["arguments"],
+    tool_execution_decisions.append(
+        confirmation_strategy.run(
+            tool_name=tc["tool_name"],
+            tool_description=tool_descriptions[tc["tool_name"]],
+            tool_id=tc["id"],
+            tool_params=tc["arguments"],
+        )
     )
-    tool_execution_decisions.append(ted)
 
 # ----
 # Step 2.2: Update tool call messages and state based on feedback from the "front-end"
