@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from copy import deepcopy
 from dataclasses import replace
 import os
 from pathlib import Path
@@ -12,9 +11,9 @@ from haystack.components.agents.state.state_utils import replace_values
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
-from haystack.tools import Tool, create_tool_from_function
+from haystack.tools import create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
@@ -115,24 +114,21 @@ tool_descriptions = {t["data"]["name"]: t["data"]["description"] for t in serial
 # ----
 # Receives:
 # - tool_calls: List[ToolCall]
-# - tools: Dict[str, Tool] --> Needs to change to tool_descriptions
+# - tool_descriptions: Dict[str, str] {"tool_name": "tool_description"}
 # - snapshot_id: str
 # Sends back:
 # - tool_execution_decisions: List[ToolExecutionDecision]
 # - snapshot_id: str --> Needed to know which snapshot to load
-# TODO Not ideal to have to reconstruct the tool, better to update confirmation strategy to need only tool.name and
-#      tool.description explicitly
-tools = {
-    # NOTE: Need to use deepcopy b/c the from_dict method modifies the input dict in-place
-    t["data"]["name"]: Tool.from_dict(deepcopy(t)) for t in serialized_tools
-}
 confirmation_strategy = HumanInTheLoopStrategy(
     confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleUI(console=cons)
 )
 tool_execution_decisions = []
 for tc in serialized_tool_calls:
     ted = confirmation_strategy.run(
-        tool=tools[tc["tool_name"]],
+        tool_name=tc["tool_name"],
+        tool_description=tool_descriptions[tc["tool_name"]],
+        # TODO Could easily add tool_id here since we have the ToolCall
+        # tool_id=tc["id"],
         tool_params=tc["arguments"],
     )
     tool_execution_decisions.append(ted)
@@ -143,41 +139,47 @@ for tc in serialized_tool_calls:
 # Receives:
 # - tool_execution_decisions: List[ToolExecutionDecision]
 # - snapshot_id: str --> Needed to know which snapshot to load
-# TODO We need to make this a bit more sophisticated
-#      We should be updating the existing tool call ChatMessage instead of creating new ones otherwise we lose info
+# TODO We should be updating the existing tool call ChatMessage instead of creating new ones otherwise we lose info
 #      Semi-complicated since the ChatMessage can have multiple tool calls inside and the tool_execution_decisions
 #      is a flat list with only tool_name as a linking element. --> linking element should be tool_id b/c a tool can
 #      be called multiple times in a single tool call message.
-tool_name_to_tool_call = {tc.tool_name: tc for tc in tool_calls}
+tool_id_to_tool_call = {tc["id"]: tc for tc in serialized_tool_calls}
+tool_name_to_tool_call = {tc["tool_name"]: tc for tc in serialized_tool_calls}
+
 new_tool_call_messages = []
 additional_state_messages = []
 for ted in tool_execution_decisions:
-    tool_call = tool_name_to_tool_call[ted.tool_name]
+    if ted.tool_id:
+        tool_call = tool_id_to_tool_call[ted.tool_id]
+    else:
+        tool_call = tool_name_to_tool_call[ted.tool_name]
     if ted.execute:
         # Covers confirm and modify cases
-        if tool_call.arguments != ted.final_tool_params:
+        if tool_call["arguments"] != ted.final_tool_params:
             # In the modify case we add a user message explaining the modification otherwise the LLM won't know why the
             # tool parameters changed and will likely just try and call the tool again with the original parameters.
             new_tool_call_messages.append(
                 ChatMessage.from_user(
                     text=(
-                        f"The parameters for tool '{tool_call.tool_name}' were updated by the user to:\n"
+                        f"The parameters for tool '{tool_call['tool_name']}' were updated by the user to:\n"
                         f"{ted.final_tool_params}"
                     )
                 )
             )
         new_tool_call_messages.append(
-            ChatMessage.from_assistant(tool_calls=[replace(tool_call, arguments=ted.final_tool_params)])
+            ChatMessage.from_assistant(
+                tool_calls=[replace(ToolCall.from_dict(tool_call), arguments=ted.final_tool_params)]
+            )
         )
     else:
         # Reject case
         # We create a tool call result message using the feedback from the confirmation strategy
         # Then we move both the tool call message and the tool call result message to the chat history in State
-        additional_state_messages.append(ChatMessage.from_assistant(tool_calls=[tool_call]))
+        additional_state_messages.append(ChatMessage.from_assistant(tool_calls=[ToolCall.from_dict(tool_call)]))
         additional_state_messages.append(
             ChatMessage.from_tool(
                 tool_result=ted.feedback or "",
-                origin=tool_call,
+                origin=ToolCall.from_dict(tool_call),
                 error=True,
             )
         )
@@ -208,6 +210,7 @@ result = agent.run(
     snapshot=snapshot.agent_snapshot,
     # This break point shouldn't trigger again, since the agent will exit after the next llm call to give the
     # final answer.
+    # TODO Add a convenience function to return a new breakpoint with an incremented visit count ??
     break_point=replace(
         snapshot.agent_snapshot.break_point,
         break_point=replace(
