@@ -202,7 +202,9 @@ class ToolInvoker(HaystackToolInvoker):
                 continue
 
             tool_execution_decision = self.confirmation_strategies[tool_name].run(
-                tool=params["tool_to_invoke"], tool_params=params["final_args"]
+                tool_name=params["tool_to_invoke"].name,
+                tool_description=params["tool_to_invoke"].description,
+                tool_params=params["final_args"],
             )
 
             if tool_execution_decision.execute:

@@ -5,7 +5,6 @@
 from typing import Any, Protocol
 
 from haystack.core.serialization import default_from_dict, default_to_dict
-from haystack.tools import Tool
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import (
     ConfirmationUIResult,
@@ -19,7 +18,9 @@ from haystack_experimental.components.agents.human_in_the_loop.dataclasses impor
 class ConfirmationUI(Protocol):
     """Base class for confirmation UIs."""
 
-    def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+    def get_user_confirmation(
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any]
+    ) -> ConfirmationUIResult:
         """Get user confirmation for tool execution."""
         raise NotImplementedError
 
@@ -36,12 +37,16 @@ class ConfirmationUI(Protocol):
 class ConfirmationPolicy(Protocol):
     """Base class for confirmation policies."""
 
-    def should_ask(self, tool: Tool, tool_params: dict[str, Any]) -> bool:
+    def should_ask(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> bool:
         """Determine whether to ask for confirmation."""
         raise NotImplementedError
 
     def update_after_confirmation(
-        self, tool: Tool, tool_params: dict[str, Any], confirmation_result: ConfirmationUIResult
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        confirmation_result: ConfirmationUIResult,
     ) -> None:
         """Update the policy based on the confirmation UI result."""
         pass
@@ -57,11 +62,12 @@ class ConfirmationPolicy(Protocol):
 
 
 class ConfirmationStrategy(Protocol):
-    def run(self, tool: Tool, tool_params: dict[str, Any]) -> ToolExecutionDecision:
+    def run(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
 
-        :param tool: The tool to be confirmed.
+        :param tool_name: The name of the tool to be executed.
+        :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
 
         :returns:

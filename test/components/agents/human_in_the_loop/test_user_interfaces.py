@@ -24,19 +24,22 @@ def tool():
 
 
 class TestRichConsoleUI:
-    @pytest.mark.parametrize("choice,expected", [
-        ("y", "confirm"),
-        ("n", "reject"),
-    ])
+    @pytest.mark.parametrize(
+        "choice,expected",
+        [
+            ("y", "confirm"),
+            ("n", "reject"),
+        ],
+    )
     def test_process_choice(self, tool, choice, expected):
         ui = RichConsoleUI(console=MagicMock())
         params = {"x": 1}
 
         with patch(
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
-            side_effect=[choice, "feedback"]
+            side_effect=[choice, "feedback"],
         ):
-            result = ui.get_user_confirmation(tool, params)
+            result = ui.get_user_confirmation(tool.name, tool.description, params)
 
         assert isinstance(result, ConfirmationUIResult)
         assert result.action == expected
@@ -51,9 +54,9 @@ class TestRichConsoleUI:
 
         with patch(
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
-            side_effect=["m", "2"]
+            side_effect=["m", "2"],
         ):
-            result = ui.get_user_confirmation(tool, params)
+            result = ui.get_user_confirmation(tool.name, tool.description, params)
 
         assert isinstance(result, ConfirmationUIResult)
         assert result.action == "modify"
@@ -75,12 +78,15 @@ class TestRichConsoleUI:
 
 
 class TestSimpleConsoleUI:
-    @pytest.mark.parametrize("choice,expected", [
-        ("y", "confirm"),
-        ("yes", "confirm"),
-        ("n", "reject"),
-        ("m", "modify"),
-    ])
+    @pytest.mark.parametrize(
+        "choice,expected",
+        [
+            ("y", "confirm"),
+            ("yes", "confirm"),
+            ("n", "reject"),
+            ("m", "modify"),
+        ],
+    )
     def test_process_choice(self, tool, choice, expected):
         ui = SimpleConsoleUI()
         params = {"y": "abc"}
@@ -91,7 +97,7 @@ class TestSimpleConsoleUI:
         }.get(choice, [])
 
         with patch("builtins.input", side_effect=[choice] + inputs):
-            result = ui.get_user_confirmation(tool, params)
+            result = ui.get_user_confirmation(tool.name, tool.description, params)
 
         assert isinstance(result, ConfirmationUIResult)
         assert result.action == expected

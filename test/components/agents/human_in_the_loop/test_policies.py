@@ -29,7 +29,7 @@ def addition_tool() -> Tool:
 class TestAlwaysAskPolicy:
     def test_should_ask_always_true(self, addition_tool):
         policy = AlwaysAskPolicy()
-        assert policy.should_ask(addition_tool, {"x": 1, "y": 2}) is True
+        assert policy.should_ask(addition_tool.name, addition_tool.description, {"x": 1, "y": 2}) is True
 
     def test_to_dict(self):
         policy = AlwaysAskPolicy()
@@ -51,24 +51,31 @@ class TestAlwaysAskPolicy:
 class TestAskOncePolicy:
     def test_should_ask_first_time_true(self, addition_tool):
         policy = AskOncePolicy()
-        assert policy.should_ask(addition_tool, {"x": 1, "y": 2}) is True
+        assert policy.should_ask(addition_tool.name, addition_tool.description, {"x": 1, "y": 2}) is True
 
     def test_should_ask_second_time_false(self, addition_tool):
         policy = AskOncePolicy()
         params = {"x": 1, "y": 2}
-        assert policy.should_ask(addition_tool, params) is True
+        assert policy.should_ask(addition_tool.name, addition_tool.description, params) is True
         # Simulate the update after confirmation that occurs in HumanInTheLoopStrategy
-        policy.update_after_confirmation(addition_tool, params, ConfirmationUIResult(action="confirm", feedback=None))
-        assert policy.should_ask(addition_tool, params) is False
+        policy.update_after_confirmation(
+            addition_tool.name, addition_tool.description, params, ConfirmationUIResult(action="confirm", feedback=None)
+        )
+        assert policy.should_ask(addition_tool.name, addition_tool.description, params) is False
 
     def test_should_ask_different_params_true(self, addition_tool):
         policy = AskOncePolicy()
         params1 = {"x": 1, "y": 2}
         params2 = {"x": 3, "y": 4}
-        assert policy.should_ask(addition_tool, params1) is True
+        assert policy.should_ask(addition_tool.name, addition_tool.description, params1) is True
         # Simulate the update after confirmation that occurs in HumanInTheLoopStrategy
-        policy.update_after_confirmation(addition_tool, params1, ConfirmationUIResult(action="confirm", feedback=None))
-        assert policy.should_ask(addition_tool, params2) is True
+        policy.update_after_confirmation(
+            addition_tool.name,
+            addition_tool.description,
+            params1,
+            ConfirmationUIResult(action="confirm", feedback=None),
+        )
+        assert policy.should_ask(addition_tool.name, addition_tool.description, params2) is True
 
     def test_to_dict(self):
         policy = AskOncePolicy()
@@ -88,7 +95,7 @@ class TestAskOncePolicy:
 class TestNeverAskPolicy:
     def test_should_ask_always_false(self, addition_tool):
         policy = NeverAskPolicy()
-        assert policy.should_ask(addition_tool, {"x": 1, "y": 2}) is False
+        assert policy.should_ask(addition_tool.name, addition_tool.description, {"x": 1, "y": 2}) is False
 
     def test_to_dict(self):
         policy = NeverAskPolicy()

@@ -117,6 +117,4 @@ class TestAgent:
         assert isinstance(
             deserialized_agent._confirmation_strategies["addition_tool"].confirmation_policy, NeverAskPolicy
         )
-        assert isinstance(
-            deserialized_agent._confirmation_strategies["addition_tool"].confirmation_ui, SimpleConsoleUI
-        )
+        assert isinstance(deserialized_agent._confirmation_strategies["addition_tool"].confirmation_ui, SimpleConsoleUI)

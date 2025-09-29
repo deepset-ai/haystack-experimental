@@ -7,7 +7,6 @@ from threading import Lock
 from typing import Any, Optional
 
 from haystack.core.serialization import default_to_dict
-from haystack.tools import Tool
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -24,36 +23,42 @@ class RichConsoleUI(ConfirmationUI):
     def __init__(self, console: Optional[Console] = None):
         self.console = console or Console()
 
-    def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+    def get_user_confirmation(
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any]
+    ) -> ConfirmationUIResult:
         """
         Get user confirmation for tool execution via rich console prompts.
 
-        :param tool: The tool to be executed.
+        :param tool_name: The name of the tool to be executed.
+        :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
         :returns: ConfirmationUIResult based on user input.
         """
         with _ui_lock:
-            self._display_tool_info(tool, tool_params)
+            self._display_tool_info(tool_name, tool_description, tool_params)
             # y: confirm, n: reject, m: modify
             choice = Prompt.ask("\nYour choice", choices=["y", "n", "m"], default="y")
             return self._process_choice(choice, tool_params)
 
-    def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
+    def _display_tool_info(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> None:
         """
         Display tool information and parameters in a rich panel.
 
-        :param tool: The tool to be executed.
+        :param tool_name: The name of the tool to be executed.
+        :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
         """
-        lines = [f"[bold yellow]Tool:[/bold yellow] {tool.name}"]
-
-        if hasattr(tool, "description") and tool.description:
-            lines.append(f"[bold yellow]Description:[/bold yellow] {tool.description}")
+        lines = [
+            f"[bold yellow]Tool:[/bold yellow] {tool_name}",
+            f"[bold yellow]Description:[/bold yellow] {tool_description}",
+            "\n[bold yellow]Arguments:[/bold yellow]",
+        ]
 
         if tool_params:
-            lines.append("\n[bold yellow]Arguments:[/bold yellow]")
             for k, v in tool_params.items():
                 lines.append(f"[cyan]{k}:[/cyan] {v}")
+        else:
+            lines.append("  (No arguments)")
 
         self.console.print(Panel("\n".join(lines), title="🔧 Tool Execution Request", title_align="left"))
 
@@ -115,35 +120,38 @@ class RichConsoleUI(ConfirmationUI):
 class SimpleConsoleUI(ConfirmationUI):
     """Simple console interface using standard input/output."""
 
-    def get_user_confirmation(self, tool: Tool, tool_params: dict[str, Any]) -> ConfirmationUIResult:
+    def get_user_confirmation(
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any]
+    ) -> ConfirmationUIResult:
         """
         Get user confirmation for tool execution via simple console prompts.
 
-        :param tool: The tool to be executed.
+        :param tool_name: The name of the tool to be executed.
+        :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
         """
         with _ui_lock:
-            self._display_tool_info(tool, tool_params)
+            self._display_tool_info(tool_name, tool_description, tool_params)
             choice = input("Confirm execution? (y=confirm / n=reject / m=modify): ").strip().lower()
             return self._process_choice(choice, tool_params)
 
-    def _display_tool_info(self, tool: Tool, tool_params: dict[str, Any]) -> None:
+    def _display_tool_info(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> None:
         """
         Display tool information and parameters in the console.
 
-        :param tool: The tool to be executed.
+        :param tool_name: The name of the tool to be executed.
+        :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
         """
         print("\n--- Tool Execution Request ---")
-        print(f"Tool: {tool.name}")
-
-        if hasattr(tool, "description") and tool.description:
-            print(f"Description: {tool.description}")
-
+        print(f"Tool: {tool_name}")
+        print(f"Description: {tool_description}")
+        print("Arguments:")
         if tool_params:
-            print("Arguments:")
             for k, v in tool_params.items():
                 print(f"  {k}: {v}")
+        else:
+            print("  (No arguments)")
         print("-" * 30)
 
     def _process_choice(self, choice: str, tool_params: dict[str, Any]) -> ConfirmationUIResult:

@@ -5,7 +5,6 @@
 from typing import Any
 
 from haystack.core.serialization import default_to_dict, import_class_by_name
-from haystack.tools import Tool
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
 from haystack_experimental.components.agents.human_in_the_loop.policies import ConfirmationPolicy
@@ -29,12 +28,14 @@ class HumanInTheLoopStrategy:
         self.confirmation_policy = confirmation_policy
         self.confirmation_ui = confirmation_ui
 
-    def run(self, tool: Tool, tool_params: dict[str, Any]) -> ToolExecutionDecision:
+    def run(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> ToolExecutionDecision:
         """
         Run the human-in-the-loop strategy for a given tool and its parameters.
 
-        :param tool:
-            The tool to be confirmed.
+        :param tool_name:
+            The name of the tool to be executed.
+        :param tool_description:
+            The description of the tool.
         :param tool_params:
             The parameters to be passed to the tool.
 
@@ -43,33 +44,37 @@ class HumanInTheLoopStrategy:
             feedback message if rejected.
         """
         # Check if we should ask based on policy
-        if not self.confirmation_policy.should_ask(tool, tool_params):
-            return ToolExecutionDecision(tool_name=tool.name, execute=True, final_tool_params=tool_params)
+        if not self.confirmation_policy.should_ask(
+            tool_name=tool_name, tool_description=tool_description, tool_params=tool_params
+        ):
+            return ToolExecutionDecision(tool_name=tool_name, execute=True, final_tool_params=tool_params)
 
         # Get user confirmation through UI
-        confirmation_result = self.confirmation_ui.get_user_confirmation(tool, tool_params)
+        confirmation_result = self.confirmation_ui.get_user_confirmation(tool_name, tool_description, tool_params)
 
         # Pass back the result to the policy for any learning/updating
-        self.confirmation_policy.update_after_confirmation(tool, tool_params, confirmation_result)
+        self.confirmation_policy.update_after_confirmation(
+            tool_name, tool_description, tool_params, confirmation_result
+        )
 
         # Process the confirmation result
         final_args = {}
         if confirmation_result.action == "reject":
-            tool_result_message = f"Tool execution for '{tool.name}' rejected by user"
+            tool_result_message = f"Tool execution for '{tool_name}' rejected by user"
             if confirmation_result.feedback:
                 tool_result_message += f" with feedback: {confirmation_result.feedback}"
-            return ToolExecutionDecision(tool_name=tool.name, execute=False, feedback=tool_result_message)
+            return ToolExecutionDecision(tool_name=tool_name, execute=False, feedback=tool_result_message)
         elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
             # Update the tool call params with the new params
             final_args.update(confirmation_result.new_tool_params)
             return ToolExecutionDecision(
-                tool_name=tool.name,
+                tool_name=tool_name,
                 execute=True,
-                feedback=f"The tool parameters for {tool.name} were modified by the user.",
+                feedback=f"The tool parameters for {tool_name} were modified by the user.",
                 final_tool_params=final_args,
             )
         else:  # action == "confirm"
-            return ToolExecutionDecision(tool_name=tool.name, execute=True, final_tool_params=tool_params)
+            return ToolExecutionDecision(tool_name=tool_name, execute=True, final_tool_params=tool_params)
 
     def to_dict(self) -> dict[str, Any]:
         """
