@@ -25,7 +25,7 @@ class MarkdownHeaderLevelInferrer:
     @component.output_types(documents=List[Document])
     def run(self, documents: List[Document]) -> dict:
         """
-        Infers and rewrites the header levels in the content of each Document in the input list to normalize the hierarchy.
+        Infers and rewrites the header levels in the content for documents that use uniform header levels.
 
         Args:
             documents (List[Document]): List of Document objects to process.
