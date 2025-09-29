@@ -138,48 +138,62 @@ for tc in serialized_tool_calls:
 # Receives:
 # - tool_execution_decisions: List[ToolExecutionDecision]
 # - snapshot_id: str --> Needed to know which snapshot to load
-# TODO We should be updating the existing tool call ChatMessage instead of creating new ones otherwise we lose info
-#      Semi-complicated since the ChatMessage can have multiple tool calls inside and the tool_execution_decisions
-#      is a flat list with only tool_name as a linking element. --> linking element should be tool_id b/c a tool can
-#      be called multiple times in a single tool call message.
-tool_id_to_tool_call = {tc["id"]: tc for tc in serialized_tool_calls}
-tool_name_to_tool_call = {tc["tool_name"]: tc for tc in serialized_tool_calls}
-
+serialized_chat_messages = snapshot.agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["messages"]
 new_tool_call_messages = []
 additional_state_messages = []
-for ted in tool_execution_decisions:
-    if ted.tool_id:
-        tool_call = tool_id_to_tool_call[ted.tool_id]
-    else:
-        tool_call = tool_name_to_tool_call[ted.tool_name]
-    if ted.execute:
-        # Covers confirm and modify cases
-        if tool_call["arguments"] != ted.final_tool_params:
-            # In the modify case we add a user message explaining the modification otherwise the LLM won't know why the
-            # tool parameters changed and will likely just try and call the tool again with the original parameters.
-            new_tool_call_messages.append(
-                ChatMessage.from_user(
-                    text=(
-                        f"The parameters for tool '{tool_call['tool_name']}' were updated by the user to:\n"
-                        f"{ted.final_tool_params}"
+for msg in serialized_chat_messages:
+    chat_msg = ChatMessage.from_dict(msg)
+    if not chat_msg.tool_calls:
+        continue
+
+    new_tool_calls = []
+    for tc in chat_msg.tool_calls:
+        ted = next(ted for ted in tool_execution_decisions if (ted.tool_id == tc.id or ted.tool_name == tc.tool_name))
+        if ted.execute:
+            # Covers confirm and modify cases
+            if tc.arguments != ted.final_tool_params:
+                # In the modify case we add a user message explaining the modification otherwise the LLM won't know
+                # why the tool parameters changed and will likely just try and call the tool again with the
+                # original parameters.
+                new_tool_call_messages.append(
+                    ChatMessage.from_user(
+                        text=(
+                            f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n"
+                            f"{ted.final_tool_params}"
+                        )
                     )
                 )
+            new_tool_calls.append(replace(tc, arguments=ted.final_tool_params))
+        else:
+            # Reject case
+            # We create a tool call and tool call result message pair to put into the chat history of State
+            additional_state_messages.append(
+                # We can't use dataclasses.replace, so we use from_assistant to create a new message
+                ChatMessage.from_assistant(
+                    text=chat_msg.text,
+                    meta=chat_msg.meta,
+                    name=chat_msg.name,
+                    tool_calls=[tc],
+                    reasoning=chat_msg.reasoning,
+                )
             )
+            additional_state_messages.append(
+                ChatMessage.from_tool(
+                    tool_result=ted.feedback or "",
+                    origin=tc,
+                    error=True,
+                )
+            )
+
+    # Only add the tool call message if there are any tool calls left (i.e. not all were rejected)
+    if new_tool_calls:
         new_tool_call_messages.append(
             ChatMessage.from_assistant(
-                tool_calls=[replace(ToolCall.from_dict(tool_call), arguments=ted.final_tool_params)]
-            )
-        )
-    else:
-        # Reject case
-        # We create a tool call result message using the feedback from the confirmation strategy
-        # Then we move both the tool call message and the tool call result message to the chat history in State
-        additional_state_messages.append(ChatMessage.from_assistant(tool_calls=[ToolCall.from_dict(tool_call)]))
-        additional_state_messages.append(
-            ChatMessage.from_tool(
-                tool_result=ted.feedback or "",
-                origin=ToolCall.from_dict(tool_call),
-                error=True,
+                text=chat_msg.text,
+                meta=chat_msg.meta,
+                name=chat_msg.name,
+                tool_calls=new_tool_calls,
+                reasoning=chat_msg.reasoning,
             )
         )
 
