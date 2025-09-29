@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from haystack.core.serialization import default_from_dict, default_to_dict
 
@@ -62,13 +62,16 @@ class ConfirmationPolicy(Protocol):
 
 
 class ConfirmationStrategy(Protocol):
-    def run(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> ToolExecutionDecision:
+    def run(
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_id: Optional[str] = None
+    ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
 
         :param tool_name: The name of the tool to be executed.
         :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
+        :param tool_id: Optional unique identifier for the tool.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).

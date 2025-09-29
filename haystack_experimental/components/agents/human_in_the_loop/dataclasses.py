@@ -36,6 +36,8 @@ class ToolExecutionDecision:
         The name of the tool to be executed.
     :param execute:
         A boolean indicating whether to execute the tool with the provided parameters.
+    :param tool_id:
+        Optional unique identifier for the tool.
     :param feedback:
         Optional feedback message.
         For example, if the tool execution is rejected, this can contain the reason. Or if the tool parameters were
@@ -46,5 +48,6 @@ class ToolExecutionDecision:
 
     tool_name: str
     execute: bool
+    tool_id: Optional[str] = None
     feedback: Optional[str] = None
     final_tool_params: Optional[dict[str, Any]] = None

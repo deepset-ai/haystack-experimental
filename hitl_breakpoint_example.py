@@ -127,8 +127,7 @@ for tc in serialized_tool_calls:
     ted = confirmation_strategy.run(
         tool_name=tc["tool_name"],
         tool_description=tool_descriptions[tc["tool_name"]],
-        # TODO Could easily add tool_id here since we have the ToolCall
-        # tool_id=tc["id"],
+        tool_id=tc["id"],
         tool_params=tc["arguments"],
     )
     tool_execution_decisions.append(ted)
