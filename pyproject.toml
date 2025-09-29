@@ -28,6 +28,7 @@ classifiers = [
 
 dependencies = [
   "haystack-ai",
+  "pytest>=8.4.2",
 ]
 
 [project.urls]
