@@ -10,7 +10,7 @@ from haystack import Document, component, logging
 @component
 class MarkdownHeaderLevelInferrer:
     """
-    Infers and rewrites header levels in markdown text to normalize hierarchy.
+    Infers and rewrites header levels in Markdown text to normalize hierarchy.
     """
 
     def __init__(self):
