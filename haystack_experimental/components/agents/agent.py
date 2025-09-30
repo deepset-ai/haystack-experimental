@@ -516,6 +516,141 @@ class Agent(HaystackAgent):
             result["last_message"] = msgs[-1]
         return result
 
+    async def run_async(
+        self,
+        messages: list[ChatMessage],
+        streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
+        break_point: Optional[AgentBreakpoint] = None,
+        snapshot: Optional[AgentSnapshot] = None,
+        system_prompt: Optional[str] = None,
+        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        Asynchronously process messages and execute tools until the exit condition is met.
+
+        This is the asynchronous version of the `run` method. It follows the same logic but uses
+        asynchronous operations where possible, such as calling the `run_async` method of the ChatGenerator
+        if available.
+
+        :param messages: List of Haystack ChatMessage objects to process.
+        :param streaming_callback: An asynchronous callback that will be invoked when a response is streamed from the
+            LLM. The same callback can be configured to emit tool results when a tool is called.
+        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
+            for "tool_invoker".
+        :param snapshot: A dictionary containing a snapshot of a previously saved agent execution. The snapshot contains
+            the relevant information to restart the Agent execution from where it left off.
+        :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
+        :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
+        :param kwargs: Additional data to pass to the State schema used by the Agent.
+            The keys must match the schema defined in the Agent's `state_schema`.
+        :returns:
+            A dictionary with the following keys:
+            - "messages": List of all messages exchanged during the agent's run.
+            - "last_message": The last message exchanged during the agent's run.
+            - Any additional keys defined in the `state_schema`.
+        :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
+        :raises BreakpointException: If an agent breakpoint is triggered.
+        """
+        # We pop parent_snapshot from kwargs to avoid passing it into State.
+        parent_snapshot = kwargs.pop("parent_snapshot", None)
+        agent_inputs = {
+            "messages": messages,
+            "streaming_callback": streaming_callback,
+            "break_point": break_point,
+            "snapshot": snapshot,
+            **kwargs,
+        }
+        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+
+        if snapshot:
+            exe_context = self._initialize_from_snapshot(
+                snapshot=snapshot, streaming_callback=streaming_callback, requires_async=True, tools=tools
+            )
+        else:
+            exe_context = self._initialize_fresh_execution(
+                messages=messages,
+                streaming_callback=streaming_callback,
+                requires_async=True,
+                system_prompt=system_prompt,
+                tools=tools,
+                **kwargs,
+            )
+
+        with self._create_agent_span() as span:
+            span.set_content_tag("haystack.agent.input", _deepcopy_with_exceptions(agent_inputs))
+
+            while exe_context.counter < self.max_agent_steps:
+                # Handle breakpoint and ChatGenerator call
+                self._check_chat_generator_breakpoint(
+                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
+                )
+                # We skip the chat generator when restarting from a snapshot from a ToolBreakpoint
+                if exe_context.skip_chat_generator:
+                    llm_messages = exe_context.state.get("messages", [])[-1:]
+                    # Set to False so the next iteration will call the chat generator
+                    exe_context.skip_chat_generator = False
+                else:
+                    result = await AsyncPipeline._run_component_async(
+                        component_name="chat_generator",
+                        component={"instance": self.chat_generator},
+                        component_inputs={
+                            "messages": exe_context.state.data["messages"],
+                            **exe_context.chat_generator_inputs,
+                        },
+                        component_visits=exe_context.component_visits,
+                        parent_span=span,
+                    )
+                    llm_messages = result["replies"]
+                    exe_context.state.set("messages", llm_messages)
+
+                # Check if any of the LLM responses contain a tool call or if the LLM is not using tools
+                if not any(msg.tool_call for msg in llm_messages) or self._tool_invoker is None:
+                    exe_context.counter += 1
+                    break
+
+                # Handle breakpoint and ToolInvoker call
+                self._check_tool_invoker_breakpoint(
+                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
+                )
+                # We only send the messages from the LLM to the tool invoker
+                tool_invoker_result = await AsyncPipeline._run_component_async(
+                    component_name="tool_invoker",
+                    component={"instance": self._tool_invoker},
+                    component_inputs={
+                        "messages": llm_messages,
+                        "state": exe_context.state,
+                        **exe_context.tool_invoker_inputs,
+                    },
+                    component_visits=exe_context.component_visits,
+                    parent_span=span,
+                )
+                tool_messages = tool_invoker_result["tool_messages"]
+                exe_context.state = tool_invoker_result["state"]
+                exe_context.state.set("messages", tool_messages)
+
+                # Check if any LLM message's tool call name matches an exit condition
+                if self.exit_conditions != ["text"] and self._check_exit_conditions(llm_messages, tool_messages):
+                    exe_context.counter += 1
+                    break
+
+                # Increment the step counter
+                exe_context.counter += 1
+
+            if exe_context.counter >= self.max_agent_steps:
+                logger.warning(
+                    "Agent reached maximum agent steps of {max_agent_steps}, stopping.",
+                    max_agent_steps=self.max_agent_steps,
+                )
+            span.set_content_tag("haystack.agent.output", exe_context.state.data)
+            span.set_tag("haystack.agent.steps_taken", exe_context.counter)
+
+        result = {**exe_context.state.data}
+        if msgs := result.get("messages"):
+            result["last_message"] = msgs[-1]
+        return result
+
     def _handle_confirmation_strategies(
         self,
         *,
