@@ -38,15 +38,14 @@ class MarkdownHeaderLevelInferrer:
 
         processed_docs = []
         for doc in documents:
-            content = doc.content
-            if content is None:
+            if doc.content is None:
                 logger.warning(
                     "Document content is None; skipping header level inference.",
                 )
                 processed_docs.append(doc)
                 continue
 
-            matches = list(re.finditer(self._header_pattern, content))
+            matches = list(re.finditer(self._header_pattern, doc.content))
             if not matches:
                 logger.info(
                     "No headers found in document{doc_ref}; skipping header level inference.",
@@ -55,7 +54,7 @@ class MarkdownHeaderLevelInferrer:
                 processed_docs.append(doc)
                 continue
 
-            modified_text = content
+            modified_text = doc.content
             offset = 0
             current_level = 1
             header_stack = [1]
@@ -68,7 +67,7 @@ class MarkdownHeaderLevelInferrer:
                 if i > 0:
                     prev_end = matches[i - 1].end()
                     current_start = match.start()
-                    content_between = content[prev_end:current_start]
+                    content_between = doc.content[prev_end:current_start]
                     if content_between is not None:
                         has_content = bool(content_between.strip())
 
