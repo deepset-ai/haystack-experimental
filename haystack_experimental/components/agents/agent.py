@@ -8,7 +8,7 @@ from typing import Any, Optional, Union
 
 from haystack import logging
 from haystack import component
-from haystack.core.pipeline.pipeline import Pipeline
+from haystack.core.pipeline import AsyncPipeline, Pipeline
 from haystack.components.agents.agent import Agent as HaystackAgent
 from haystack.components.agents.agent import (
     _ExecutionContext,
