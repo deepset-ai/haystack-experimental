@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 @component
 class MarkdownHeaderLevelInferrer:
     """
-    Infers and rewrites header levels in markdown text to normalize hierarchy.
+    Infers and rewrites header levels in Markdown text to normalize hierarchy.
     """
 
     def __init__(self):
@@ -21,7 +21,7 @@ class MarkdownHeaderLevelInferrer:
 
         Uses a hardcoded regex pattern to match markdown headers from level 1 to 6.
         """
-        self._header_pattern = r"(?m)^(#{1,6}) (.+)$"
+        self._header_pattern = re.compile(r"(?m)^(#{1,6}) (.+)$")
 
     @component.output_types(documents=list[Document])
     def run(self, documents: list[Document]) -> dict:
@@ -40,7 +40,7 @@ class MarkdownHeaderLevelInferrer:
         for doc in documents:
             if doc.content is None:
                 logger.warning(
-                    "Document content is None; skipping header level inference.",
+                    f"Document {doc.id} content is None; skipping header level inference.",
                 )
                 processed_docs.append(doc)
                 continue
