@@ -18,8 +18,6 @@ class MarkdownHeaderLevelInferrer:
     def __init__(self):
         """
         Initializes the MarkdownHeaderLevelInferrer.
-
-        Uses a hardcoded regex pattern to match markdown headers from level 1 to 6.
         """
         self._header_pattern = re.compile(r"(?m)^(#{1,6}) (.+)$")
 
@@ -35,76 +33,75 @@ class MarkdownHeaderLevelInferrer:
             dict: A dictionary with the key 'documents' containing the processed Document objects.
         """
         logger.debug("Inferring and rewriting header levels for documents")
-
-        processed_docs = []
-        for doc in documents:
-            if doc.content is None:
-                logger.warning(
-                    f"Document {doc.id} content is None; skipping header level inference.",
-                )
-                processed_docs.append(doc)
-                continue
-
-            matches = list(re.finditer(self._header_pattern, doc.content))
-            if not matches:
-                logger.info(
-                    "No headers found in document{doc_ref}; skipping header level inference.",
-                    doc_ref=f" (id: {doc.id})" if hasattr(doc, "id") and doc.id else "",
-                )
-                processed_docs.append(doc)
-                continue
-
-            modified_text = doc.content
-            offset = 0
-            current_level = 1
-            header_stack = [1]
-
-            for i, match in enumerate(matches):
-                original_header = match.group(0)
-                header_text = match.group(2).strip()
-
-                has_content = False
-                if i > 0:
-                    prev_end = matches[i - 1].end()
-                    current_start = match.start()
-                    content_between = doc.content[prev_end:current_start]
-                    if content_between is not None:
-                        has_content = bool(content_between.strip())
-
-                if i == 0:
-                    inferred_level = 1
-                elif has_content:
-                    inferred_level = current_level
-                else:
-                    inferred_level = min(current_level + 1, 6)
-
-                current_level = inferred_level
-                header_stack = header_stack[:inferred_level]
-                while len(header_stack) < inferred_level:
-                    header_stack.append(1)
-
-                new_prefix = "#" * inferred_level
-                new_header = f"{new_prefix} {header_text}"
-                start_pos = match.start() + offset
-                end_pos = match.end() + offset
-                modified_text = modified_text[:start_pos] + new_header + modified_text[end_pos:]
-                offset += len(new_header) - len(original_header)
-
-            logger.info(
-                "Rewrote {num_headers} headers with inferred levels in document{doc_ref}.",
-                num_headers=len(matches),
-                doc_ref=f" (id: {doc.id})" if hasattr(doc, "id") and doc.id else "",
-            )
-            # Create a new Document with updated content, preserving other fields
-            processed_docs.append(
-                Document(
-                    id=doc.id if hasattr(doc, "id") and doc.id is not None else "",
-                    content=modified_text,
-                    blob=getattr(doc, "blob", None),
-                    meta=getattr(doc, "meta", {}) if getattr(doc, "meta", None) is not None else {},
-                    score=getattr(doc, "score", None),
-                    embedding=getattr(doc, "embedding", None),
-                )
-            )
-
+        processed_docs = [self._process_document(doc) for doc in documents]
         return {"documents": processed_docs}
+
+    def _process_document(self, doc: Document) -> Document:
+        """Processes a single document, inferring and rewriting header levels."""
+        if doc.content is None:
+            logger.warning(f"Document {getattr(doc, 'id', '')} content is None; skipping header level inference.")
+            return doc
+
+        matches = list(re.finditer(self._header_pattern, doc.content))
+        if not matches:
+            logger.info(f"No headers found in document{self._doc_ref(doc)}; skipping header level inference.")
+            return doc
+
+        modified_text = self._rewrite_headers(doc.content, matches)
+        logger.info(f"Rewrote {len(matches)} headers with inferred levels in document{self._doc_ref(doc)}.")
+        return self._build_final_document(doc, modified_text)
+
+    def _rewrite_headers(self, content: str, matches: list[re.Match]) -> str:
+        """Rewrites the headers in the content with inferred levels."""
+        modified_text = content
+        offset = 0
+        current_level = 1
+
+        for i, match in enumerate(matches):
+            original_header = match.group(0)
+            header_text = match.group(2).strip()
+
+            has_content = self._has_content_between_headers(content, matches, i)
+            inferred_level = self._infer_level(i, current_level, has_content)
+            current_level = inferred_level
+
+            new_header = f"{'#' * inferred_level} {header_text}"
+            start_pos = match.start() + offset
+            end_pos = match.end() + offset
+            modified_text = modified_text[:start_pos] + new_header + modified_text[end_pos:]
+            offset += len(new_header) - len(original_header)
+
+        return modified_text
+
+    def _has_content_between_headers(self, content: str, matches: list[re.Match], i: int) -> bool:
+        """Checks if there is content between the previous and current header."""
+        if i == 0:
+            return False
+        prev_end = matches[i - 1].end()
+        current_start = matches[i].start()
+        content_between = content[prev_end:current_start]
+        return bool(content_between.strip())
+
+    def _infer_level(self, i: int, current_level: int, has_content: bool) -> int:
+        """Infers the header level for the current header."""
+        if i == 0:
+            return 1
+        if has_content:
+            return current_level
+        return min(current_level + 1, 6)
+
+    def _build_final_document(self, doc: Document, new_content: str) -> Document:
+        """Creates a new Document with updated content, preserving other fields."""
+        return Document(
+            id=getattr(doc, "id", "") or "",
+            content=new_content,
+            blob=getattr(doc, "blob", None),
+            meta=getattr(doc, "meta", {}) or {},
+            score=getattr(doc, "score", None),
+            embedding=getattr(doc, "embedding", None),
+        )
+
+    def _doc_ref(self, doc: Document) -> str:
+        """Returns a string reference for the document id."""
+        doc_id = getattr(doc, "id", None)
+        return f" (id: {doc_id})" if doc_id else ""
