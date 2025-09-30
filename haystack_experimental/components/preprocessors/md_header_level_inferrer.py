@@ -40,7 +40,7 @@ class MarkdownHeaderLevelInferrer:
             content = doc.content
             if content is None:
                 logger.warning(
-                    "Document content is None; skipping header level inference.",
+                    f"Document {doc.id} content is None; skipping header level inference.",
                 )
                 processed_docs.append(doc)
                 continue
