@@ -2,20 +2,28 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import replace
 import inspect
 from typing import Any, Optional, Union
 
 from haystack import logging
+from haystack.components.tools import ToolInvoker
+from haystack.core.errors import PipelineRuntimeError
+from haystack.core.pipeline.breakpoint import (
+    _create_pipeline_snapshot_from_chat_generator,
+    _create_pipeline_snapshot_from_tool_invoker,
+    _validate_tool_breakpoint_is_valid
+)
+from haystack.core.pipeline.pipeline import Pipeline
 from haystack.components.agents.agent import Agent as HaystackAgent
 from haystack.components.agents.agent import _ExecutionContext, State
 from haystack.components.agents.state.state import _schema_from_dict, _schema_to_dict, _validate_schema
 from haystack.components.agents.state.state_utils import merge_lists
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.component.component import component
-from haystack.core.pipeline.breakpoint import _validate_tool_breakpoint_is_valid
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict, import_class_by_name
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.dataclasses.breakpoints import AgentBreakpoint, AgentSnapshot, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
@@ -23,7 +31,7 @@ from haystack.utils.callable_serialization import deserialize_callable, serializ
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 from haystack.utils import _deserialize_value_with_schema
 
-from haystack_experimental.components.agents.human_in_the_loop.types import ConfirmationStrategy
+from haystack_experimental.components.agents.human_in_the_loop import ConfirmationStrategy
 from haystack_experimental.components.tools.tool_invoker import ToolInvoker
 
 logger = logging.getLogger(__name__)
@@ -168,7 +176,6 @@ class Agent(HaystackAgent):
             resolved_tool_invoker_kwargs = {
                 "tools": self.tools,
                 "raise_on_failure": self.raise_on_tool_invocation_failure,
-                "confirmation_strategies": self._confirmation_strategies,
                 **(tool_invoker_kwargs or {}),
             }
             self._tool_invoker = ToolInvoker(**resolved_tool_invoker_kwargs)
@@ -271,6 +278,264 @@ class Agent(HaystackAgent):
 
         if break_point and isinstance(break_point.break_point, ToolBreakpoint):
             _validate_tool_breakpoint_is_valid(agent_breakpoint=break_point, tools=self.tools)
+
+    def run(  # noqa: PLR0915
+        self,
+        messages: list[ChatMessage],
+        streaming_callback: Optional[StreamingCallbackT] = None,
+        *,
+        break_point: Optional[AgentBreakpoint] = None,
+        snapshot: Optional[AgentSnapshot] = None,
+        system_prompt: Optional[str] = None,
+        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        Process messages and execute tools until an exit condition is met.
+
+        :param messages: List of Haystack ChatMessage objects to process.
+        :param streaming_callback: A callback that will be invoked when a response is streamed from the LLM.
+            The same callback can be configured to emit tool results when a tool is called.
+        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
+            for "tool_invoker".
+        :param snapshot: A dictionary containing a snapshot of a previously saved agent execution. The snapshot contains
+            the relevant information to restart the Agent execution from where it left off.
+        :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
+        :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
+            When passing tool names, tools are selected from the Agent's originally configured tools.
+        :param kwargs: Additional data to pass to the State schema used by the Agent.
+            The keys must match the schema defined in the Agent's `state_schema`.
+        :returns:
+            A dictionary with the following keys:
+            - "messages": List of all messages exchanged during the agent's run.
+            - "last_message": The last message exchanged during the agent's run.
+            - Any additional keys defined in the `state_schema`.
+        :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
+        :raises BreakpointException: If an agent breakpoint is triggered.
+        """
+        # We pop parent_snapshot from kwargs to avoid passing it into State.
+        parent_snapshot = kwargs.pop("parent_snapshot", None)
+        agent_inputs = {
+            "messages": messages,
+            "streaming_callback": streaming_callback,
+            "break_point": break_point,
+            "snapshot": snapshot,
+            **kwargs,
+        }
+        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+
+        if snapshot:
+            exe_context = self._initialize_from_snapshot(
+                snapshot=snapshot, streaming_callback=streaming_callback, requires_async=False, tools=tools
+            )
+        else:
+            exe_context = self._initialize_fresh_execution(
+                messages=messages,
+                streaming_callback=streaming_callback,
+                requires_async=False,
+                system_prompt=system_prompt,
+                tools=tools,
+                **kwargs,
+            )
+
+        with self._create_agent_span() as span:
+            span.set_content_tag("haystack.agent.input", _deepcopy_with_exceptions(agent_inputs))
+
+            while exe_context.counter < self.max_agent_steps:
+                # Handle breakpoint and ChatGenerator call
+                Agent._check_chat_generator_breakpoint(
+                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
+                )
+                # We skip the chat generator when restarting from a snapshot from a ToolBreakpoint
+                if exe_context.skip_chat_generator:
+                    llm_messages = exe_context.state.get("messages", [])[-1:]
+                    # Set to False so the next iteration will call the chat generator
+                    exe_context.skip_chat_generator = False
+                else:
+                    try:
+                        result = Pipeline._run_component(
+                            component_name="chat_generator",
+                            component={"instance": self.chat_generator},
+                            inputs={
+                                "messages": exe_context.state.data["messages"],
+                                **exe_context.chat_generator_inputs,
+                            },
+                            component_visits=exe_context.component_visits,
+                            parent_span=span,
+                        )
+                    except PipelineRuntimeError as e:
+                        pipeline_snapshot = _create_pipeline_snapshot_from_chat_generator(
+                            agent_name=getattr(self, "__component_name__", None),
+                            execution_context=exe_context,
+                            parent_snapshot=parent_snapshot,
+                        )
+                        e.pipeline_snapshot = pipeline_snapshot
+                        raise e
+
+                    llm_messages = result["replies"]
+                    exe_context.state.set("messages", llm_messages)
+
+                # Check if any of the LLM responses contain a tool call or if the LLM is not using tools
+                if not any(msg.tool_call for msg in llm_messages) or self._tool_invoker is None:
+                    exe_context.counter += 1
+                    break
+
+                # Apply confirmation strategies and update State and messages sent to ToolInvoker
+                # Only send confirmed + modified tool calls to the ToolInvoker
+                # Edge case: Slightly tricky if one message has multiple tool calls and only some are confirmed
+                # - Strategy is to keep original message in State, but send a modified message to the ToolInvoker
+                #   with only the confirmed tool calls
+                # - We should end up with one original message + two ToolCallResult messages as normal
+                modified_tool_call_messages, tool_call_result_messages = self._handle_confirmation_strategies(
+                    messages_with_tool_calls=llm_messages,
+                    state=exe_context.state,
+                    streaming_callback=streaming_callback,
+                    enable_streaming_passthrough=exe_context.tool_invoker_inputs.get(
+                        "enable_streaming_passthrough", False
+                    ),
+                    tools_with_names={tool.name: tool for tool in exe_context.tool_invoker_inputs["tools"]},
+                )
+                # Add Tool Call Result messages to the chat history
+                if tool_call_result_messages:
+                    exe_context.state.set("messages", tool_call_result_messages)
+
+                # Handle breakpoint and ToolInvoker call
+                Agent._check_tool_invoker_breakpoint(
+                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
+                )
+                try:
+                    # We only send the messages from the LLM to the tool invoker
+                    tool_invoker_result = Pipeline._run_component(
+                        component_name="tool_invoker",
+                        component={"instance": self._tool_invoker},
+                        inputs={
+                            "messages": modified_tool_call_messages,
+                            "state": exe_context.state,
+                            **exe_context.tool_invoker_inputs,
+                        },
+                        component_visits=exe_context.component_visits,
+                        parent_span=span,
+                    )
+                except PipelineRuntimeError as e:
+                    # Access the original Tool Invoker exception
+                    original_error = e.__cause__
+                    tool_name = getattr(original_error, "tool_name", None)
+
+                    pipeline_snapshot = _create_pipeline_snapshot_from_tool_invoker(
+                        tool_name=tool_name,
+                        agent_name=getattr(self, "__component_name__", None),
+                        execution_context=exe_context,
+                        parent_snapshot=parent_snapshot,
+                    )
+                    e.pipeline_snapshot = pipeline_snapshot
+                    raise e
+
+                tool_messages = tool_invoker_result["tool_messages"]
+                exe_context.state = tool_invoker_result["state"]
+                exe_context.state.set("messages", tool_messages)
+
+                # Check if any LLM message's tool call name matches an exit condition
+                if self.exit_conditions != ["text"] and self._check_exit_conditions(llm_messages, tool_messages):
+                    exe_context.counter += 1
+                    break
+
+                # Increment the step counter
+                exe_context.counter += 1
+
+            if exe_context.counter >= self.max_agent_steps:
+                logger.warning(
+                    "Agent reached maximum agent steps of {max_agent_steps}, stopping.",
+                    max_agent_steps=self.max_agent_steps,
+                )
+            span.set_content_tag("haystack.agent.output", exe_context.state.data)
+            span.set_tag("haystack.agent.steps_taken", exe_context.counter)
+
+        result = {**exe_context.state.data}
+        if msgs := result.get("messages"):
+            result["last_message"] = msgs[-1]
+        return result
+
+    def _handle_confirmation_strategies(
+        self,
+        *,
+        messages_with_tool_calls: list[ChatMessage],
+        state: State,
+        streaming_callback: Optional[StreamingCallbackT],
+        enable_streaming_passthrough: bool,
+        tools_with_names: dict[str, Tool],
+    ) -> tuple[list[ChatMessage], list[ChatMessage]]:
+        """
+        Prepare tool call parameters for execution and collect any error messages.
+
+        :param messages_with_tool_calls: Messages containing tool calls to process
+        :param state: The current state for argument injection
+        :param streaming_callback: Optional streaming callback to inject
+        :param enable_streaming_passthrough: Whether to pass streaming callback to tools
+        :returns: Tuple of (tool_calls, tool_call_params, error_messages)
+        """
+        modified_tool_call_messages = []
+        tool_call_result_messages = []
+
+        for message in messages_with_tool_calls:
+            confirmed_tool_calls = []
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.tool_name
+                tool_to_invoke = tools_with_names[tool_name]
+
+                # Combine user + state inputs
+                llm_args = tool_call.arguments.copy()
+                final_args = ToolInvoker._inject_state_args(tool_to_invoke, llm_args, state)
+
+                # Check whether to inject streaming_callback
+                if (
+                    enable_streaming_passthrough
+                    and streaming_callback is not None
+                    and "streaming_callback" not in final_args
+                    and "streaming_callback" in ToolInvoker._get_func_params(tool_to_invoke)
+                ):
+                    final_args["streaming_callback"] = streaming_callback
+
+                # Handle confirmation strategies
+                # If no confirmation strategy is defined for this tool, proceed with execution
+                if tool_name not in self._confirmation_strategies:
+                    confirmed_tool_calls.append(tool_call)
+                    continue
+
+                tool_execution_decision = self._confirmation_strategies[tool_name].run(
+                    tool_name=tool_name,
+                    tool_description=tool_to_invoke.description,
+                    tool_params=final_args
+                )
+
+                if tool_execution_decision.execute:
+                    # TODO Need to figure out a way to forward the feedback message here if not empty
+                    #      This is relevant if tool params were modified by the user
+                    # additional_feedback = tool_execution_decision.feedback
+                    final_args.update(tool_execution_decision.final_tool_params)
+                    confirmed_tool_calls.append(replace(tool_call, arguments=final_args))
+                else:
+                    # Tool execution was rejected with a message
+                    tool_call_result_messages.append(
+                        ChatMessage.from_tool(
+                            tool_result=tool_execution_decision.feedback or "",
+                            origin=tool_call,
+                            error=True,
+                        )
+                    )
+
+            # Update message with only confirmed tool calls
+            if confirmed_tool_calls:
+                modified_tool_call_messages.append(
+                    ChatMessage.from_assistant(
+                        text=message.text,
+                        meta=message.meta,
+                        name=message.name,
+                        tool_calls=confirmed_tool_calls,
+                        reasoning=message.reasoning,
+                    )
+                )
+
+        return modified_tool_call_messages, tool_call_result_messages
 
     def to_dict(self) -> dict[str, Any]:
         """

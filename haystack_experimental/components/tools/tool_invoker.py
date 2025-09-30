@@ -140,7 +140,6 @@ class ToolInvoker(HaystackToolInvoker):
         *,
         enable_streaming_callback_passthrough: bool = False,
         max_workers: int = 4,
-        confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
     ):
         """
         Initialize the ToolInvoker component.
@@ -167,12 +166,6 @@ class ToolInvoker(HaystackToolInvoker):
         :param max_workers:
             The maximum number of workers to use in the thread pool executor.
             This also decides the maximum number of concurrent tool invocations.
-        :param confirmation_strategies:
-            A dictionary mapping tool names to their corresponding confirmation strategies.
-            If a tool name is present in this dictionary, the associated confirmation strategy
-            will be executed before invoking the tool.
-            If the tool execution is rejected by the strategy, the tool will not be invoked,
-            and an appropriate message will be returned instead.
         :raises ValueError:
             If no tools are provided or if duplicate tool names are found.
         """
@@ -184,47 +177,6 @@ class ToolInvoker(HaystackToolInvoker):
             enable_streaming_callback_passthrough=enable_streaming_callback_passthrough,
             max_workers=max_workers,
         )
-        self.confirmation_strategies = confirmation_strategies or {}
-
-    def _handle_confirmation_strategies(
-        self, tool_calls: list[ToolCall], tool_call_params: list[dict[str, Any]]
-    ) -> tuple[list[ToolCall], list[dict[str, Any]], list[ChatMessage]]:
-        confirmed_tool_calls = []
-        confirmed_tool_call_params = []
-        tool_messages = []
-        for tool_call, params in zip(tool_calls, tool_call_params):
-            tool_name = params["tool_to_invoke"].name
-
-            # If no confirmation strategy is defined for this tool, proceed with execution
-            if tool_name not in self.confirmation_strategies:
-                confirmed_tool_calls.append(tool_call)
-                confirmed_tool_call_params.append(params)
-                continue
-
-            tool_execution_decision = self.confirmation_strategies[tool_name].run(
-                tool_name=params["tool_to_invoke"].name,
-                tool_description=params["tool_to_invoke"].description,
-                tool_params=params["final_args"],
-            )
-
-            if tool_execution_decision.execute:
-                # TODO Need to figure out a way to forward the feedback message here if not empty
-                #      This is relevant if tool params were modified by the user
-                # additional_feedback = tool_execution_decision.feedback
-                params["final_args"].update(tool_execution_decision.final_tool_params)
-                confirmed_tool_calls.append(tool_call)
-                confirmed_tool_call_params.append(params)
-            else:
-                # Tool execution was rejected with a message
-                tool_messages.append(
-                    ChatMessage.from_tool(
-                        tool_result=tool_execution_decision.feedback or "",
-                        origin=tool_call,
-                        error=True,
-                    )
-                )
-
-        return confirmed_tool_calls, confirmed_tool_call_params, tool_messages
 
     @component.output_types(tool_messages=list[ChatMessage], state=State)
     def run(
@@ -303,16 +255,6 @@ class ToolInvoker(HaystackToolInvoker):
         tool_messages.extend(error_messages)
 
         # Early exit if no valid tool calls
-        if not tool_call_params:
-            return {"tool_messages": tool_messages, "state": state}
-
-        # Apply confirmation strategies before executing tool calls
-        tool_calls, tool_call_params, rejection_messages = self._handle_confirmation_strategies(
-            tool_calls=tool_calls, tool_call_params=tool_call_params
-        )
-        tool_messages.extend(rejection_messages)
-
-        # Early exit if no valid tool calls after confirmation strategies
         if not tool_call_params:
             return {"tool_messages": tool_messages, "state": state}
 
@@ -449,16 +391,6 @@ class ToolInvoker(HaystackToolInvoker):
         tool_messages.extend(error_messages)
 
         # Early exit if no valid tool calls
-        if not tool_call_params:
-            return {"tool_messages": tool_messages, "state": state}
-
-        # Apply confirmation strategies before executing tool calls
-        tool_calls, tool_call_params, rejection_messages = self._handle_confirmation_strategies(
-            tool_calls=tool_calls, tool_call_params=tool_call_params
-        )
-        tool_messages.extend(rejection_messages)
-
-        # Early exit if no valid tool calls after confirmation strategies
         if not tool_call_params:
             return {"tool_messages": tool_messages, "state": state}
 
