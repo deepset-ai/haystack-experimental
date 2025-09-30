@@ -6,6 +6,8 @@ import re
 
 from haystack import Document, component, logging
 
+logger = logging.getLogger(__name__)
+
 
 @component
 class MarkdownHeaderLevelInferrer:
@@ -32,7 +34,6 @@ class MarkdownHeaderLevelInferrer:
         Returns:
             dict: A dictionary with the key 'documents' containing the processed Document objects.
         """
-        logger = logging.getLogger(__name__)
         logger.debug("Inferring and rewriting header levels for documents")
 
         processed_docs = []
