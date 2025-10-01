@@ -7,6 +7,7 @@ from pathlib import Path
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
+from haystack.core.errors import BreakpointException
 from haystack.dataclasses import ChatMessage
 from haystack.tools import create_tool_from_function
 from rich.console import Console
@@ -19,7 +20,6 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
     RichConsoleUI,
 )
-from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
     get_tool_calls_and_descriptions,
 )
@@ -63,9 +63,11 @@ agent = Agent(
 messages = [ChatMessage.from_user("What's the balance of account 56789?")]
 try:
     _ = agent.run(messages=messages)
-except ToolBreakpointException as e:
-    tool_name = e.break_point.break_point.tool_name
-    cons.print("[bold red]Execution paused by Breakpoint Confirmation Strategy for tool:[/bold red]", tool_name)
+except BreakpointException as e:
+    cons.print(
+        "[bold red]Execution paused by Breakpoint Confirmation Strategy for tool:[/bold red]",
+        str(e)
+    )
 
 # ----
 # Step 2: Gather user input to optionally update tool parameters before resuming execution
