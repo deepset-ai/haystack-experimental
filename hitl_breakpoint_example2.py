@@ -112,16 +112,19 @@ def run_agent(
 
 if __name__ == "__main__":
     snapshot_fp = "pipeline_snapshots"
-    # Single tool call question
+    # Single tool call question --> Works
     # user_message = "What's the balance of account 56789?"
-    # Two tool call question
+    # Two tool call question --> Works
     # user_message = "What's the balance of account 56789 and what is 5.5 + 3.2?"
-    # Multiple sequential tool calls question
+    # Multiple sequential tool calls question --> Stuck in infinite loop
+    # TODO When second sequential tool is hit we don't save the first tool execution decision
+    #      So when restarting the agent the second time it thinks the first tool doesn't have a decision yet
     user_message = "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?"
 
     cons = Console()
     cons.print("\n[bold blue]=== Multiple Sequential Tool Calls Example ===[/bold blue]\n")
 
+    # Define agent with both tools and breakpoint confirmation strategies
     addition_tool = create_tool_from_function(
         function=addition,
         name="addition",
