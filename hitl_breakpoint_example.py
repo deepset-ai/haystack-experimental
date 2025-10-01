@@ -114,11 +114,9 @@ if __name__ == "__main__":
     snapshot_fp = "pipeline_snapshots"
     # Single tool call question --> Works
     # user_message = "What's the balance of account 56789?"
-    # Two tool call question --> Works
+    # Two tool call question --> Works kind of inadvertently (see TODO below)
     # user_message = "What's the balance of account 56789 and what is 5.5 + 3.2?"
     # Multiple sequential tool calls question --> Stuck in infinite loop
-    # TODO When second sequential tool is hit we don't save the first tool execution decision
-    #      So when restarting the agent the second time it thinks the first tool doesn't have a decision yet
     user_message = "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?"
 
     cons = Console()
@@ -152,15 +150,18 @@ if __name__ == "__main__":
     while result is None:
         # Load the latest snapshot from disk and prep data for front-end
         loaded_snapshot = get_latest_snapshot(snapshot_file_path=snapshot_fp)
+        # TODO Theoretically should only send the tool call that triggered the breakpoint, not all tool calls so far
         serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions(loaded_snapshot.agent_snapshot)
 
         # Simulate front-end interaction
         serialized_teds = frontend_simulate_tool_execution(serialized_tool_calls, tool_descripts, cons)
 
         # Update the snapshot with the tool execution decisions and restart the agent
-        loaded_snapshot.agent_snapshot.tool_execution_decisions = [
-            ToolExecutionDecision.from_dict(ted) for ted in serialized_teds
-        ]
+        teds = [ToolExecutionDecision.from_dict(ted) for ted in serialized_teds]
+        if loaded_snapshot.agent_snapshot.tool_execution_decisions:
+            loaded_snapshot.agent_snapshot.tool_execution_decisions.extend(teds)
+        else:
+            loaded_snapshot.agent_snapshot.tool_execution_decisions = teds
         result = run_agent(bank_agent, [], cons, loaded_snapshot)
 
     # Step 3: Final result

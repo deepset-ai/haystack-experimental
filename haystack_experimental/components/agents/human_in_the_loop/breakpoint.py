@@ -93,11 +93,18 @@ def _update_state_and_tool_call_messages_with_tool_execution_decisions(
             )
 
     # Modify the chat history in state to handle the rejection cases
-    # 1. Move the tool call message and tool call result message pairs to right after last user message
-    # 2. Leave all remaining tool call messages (i.e. the ones that were confirmed or modified) at the end of the chat
+    # 1. Move the tool call message and tool call result message pairs to right before last ToolCallResult or user
+    #    message whichever is later in the chat history
+    # 2. Put all outstanding tool call messages (i.e. the ones that were confirmed or modified) at the end of the chat
+    #    history
     chat_history = state.get("messages")
     last_user_msg_idx = max(i for i, m in enumerate(chat_history) if m.is_from("user"))
-    new_chat_history = chat_history[: last_user_msg_idx + 1] + additional_state_messages + new_tool_call_messages
+    last_tool_msg_idx = max(
+        [i for i, m in enumerate(chat_history) if m.is_from("tool")] + [-1]
+    )  # -1 in case there are no tool messages yet
+    last_relevant_msg_idx = max(last_user_msg_idx, last_tool_msg_idx)
+    # We take everything up to and including the last relevant message, then add any additional messages
+    new_chat_history = chat_history[: last_relevant_msg_idx + 1] + additional_state_messages + new_tool_call_messages
     state.set(key="messages", value=new_chat_history, handler_override=replace_values)
 
     return state, new_tool_call_messages
