@@ -32,7 +32,6 @@ def get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[list
 def _update_state_and_tool_call_messages_with_tool_execution_decisions(
     state: State, tool_call_messages: list[ChatMessage], tool_execution_decisions: list[ToolExecutionDecision]
 ) -> tuple[State, list[ChatMessage]]:
-
     new_tool_call_messages = []
     additional_state_messages = []
     for chat_msg in tool_call_messages:

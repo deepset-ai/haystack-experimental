@@ -9,6 +9,7 @@ from typing import Any, Optional, Union
 # Trying to monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
+
 # replace reference
 hdb.AgentSnapshot = AgentSnapshot
 
@@ -61,6 +62,7 @@ class _ExecutionContext(Haystack_ExecutionContext):
     :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
         the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
     """
+
     tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
 
 
@@ -235,36 +237,25 @@ class Agent(HaystackAgent):
             When passing tool names, tools are selected from the Agent's originally configured tools.
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
-        system_prompt = system_prompt or self.system_prompt
-        if system_prompt is not None:
-            messages = [ChatMessage.from_system(system_prompt)] + messages
-
-        if all(m.is_from(ChatRole.SYSTEM) for m in messages):
-            logger.warning("All messages provided to the Agent component are system messages. This is not recommended.")
-
-        state = State(schema=self.state_schema, data=kwargs)
-        state.set("messages", messages)
-
-        streaming_callback = select_streaming_callback(  # type: ignore[call-overload]
-            init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=requires_async
+        exe_context = super(Agent, self)._initialize_fresh_execution(
+            messages=messages,
+            streaming_callback=streaming_callback,
+            requires_async=requires_async,
+            system_prompt=system_prompt,
+            tools=tools,
+            **kwargs,
         )
-
-        selected_tools = self._select_tools(tools)
-        tool_invoker_inputs: dict[str, Any] = {"tools": selected_tools}
-        generator_inputs: dict[str, Any] = {"tools": selected_tools}
-        if streaming_callback is not None:
-            tool_invoker_inputs["streaming_callback"] = streaming_callback
-            generator_inputs["streaming_callback"] = streaming_callback
-            # NOTE: Only difference with parent method to add this to tool_invoker_inputs
-            tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
+        # NOTE: 1st difference with parent method to add this to tool_invoker_inputs
+        if self._tool_invoker:
+            exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-
+        # NOTE: 2nd difference is to use the extended _ExecutionContext
         return _ExecutionContext(
-            state=state,
-            component_visits=dict.fromkeys(["chat_generator", "tool_invoker"], 0),
-            chat_generator_inputs=generator_inputs,
-            tool_invoker_inputs=tool_invoker_inputs,
+            state=exe_context.state,
+            component_visits=exe_context.component_visits,
+            chat_generator_inputs=exe_context.chat_generator_inputs,
+            tool_invoker_inputs=exe_context.tool_invoker_inputs,
         )
 
     def _initialize_from_snapshot(
@@ -284,39 +275,22 @@ class Agent(HaystackAgent):
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
         """
-        component_visits = snapshot.component_visits
-        current_inputs = {
-            "chat_generator": _deserialize_value_with_schema(snapshot.component_inputs["chat_generator"]),
-            "tool_invoker": _deserialize_value_with_schema(snapshot.component_inputs["tool_invoker"]),
-        }
-
-        state_data = current_inputs["tool_invoker"]["state"].data
-        state = State(schema=self.state_schema, data=state_data)
-
-        skip_chat_generator = isinstance(snapshot.break_point.break_point, ToolBreakpoint)
-        streaming_callback = current_inputs["chat_generator"].get("streaming_callback", streaming_callback)
-        streaming_callback = select_streaming_callback(  # type: ignore[call-overload]
-            init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=requires_async
+        exe_context = super(Agent, self)._initialize_from_snapshot(
+            snapshot=snapshot, streaming_callback=streaming_callback, requires_async=requires_async, tools=tools
         )
-
-        selected_tools = self._select_tools(tools)
-        tool_invoker_inputs: dict[str, Any] = {"tools": selected_tools}
-        generator_inputs: dict[str, Any] = {"tools": selected_tools}
-        if streaming_callback is not None:
-            tool_invoker_inputs["streaming_callback"] = streaming_callback
-            generator_inputs["streaming_callback"] = streaming_callback
-            # NOTE: Only difference with parent method to add this to tool_invoker_inputs
-            tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
+        # NOTE: 1st difference with parent method to add this to tool_invoker_inputs
+        if self._tool_invoker:
+            exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-
+        # NOTE: 2nd difference is to use the extended _ExecutionContext and add tool_execution_decisions
         return _ExecutionContext(
-            state=state,
-            component_visits=component_visits,
-            chat_generator_inputs=generator_inputs,
-            tool_invoker_inputs=tool_invoker_inputs,
-            counter=snapshot.break_point.break_point.visit_count,
-            skip_chat_generator=skip_chat_generator,
+            state=exe_context.state,
+            component_visits=exe_context.component_visits,
+            chat_generator_inputs=exe_context.chat_generator_inputs,
+            tool_invoker_inputs=exe_context.tool_invoker_inputs,
+            counter=exe_context.counter,
+            skip_chat_generator=exe_context.skip_chat_generator,
             tool_execution_decisions=snapshot.tool_execution_decisions,
         )
 
@@ -502,7 +476,7 @@ class Agent(HaystackAgent):
                                 tool_name=tbp_error.tool_name,
                                 visit_count=exe_context.component_visits["tool_invoker"],
                                 snapshot_file_path=tbp_error.snapshot_file_path,
-                            )
+                            ),
                         ),
                         parent_snapshot=parent_snapshot,
                     )
@@ -758,9 +732,7 @@ class Agent(HaystackAgent):
                 # If not, run the confirmation strategy
                 if not ted:
                     ted = self._confirmation_strategies[tool_name].run(
-                        tool_name=tool_name,
-                        tool_description=tool_to_invoke.description,
-                        tool_params=final_args
+                        tool_name=tool_name, tool_description=tool_to_invoke.description, tool_params=final_args
                     )
                 teds.append(ted)
 

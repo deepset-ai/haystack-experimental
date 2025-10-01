@@ -9,7 +9,7 @@ from haystack.core.serialization import default_from_dict, default_to_dict, impo
 from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationPolicy,
     ConfirmationUI,
-    ToolExecutionDecision
+    ToolExecutionDecision,
 )
 from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
 

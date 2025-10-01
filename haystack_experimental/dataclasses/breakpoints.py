@@ -47,5 +47,7 @@ class AgentSnapshot(HaystackAgentSnapshot):
             timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else None,
             tool_execution_decisions=[
                 ToolExecutionDecision.from_dict(ted) for ted in data.get("tool_execution_decisions", [])
-            ] if data.get("tool_execution_decisions") else None,
+            ]
+            if data.get("tool_execution_decisions")
+            else None,
         )
