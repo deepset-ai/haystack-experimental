@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Any, Optional
 
 
@@ -51,3 +51,21 @@ class ToolExecutionDecision:
     tool_id: Optional[str] = None
     feedback: Optional[str] = None
     final_tool_params: Optional[dict[str, Any]] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the ToolExecutionDecision to a dictionary representation.
+
+        :return: A dictionary containing the tool execution decision details.
+        """
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ToolExecutionDecision":
+        """
+        Populate the ToolExecutionDecision from a dictionary representation.
+
+        :param data: A dictionary containing the tool execution decision details.
+        :return: An instance of ToolExecutionDecision.
+        """
+        return cls(**data)

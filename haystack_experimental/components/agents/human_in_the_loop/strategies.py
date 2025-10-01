@@ -4,7 +4,8 @@
 
 from typing import Any, Optional
 
-from haystack.core.serialization import default_to_dict, import_class_by_name
+from haystack.core.errors import BreakpointException
+from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
 from haystack_experimental.components.agents.human_in_the_loop.policies import ConfirmationPolicy
@@ -78,6 +79,7 @@ class HumanInTheLoopStrategy:
             final_args.update(confirmation_result.new_tool_params)
             return ToolExecutionDecision(
                 tool_name=tool_name,
+                tool_id=tool_id,
                 execute=True,
                 feedback=f"The tool parameters for {tool_name} were modified by the user.",
                 final_tool_params=final_args,
@@ -124,3 +126,66 @@ class HumanInTheLoopStrategy:
 #  1. Uses AgentBreakPoint to trigger a BreakpointException
 #  2. Can resume from a snapshot and any modified tool parameters
 #  - The user feedback gathering is pushed outside of this strategy b/c this is meant to be used in a backend service
+
+
+class BreakpointConfirmationStrategy:
+    """
+    Confirmation strategy that raises a breakpoint exception to pause execution and gather user feedback.
+
+    This strategy is designed for scenarios where immediate user interaction is not possible, such as in backend
+    services. When a tool execution requires confirmation, it raises an `BreakpointException` exception, which can be
+    caught by the surrounding system to handle user interaction separately.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the BreakpointConfirmationStrategy.
+        """
+        pass
+
+    def run(
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_id: Optional[str] = None
+    ) -> ToolExecutionDecision:
+        """
+        Run the breakpoint confirmation strategy for a given tool and its parameters.
+
+        :param tool_name:
+            The name of the tool to be executed.
+        :param tool_description:
+            The description of the tool.
+        :param tool_params:
+            The parameters to be passed to the tool.
+        :param tool_id:
+            Optional unique identifier for the tool.
+
+        :raises BreakpointException:
+            Always raises an `BreakpointException` exception to signal that user confirmation is required.
+
+        :returns:
+            This method does not return; it always raises an exception.
+        """
+        raise BreakpointException(
+            message=f"Tool execution for '{tool_name}' requires user confirmation.",
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serialization is not implemented for BreakpointConfirmationStrategy.
+
+        :raises NotImplementedError:
+            Always raises this exception since serialization is not supported.
+        """
+        raise default_to_dict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "BreakpointConfirmationStrategy":
+        """
+        Deserialization is not implemented for BreakpointConfirmationStrategy.
+
+        :param data:
+            Dictionary to deserialize from.
+
+        :raises NotImplementedError:
+            Always raises this exception since deserialization is not supported.
+        """
+        raise default_from_dict(cls, data)

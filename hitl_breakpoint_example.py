@@ -2,29 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import replace
 import os
 from pathlib import Path
 
-from haystack.components.agents.state import State
-from haystack.components.agents.state.state_utils import replace_values
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
-from haystack.dataclasses.breakpoints import AgentSnapshot
-from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.tools import create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
-from haystack_experimental.components.agents.human_in_the_loop.policies import (
+from haystack_experimental.components.agents.human_in_the_loop import (
     AlwaysAskPolicy,
-)
-from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
-from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import (
+    BreakpointConfirmationStrategy,
+    HumanInTheLoopStrategy,
+    ToolExecutionDecision,
     RichConsoleUI,
+)
+from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
+    get_tool_calls_and_descriptions,
 )
 
 
@@ -49,7 +46,7 @@ balance_tool = create_tool_from_function(
 cons = Console()
 
 # ============
-# Using Only Breakpoint Feature
+# Using Confirmation Strategy with Breakpoint
 # ============
 # ----
 # Step 1: Run agent with breakpoint
@@ -59,29 +56,15 @@ agent = Agent(
     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
     tools=[balance_tool],
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
+    # This breakpoint will cause a ToolBreakpointException to raised after the tool is selected but before execution
+    confirmation_strategies={balance_tool.name: BreakpointConfirmationStrategy()}
 )
 
-# This breakpoint will cause a BreakpointException to raise after the tool is selected but before execution
-agent_break_point = AgentBreakpoint(
-    agent_name="agent",
-    break_point=ToolBreakpoint(
-        tool_name=balance_tool.name,
-        # NOTE: Would be nice to set component_name to "tool_invoker" by default
-        component_name="tool_invoker",
-        visit_count=0,
-        snapshot_file_path="pipeline_snapshots",
-    ),
-)
 messages = [ChatMessage.from_user("What's the balance of account 56789?")]
 try:
-    _ = agent.run(messages=messages, break_point=agent_break_point)
+    _ = agent.run(messages=messages)
 except BreakpointException:
     cons.print("[bold red]Execution paused at breakpoint.[/bold red]")
-
-# NOTE: Opened issue to make it easier to find the latest snapshot: https://github.com/deepset-ai/haystack/issues/9828
-possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
-latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
-
 
 # ----
 # Step 2: Gather user input to optionally update tool parameters before resuming execution
@@ -94,25 +77,9 @@ latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
 # - tool_calls: List[ToolCall]
 # - tool_descriptions: Dict[str, str] {"tool_name": "tool_description"}
 
-def get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[list[dict], dict[str, str]]:
-    # Create the list of tool calls to send
-    serialized_tool_call_messages = agent_snapshot.component_inputs["tool_invoker"]["serialized_data"][
-        "messages"
-    ]
-    tool_call_messages = [ChatMessage.from_dict(m) for m in serialized_tool_call_messages]
-    tool_calls = []
-    for msg in tool_call_messages:
-        if msg.tool_calls:
-            tool_calls.extend(msg.tool_calls)
-    serialized_tcs = [tc.to_dict() for tc in tool_calls]
-    # TODO The arguments in serialized_tool_calls are not fully correct. Missing the injection from inputs_from_state.
-
-    # Create the dict of tool descriptions to send
-    serialized_tools = agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["tools"]
-    tool_descs = {t["data"]["name"]: t["data"]["description"] for t in serialized_tools}
-    return serialized_tcs, tool_descs
-
-
+# NOTE: Opened issue to make it easier to find the latest snapshot: https://github.com/deepset-ai/haystack/issues/9828
+possible_snapshots = [Path("pipeline_snapshots") / f for f in os.listdir(Path("pipeline_snapshots"))]
+latest_snapshot_file = str(max(possible_snapshots, key=os.path.getctime))
 snapshot = load_pipeline_snapshot(latest_snapshot_file)
 serialized_tool_calls, tool_descriptions = get_tool_calls_and_descriptions(agent_snapshot=snapshot.agent_snapshot)
 
@@ -139,115 +106,19 @@ for tc in serialized_tool_calls:
             tool_params=tc["arguments"],
         )
     )
-
-# ----
-# Step 2.2: Update tool call messages and state based on feedback from the "front-end"
-# ----
-# Receives:
-# - tool_execution_decisions: List[ToolExecutionDecision]
-# - snapshot_id: str --> Needed to know which snapshot to load
-
-
-def update_snapshot_with_tool_execution_decisions(
-    agent_snapshot: AgentSnapshot, tool_execution_decisions: list[ToolExecutionDecision]
-) -> AgentSnapshot:
-    serialized_chat_messages = agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["messages"]
-    new_tool_call_messages = []
-    additional_state_messages = []
-    for msg in serialized_chat_messages:
-        chat_msg = ChatMessage.from_dict(msg)
-        if not chat_msg.tool_calls:
-            continue
-
-        new_tool_calls = []
-        for tc in chat_msg.tool_calls:
-            ted = next(ted for ted in tool_execution_decisions if (ted.tool_id == tc.id or ted.tool_name == tc.tool_name))
-            if ted.execute:
-                # Covers confirm and modify cases
-                if tc.arguments != ted.final_tool_params:
-                    # In the modify case we add a user message explaining the modification otherwise the LLM won't know
-                    # why the tool parameters changed and will likely just try and call the tool again with the
-                    # original parameters.
-                    new_tool_call_messages.append(
-                        ChatMessage.from_user(
-                            text=(
-                                f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n"
-                                f"{ted.final_tool_params}"
-                            )
-                        )
-                    )
-                new_tool_calls.append(replace(tc, arguments=ted.final_tool_params))
-            else:
-                # Reject case
-                # We create a tool call and tool call result message pair to put into the chat history of State
-                additional_state_messages.append(
-                    # We can't use dataclasses.replace, so we use from_assistant to create a new message
-                    ChatMessage.from_assistant(
-                        text=chat_msg.text,
-                        meta=chat_msg.meta,
-                        name=chat_msg.name,
-                        tool_calls=[tc],
-                        reasoning=chat_msg.reasoning,
-                    )
-                )
-                additional_state_messages.append(
-                    ChatMessage.from_tool(
-                        tool_result=ted.feedback or "",
-                        origin=tc,
-                        error=True,
-                    )
-                )
-
-        # Only add the tool call message if there are any tool calls left (i.e. not all were rejected)
-        if new_tool_calls:
-            new_tool_call_messages.append(
-                ChatMessage.from_assistant(
-                    text=chat_msg.text,
-                    meta=chat_msg.meta,
-                    name=chat_msg.name,
-                    tool_calls=new_tool_calls,
-                    reasoning=chat_msg.reasoning,
-                )
-            )
-
-    # Modify the chat history in state to handle the rejection cases
-    # 1. Move the tool call message and tool call result message pairs to right after last user message
-    # 2. Leave all remaining tool call messages (i.e. the ones that were confirmed or modified) at the end of the chat
-    serialized_state = agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["state"]
-    state = State.from_dict(serialized_state)
-    chat_history = state.get("messages")
-    last_user_msg_idx = max(i for i, m in enumerate(chat_history) if m.is_from("user"))
-    new_chat_history = chat_history[: last_user_msg_idx + 1] + additional_state_messages + new_tool_call_messages
-    state.set(key="messages", value=new_chat_history, handler_override=replace_values)
-
-    # Update the snapshot with the new tool call messages and updated state
-    agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["messages"] = [
-        msg.to_dict() for msg in new_tool_call_messages
-    ]
-    agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["state"] = state.to_dict()
-    return agent_snapshot
+serialized_teds = [ted.to_dict() for ted in tool_execution_decisions]
 
 
 # ----
 # Step 3: Restart execution after breakpoint with updated snapshot
 # ----
-# NOTE: We extended the Agent in haystack-experimental to allow running with a snapshot and a breakpoint
-new_agent_snapshot = update_snapshot_with_tool_execution_decisions(
-    agent_snapshot=snapshot.agent_snapshot, tool_execution_decisions=tool_execution_decisions
-)
+# Add the new tool execution decisions to the snapshot and resume execution
+new_agent_snapshot = snapshot.agent_snapshot
+new_agent_snapshot.tool_execution_decisions = [ToolExecutionDecision.from_dict(ted) for ted in serialized_teds]
 result = agent.run(
     # NOTE: Messages are still required but are ignored when passing in a snapshot
     messages=[],
-    snapshot=new_agent_snapshot,
-    # This break point shouldn't trigger again, since the agent will exit after the next llm call to give the
-    # final answer.
-    break_point=replace(
-        new_agent_snapshot.break_point,
-        break_point=replace(
-            new_agent_snapshot.break_point.break_point,
-            visit_count=new_agent_snapshot.break_point.break_point.visit_count + 1,
-        ),
-    ),
+    snapshot=new_agent_snapshot
 )
 last_message = result["last_message"]
 cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")

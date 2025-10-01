@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import inspect
 from typing import Any, Optional, Union
 
@@ -10,8 +10,8 @@ from haystack import logging
 from haystack import component
 from haystack.core.pipeline import AsyncPipeline, Pipeline
 from haystack.components.agents.agent import Agent as HaystackAgent
+from haystack.components.agents.agent import _ExecutionContext as Haystack_ExecutionContext
 from haystack.components.agents.agent import (
-    _ExecutionContext,
     State,
     _schema_from_dict,
     _schema_to_dict,
@@ -29,17 +29,33 @@ from haystack.core.pipeline.breakpoint import (
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage, ChatRole
-from haystack.dataclasses.breakpoints import AgentBreakpoint, AgentSnapshot, ToolBreakpoint
+from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
 from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 from haystack.utils import _deserialize_value_with_schema
 
-from haystack_experimental.components.agents.human_in_the_loop import ConfirmationStrategy
+from haystack_experimental.components.agents.human_in_the_loop import ConfirmationStrategy, ToolExecutionDecision
+from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
 from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
+from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
+    _update_state_and_tool_call_messages_with_tool_execution_decisions,
+)
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _ExecutionContext(Haystack_ExecutionContext):
+    """
+    Execution context for the Agent component, extending Haystack's _ExecutionContext to include
+    tool execution decisions for human-in-the-loop strategies.
+
+    :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
+        the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
+    """
+    tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
 
 
 class Agent(HaystackAgent):
@@ -301,6 +317,7 @@ class Agent(HaystackAgent):
             tool_invoker_inputs=tool_invoker_inputs,
             counter=snapshot.break_point.break_point.visit_count,
             skip_chat_generator=skip_chat_generator,
+            tool_execution_decisions=snapshot.tool_execution_decisions,
         )
 
     def _runtime_checks(self, break_point: Optional[AgentBreakpoint], snapshot: Optional[AgentSnapshot]) -> None:
@@ -442,11 +459,8 @@ class Agent(HaystackAgent):
 
                 # Apply confirmation strategies and update State and messages sent to ToolInvoker
                 # Only send confirmed + modified tool calls to the ToolInvoker, but keep original messages in State
-                # TODO To handle breakpoints it will be possible for this function to return a BreakpointException??
-                #   - When this happens we should trigger a tool_invoker_breakpoint
-                #   - On restart from snapshot we need to tell confirmation strategy the tool execution decision
                 try:
-                    modified_tool_call_messages, tool_call_result_messages = self._handle_confirmation_strategies(
+                    modified_tool_call_messages, exe_context = self._handle_confirmation_strategies(
                         messages_with_tool_calls=llm_messages,
                         execution_context=exe_context,
                     )
@@ -457,8 +471,8 @@ class Agent(HaystackAgent):
                         break_point=tbp_error.break_point,
                         parent_snapshot=parent_snapshot,
                     )
-                # Add Tool Call Result messages to the chat history
-                exe_context.state.set("messages", tool_call_result_messages)
+                # NOTE: Chat history update now handled inside of _handle_confirmation_strategies
+                # exe_context.state.set("messages", tool_call_result_messages)
 
                 # Handle breakpoint and ToolInvoker call
                 Agent._check_tool_invoker_breakpoint(
@@ -656,7 +670,7 @@ class Agent(HaystackAgent):
         *,
         messages_with_tool_calls: list[ChatMessage],
         execution_context: _ExecutionContext,
-    ) -> tuple[list[ChatMessage], list[ChatMessage]]:
+    ) -> tuple[list[ChatMessage], _ExecutionContext]:
         """
         Prepare tool call parameters for execution and collect any error messages.
 
@@ -669,19 +683,18 @@ class Agent(HaystackAgent):
         tools_with_names = {tool.name: tool for tool in execution_context.tool_invoker_inputs["tools"]}
         enable_streaming_passthrough = execution_context.tool_invoker_inputs.get("enable_streaming_passthrough", False)
 
-        modified_tool_call_messages = []
-        tool_call_result_messages = []
-
+        teds = []
         for message in messages_with_tool_calls:
-            confirmed_tool_calls = []
+            if not message.tool_calls:
+                continue
+
+            # confirmed_tool_calls = []
             for tool_call in message.tool_calls:
                 tool_name = tool_call.tool_name
                 tool_to_invoke = tools_with_names[tool_name]
 
                 # Combine user + state inputs
-                llm_args = tool_call.arguments.copy()
-                final_args = ToolInvoker._inject_state_args(tool_to_invoke, llm_args, state)
-
+                final_args = ToolInvoker._inject_state_args(tool_to_invoke, tool_call.arguments.copy(), state)
                 # Check whether to inject streaming_callback
                 if (
                     enable_streaming_passthrough
@@ -691,45 +704,45 @@ class Agent(HaystackAgent):
                 ):
                     final_args["streaming_callback"] = streaming_callback
 
-                # Handle confirmation strategies
+                # Get tool execution decisions from confirmation strategies
                 # If no confirmation strategy is defined for this tool, proceed with execution
                 if tool_name not in self._confirmation_strategies:
-                    confirmed_tool_calls.append(tool_call)
-                    continue
-
-                tool_execution_decision = self._confirmation_strategies[tool_name].run(
-                    tool_name=tool_name, tool_description=tool_to_invoke.description, tool_params=final_args
-                )
-
-                if tool_execution_decision.execute:
-                    # TODO Need to figure out a way to forward the feedback message here if not empty
-                    #      This is relevant if tool params were modified by the user
-                    # additional_feedback = tool_execution_decision.feedback
-                    final_args.update(tool_execution_decision.final_tool_params)
-                    confirmed_tool_calls.append(replace(tool_call, arguments=final_args))
-                else:
-                    # Tool execution was rejected with a message
-                    tool_call_result_messages.append(
-                        ChatMessage.from_tool(
-                            tool_result=tool_execution_decision.feedback or "",
-                            origin=tool_call,
-                            error=True,
+                    teds.append(
+                        ToolExecutionDecision(
+                            tool_id=tool_call.id,
+                            tool_name=tool_name,
+                            execute=True,
+                            final_tool_params=final_args,
                         )
                     )
+                    continue
 
-            # Update message with only confirmed tool calls
-            if confirmed_tool_calls:
-                modified_tool_call_messages.append(
-                    ChatMessage.from_assistant(
-                        text=message.text,
-                        meta=message.meta,
-                        name=message.name,
-                        tool_calls=confirmed_tool_calls,
-                        reasoning=message.reasoning,
+                # Check if there's already a decision for this tool call in the execution context
+                teds = execution_context.tool_execution_decisions or []
+                ted = next((t for t in teds if t.tool_id == tool_call.id), None)
+                # If not, run the confirmation strategy
+                if not ted:
+                    ted = self._confirmation_strategies[tool_name].run(
+                        tool_name=tool_name,
+                        tool_description=tool_to_invoke.description,
+                        tool_params=final_args
                     )
-                )
+                teds.append(ted)
 
-        return modified_tool_call_messages, tool_call_result_messages
+        state, modified_tool_call_messages = _update_state_and_tool_call_messages_with_tool_execution_decisions(
+            state=execution_context.state,
+            tool_call_messages=messages_with_tool_calls,
+            tool_execution_decisions=teds,
+        )
+
+        # Update execution context state
+        execution_context.state = state
+
+        # Set execution context tool execution decisions to empty after applying them b/c they should only be used once
+        # for the current tool calls
+        execution_context.tool_execution_decisions = None
+
+        return modified_tool_call_messages, execution_context
 
     def to_dict(self) -> dict[str, Any]:
         """
