@@ -254,10 +254,11 @@ class Agent(HaystackAgent):
         generator_inputs: dict[str, Any] = {"tools": selected_tools}
         if streaming_callback is not None:
             tool_invoker_inputs["streaming_callback"] = streaming_callback
+            generator_inputs["streaming_callback"] = streaming_callback
+            # NOTE: Only difference with parent method to add this to tool_invoker_inputs
             tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-            generator_inputs["streaming_callback"] = streaming_callback
 
         return _ExecutionContext(
             state=state,
@@ -292,15 +293,7 @@ class Agent(HaystackAgent):
         state_data = current_inputs["tool_invoker"]["state"].data
         state = State(schema=self.state_schema, data=state_data)
 
-        # NOTE: Only difference from parent class is to make this check more robust
-        # Handles edge case where restarting from a snapshot with an updated chat history where the last message
-        # is a tool call result (e.g. after human feedback like a rejection)
-        skip_chat_generator = False
-        if isinstance(snapshot.break_point.break_point, ToolBreakpoint) and state.get("messages")[-1].is_from(
-            "assistant"
-        ):
-            skip_chat_generator = True
-
+        skip_chat_generator = isinstance(snapshot.break_point.break_point, ToolBreakpoint)
         streaming_callback = current_inputs["chat_generator"].get("streaming_callback", streaming_callback)
         streaming_callback = select_streaming_callback(  # type: ignore[call-overload]
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=requires_async
@@ -311,10 +304,11 @@ class Agent(HaystackAgent):
         generator_inputs: dict[str, Any] = {"tools": selected_tools}
         if streaming_callback is not None:
             tool_invoker_inputs["streaming_callback"] = streaming_callback
+            generator_inputs["streaming_callback"] = streaming_callback
+            # NOTE: Only difference with parent method to add this to tool_invoker_inputs
             tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-            generator_inputs["streaming_callback"] = streaming_callback
 
         return _ExecutionContext(
             state=state,
