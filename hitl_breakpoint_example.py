@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 from haystack.components.generators.chat import OpenAIChatGenerator
-from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
 from haystack.tools import create_tool_from_function
@@ -20,6 +19,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
     RichConsoleUI,
 )
+from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
     get_tool_calls_and_descriptions,
 )
@@ -46,12 +46,12 @@ balance_tool = create_tool_from_function(
 cons = Console()
 
 # ============
-# Using Confirmation Strategy with Breakpoint
+# Using Breakpoint Confirmation Strategy
 # ============
 # ----
-# Step 1: Run agent with breakpoint
+# Step 1: Run agent
 # ----
-cons.print("\n[bold blue]=== Using Only Breakpoint Feature ===[/bold blue]\n")
+cons.print("\n[bold blue]=== Using Breakpoint Confirmation Strategy ===[/bold blue]\n")
 agent = Agent(
     chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
     tools=[balance_tool],
@@ -63,8 +63,9 @@ agent = Agent(
 messages = [ChatMessage.from_user("What's the balance of account 56789?")]
 try:
     _ = agent.run(messages=messages)
-except BreakpointException:
-    cons.print("[bold red]Execution paused at breakpoint.[/bold red]")
+except ToolBreakpointException as e:
+    tool_name = e.break_point.break_point.tool_name
+    cons.print("[bold red]Execution paused by Breakpoint Confirmation Strategy for tool:[/bold red]", tool_name)
 
 # ----
 # Step 2: Gather user input to optionally update tool parameters before resuming execution
@@ -110,7 +111,7 @@ serialized_teds = [ted.to_dict() for ted in tool_execution_decisions]
 
 
 # ----
-# Step 3: Restart execution after breakpoint with updated snapshot
+# Step 3: Restart execution with updated snapshot
 # ----
 # Add the new tool execution decisions to the snapshot and resume execution
 new_agent_snapshot = snapshot.agent_snapshot

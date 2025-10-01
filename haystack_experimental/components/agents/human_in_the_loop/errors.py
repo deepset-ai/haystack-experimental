@@ -11,6 +11,7 @@ class ToolBreakpointException(BreakpointException):
     Exception raised when a tool execution is paused by a ConfirmationStrategy (e.g. BreakpointConfirmationStrategy).
     """
 
+    # TODO Update to take ToolBreakpoint as input not AgentBreakpoint
     def __init__(self, message: str, break_point: AgentBreakpoint):
         """
         Initialize the ToolBreakpointException.
