@@ -2,23 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack.core.errors import BreakpointException
-from haystack.core.pipeline.breakpoint import AgentBreakpoint
 
-
-class ToolBreakpointException(BreakpointException):
+class ToolBreakpointException(Exception):
     """
     Exception raised when a tool execution is paused by a ConfirmationStrategy (e.g. BreakpointConfirmationStrategy).
     """
 
-    # TODO Update to take ToolBreakpoint as input not AgentBreakpoint
-    def __init__(self, message: str, break_point: AgentBreakpoint):
+    def __init__(self, message: str, tool_name: str, snapshot_file_path: str):
         """
         Initialize the ToolBreakpointException.
 
         :param message: The exception message.
-        :param break_point: The AgentBreakpoint instance containing the ToolBreakpoint where the tool execution is
-            paused.
+        :param tool_name: The name of the tool whose execution is paused.
+        :param snapshot_file_path: The file path to the saved pipeline snapshot.
         """
         super().__init__(message)
-        self.break_point = break_point
+        self.tool_name = tool_name
+        self.snapshot_file_path = snapshot_file_path

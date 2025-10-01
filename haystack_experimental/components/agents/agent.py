@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 import inspect
 from typing import Any, Optional, Union
 
@@ -460,6 +460,8 @@ class Agent(HaystackAgent):
                 # Apply confirmation strategies and update State and messages sent to ToolInvoker
                 # Only send confirmed + modified tool calls to the ToolInvoker, but keep original messages in State
                 try:
+                    # NOTE: Chat history update now handled inside of _handle_confirmation_strategies
+                    # exe_context.state.set("messages", tool_call_result_messages)
                     modified_tool_call_messages, exe_context = self._handle_confirmation_strategies(
                         messages_with_tool_calls=llm_messages,
                         execution_context=exe_context,
@@ -468,11 +470,17 @@ class Agent(HaystackAgent):
                     # We don't raise since Agent._check_tool_invoker_breakpoint will raise the final BreakpointException
                     Agent._check_tool_invoker_breakpoint(
                         execution_context=exe_context,
-                        break_point=tbp_error.break_point,
+                        break_point=AgentBreakpoint(
+                            agent_name=getattr(self, "__component_name__", ""),
+                            break_point=ToolBreakpoint(
+                                component_name="tool_invoker",
+                                tool_name=tbp_error.tool_name,
+                                visit_count=exe_context.component_visits["tool_invoker"],
+                                snapshot_file_path=tbp_error.snapshot_file_path,
+                            )
+                        ),
                         parent_snapshot=parent_snapshot,
                     )
-                # NOTE: Chat history update now handled inside of _handle_confirmation_strategies
-                # exe_context.state.set("messages", tool_call_result_messages)
 
                 # Handle breakpoint and ToolInvoker call
                 Agent._check_tool_invoker_breakpoint(
@@ -716,7 +724,6 @@ class Agent(HaystackAgent):
                         )
                     )
                     continue
-
                 # Check if there's already a decision for this tool call in the execution context
                 teds = execution_context.tool_execution_decisions or []
                 ted = next((t for t in teds if t.tool_id == tool_call.id), None)

@@ -4,12 +4,14 @@
 
 from typing import Any, Optional
 
-from haystack.core.errors import BreakpointException
 from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name
 
-from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
-from haystack_experimental.components.agents.human_in_the_loop.policies import ConfirmationPolicy
-from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import ConfirmationUI
+from haystack_experimental.components.agents.human_in_the_loop import (
+    ConfirmationPolicy,
+    ConfirmationUI,
+    ToolExecutionDecision
+)
+from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
 
 
 # TODO Consider renaming to BlockingConfirmationStrategy – emphasizes that execution waits for immediate confirmation.
@@ -137,11 +139,11 @@ class BreakpointConfirmationStrategy:
     caught by the surrounding system to handle user interaction separately.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, snapshot_file_path: str) -> None:
         """
         Initialize the BreakpointConfirmationStrategy.
         """
-        pass
+        self.snapshot_file_path = snapshot_file_path
 
     def run(
         self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_id: Optional[str] = None
@@ -158,14 +160,16 @@ class BreakpointConfirmationStrategy:
         :param tool_id:
             Optional unique identifier for the tool.
 
-        :raises BreakpointException:
-            Always raises an `BreakpointException` exception to signal that user confirmation is required.
+        :raises ToolBreakpointException:
+            Always raises an `ToolBreakpointException` exception to signal that user confirmation is required.
 
         :returns:
             This method does not return; it always raises an exception.
         """
-        raise BreakpointException(
+        raise ToolBreakpointException(
             message=f"Tool execution for '{tool_name}' requires user confirmation.",
+            tool_name=tool_name,
+            snapshot_file_path=self.snapshot_file_path,
         )
 
     def to_dict(self) -> dict[str, Any]:
