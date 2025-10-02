@@ -9,11 +9,15 @@ from typing import Any, Optional, Union
 
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
-
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
 
-# replace reference
 hdb.AgentSnapshot = AgentSnapshot
+
+# Monkey patch Haystack's _create_agent_snapshot with our extended version
+import haystack.core.pipeline.breakpoint as hs_breakpoint
+import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
+
+hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
@@ -24,12 +28,12 @@ from haystack.core.errors import PipelineRuntimeError
 from haystack.core.pipeline import AsyncPipeline, Pipeline
 from haystack.core.pipeline.breakpoint import (
     _create_pipeline_snapshot_from_chat_generator,
-    _trigger_tool_invoker_breakpoint,
+    _create_pipeline_snapshot_from_tool_invoker,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import default_from_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
-from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, ToolBreakpoint
+from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
@@ -41,7 +45,6 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolBreakpointException,
 )
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _handle_confirmation_strategies
-from haystack_experimental.core.pipeline.breakpoint import _create_pipeline_snapshot_from_tool_invoker
 
 logger = logging.getLogger(__name__)
 
@@ -235,32 +238,6 @@ class Agent(HaystackAgent):
             skip_chat_generator=exe_context.skip_chat_generator,
             tool_execution_decisions=snapshot.tool_execution_decisions,
         )
-
-    @staticmethod
-    def _check_tool_invoker_breakpoint(
-        execution_context: _ExecutionContext,
-        break_point: Optional[AgentBreakpoint],
-        parent_snapshot: Optional[PipelineSnapshot],
-    ) -> None:
-        """
-        Same as parent class, except for using the updated _create_pipeline_snapshot_from_tool_invoker
-
-        :param execution_context: The current execution context of the agent.
-        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
-            for "tool_invoker".
-        :param parent_snapshot: An optional parent snapshot for the agent execution.
-        """
-        if (
-            break_point
-            and break_point.break_point.component_name == "tool_invoker"
-            and break_point.break_point.visit_count == execution_context.component_visits["tool_invoker"]
-        ):
-            pipeline_snapshot = _create_pipeline_snapshot_from_tool_invoker(
-                execution_context=execution_context, break_point=break_point, parent_snapshot=parent_snapshot
-            )
-            _trigger_tool_invoker_breakpoint(
-                llm_messages=execution_context.state.data["messages"][-1:], pipeline_snapshot=pipeline_snapshot
-            )
 
     def run(  # noqa: PLR0915
         self,
