@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Optional
 
 from haystack.components.agents.state import State, replace_values
@@ -198,7 +199,7 @@ class BreakpointConfirmationStrategy:
         raise default_from_dict(cls, data)
 
 
-def prepare_tool_args(
+def _prepare_tool_args(
     *,
     tool: Tool,
     tool_call_arguments: dict[str, Any],
@@ -259,13 +260,12 @@ def _handle_confirmation_strategies(
         if not message.tool_calls:
             continue
 
-        # confirmed_tool_calls = []
         for tool_call in message.tool_calls:
             tool_name = tool_call.tool_name
             tool_to_invoke = tools_with_names[tool_name]
 
             # Prepare final tool args
-            final_args = prepare_tool_args(
+            final_args = _prepare_tool_args(
                 tool=tool_to_invoke,
                 tool_call_arguments=tool_call.arguments,
                 state=state,

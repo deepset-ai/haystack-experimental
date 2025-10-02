@@ -22,9 +22,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
     RichConsoleUI,
 )
-from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
-    _get_tool_calls_and_descriptions,
-)
+from haystack_experimental.components.agents.human_in_the_loop.breakpoint import _get_tool_calls_and_descriptions
 
 
 def get_bank_balance(account_id: str) -> str:
