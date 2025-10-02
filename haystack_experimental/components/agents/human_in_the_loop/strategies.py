@@ -15,9 +15,9 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationPolicy,
     ConfirmationStrategy,
     ConfirmationUI,
+    ToolBreakpointException,
     ToolExecutionDecision,
 )
-from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
 
 if TYPE_CHECKING:
     from haystack_experimental.components.agents.agent import _ExecutionContext

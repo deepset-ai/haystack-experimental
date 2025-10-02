@@ -8,13 +8,11 @@ from haystack.tools import create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.components.agents.human_in_the_loop.policies import (
+from haystack_experimental.components.agents.human_in_the_loop import (
     AlwaysAskPolicy,
     AskOncePolicy,
+    BlockingConfirmationStrategy,
     NeverAskPolicy,
-)
-from haystack_experimental.components.agents.human_in_the_loop.strategies import BlockingConfirmationStrategy
-from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import (
     RichConsoleUI,
     SimpleConsoleUI,
 )

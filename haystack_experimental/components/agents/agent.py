@@ -2,11 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import inspect
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-# Trying to monkey patch Haystack's AgentSnapshot with our extended version
+# Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
 
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
@@ -34,8 +33,11 @@ from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
-from haystack_experimental.components.agents.human_in_the_loop import ConfirmationStrategy, ToolExecutionDecision
-from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
+from haystack_experimental.components.agents.human_in_the_loop import (
+    ConfirmationStrategy,
+    ToolExecutionDecision,
+    ToolBreakpointException
+)
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _handle_confirmation_strategies
 from haystack_experimental.core.pipeline.breakpoint import _create_pipeline_snapshot_from_tool_invoker
 
