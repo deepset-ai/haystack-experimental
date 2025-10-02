@@ -12,7 +12,7 @@ from haystack.dataclasses.breakpoints import AgentSnapshot
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ToolExecutionDecision
 
 
-def get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[list[dict], dict[str, str]]:
+def _get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[list[dict], dict[str, str]]:
     # Create the list of tool calls to send
     serialized_tool_call_messages = agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["messages"]
     tool_call_messages = [ChatMessage.from_dict(m) for m in serialized_tool_call_messages]

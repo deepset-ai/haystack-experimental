@@ -9,7 +9,7 @@ from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop.policies import AlwaysAskPolicy
-from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
+from haystack_experimental.components.agents.human_in_the_loop.strategies import BlockingConfirmationStrategy
 from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import RichConsoleUI
 
 
@@ -58,7 +58,7 @@ bank_agent = Agent(
     tools=[balance_tool],
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
     confirmation_strategies={
-        balance_tool.name: HumanInTheLoopStrategy(
+        balance_tool.name: BlockingConfirmationStrategy(
             confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleUI(console=cons)
         ),
     },
@@ -75,7 +75,7 @@ math_agent = Agent(
     tools=[addition_tool],
     system_prompt="You are a helpful math assistant. Use the provided tool to perform addition when needed.",
     confirmation_strategies={
-        addition_tool.name: HumanInTheLoopStrategy(
+        addition_tool.name: BlockingConfirmationStrategy(
             # We use AlwaysAskPolicy here for demonstration; in real scenarios, you might choose NeverAskPolicy
             confirmation_policy=AlwaysAskPolicy(),
             confirmation_ui=RichConsoleUI(console=cons),

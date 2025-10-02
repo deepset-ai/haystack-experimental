@@ -2,52 +2,41 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
 import inspect
+from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 # Trying to monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
+
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
 
 # replace reference
 hdb.AgentSnapshot = AgentSnapshot
 
 from haystack import logging
-from haystack import component
-from haystack.core.pipeline import AsyncPipeline, Pipeline
 from haystack.components.agents.agent import Agent as HaystackAgent
 from haystack.components.agents.agent import _ExecutionContext as Haystack_ExecutionContext
-from haystack.components.agents.agent import (
-    State,
-    _schema_from_dict,
-    _schema_to_dict,
-    _validate_schema,
-    merge_lists,
-)
+from haystack.components.agents.agent import _schema_from_dict
 from haystack.components.generators.chat.types import ChatGenerator
-from haystack.components.tools.tool_invoker import ToolInvoker
 from haystack.core.errors import PipelineRuntimeError
+from haystack.core.pipeline import AsyncPipeline, Pipeline
 from haystack.core.pipeline.breakpoint import (
     _create_pipeline_snapshot_from_chat_generator,
     _trigger_tool_invoker_breakpoint,
-    _validate_tool_breakpoint_is_valid,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
-from haystack.core.serialization import component_to_dict, default_from_dict, default_to_dict, import_class_by_name
-from haystack.dataclasses import ChatMessage, ChatRole
+from haystack.core.serialization import default_from_dict, import_class_by_name
+from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, ToolBreakpoint
-from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
-from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace, serialize_tools_or_toolset
-from haystack.utils.callable_serialization import deserialize_callable, serialize_callable
+from haystack.dataclasses.streaming_chunk import StreamingCallbackT
+from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace
+from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
-from haystack.utils import _deserialize_value_with_schema
 
 from haystack_experimental.components.agents.human_in_the_loop import ConfirmationStrategy, ToolExecutionDecision
 from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
-from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
-    _update_state_and_tool_call_messages_with_tool_execution_decisions,
-)
+from haystack_experimental.components.agents.human_in_the_loop.strategies import _handle_confirmation_strategies
 from haystack_experimental.core.pipeline.breakpoint import _create_pipeline_snapshot_from_tool_invoker
 
 logger = logging.getLogger(__name__)
@@ -56,8 +45,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _ExecutionContext(Haystack_ExecutionContext):
     """
-    Execution context for the Agent component, extending Haystack's _ExecutionContext to include
-    tool execution decisions for human-in-the-loop strategies.
+    Execution context for the Agent component
+
+    Extends Haystack's _ExecutionContext to include tool execution decisions for human-in-the-loop strategies.
 
     :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
         the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
@@ -117,7 +107,6 @@ class Agent(HaystackAgent):
     ```
     """
 
-    # pylint: disable=super-init-not-called
     def __init__(
         self,
         *,
@@ -152,69 +141,18 @@ class Agent(HaystackAgent):
         :raises TypeError: If the chat_generator does not support tools parameter in its run method.
         :raises ValueError: If the exit_conditions are not valid.
         """
-        # Check if chat_generator supports tools parameter
-        chat_generator_run_method = inspect.signature(chat_generator.run)
-        if "tools" not in chat_generator_run_method.parameters:
-            raise TypeError(
-                f"{type(chat_generator).__name__} does not accept tools parameter in its run method. "
-                "The Agent component requires a chat generator that supports tools."
-            )
-
-        valid_exits = ["text"] + [tool.name for tool in tools or []]
-        if exit_conditions is None:
-            exit_conditions = ["text"]
-        if not all(condition in valid_exits for condition in exit_conditions):
-            raise ValueError(
-                f"Invalid exit conditions provided: {exit_conditions}. "
-                f"Valid exit conditions must be a subset of {valid_exits}. "
-                "Ensure that each exit condition corresponds to either 'text' or a valid tool name."
-            )
-
-        # Validate state schema if provided
-        if state_schema is not None:
-            _validate_schema(state_schema)
-        self._state_schema = state_schema or {}
-
-        # Initialize state schema
-        resolved_state_schema = _deepcopy_with_exceptions(self._state_schema)
-        if resolved_state_schema.get("messages") is None:
-            resolved_state_schema["messages"] = {"type": list[ChatMessage], "handler": merge_lists}
-        self.state_schema = resolved_state_schema
-
-        self.chat_generator = chat_generator
-        self.tools = tools or []
-        self.system_prompt = system_prompt
-        self.exit_conditions = exit_conditions
-        self.max_agent_steps = max_agent_steps
-        self.raise_on_tool_invocation_failure = raise_on_tool_invocation_failure
-        self.streaming_callback = streaming_callback
-
-        output_types = {"last_message": ChatMessage}
-        for param, config in self.state_schema.items():
-            output_types[param] = config["type"]
-            # Skip setting input types for parameters that are already in the run method
-            if param in ["messages", "streaming_callback"]:
-                continue
-            component.set_input_type(self, name=param, type=config["type"], default=None)
-        component.set_output_types(self, **output_types)
-
+        super(Agent, self).__init__(
+            chat_generator=chat_generator,
+            tools=tools,
+            system_prompt=system_prompt,
+            exit_conditions=exit_conditions,
+            state_schema=state_schema,
+            max_agent_steps=max_agent_steps,
+            streaming_callback=streaming_callback,
+            raise_on_tool_invocation_failure=raise_on_tool_invocation_failure,
+            tool_invoker_kwargs=tool_invoker_kwargs,
+        )
         self._confirmation_strategies = confirmation_strategies or {}
-        self.tool_invoker_kwargs = tool_invoker_kwargs
-        self._tool_invoker = None
-        if self.tools:
-            resolved_tool_invoker_kwargs = {
-                "tools": self.tools,
-                "raise_on_failure": self.raise_on_tool_invocation_failure,
-                **(tool_invoker_kwargs or {}),
-            }
-            self._tool_invoker = ToolInvoker(**resolved_tool_invoker_kwargs)
-        else:
-            logger.warning(
-                "No tools provided to the Agent. The Agent will behave like a ChatGenerator and only return text "
-                "responses. To enable tool usage, pass tools directly to the Agent, not to the chat_generator."
-            )
-
-        self._is_warmed_up = False
 
     def _initialize_fresh_execution(
         self,
@@ -293,42 +231,6 @@ class Agent(HaystackAgent):
             skip_chat_generator=exe_context.skip_chat_generator,
             tool_execution_decisions=snapshot.tool_execution_decisions,
         )
-
-    def _runtime_checks(self, break_point: Optional[AgentBreakpoint], snapshot: Optional[AgentSnapshot]) -> None:
-        """
-        Perform runtime checks before running the agent.
-
-        NOTE: This differs from the parent class by allowing the agent to run with a snapshot and break point
-        at the same time.
-
-        :param break_point: An AgentBreakpoint, can be a Breakpoint for the "chat_generator" or a ToolBreakpoint
-            for "tool_invoker".
-        :param snapshot: An AgentSnapshot containing the state of a previously saved agent execution.
-        :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
-        :raises ValueError: If both break_point and snapshot are provided, or if the break_point is invalid.
-        """
-        if not self._is_warmed_up and hasattr(self.chat_generator, "warm_up"):
-            raise RuntimeError("The component Agent wasn't warmed up. Run 'warm_up()' before calling 'run()'.")
-
-        # Provide some warnings for potentially unintended usage if both snapshot and break_point are provided
-        if break_point and snapshot:
-            if break_point.break_point.visit_count < snapshot.component_visits.get(
-                break_point.break_point.component_name, 0
-            ):
-                logger.warning(
-                    "The visit_count of the provided break_point is less than the visit count in the snapshot. "
-                    "This may cause the breakpoint to never trigger."
-                )
-            elif break_point.break_point.visit_count == snapshot.component_visits.get(
-                break_point.break_point.component_name, 0
-            ):
-                logger.warning(
-                    "The visit_count of the provided break_point is equal to the visit count in the snapshot. "
-                    "This may cause the breakpoint to trigger immediately."
-                )
-
-        if break_point and isinstance(break_point.break_point, ToolBreakpoint):
-            _validate_tool_breakpoint_is_valid(agent_breakpoint=break_point, tools=self.tools)
 
     @staticmethod
     def _check_tool_invoker_breakpoint(
@@ -461,7 +363,8 @@ class Agent(HaystackAgent):
                 # Only send confirmed + modified tool calls to the ToolInvoker, but keep original messages in State
                 try:
                     # NOTE: Chat history update now handled inside of _handle_confirmation_strategies
-                    modified_tool_call_messages, exe_context = self._handle_confirmation_strategies(
+                    modified_tool_call_messages, exe_context = _handle_confirmation_strategies(
+                        confirmation_strategies=self._confirmation_strategies,
                         messages_with_tool_calls=llm_messages,
                         execution_context=exe_context,
                     )
@@ -675,102 +578,19 @@ class Agent(HaystackAgent):
             result["last_message"] = msgs[-1]
         return result
 
-    def _handle_confirmation_strategies(
-        self,
-        *,
-        messages_with_tool_calls: list[ChatMessage],
-        execution_context: _ExecutionContext,
-    ) -> tuple[list[ChatMessage], _ExecutionContext]:
-        """
-        Prepare tool call parameters for execution and collect any error messages.
-
-        :param messages_with_tool_calls: Messages containing tool calls to process
-        :param execution_context: The current execution context containing state and inputs
-        :returns: Tuple of modified messages with confirmed tool calls and tool call result messages
-        """
-        state = execution_context.state
-        streaming_callback = execution_context.chat_generator_inputs.get("streaming_callback")
-        tools_with_names = {tool.name: tool for tool in execution_context.tool_invoker_inputs["tools"]}
-        enable_streaming_passthrough = execution_context.tool_invoker_inputs.get("enable_streaming_passthrough", False)
-        existing_teds = execution_context.tool_execution_decisions if execution_context.tool_execution_decisions else []
-
-        teds = []
-        for message in messages_with_tool_calls:
-            if not message.tool_calls:
-                continue
-
-            # confirmed_tool_calls = []
-            for tool_call in message.tool_calls:
-                tool_name = tool_call.tool_name
-                tool_to_invoke = tools_with_names[tool_name]
-
-                # Combine user + state inputs
-                final_args = ToolInvoker._inject_state_args(tool_to_invoke, tool_call.arguments.copy(), state)
-                # Check whether to inject streaming_callback
-                if (
-                    enable_streaming_passthrough
-                    and streaming_callback is not None
-                    and "streaming_callback" not in final_args
-                    and "streaming_callback" in ToolInvoker._get_func_params(tool_to_invoke)
-                ):
-                    final_args["streaming_callback"] = streaming_callback
-
-                # Get tool execution decisions from confirmation strategies
-                # If no confirmation strategy is defined for this tool, proceed with execution
-                if tool_name not in self._confirmation_strategies:
-                    teds.append(
-                        ToolExecutionDecision(
-                            tool_id=tool_call.id,
-                            tool_name=tool_name,
-                            execute=True,
-                            final_tool_params=final_args,
-                        )
-                    )
-                    continue
-                # Check if there's already a decision for this tool call in the execution context
-                ted = next((t for t in existing_teds if t.tool_id == tool_call.id), None)
-                # If not, run the confirmation strategy
-                if not ted:
-                    ted = self._confirmation_strategies[tool_name].run(
-                        tool_name=tool_name, tool_description=tool_to_invoke.description, tool_params=final_args
-                    )
-                teds.append(ted)
-
-        new_state, modified_tool_call_messages = _update_state_and_tool_call_messages_with_tool_execution_decisions(
-            state=state,
-            tool_call_messages=messages_with_tool_calls,
-            tool_execution_decisions=teds,
-        )
-
-        # Update execution context state
-        execution_context.state = new_state
-
-        return modified_tool_call_messages, execution_context
-
     def to_dict(self) -> dict[str, Any]:
         """
         Serialize the component to a dictionary.
 
         :return: Dictionary with serialized data
         """
-        return default_to_dict(
-            self,
-            chat_generator=component_to_dict(obj=self.chat_generator, name="chat_generator"),
-            tools=serialize_tools_or_toolset(self.tools),
-            system_prompt=self.system_prompt,
-            exit_conditions=self.exit_conditions,
-            # We serialize the original state schema, not the resolved one to reflect the original user input
-            state_schema=_schema_to_dict(self._state_schema),
-            max_agent_steps=self.max_agent_steps,
-            streaming_callback=serialize_callable(self.streaming_callback) if self.streaming_callback else None,
-            raise_on_tool_invocation_failure=self.raise_on_tool_invocation_failure,
-            tool_invoker_kwargs=self.tool_invoker_kwargs,
-            confirmation_strategies={
-                name: strategy.to_dict() for name, strategy in self._confirmation_strategies.items()
-            }
+        data = super(Agent, self).to_dict()
+        data["init_parameters"]["confirmation_strategies"] = (
+            {name: strategy.to_dict() for name, strategy in self._confirmation_strategies.items()}
             if self._confirmation_strategies
-            else None,
+            else None
         )
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Agent":

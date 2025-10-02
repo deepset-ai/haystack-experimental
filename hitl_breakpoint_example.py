@@ -18,12 +18,12 @@ from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop import (
     AlwaysAskPolicy,
     BreakpointConfirmationStrategy,
-    HumanInTheLoopStrategy,
+    BlockingConfirmationStrategy,
     ToolExecutionDecision,
     RichConsoleUI,
 )
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
-    get_tool_calls_and_descriptions,
+    _get_tool_calls_and_descriptions,
 )
 
 
@@ -76,7 +76,7 @@ def frontend_simulate_tool_execution(
         A list of serialized ToolExecutionDecision dictionaries.
     """
 
-    confirmation_strategy = HumanInTheLoopStrategy(
+    confirmation_strategy = BlockingConfirmationStrategy(
         confirmation_policy=AlwaysAskPolicy(),
         confirmation_ui=RichConsoleUI(console=console),
     )
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         # Load the latest snapshot from disk and prep data for front-end
         loaded_snapshot = get_latest_snapshot(snapshot_file_path=snapshot_fp)
         # TODO Theoretically should only send the tool call that triggered the breakpoint, not all tool calls so far
-        serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions(loaded_snapshot.agent_snapshot)
+        serialized_tool_calls, tool_descripts = _get_tool_calls_and_descriptions(loaded_snapshot.agent_snapshot)
 
         # Simulate front-end interaction
         serialized_teds = frontend_simulate_tool_execution(serialized_tool_calls, tool_descripts, cons)

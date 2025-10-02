@@ -10,7 +10,7 @@ from haystack.tools import Tool, create_tool_from_function
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationStrategy,
-    HumanInTheLoopStrategy,
+    BlockingConfirmationStrategy,
     NeverAskPolicy,
     SimpleConsoleUI,
 )
@@ -30,7 +30,7 @@ def tools() -> list[Tool]:
 
 @pytest.fixture
 def confirmation_strategies() -> dict[str, ConfirmationStrategy]:
-    return {"addition_tool": HumanInTheLoopStrategy(NeverAskPolicy(), SimpleConsoleUI())}
+    return {"addition_tool": BlockingConfirmationStrategy(NeverAskPolicy(), SimpleConsoleUI())}
 
 
 class TestAgent:
@@ -86,7 +86,7 @@ class TestAgent:
                 "tool_invoker_kwargs": None,
                 "confirmation_strategies": {
                     "addition_tool": {
-                        "type": "haystack_experimental.components.agents.human_in_the_loop.strategies.HumanInTheLoopStrategy",
+                        "type": "haystack_experimental.components.agents.human_in_the_loop.strategies.BlockingConfirmationStrategy",
                         "init_parameters": {
                             "confirmation_policy": {
                                 "type": "haystack_experimental.components.agents.human_in_the_loop.policies.NeverAskPolicy",
@@ -113,7 +113,7 @@ class TestAgent:
         assert len(deserialized_agent.tools) == 1
         assert deserialized_agent.tools[0].name == "addition_tool"
         assert isinstance(deserialized_agent._tool_invoker, type(agent._tool_invoker))
-        assert isinstance(deserialized_agent._confirmation_strategies["addition_tool"], HumanInTheLoopStrategy)
+        assert isinstance(deserialized_agent._confirmation_strategies["addition_tool"], BlockingConfirmationStrategy)
         assert isinstance(
             deserialized_agent._confirmation_strategies["addition_tool"].confirmation_policy, NeverAskPolicy
         )

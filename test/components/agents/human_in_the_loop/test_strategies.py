@@ -5,21 +5,21 @@
 from haystack_experimental.components.agents.human_in_the_loop import (
     AskOncePolicy,
     SimpleConsoleUI,
-    HumanInTheLoopStrategy,
+    BlockingConfirmationStrategy,
 )
 
 
 class TestHumanInTheLoopStrategy:
     def test_initialization(self):
-        strategy = HumanInTheLoopStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI())
+        strategy = BlockingConfirmationStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI())
         assert isinstance(strategy.confirmation_policy, AskOncePolicy)
         assert isinstance(strategy.confirmation_ui, SimpleConsoleUI)
 
     def test_to_dict(self):
-        strategy = HumanInTheLoopStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI())
+        strategy = BlockingConfirmationStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI())
         strategy_dict = strategy.to_dict()
         assert strategy_dict == {
-            "type": "haystack_experimental.components.agents.human_in_the_loop.strategies.HumanInTheLoopStrategy",
+            "type": "haystack_experimental.components.agents.human_in_the_loop.strategies.BlockingConfirmationStrategy",
             "init_parameters": {
                 "confirmation_policy": {
                     "type": "haystack_experimental.components.agents.human_in_the_loop.policies.AskOncePolicy",
@@ -46,7 +46,7 @@ class TestHumanInTheLoopStrategy:
                 },
             },
         }
-        strategy = HumanInTheLoopStrategy.from_dict(strategy_dict)
-        assert isinstance(strategy, HumanInTheLoopStrategy)
+        strategy = BlockingConfirmationStrategy.from_dict(strategy_dict)
+        assert isinstance(strategy, BlockingConfirmationStrategy)
         assert isinstance(strategy.confirmation_policy, AskOncePolicy)
         assert isinstance(strategy.confirmation_ui, SimpleConsoleUI)

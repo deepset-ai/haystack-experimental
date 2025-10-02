@@ -13,7 +13,7 @@ from haystack_experimental.components.agents.human_in_the_loop.policies import (
     AskOncePolicy,
     NeverAskPolicy,
 )
-from haystack_experimental.components.agents.human_in_the_loop.strategies import HumanInTheLoopStrategy
+from haystack_experimental.components.agents.human_in_the_loop.strategies import BlockingConfirmationStrategy
 from haystack_experimental.components.agents.human_in_the_loop.user_interfaces import (
     RichConsoleUI,
     SimpleConsoleUI,
@@ -83,13 +83,13 @@ agent = Agent(
     tools=[balance_tool, addition_tool, phone_tool],
     system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
     confirmation_strategies={
-        balance_tool.name: HumanInTheLoopStrategy(
+        balance_tool.name: BlockingConfirmationStrategy(
             confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleUI(console=cons)
         ),
-        addition_tool.name: HumanInTheLoopStrategy(
+        addition_tool.name: BlockingConfirmationStrategy(
             confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleUI()
         ),
-        phone_tool.name: HumanInTheLoopStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()),
+        phone_tool.name: BlockingConfirmationStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()),
     },
 )
 
