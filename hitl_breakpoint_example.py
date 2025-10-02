@@ -85,7 +85,7 @@ def frontend_simulate_tool_execution(
             confirmation_strategy.run(
                 tool_name=tc["tool_name"],
                 tool_description=tool_descriptions[tc["tool_name"]],
-                tool_id=tc["id"],
+                tool_call_id=tc["id"],
                 tool_params=tc["arguments"],
             )
         )

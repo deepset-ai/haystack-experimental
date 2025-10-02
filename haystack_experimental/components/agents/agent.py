@@ -372,28 +372,23 @@ class Agent(HaystackAgent):
                         execution_context=exe_context,
                     )
                 except ToolBreakpointException as tbp_error:
-                    # We don't re-raise since _check_tool_invoker_breakpoint will raise the final BreakpointException
-                    Agent._check_tool_invoker_breakpoint(
-                        execution_context=exe_context,
-                        break_point=AgentBreakpoint(
-                            agent_name=getattr(self, "__component_name__", ""),
-                            break_point=ToolBreakpoint(
-                                component_name="tool_invoker",
-                                tool_name=tbp_error.tool_name,
-                                visit_count=exe_context.component_visits["tool_invoker"],
-                                snapshot_file_path=tbp_error.snapshot_file_path,
-                            ),
+                    # We create a break_point to pass into _check_tool_invoker_breakpoint
+                    break_point = AgentBreakpoint(
+                        agent_name=getattr(self, "__component_name__", ""),
+                        break_point=ToolBreakpoint(
+                            component_name="tool_invoker",
+                            tool_name=tbp_error.tool_name,
+                            visit_count=exe_context.component_visits["tool_invoker"],
+                            snapshot_file_path=tbp_error.snapshot_file_path,
                         ),
-                        parent_snapshot=parent_snapshot,
                     )
-                # Set execution context tool execution decisions to empty after applying them b/c they should only
-                # be used once for the current tool calls
-                exe_context.tool_execution_decisions = None
 
-                # Handle breakpoint and ToolInvoker call
+                # Handle breakpoint
                 Agent._check_tool_invoker_breakpoint(
                     execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
                 )
+
+                # Run ToolInvoker
                 try:
                     # We only send the messages from the LLM to the tool invoker
                     tool_invoker_result = Pipeline._run_component(
@@ -421,6 +416,9 @@ class Agent(HaystackAgent):
                     e.pipeline_snapshot = pipeline_snapshot
                     raise e
 
+                # Set execution context tool execution decisions to empty after applying them b/c they should only
+                # be used once for the current tool calls
+                exe_context.tool_execution_decisions = None
                 tool_messages = tool_invoker_result["tool_messages"]
                 exe_context.state = tool_invoker_result["state"]
                 exe_context.state.set("messages", tool_messages)

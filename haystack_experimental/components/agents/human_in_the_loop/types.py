@@ -63,7 +63,7 @@ class ConfirmationPolicy(Protocol):
 
 class ConfirmationStrategy(Protocol):
     def run(
-        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_id: Optional[str] = None
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_call_id: Optional[str] = None
     ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
@@ -71,7 +71,8 @@ class ConfirmationStrategy(Protocol):
         :param tool_name: The name of the tool to be executed.
         :param tool_description: The description of the tool.
         :param tool_params: The parameters to be passed to the tool.
-        :param tool_id: Optional unique identifier for the tool.
+        :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
+            the decision with a specific tool invocation.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).

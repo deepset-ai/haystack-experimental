@@ -41,7 +41,7 @@ class BlockingConfirmationStrategy:
         self.confirmation_ui = confirmation_ui
 
     def run(
-        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_id: Optional[str] = None
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_call_id: Optional[str] = None
     ) -> ToolExecutionDecision:
         """
         Run the human-in-the-loop strategy for a given tool and its parameters.
@@ -52,8 +52,9 @@ class BlockingConfirmationStrategy:
             The description of the tool.
         :param tool_params:
             The parameters to be passed to the tool.
-        :param tool_id:
-            Optional unique identifier for the tool.
+        :param tool_call_id:
+            Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
+            specific tool invocation.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters, or a
@@ -64,7 +65,7 @@ class BlockingConfirmationStrategy:
             tool_name=tool_name, tool_description=tool_description, tool_params=tool_params
         ):
             return ToolExecutionDecision(
-                tool_name=tool_name, execute=True, tool_id=tool_id, final_tool_params=tool_params
+                tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
             )
 
         # Get user confirmation through UI
@@ -82,21 +83,21 @@ class BlockingConfirmationStrategy:
             if confirmation_result.feedback:
                 tool_result_message += f" with feedback: {confirmation_result.feedback}"
             return ToolExecutionDecision(
-                tool_name=tool_name, execute=False, tool_id=tool_id, feedback=tool_result_message
+                tool_name=tool_name, execute=False, tool_call_id=tool_call_id, feedback=tool_result_message
             )
         elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
             # Update the tool call params with the new params
             final_args.update(confirmation_result.new_tool_params)
             return ToolExecutionDecision(
                 tool_name=tool_name,
-                tool_id=tool_id,
+                tool_call_id=tool_call_id,
                 execute=True,
                 feedback=f"The tool parameters for {tool_name} were modified by the user.",
                 final_tool_params=final_args,
             )
         else:  # action == "confirm"
             return ToolExecutionDecision(
-                tool_name=tool_name, execute=True, tool_id=tool_id, final_tool_params=tool_params
+                tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,7 +150,7 @@ class BreakpointConfirmationStrategy:
         self.snapshot_file_path = snapshot_file_path
 
     def run(
-        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_id: Optional[str] = None
+        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_call_id: Optional[str] = None
     ) -> ToolExecutionDecision:
         """
         Run the breakpoint confirmation strategy for a given tool and its parameters.
@@ -160,8 +161,9 @@ class BreakpointConfirmationStrategy:
             The description of the tool.
         :param tool_params:
             The parameters to be passed to the tool.
-        :param tool_id:
-            Optional unique identifier for the tool.
+        :param tool_call_id:
+            Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
+            specific tool invocation.
 
         :raises ToolBreakpointException:
             Always raises an `ToolBreakpointException` exception to signal that user confirmation is required.
@@ -172,7 +174,7 @@ class BreakpointConfirmationStrategy:
         raise ToolBreakpointException(
             message=f"Tool execution for '{tool_name}' requires user confirmation.",
             tool_name=tool_name,
-            tool_id=tool_id,
+            tool_call_id=tool_call_id,
             snapshot_file_path=self.snapshot_file_path,
         )
 
@@ -280,7 +282,7 @@ def _handle_confirmation_strategies(
             if tool_name not in confirmation_strategies:
                 teds.append(
                     ToolExecutionDecision(
-                        tool_id=tool_call.id,
+                        tool_call_id=tool_call.id,
                         tool_name=tool_name,
                         execute=True,
                         final_tool_params=final_args,
@@ -289,7 +291,7 @@ def _handle_confirmation_strategies(
                 continue
 
             # Check if there's already a decision for this tool call in the execution context
-            ted = next((t for t in existing_teds if t.tool_id == tool_call.id), None)
+            ted = next((t for t in existing_teds if t.tool_call_id == tool_call.id), None)
             # If not, run the confirmation strategy
             if not ted:
                 ted = confirmation_strategies[tool_name].run(
@@ -334,7 +336,7 @@ def _apply_tool_execution_decisions(
         new_tool_calls = []
         for tc in chat_msg.tool_calls:
             ted = next(
-                ted for ted in tool_execution_decisions if (ted.tool_id == tc.id or ted.tool_name == tc.tool_name)
+                ted for ted in tool_execution_decisions if (ted.tool_call_id == tc.id or ted.tool_name == tc.tool_name)
             )
             if ted.execute:
                 # Covers confirm and modify cases
