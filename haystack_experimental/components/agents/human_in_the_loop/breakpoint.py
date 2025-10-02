@@ -39,7 +39,7 @@ def _get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[lis
             tool_call_arguments=tc["arguments"],
             state=state,
             streaming_callback=tool_invoker_inputs.get("streaming_callback", None),
-            enable_streaming_passthrough=tool_invoker_inputs.get("enable_streaming_passthrough", False)
+            enable_streaming_passthrough=tool_invoker_inputs.get("enable_streaming_passthrough", False),
         )
         updated_tool_calls.append({**tc, "arguments": final_args})
 

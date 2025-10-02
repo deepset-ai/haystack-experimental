@@ -6,8 +6,8 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from haystack.core.errors import BreakpointException
 from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import PipelineSnapshot
@@ -17,10 +17,10 @@ from rich.console import Console
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop import (
     AlwaysAskPolicy,
-    BreakpointConfirmationStrategy,
     BlockingConfirmationStrategy,
-    ToolExecutionDecision,
+    BreakpointConfirmationStrategy,
     RichConsoleUI,
+    ToolExecutionDecision,
 )
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import _get_tool_calls_and_descriptions
 
@@ -116,14 +116,14 @@ def run_agent(
     try:
         return agent.run(messages=messages, snapshot=snapshot.agent_snapshot if snapshot else None)
     except BreakpointException as e:
-        console.print(
-            "[bold red]Execution paused by Breakpoint Confirmation Strategy:[/bold red]",
-            str(e)
-        )
+        console.print("[bold red]Execution paused by Breakpoint Confirmation Strategy:[/bold red]", str(e))
         return None
 
 
 def main(user_message: str):
+    """
+    Main function to demonstrate the Breakpoint Confirmation Strategy with an agent.
+    """
     cons = Console()
     cons.print("\n[bold blue]=== Breakpoint Confirmation Strategy Example ===[/bold blue]\n")
     cons.print(f"[bold yellow]User Message:[/bold yellow] {user_message}\n")
@@ -146,8 +146,8 @@ def main(user_message: str):
         system_prompt="You are a helpful financial assistant. Use the provided tool to get bank balances when needed.",
         confirmation_strategies={
             balance_tool.name: BreakpointConfirmationStrategy(snapshot_file_path=snapshot_fp),
-            addition_tool.name: BreakpointConfirmationStrategy(snapshot_file_path=snapshot_fp)
-        }
+            addition_tool.name: BreakpointConfirmationStrategy(snapshot_file_path=snapshot_fp),
+        },
     )
 
     # Step 1: Initial run
@@ -178,6 +178,6 @@ if __name__ == "__main__":
         # Two tool call question --> Works kind of inadvertently
         "What's the balance of account 56789 and what is 5.5 + 3.2?",
         # Multiple sequential tool calls question --> Works
-        "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?"
+        "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?",
     ]:
         main(usr_msg)

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
+# ruff: noqa: I001
 
 from dataclasses import dataclass
 from typing import Any, Optional, Union
@@ -36,7 +37,7 @@ from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationStrategy,
     ToolExecutionDecision,
-    ToolBreakpointException
+    ToolBreakpointException,
 )
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _handle_confirmation_strategies
 from haystack_experimental.core.pipeline.breakpoint import _create_pipeline_snapshot_from_tool_invoker

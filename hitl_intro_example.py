@@ -87,7 +87,9 @@ agent = Agent(
         addition_tool.name: BlockingConfirmationStrategy(
             confirmation_policy=NeverAskPolicy(), confirmation_ui=SimpleConsoleUI()
         ),
-        phone_tool.name: BlockingConfirmationStrategy(confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()),
+        phone_tool.name: BlockingConfirmationStrategy(
+            confirmation_policy=AskOncePolicy(), confirmation_ui=SimpleConsoleUI()
+        ),
     },
 )
 
