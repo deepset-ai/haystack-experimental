@@ -93,11 +93,26 @@ def frontend_simulate_tool_execution(
 
 
 def run_agent(
-    agent: Agent, messages: list[ChatMessage], console: Console, snapshot: PipelineSnapshot = None
+    agent: Agent,
+    messages: list[ChatMessage],
+    console: Console,
+    snapshot_file_path: Optional[str] = None,
+    tool_execution_decisions: Optional[list[dict[str, Any]]] = None,
 ) -> Optional[dict[str, Any]]:
     """
     Run the agent with the given messages and optional snapshot.
     """
+    # Load the latest snapshot if a path is provided
+    snapshot = None
+    if snapshot_file_path:
+        snapshot = get_latest_snapshot(snapshot_file_path=snapshot_file_path)
+
+        # Add any new tool execution decisions to the snapshot
+        if tool_execution_decisions:
+            teds = [ToolExecutionDecision.from_dict(ted) for ted in tool_execution_decisions]
+            existing_decisions = snapshot.agent_snapshot.tool_execution_decisions or []
+            snapshot.agent_snapshot.tool_execution_decisions = existing_decisions + teds
+
     try:
         return agent.run(messages=messages, snapshot=snapshot.agent_snapshot if snapshot else None)
     except BreakpointException as e:
@@ -154,13 +169,8 @@ if __name__ == "__main__":
         # Simulate front-end interaction
         serialized_teds = frontend_simulate_tool_execution(serialized_tool_calls, tool_descripts, cons)
 
-        # Update the snapshot with the tool execution decisions and restart the agent
-        teds = [ToolExecutionDecision.from_dict(ted) for ted in serialized_teds]
-        if loaded_snapshot.agent_snapshot.tool_execution_decisions:
-            loaded_snapshot.agent_snapshot.tool_execution_decisions.extend(teds)
-        else:
-            loaded_snapshot.agent_snapshot.tool_execution_decisions = teds
-        result = run_agent(bank_agent, [], cons, loaded_snapshot)
+        # Re-run the agent with the new tool execution decisions
+        result = run_agent(bank_agent, [], cons, snapshot_fp, serialized_teds)
 
     # Step 3: Final result
     last_message = result["last_message"]
