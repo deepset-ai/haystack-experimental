@@ -360,9 +360,8 @@ class Agent(HaystackAgent):
                     break
 
                 # Apply confirmation strategies and update State and messages sent to ToolInvoker
-                # Only send confirmed + modified tool calls to the ToolInvoker, but keep original messages in State
                 try:
-                    # NOTE: Chat history update now handled inside of _handle_confirmation_strategies
+                    # NOTE: Chat history update handled inside of _handle_confirmation_strategies
                     modified_tool_call_messages, exe_context = _handle_confirmation_strategies(
                         confirmation_strategies=self._confirmation_strategies,
                         messages_with_tool_calls=llm_messages,

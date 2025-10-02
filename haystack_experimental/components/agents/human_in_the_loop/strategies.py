@@ -4,9 +4,11 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from haystack.components.agents.state import State, replace_values
 from haystack.components.tools.tool_invoker import ToolInvoker
 from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, StreamingCallbackT
+from haystack.tools import Tool
 
 from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationPolicy,
@@ -15,7 +17,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
 )
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
-    _update_state_and_tool_call_messages_with_tool_execution_decisions,
+    _apply_tool_execution_decisions,
 )
 from haystack_experimental.components.agents.human_in_the_loop.errors import ToolBreakpointException
 
@@ -199,6 +201,44 @@ class BreakpointConfirmationStrategy:
         raise default_from_dict(cls, data)
 
 
+def prepare_tool_args(
+    *,
+    tool: Tool,
+    tool_call_arguments: dict[str, Any],
+    state: State,
+    streaming_callback: Optional[StreamingCallbackT] = None,
+    enable_streaming_passthrough: bool = False,
+) -> dict[str, Any]:
+    """
+    Prepare the final arguments for a tool by injecting state inputs and optionally a streaming callback.
+
+    :param tool:
+        The tool instance to prepare arguments for.
+    :param tool_call_arguments:
+        The initial arguments provided for the tool call.
+    :param state:
+        The current state containing inputs to be injected into the tool arguments.
+    :param streaming_callback:
+        Optional streaming callback to be injected if enabled and applicable.
+    :param enable_streaming_passthrough:
+        Flag indicating whether to inject the streaming callback into the tool arguments.
+
+    :returns:
+        A dictionary of final arguments ready for tool invocation.
+    """
+    # Combine user + state inputs
+    final_args = ToolInvoker._inject_state_args(tool, tool_call_arguments.copy(), state)
+    # Check whether to inject streaming_callback
+    if (
+        enable_streaming_passthrough
+        and streaming_callback is not None
+        and "streaming_callback" not in final_args
+        and "streaming_callback" in ToolInvoker._get_func_params(tool)
+    ):
+        final_args["streaming_callback"] = streaming_callback
+    return final_args
+
+
 def _handle_confirmation_strategies(
     *,
     confirmation_strategies: dict[str, ConfirmationStrategy],
@@ -206,7 +246,7 @@ def _handle_confirmation_strategies(
     execution_context: "_ExecutionContext",
 ) -> tuple[list[ChatMessage], "_ExecutionContext"]:
     """
-    Prepare tool call parameters for execution and collect any error messages.
+    Handle tool execution confirmation strategies for tool calls in the provided messages.
 
     :param confirmation_strategies: Mapping of tool names to their corresponding confirmation strategies
     :param messages_with_tool_calls: Messages containing tool calls to process
@@ -214,9 +254,7 @@ def _handle_confirmation_strategies(
     :returns: Tuple of modified messages with confirmed tool calls and tool call result messages
     """
     state = execution_context.state
-    streaming_callback = execution_context.chat_generator_inputs.get("streaming_callback")
     tools_with_names = {tool.name: tool for tool in execution_context.tool_invoker_inputs["tools"]}
-    enable_streaming_passthrough = execution_context.tool_invoker_inputs.get("enable_streaming_passthrough", False)
     existing_teds = execution_context.tool_execution_decisions if execution_context.tool_execution_decisions else []
 
     teds = []
@@ -229,16 +267,14 @@ def _handle_confirmation_strategies(
             tool_name = tool_call.tool_name
             tool_to_invoke = tools_with_names[tool_name]
 
-            # Combine user + state inputs
-            final_args = ToolInvoker._inject_state_args(tool_to_invoke, tool_call.arguments.copy(), state)
-            # Check whether to inject streaming_callback
-            if (
-                enable_streaming_passthrough
-                and streaming_callback is not None
-                and "streaming_callback" not in final_args
-                and "streaming_callback" in ToolInvoker._get_func_params(tool_to_invoke)
-            ):
-                final_args["streaming_callback"] = streaming_callback
+            # Prepare final tool args
+            final_args = prepare_tool_args(
+                tool=tool_to_invoke,
+                tool_call_arguments=tool_call.arguments,
+                state=state,
+                streaming_callback=execution_context.tool_invoker_inputs.get("streaming_callback"),
+                enable_streaming_passthrough=execution_context.tool_invoker_inputs.get("enable_streaming_passthrough", False),
+            )
 
             # Get tool execution decisions from confirmation strategies
             # If no confirmation strategy is defined for this tool, proceed with execution
@@ -262,13 +298,12 @@ def _handle_confirmation_strategies(
                 )
             teds.append(ted)
 
-    new_state, modified_tool_call_messages = _update_state_and_tool_call_messages_with_tool_execution_decisions(
-        state=state,
+    new_chat_history, modified_tool_call_messages = _apply_tool_execution_decisions(
+        chat_history=state.get("messages"),
         tool_call_messages=messages_with_tool_calls,
         tool_execution_decisions=teds,
     )
-
-    # Update execution context state
-    execution_context.state = new_state
+    # Update chat history in state
+    state.set(key="messages", value=new_chat_history, handler_override=replace_values)
 
     return modified_tool_call_messages, execution_context
