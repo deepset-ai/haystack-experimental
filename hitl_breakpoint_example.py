@@ -123,17 +123,10 @@ def run_agent(
         return None
 
 
-if __name__ == "__main__":
-    snapshot_fp = "pipeline_snapshots"
-    # Single tool call question --> Works
-    # user_message = "What's the balance of account 56789?"
-    # Two tool call question --> Works kind of inadvertently (see TODO below)
-    # user_message = "What's the balance of account 56789 and what is 5.5 + 3.2?"
-    # Multiple sequential tool calls question --> Stuck in infinite loop
-    user_message = "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?"
-
+def main(user_message: str):
     cons = Console()
-    cons.print("\n[bold blue]=== Multiple Sequential Tool Calls Example ===[/bold blue]\n")
+    cons.print("\n[bold blue]=== Breakpoint Confirmation Strategy Example ===[/bold blue]\n")
+    cons.print(f"[bold yellow]User Message:[/bold yellow] {user_message}\n")
 
     # Define agent with both tools and breakpoint confirmation strategies
     addition_tool = create_tool_from_function(
@@ -146,6 +139,7 @@ if __name__ == "__main__":
         name="get_bank_balance",
         description="Get the bank balance for a given account ID.",
     )
+    snapshot_fp = "pipeline_snapshots"
     bank_agent = Agent(
         chat_generator=OpenAIChatGenerator(model="gpt-4.1"),
         tools=[balance_tool, addition_tool],
@@ -175,3 +169,15 @@ if __name__ == "__main__":
     # Step 3: Final result
     last_message = result["last_message"]
     cons.print(f"\n[bold green]Agent Result:[/bold green] {last_message.text}")
+
+
+if __name__ == "__main__":
+    for usr_msg in [
+        # Single tool call question --> Works
+        "What's the balance of account 56789?",
+        # Two tool call question --> Works kind of inadvertently
+        "What's the balance of account 56789 and what is 5.5 + 3.2?",
+        # Multiple sequential tool calls question --> Works
+        "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?"
+    ]:
+        main(usr_msg)
