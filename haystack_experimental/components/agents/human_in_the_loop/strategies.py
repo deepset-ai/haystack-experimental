@@ -183,7 +183,7 @@ class BreakpointConfirmationStrategy:
         :raises NotImplementedError:
             Always raises this exception since serialization is not supported.
         """
-        raise default_to_dict(self)
+        return default_to_dict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BreakpointConfirmationStrategy":
@@ -196,7 +196,7 @@ class BreakpointConfirmationStrategy:
         :raises NotImplementedError:
             Always raises this exception since deserialization is not supported.
         """
-        raise default_from_dict(cls, data)
+        return default_from_dict(cls, data)
 
 
 def _prepare_tool_args(
