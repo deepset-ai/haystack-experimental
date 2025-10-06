@@ -8,9 +8,7 @@ from haystack.utils import _deserialize_value_with_schema
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _prepare_tool_args
 
 
-# TODO This potentially could live in hayhooks instead. At best it's a utility function that is only used in the
-#      BreakpointConfirmationStrategy example and could be used in hayhooks to enable human-in-the-loop for agents.
-def _get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[list[dict], dict[str, str]]:
+def get_tool_calls_and_descriptions_from_snapshot(agent_snapshot: AgentSnapshot) -> tuple[list[dict], dict[str, str]]:
     """
     Extract tool calls and tool descriptions from an AgentSnapshot.
 
@@ -18,7 +16,8 @@ def _get_tool_calls_and_descriptions(agent_snapshot: AgentSnapshot) -> tuple[lis
     to a human for confirmation before execution.
 
     :param agent_snapshot: The AgentSnapshot from which to extract tool calls and descriptions.
-    :return: A tuple containing a list of tool call dictionaries and a dictionary of tool descriptions
+    :returns:
+        A tuple containing a list of tool call dictionaries and a dictionary of tool descriptions
     """
     tool_invoker_inputs = _deserialize_value_with_schema(agent_snapshot.component_inputs["tool_invoker"])
     tool_call_messages = tool_invoker_inputs["messages"]
