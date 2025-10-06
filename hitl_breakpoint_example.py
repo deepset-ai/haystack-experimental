@@ -58,7 +58,7 @@ def get_latest_snapshot(snapshot_file_path: str) -> PipelineSnapshot:
     return load_pipeline_snapshot(latest_snapshot_file)
 
 
-def frontend_simulate_tool_execution(
+def frontend_simulate_tool_decision(
     tool_calls: list[dict[str, Any]], tool_descriptions: dict[str, str], console: Console
 ) -> list[dict]:
     """
@@ -161,7 +161,7 @@ def main(user_message: str):
         serialized_tool_calls, tool_descripts = _get_tool_calls_and_descriptions(loaded_snapshot.agent_snapshot)
 
         # Simulate front-end interaction
-        serialized_teds = frontend_simulate_tool_execution(serialized_tool_calls, tool_descripts, cons)
+        serialized_teds = frontend_simulate_tool_decision(serialized_tool_calls, tool_descripts, cons)
 
         # Re-run the agent with the new tool execution decisions
         result = run_agent(bank_agent, [], cons, snapshot_fp, serialized_teds)

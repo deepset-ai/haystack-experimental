@@ -180,23 +180,20 @@ class BreakpointConfirmationStrategy:
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Serialization is not implemented for BreakpointConfirmationStrategy.
-
-        :raises NotImplementedError:
-            Always raises this exception since serialization is not supported.
+        Serializes the BreakpointConfirmationStrategy to a dictionary.
         """
         return default_to_dict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BreakpointConfirmationStrategy":
         """
-        Deserialization is not implemented for BreakpointConfirmationStrategy.
+        Deserializes the BreakpointConfirmationStrategy from a dictionary.
 
         :param data:
             Dictionary to deserialize from.
 
-        :raises NotImplementedError:
-            Always raises this exception since deserialization is not supported.
+        :returns:
+            Deserialized BreakpointConfirmationStrategy.
         """
         return default_from_dict(cls, data)
 
@@ -397,9 +394,9 @@ def _update_chat_history(
 
     Steps:
     1. Identify the last user message and the last tool message in the current chat history.
-    2. Determine the last relevant message index, which is the last of the two identified messages.
+    2. Determine the insertion point as the maximum index of these two messages.
     3. Create a new chat history that includes:
-       - All messages up to and including the last relevant message.
+       - All messages up to the insertion point.
        - Any rejection messages (pairs of tool call and tool call result messages).
        - Any tool call messages for confirmed or modified tool calls.
 
@@ -411,11 +408,17 @@ def _update_chat_history(
     :returns:
         The updated chat history.
     """
-    last_user_msg_idx = max(i for i, m in enumerate(chat_history) if m.is_from("user"))
-    last_tool_msg_idx = max(
-        [i for i, m in enumerate(chat_history) if m.is_from("tool")] + [-1]
-    )  # -1 in case there are no tool messages yet
-    last_relevant_msg_idx = max(last_user_msg_idx, last_tool_msg_idx)
-    # We take everything up to and including the last relevant message, then add any additional messages
-    new_chat_history = chat_history[: last_relevant_msg_idx + 1] + rejection_messages + tool_call_messages
+    user_indices = [i for i, message in enumerate(chat_history) if message.is_from("user")]
+    tool_indices = [i for i, message in enumerate(chat_history) if message.is_from("tool")]
+
+    last_user_idx = max(user_indices) if user_indices else -1
+    last_tool_idx = max(tool_indices) if tool_indices else -1
+
+    insertion_point = max(last_user_idx, last_tool_idx)
+
+    new_chat_history = (
+        chat_history[:insertion_point + 1] +
+        rejection_messages +
+        tool_call_messages
+    )
     return new_chat_history
