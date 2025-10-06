@@ -52,6 +52,7 @@ fmt-check = "ruff check {args} && ruff format --check {args}"
 extra-dependencies = [
   "sentence-transformers>=4.1.0",                     # EmbeddingBasedDocumentSplitter
   "nltk>=3.9.1",                                      # EmbeddingBasedDocumentSplitter
+  "transformers>=4.55.4,<4.57",                       # Issue https://github.com/huggingface/transformers/issues/41339
 
   # Type check
   "mypy",
