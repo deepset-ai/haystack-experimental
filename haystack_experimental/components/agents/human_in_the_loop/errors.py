@@ -5,7 +5,7 @@
 from typing import Optional
 
 
-class ToolBreakpointException(Exception):
+class HITLBreakpointException(Exception):
     """
     Exception raised when a tool execution is paused by a ConfirmationStrategy (e.g. BreakpointConfirmationStrategy).
     """
@@ -14,7 +14,7 @@ class ToolBreakpointException(Exception):
         self, message: str, tool_name: str, snapshot_file_path: str, tool_call_id: Optional[str] = None
     ) -> None:
         """
-        Initialize the ToolBreakpointException.
+        Initialize the HITLBreakpointException.
 
         :param message: The exception message.
         :param tool_name: The name of the tool whose execution is paused.

@@ -9,7 +9,7 @@ from lazy_imports import LazyImporter
 
 _import_structure = {
     "dataclasses": ["ConfirmationUIResult", "ToolExecutionDecision"],
-    "errors": ["ToolBreakpointException"],
+    "errors": ["HITLBreakpointException"],
     "policies": ["AlwaysAskPolicy", "NeverAskPolicy", "AskOncePolicy"],
     "strategies": ["BlockingConfirmationStrategy", "BreakpointConfirmationStrategy"],
     "types": ["ConfirmationPolicy", "ConfirmationUI", "ConfirmationStrategy"],
@@ -19,7 +19,7 @@ _import_structure = {
 if TYPE_CHECKING:
     from .dataclasses import ConfirmationUIResult as ConfirmationUIResult
     from .dataclasses import ToolExecutionDecision as ToolExecutionDecision
-    from .errors import ToolBreakpointException as ToolBreakpointException
+    from .errors import HITLBreakpointException as HITLBreakpointException
     from .policies import AlwaysAskPolicy as AlwaysAskPolicy
     from .policies import AskOncePolicy as AskOncePolicy
     from .policies import NeverAskPolicy as NeverAskPolicy

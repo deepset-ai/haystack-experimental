@@ -15,7 +15,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationPolicy,
     ConfirmationStrategy,
     ConfirmationUI,
-    ToolBreakpointException,
+    HITLBreakpointException,
     ToolExecutionDecision,
 )
 
@@ -138,14 +138,16 @@ class BreakpointConfirmationStrategy:
     Confirmation strategy that raises a tool breakpoint exception to pause execution and gather user feedback.
 
     This strategy is designed for scenarios where immediate user interaction is not possible, such as in backend
-    services. When a tool execution requires confirmation, it raises an `ToolBreakpointException`, which is caught
-    by the Agent. The Agent can then serialize its current state, including the tool call details, and send this
-    information to a front-end interface for user review.
+    services. When a tool execution requires confirmation, it raises an `HITLBreakpointException`, which is caught
+    by the Agent. The Agent then serialize its current state, including the tool call details. This information can
+    then be used to notify a user to review and confirm the tool execution.
     """
 
     def __init__(self, snapshot_file_path: str) -> None:
         """
         Initialize the BreakpointConfirmationStrategy.
+
+        :param snapshot_file_path: The path to the directory that the snapshot should be saved.
         """
         self.snapshot_file_path = snapshot_file_path
 
@@ -165,13 +167,13 @@ class BreakpointConfirmationStrategy:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
 
-        :raises ToolBreakpointException:
-            Always raises an `ToolBreakpointException` exception to signal that user confirmation is required.
+        :raises HITLBreakpointException:
+            Always raises an `HITLBreakpointException` exception to signal that user confirmation is required.
 
         :returns:
             This method does not return; it always raises an exception.
         """
-        raise ToolBreakpointException(
+        raise HITLBreakpointException(
             message=f"Tool execution for '{tool_name}' requires user confirmation.",
             tool_name=tool_name,
             tool_call_id=tool_call_id,

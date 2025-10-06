@@ -42,7 +42,7 @@ from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 from haystack_experimental.components.agents.human_in_the_loop import (
     ConfirmationStrategy,
     ToolExecutionDecision,
-    ToolBreakpointException,
+    HITLBreakpointException,
 )
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _handle_confirmation_strategies
 
@@ -348,7 +348,7 @@ class Agent(HaystackAgent):
                         messages_with_tool_calls=llm_messages,
                         execution_context=exe_context,
                     )
-                except ToolBreakpointException as tbp_error:
+                except HITLBreakpointException as tbp_error:
                     # We create a break_point to pass into _check_tool_invoker_breakpoint
                     break_point = AgentBreakpoint(
                         agent_name=getattr(self, "__component_name__", ""),
