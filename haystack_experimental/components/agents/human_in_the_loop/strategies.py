@@ -327,9 +327,18 @@ def _run_confirmation_strategies(
                 )
                 continue
 
-            # TODO Update this to use tool_name if tool_call_id is None
             # Check if there's already a decision for this tool call in the execution context
-            ted = next((t for t in existing_teds if t.tool_call_id == tool_call.id), None)
+            ted = None
+            for t in existing_teds:
+                # Match by tool_call_id if available
+                if tool_call.id is not None and t.tool_call_id == tool_call.id:
+                    ted = t
+                    break
+                # Fallback to matching by tool_name if tool_call_id is not set
+                elif tool_call.id is None and t.tool_name == tool_name:
+                    ted = t
+                    break
+
             # If not, run the confirmation strategy
             if not ted:
                 ted = confirmation_strategies[tool_name].run(
