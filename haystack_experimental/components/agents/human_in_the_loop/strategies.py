@@ -335,7 +335,7 @@ def _run_confirmation_strategies(
                     ted = t
                     break
                 # Fallback to matching by tool_name if tool_call_id is not set
-                elif tool_call.id is None and t.tool_name == tool_name:
+                if tool_call.id is None and t.tool_name == tool_name:
                     ted = t
                     break
 

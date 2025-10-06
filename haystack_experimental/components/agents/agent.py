@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pylint: disable=wrong-import-order,wrong-import-position,ungrouped-imports
 # ruff: noqa: I001
 
 from dataclasses import dataclass
