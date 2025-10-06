@@ -5,7 +5,7 @@
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Optional
 
-from haystack.components.agents.state import State, replace_values
+from haystack.components.agents.state import State
 from haystack.components.tools.tool_invoker import ToolInvoker
 from haystack.core.serialization import default_from_dict, default_to_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage, StreamingCallbackT
@@ -137,10 +137,10 @@ class BreakpointConfirmationStrategy:
     """
     Confirmation strategy that raises a tool breakpoint exception to pause execution and gather user feedback.
 
-    This strategy is designed for scenarios where immediate user interaction is not possible, such as in backend
-    services. When a tool execution requires confirmation, it raises an `HITLBreakpointException`, which is caught
-    by the Agent. The Agent then serialize its current state, including the tool call details. This information can
-    then be used to notify a user to review and confirm the tool execution.
+    This strategy is designed for scenarios where immediate user interaction is not possible.
+    When a tool execution requires confirmation, it raises an `HITLBreakpointException`, which is caught by the Agent.
+    The Agent then serialize its current state, including the tool call details. This information can then be used to
+    notify a user to review and confirm the tool execution.
     """
 
     def __init__(self, snapshot_file_path: str) -> None:
@@ -238,19 +238,57 @@ def _prepare_tool_args(
     return final_args
 
 
-def _handle_confirmation_strategies(
+def _process_confirmation_strategies(
     *,
     confirmation_strategies: dict[str, ConfirmationStrategy],
     messages_with_tool_calls: list[ChatMessage],
     execution_context: "_ExecutionContext",
-) -> tuple[list[ChatMessage], "_ExecutionContext"]:
+) -> tuple[list[ChatMessage], list[ChatMessage]]:
     """
-    Handle tool execution confirmation strategies for tool calls in the provided messages.
+    Run the confirmation strategies and return modified tool call messages and updated chat history.
+
+    :param confirmation_strategies: Mapping of tool names to their corresponding confirmation strategies
+    :param messages_with_tool_calls: Chat messages containing tool calls
+    :param execution_context: The current execution context of the agent
+    :returns:
+        Tuple of modified messages with confirmed tool calls and updated chat history
+    """
+    # Run confirmation strategies and get tool execution decisions
+    teds = _run_confirmation_strategies(
+        confirmation_strategies=confirmation_strategies,
+        messages_with_tool_calls=messages_with_tool_calls,
+        execution_context=execution_context,
+    )
+
+    # Apply tool execution decisions to messages_with_tool_calls
+    rejection_messages, modified_tool_call_messages = _apply_tool_execution_decisions(
+        tool_call_messages=messages_with_tool_calls,
+        tool_execution_decisions=teds,
+    )
+
+    # Update the chat history with rejection messages and new tool call messages
+    new_chat_history = _update_chat_history(
+        chat_history=execution_context.state.get("messages"),
+        rejection_messages=rejection_messages,
+        tool_call_and_explanation_messages=modified_tool_call_messages,
+    )
+
+    return modified_tool_call_messages, new_chat_history
+
+
+def _run_confirmation_strategies(
+    confirmation_strategies: dict[str, ConfirmationStrategy],
+    messages_with_tool_calls: list[ChatMessage],
+    execution_context: "_ExecutionContext",
+) -> list[ToolExecutionDecision]:
+    """
+    Run confirmation strategies for tool calls in the provided chat messages.
 
     :param confirmation_strategies: Mapping of tool names to their corresponding confirmation strategies
     :param messages_with_tool_calls: Messages containing tool calls to process
     :param execution_context: The current execution context containing state and inputs
-    :returns: Tuple of modified messages with confirmed tool calls and tool call result messages
+    :returns:
+        A list of ToolExecutionDecision objects representing the decisions made for each tool call.
     """
     state = execution_context.state
     tools_with_names = {tool.name: tool for tool in execution_context.tool_invoker_inputs["tools"]}
@@ -289,6 +327,7 @@ def _handle_confirmation_strategies(
                 )
                 continue
 
+            # TODO Update this to use tool_name if tool_call_id is None
             # Check if there's already a decision for this tool call in the execution context
             ted = next((t for t in existing_teds if t.tool_call_id == tool_call.id), None)
             # If not, run the confirmation strategy
@@ -298,18 +337,7 @@ def _handle_confirmation_strategies(
                 )
             teds.append(ted)
 
-    rejection_messages, modified_tool_call_messages = _apply_tool_execution_decisions(
-        tool_call_messages=messages_with_tool_calls,
-        tool_execution_decisions=teds,
-    )
-
-    # Update the chat history with rejection messages and new tool call messages
-    new_chat_history = _update_chat_history(state.get("messages"), rejection_messages, modified_tool_call_messages)
-
-    # Update chat history in state
-    state.set(key="messages", value=new_chat_history, handler_override=replace_values)
-
-    return modified_tool_call_messages, execution_context
+    return teds
 
 
 def _apply_tool_execution_decisions(
@@ -324,7 +352,8 @@ def _apply_tool_execution_decisions(
         A tuple containing:
         - A list of rejection messages for rejected tool calls. These are pairs of tool call and tool call result
           messages.
-        - A list of modified tool call messages for confirmed or modified tool calls.
+        - A list of tool call messages for confirmed or modified tool calls. If tool parameters were modified,
+          a user message explaining the modification is included before the tool call message.
     """
     new_tool_call_messages = []
     rejection_messages = []
@@ -389,8 +418,10 @@ def _apply_tool_execution_decisions(
 
 
 def _update_chat_history(
-    chat_history: list[ChatMessage], rejection_messages: list[ChatMessage], tool_call_messages: list[ChatMessage]
-):
+    chat_history: list[ChatMessage],
+    rejection_messages: list[ChatMessage],
+    tool_call_and_explanation_messages: list[ChatMessage],
+) -> list[ChatMessage]:
     """
     Update the chat history to include rejection messages and tool call messages at the appropriate positions.
 
@@ -400,13 +431,13 @@ def _update_chat_history(
     3. Create a new chat history that includes:
        - All messages up to the insertion point.
        - Any rejection messages (pairs of tool call and tool call result messages).
-       - Any tool call messages for confirmed or modified tool calls.
+       - Any tool call messages for confirmed or modified tool calls, including user messages explaining modifications.
 
     :param chat_history: The current chat history.
-    :param rejection_messages: Chat messages to add for rejected tool calls. These should be pairs of tool call and
-        tool call result messages.
-    :param tool_call_messages: The tool call messages for confirmed or modified tool calls that should be added to the
-        end of the chat history.
+    :param rejection_messages: Chat messages to add for rejected tool calls (pairs of tool call and tool call result
+        messages).
+    :param tool_call_and_explanation_messages: Tool call messages for confirmed or modified tool calls, which may
+        include user messages explaining modifications.
     :returns:
         The updated chat history.
     """
@@ -418,9 +449,5 @@ def _update_chat_history(
 
     insertion_point = max(last_user_idx, last_tool_idx)
 
-    new_chat_history = (
-        chat_history[:insertion_point + 1] +
-        rejection_messages +
-        tool_call_messages
-    )
+    new_chat_history = chat_history[: insertion_point + 1] + rejection_messages + tool_call_and_explanation_messages
     return new_chat_history

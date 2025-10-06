@@ -23,6 +23,7 @@ from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
 from haystack.components.agents.agent import _ExecutionContext as Haystack_ExecutionContext
 from haystack.components.agents.agent import _schema_from_dict
+from haystack.components.agents.state import replace_values
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.errors import PipelineRuntimeError
 from haystack.core.pipeline import AsyncPipeline, Pipeline
@@ -44,7 +45,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
     HITLBreakpointException,
 )
-from haystack_experimental.components.agents.human_in_the_loop.strategies import _handle_confirmation_strategies
+from haystack_experimental.components.agents.human_in_the_loop.strategies import _process_confirmation_strategies
 
 logger = logging.getLogger(__name__)
 
@@ -342,12 +343,14 @@ class Agent(HaystackAgent):
 
                 # Apply confirmation strategies and update State and messages sent to ToolInvoker
                 try:
-                    # NOTE: Chat history update handled inside of _handle_confirmation_strategies
-                    modified_tool_call_messages, exe_context = _handle_confirmation_strategies(
+                    # Run confirmation strategies to get updated tool call messages and modified chat history
+                    modified_tool_call_messages, new_chat_history = _process_confirmation_strategies(
                         confirmation_strategies=self._confirmation_strategies,
                         messages_with_tool_calls=llm_messages,
                         execution_context=exe_context,
                     )
+                    # Replace the chat history in state with the modified one
+                    exe_context.state.set(key="messages", value=new_chat_history, handler_override=replace_values)
                 except HITLBreakpointException as tbp_error:
                     # We create a break_point to pass into _check_tool_invoker_breakpoint
                     break_point = AgentBreakpoint(
