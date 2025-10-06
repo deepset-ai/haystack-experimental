@@ -4,8 +4,9 @@
 from typing import Any, Optional
 
 from haystack import component, default_from_dict, default_to_dict
-from haystack.components.memory.protocol import MemoryStore
 from haystack.dataclasses.chat_message import ChatMessage
+
+from haystack_experimental.memory.protocol import MemoryStore
 
 
 @component
@@ -79,16 +80,18 @@ class MemoryWriter:
     def run(
         self,
         messages: list[ChatMessage],
+        user_id: str,
         metadata: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Write chat messages as memories to the memory store.
 
-        The component extracts user_id, org_id, and session_id from each ChatMessage's
+        The component extracts user_id from each ChatMessage's
         metadata to properly scope the memories in the store.
 
         :param messages: List of chat messages to store as memories. Each message should
-                        have user_id, org_id, and/or session_id in its metadata for proper scoping.
+                        have user_id in its metadata for proper scoping.
+        :param user_id: User identifier for scoping the memories
         :param metadata: Additional metadata to attach to all memories
 
         :returns: Dictionary with "memories_written" key containing the number of memories written
@@ -117,10 +120,12 @@ class MemoryWriter:
             else:
                 # Use original message if no additional metadata
                 processed_messages.append(message)
+        print("processed_messages")
+        print(processed_messages)
 
         # Write memories to store
         try:
-            added_ids = self.memory_store.add(processed_messages)
+            added_ids = self.memory_store.add_memories(user_id, processed_messages)
             return {"memories_written": len(added_ids)}
         except Exception as e:
             raise RuntimeError(f"Failed to write memories: {e}") from e

@@ -56,7 +56,11 @@ class Mem0MemoryStore:
         added_ids = []
 
         for message in messages:
-            mem0_message = {"role": message.role, "content": message.text}
+            if not message.text:
+                continue
+            mem0_message = [{"role": message.role, "content": message.text}]
+            print(mem0_message)
+            print("META: ", message.meta)
 
             try:
                 # Mem0 primarily uses user_id as the main identifier
@@ -92,7 +96,7 @@ class Mem0MemoryStore:
         mem0_filters = {"AND": [{"user_id": user_id}, search_filters]}
 
         try:
-            results = self.client.search(query=query, limit=top_k, filters=mem0_filters)
+            results = self.client.search(query=query, limit=top_k, filters=mem0_filters, user_id=user_id)
             memories = [
                 ChatMessage.from_assistant(text=result["content"], meta=result["metadata"]) for result in results
             ]
