@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack.dataclasses.breakpoints import AgentSnapshot
+from haystack.dataclasses.breakpoints import AgentSnapshot, ToolBreakpoint
 from haystack.utils import _deserialize_value_with_schema
 
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _prepare_tool_args
@@ -24,7 +24,11 @@ def get_tool_calls_and_descriptions_from_snapshot(
     :returns:
         A tuple containing a list of tool call dictionaries and a dictionary of tool descriptions
     """
-    tool_caused_break_point = agent_snapshot.break_point.break_point.tool_name
+    break_point = agent_snapshot.break_point.break_point
+    if not isinstance(break_point, ToolBreakpoint):
+        raise ValueError("The provided AgentSnapshot does not contain a ToolBreakpoint.")
+
+    tool_caused_break_point = break_point.tool_name
 
     # Deserialize the tool invoker inputs from the snapshot
     tool_invoker_inputs = _deserialize_value_with_schema(agent_snapshot.component_inputs["tool_invoker"])

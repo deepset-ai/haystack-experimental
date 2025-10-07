@@ -3,14 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.tools import Tool, create_tool_from_function
 
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop import (
-    ConfirmationStrategy,
     BlockingConfirmationStrategy,
+    ConfirmationStrategy,
     NeverAskPolicy,
     SimpleConsoleUI,
 )

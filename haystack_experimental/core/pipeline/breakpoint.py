@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import replace
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -13,10 +13,12 @@ from haystack.core.pipeline.breakpoint import _save_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, PipelineState, ToolBreakpoint
 from haystack.utils.base_serialization import _serialize_value_with_schema
+from haystack.utils.misc import _get_output_dir
 
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
 
 if TYPE_CHECKING:
+    from haystack_experimental.components.agents.agent import _ExecutionContext
     from haystack_experimental.components.agents.human_in_the_loop import ToolExecutionDecision
 
 

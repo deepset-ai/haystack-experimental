@@ -12,14 +12,14 @@ from typing import Any, Optional, Union
 import haystack.dataclasses.breakpoints as hdb
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
 
-hdb.AgentSnapshot = AgentSnapshot
+hdb.AgentSnapshot = AgentSnapshot  # type: ignore[misc]
 
 # Monkey patch Haystack's breakpoint functions with our extended versions
 import haystack.core.pipeline.breakpoint as hs_breakpoint
 import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
-hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker
+hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
 hs_breakpoint._trigger_tool_invoker_breakpoint = exp_breakpoint._trigger_tool_invoker_breakpoint
 
 from haystack import logging
@@ -173,7 +173,7 @@ class Agent(HaystackAgent):
         *,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
-        **kwargs,
+        **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
         Initialize execution context for a fresh run of the agent.
@@ -207,7 +207,7 @@ class Agent(HaystackAgent):
             tool_invoker_inputs=exe_context.tool_invoker_inputs,
         )
 
-    def _initialize_from_snapshot(
+    def _initialize_from_snapshot(  # type: ignore[override]
         self,
         snapshot: AgentSnapshot,
         streaming_callback: Optional[StreamingCallbackT],
@@ -249,7 +249,7 @@ class Agent(HaystackAgent):
         streaming_callback: Optional[StreamingCallbackT] = None,
         *,
         break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,
+        snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
         system_prompt: Optional[str] = None,
         tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
         **kwargs: Any,
@@ -433,7 +433,7 @@ class Agent(HaystackAgent):
         streaming_callback: Optional[StreamingCallbackT] = None,
         *,
         break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,
+        snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
         system_prompt: Optional[str] = None,
         tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
         **kwargs: Any,

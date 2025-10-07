@@ -4,8 +4,8 @@
 
 from haystack_experimental.components.agents.human_in_the_loop import (
     AskOncePolicy,
-    SimpleConsoleUI,
     BlockingConfirmationStrategy,
+    SimpleConsoleUI,
 )
 
 

@@ -377,19 +377,19 @@ def _apply_tool_execution_decisions(
             )
             if ted.execute:
                 # Covers confirm and modify cases
-                if tc.arguments != ted.final_tool_params:
+                final_args = ted.final_tool_params or {}
+                if tc.arguments != final_args:
                     # In the modify case we add a user message explaining the modification otherwise the LLM won't know
                     # why the tool parameters changed and will likely just try and call the tool again with the
                     # original parameters.
                     new_tool_call_messages.append(
                         ChatMessage.from_user(
                             text=(
-                                f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n"
-                                f"{ted.final_tool_params}"
+                                f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n{final_args}"
                             )
                         )
                     )
-                new_tool_calls.append(replace(tc, arguments=ted.final_tool_params))
+                new_tool_calls.append(replace(tc, arguments=final_args))
             else:
                 # Reject case
                 # We create a tool call and tool call result message pair to put into the chat history of State
