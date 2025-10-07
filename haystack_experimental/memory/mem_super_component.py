@@ -14,7 +14,6 @@ from .memory_writer import MemoryWriter
 class AgentMemory:
     def __init__(
         self,
-        query: str,
         system_prompt: str,
         tools: list[Tool],
         chat_generator: ChatGenerator,
@@ -67,7 +66,7 @@ class AgentMemory:
         }
         self.input_mapping = {
             "query": "retriever.query",
-            "user_id": "retriever.user_id",
+            "user_id": ["retriever.user_id", "writer.user_id"],
         }
 
     def run(self, *, query: str) -> dict[str, list[Document]]:  # noqa: D102
