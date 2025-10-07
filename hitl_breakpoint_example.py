@@ -22,7 +22,9 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     RichConsoleUI,
     ToolExecutionDecision,
 )
-from haystack_experimental.components.agents.human_in_the_loop.breakpoint import get_tool_calls_and_descriptions_from_snapshot
+from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
+    get_tool_calls_and_descriptions_from_snapshot
+)
 
 
 def get_bank_balance(account_id: str) -> str:
@@ -157,8 +159,9 @@ def main(user_message: str):
     while result is None:
         # Load the latest snapshot from disk and prep data for front-end
         loaded_snapshot = get_latest_snapshot(snapshot_file_path=snapshot_fp)
-        # TODO Theoretically should only send the tool call that triggered the breakpoint, not all tool calls so far
-        serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions_from_snapshot(loaded_snapshot.agent_snapshot)
+        serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions_from_snapshot(
+            agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
+        )
 
         # Simulate front-end interaction
         serialized_teds = frontend_simulate_tool_decision(serialized_tool_calls, tool_descripts, cons)
@@ -175,7 +178,7 @@ if __name__ == "__main__":
     for usr_msg in [
         # Single tool call question --> Works
         "What's the balance of account 56789?",
-        # Two tool call question --> Works kind of inadvertently
+        # Two tool call question --> Works
         "What's the balance of account 56789 and what is 5.5 + 3.2?",
         # Multiple sequential tool calls question --> Works
         "What's the balance of account 56789? If it's lower than $2000, what's the balance of account 12345?",

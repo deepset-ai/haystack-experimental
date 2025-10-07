@@ -14,11 +14,13 @@ from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
 
 hdb.AgentSnapshot = AgentSnapshot
 
-# Monkey patch Haystack's _create_agent_snapshot with our extended version
+# Monkey patch Haystack's breakpoint functions with our extended versions
 import haystack.core.pipeline.breakpoint as hs_breakpoint
 import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
+hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker
+hs_breakpoint._trigger_tool_invoker_breakpoint = exp_breakpoint._trigger_tool_invoker_breakpoint
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
