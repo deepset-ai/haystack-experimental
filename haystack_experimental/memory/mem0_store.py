@@ -59,8 +59,6 @@ class Mem0MemoryStore:
             if not message.text:
                 continue
             mem0_message = [{"role": message.role, "content": message.text}]
-            print(mem0_message)
-            print("META: ", message.meta)
 
             try:
                 # Mem0 primarily uses user_id as the main identifier

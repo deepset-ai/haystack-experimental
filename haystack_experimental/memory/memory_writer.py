@@ -120,8 +120,6 @@ class MemoryWriter:
             else:
                 # Use original message if no additional metadata
                 processed_messages.append(message)
-        print("processed_messages")
-        print(processed_messages)
 
         # Write memories to store
         try:
