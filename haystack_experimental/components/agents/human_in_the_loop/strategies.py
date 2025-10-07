@@ -184,7 +184,7 @@ class BreakpointConfirmationStrategy:
         """
         Serializes the BreakpointConfirmationStrategy to a dictionary.
         """
-        return default_to_dict(self)
+        return default_to_dict(self, snapshot_file_path=self.snapshot_file_path)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BreakpointConfirmationStrategy":
