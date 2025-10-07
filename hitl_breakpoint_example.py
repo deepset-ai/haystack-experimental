@@ -23,7 +23,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
 )
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
-    get_tool_calls_and_descriptions_from_snapshot
+    get_tool_calls_and_descriptions_from_snapshot,
 )
 
 
