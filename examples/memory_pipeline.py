@@ -1,12 +1,5 @@
 
-"""
-Simple Agent Memory Example - Direct Pipeline Integration
 
-This example shows a straightforward integration of memory components with an Agent
-in a Haystack pipeline, similar to the database assistant example structure.
-
-Pipeline: MemoryRetriever -> ChatPromptBuilder -> Agent -> MemoryWriter
-"""
 
 import os
 from haystack.components.agents import Agent
