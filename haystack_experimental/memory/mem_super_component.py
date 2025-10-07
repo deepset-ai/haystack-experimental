@@ -15,7 +15,6 @@ class AgentMemory:
     def __init__(
         self,
         query: str,
-        user_id: str,
         system_prompt: str,
         tools: list[Tool],
         chat_generator: ChatGenerator,
@@ -23,7 +22,7 @@ class AgentMemory:
         max_agent_steps: int,
         raise_on_tool_invocation_failure: bool,
     ):
-        memory_store = Mem0MemoryStore(user_id=user_id)
+        memory_store = Mem0MemoryStore()
         memory_retriever = Mem0MemoryRetriever(memory_store=memory_store)
         memory_writer = MemoryWriter(memory_store=memory_store)
         agent = Agent(

@@ -1,6 +1,4 @@
 
-
-
 import os
 from haystack.components.agents import Agent
 from haystack.components.generators.chat import OpenAIChatGenerator
