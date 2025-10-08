@@ -14,7 +14,11 @@ class MarkdownHeaderLevelInferrer:
     """
     Infers and rewrites header levels in Markdown text to normalize hierarchy.
 
-     ### Usage example
+    First header → Always becomes level 1 (#)
+    Subsequent headers → Level increases if no content between headers, stays same if content exists
+    Maximum level → Capped at 6 (######)
+
+    ### Usage example
     ```python
     from haystack import Document
     from haystack_experimental.components.preprocessors import MarkdownHeaderLevelInferrer
@@ -35,7 +39,8 @@ class MarkdownHeaderLevelInferrer:
 
     def __init__(self):
         """Initializes the MarkdownHeaderLevelInferrer."""
-        self._header_pattern = re.compile(r"(?m)^(#{1,6}) (.+)$")
+        # handles headers with optional trailing spaces and empty content
+        self._header_pattern = re.compile(r"(?m)^(#{1,6})\s+(.+?)(?:\s*)$")
 
     @component.output_types(documents=list[Document])
     def run(self, documents: list[Document]) -> dict:
@@ -47,7 +52,11 @@ class MarkdownHeaderLevelInferrer:
         :returns:
             dict: a dictionary with the key 'documents' containing the processed Document objects.
         """
-        logger.debug("Inferring and rewriting header levels for documents")
+        if not documents:
+            logger.warning("No documents provided to process")
+            return {"documents": []}
+
+        logger.debug(f"Inferring and rewriting header levels for {len(documents)} documents")
         processed_docs = [self._process_document(doc) for doc in documents]
         return {"documents": processed_docs}
 
@@ -65,7 +74,7 @@ class MarkdownHeaderLevelInferrer:
 
         matches = list(re.finditer(self._header_pattern, doc.content))
         if not matches:
-            logger.info(f"No headers found in document{doc.id}; skipping header level inference.")
+            logger.info(f"No headers found in document {doc.id}; skipping header level inference.")
             return doc
 
         modified_text = MarkdownHeaderLevelInferrer._rewrite_headers(doc.content, matches)
@@ -87,6 +96,11 @@ class MarkdownHeaderLevelInferrer:
         for i, match in enumerate(matches):
             original_header = match.group(0)
             header_text = match.group(2).strip()
+
+            # Skip empty headers
+            if not header_text:
+                logger.warning(f"Skipping empty header at position {match.start()}")
+                continue
 
             has_content = MarkdownHeaderLevelInferrer._has_content_between_headers(content, matches, i)
             inferred_level = MarkdownHeaderLevelInferrer._infer_level(i, current_level, has_content)
