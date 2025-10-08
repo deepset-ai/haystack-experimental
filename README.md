@@ -68,7 +68,8 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_embedding_retriever.py
 [14]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_text_retriever.py
 [15]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/md_header_level_inferrer.py
-[16]: https://github.com/deepset-ai/haystack-experimental/discussions/placeholder
+[16]: https://github.com/deepset-ai/haystack-experimental/discussions/376
+
 
 
 ### Adopted experiments
