@@ -13,12 +13,28 @@ logger = logging.getLogger(__name__)
 class MarkdownHeaderLevelInferrer:
     """
     Infers and rewrites header levels in Markdown text to normalize hierarchy.
+
+     ### Usage example
+    ```python
+    from haystack import Document
+    from haystack_experimental.components.preprocessors import MarkdownHeaderLevelInferrer
+
+    # Create a document with uniform header levels
+    text = "## Title\nSome content\n## Section\nMore content\n## Subsection\nFinal content"
+    doc = Document(content=text)
+    
+    # Initialize the inferrer and process the document
+    inferrer = MarkdownHeaderLevelInferrer()
+    result = inferrer.run([doc])
+    
+    # The headers are now normalized with proper hierarchy
+    print(result["documents"][0].content)
+    > # Title\nSome content\n## Section\nMore content\n### Subsection\nFinal content
+    ```
     """
 
     def __init__(self):
-        """
-        Initializes the MarkdownHeaderLevelInferrer.
-        """
+        """Initializes the MarkdownHeaderLevelInferrer."""
         self._header_pattern = re.compile(r"(?m)^(#{1,6}) (.+)$")
 
     @component.output_types(documents=list[Document])
@@ -26,33 +42,44 @@ class MarkdownHeaderLevelInferrer:
         """
         Infers and rewrites the header levels in the content for documents that use uniform header levels.
 
-        Args:
-            documents (list[Document]): List of Document objects to process.
+        :param documents: list of Document objects to process.
 
-        Returns:
-            dict: A dictionary with the key 'documents' containing the processed Document objects.
+        :returns:
+            dict: a dictionary with the key 'documents' containing the processed Document objects.
         """
         logger.debug("Inferring and rewriting header levels for documents")
         processed_docs = [self._process_document(doc) for doc in documents]
         return {"documents": processed_docs}
 
     def _process_document(self, doc: Document) -> Document:
-        """Processes a single document, inferring and rewriting header levels."""
+        """
+        Processes a single document, inferring and rewriting header levels.
+
+        :param doc: Document object to process.
+        :returns:
+            Document object with rewritten header levels.
+        """
         if doc.content is None:
             logger.warning(f"Document {getattr(doc, 'id', '')} content is None; skipping header level inference.")
             return doc
 
         matches = list(re.finditer(self._header_pattern, doc.content))
         if not matches:
-            logger.info(f"No headers found in document{self._doc_ref(doc)}; skipping header level inference.")
+            logger.info(f"No headers found in document{doc.id}; skipping header level inference.")
             return doc
 
-        modified_text = self._rewrite_headers(doc.content, matches)
-        logger.info(f"Rewrote {len(matches)} headers with inferred levels in document{self._doc_ref(doc)}.")
-        return self._build_final_document(doc, modified_text)
+        modified_text = MarkdownHeaderLevelInferrer._rewrite_headers(doc.content, matches)
+        logger.info(f"Rewrote {len(matches)} headers with inferred levels in document{doc.id}.")
+        return MarkdownHeaderLevelInferrer._build_final_document(doc, modified_text)
 
-    def _rewrite_headers(self, content: str, matches: list[re.Match]) -> str:
-        """Rewrites the headers in the content with inferred levels."""
+    @staticmethod
+    def _rewrite_headers(content: str, matches: list[re.Match]) -> str:
+        """
+        Rewrites the headers in the content with inferred levels.
+
+        :param content: Original Markdown content.
+        :param matches: List of regex matches for headers.
+        """
         modified_text = content
         offset = 0
         current_level = 1
@@ -61,8 +88,8 @@ class MarkdownHeaderLevelInferrer:
             original_header = match.group(0)
             header_text = match.group(2).strip()
 
-            has_content = self._has_content_between_headers(content, matches, i)
-            inferred_level = self._infer_level(i, current_level, has_content)
+            has_content = MarkdownHeaderLevelInferrer._has_content_between_headers(content, matches, i)
+            inferred_level = MarkdownHeaderLevelInferrer._infer_level(i, current_level, has_content)
             current_level = inferred_level
 
             new_header = f"{'#' * inferred_level} {header_text}"
@@ -73,7 +100,8 @@ class MarkdownHeaderLevelInferrer:
 
         return modified_text
 
-    def _has_content_between_headers(self, content: str, matches: list[re.Match], i: int) -> bool:
+    @staticmethod
+    def _has_content_between_headers(content: str, matches: list[re.Match], i: int) -> bool:
         """Checks if there is content between the previous and current header."""
         if i == 0:
             return False
@@ -82,7 +110,8 @@ class MarkdownHeaderLevelInferrer:
         content_between = content[prev_end:current_start]
         return bool(content_between.strip())
 
-    def _infer_level(self, i: int, current_level: int, has_content: bool) -> int:
+    @staticmethod
+    def _infer_level(i: int, current_level: int, has_content: bool) -> int:
         """Infers the header level for the current header."""
         if i == 0:
             return 1
@@ -90,7 +119,8 @@ class MarkdownHeaderLevelInferrer:
             return current_level
         return min(current_level + 1, 6)
 
-    def _build_final_document(self, doc: Document, new_content: str) -> Document:
+    @staticmethod
+    def _build_final_document(doc: Document, new_content: str) -> Document:
         """Creates a new Document with updated content, preserving other fields."""
         return Document(
             id=getattr(doc, "id", "") or "",
@@ -100,8 +130,3 @@ class MarkdownHeaderLevelInferrer:
             score=getattr(doc, "score", None),
             embedding=getattr(doc, "embedding", None),
         )
-
-    def _doc_ref(self, doc: Document) -> str:
-        """Returns a string reference for the document id."""
-        doc_id = getattr(doc, "id", None)
-        return f" (id: {doc_id})" if doc_id else ""
