@@ -22,11 +22,11 @@ class MarkdownHeaderLevelInferrer:
     # Create a document with uniform header levels
     text = "## Title\nSome content\n## Section\nMore content\n## Subsection\nFinal content"
     doc = Document(content=text)
-    
+
     # Initialize the inferrer and process the document
     inferrer = MarkdownHeaderLevelInferrer()
     result = inferrer.run([doc])
-    
+
     # The headers are now normalized with proper hierarchy
     print(result["documents"][0].content)
     > # Title\nSome content\n## Section\nMore content\n### Subsection\nFinal content
