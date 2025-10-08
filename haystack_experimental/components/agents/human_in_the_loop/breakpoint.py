@@ -14,7 +14,7 @@ def get_tool_calls_and_descriptions_from_snapshot(
     """
     Extract tool calls and tool descriptions from an AgentSnapshot.
 
-    Only the tool call that caused the breakpoint is processed and its arguments are reconstructed.
+    By default, only the tool call that caused the breakpoint is processed and its arguments are reconstructed.
     This is useful for scenarios where you want to present the relevant tool call and its description
     to a human for confirmation before execution.
 
