@@ -330,7 +330,7 @@ def _run_confirmation_strategies(
                 continue
 
             # Check if there's already a decision for this tool call in the execution context
-            ted = existing_teds_by_id.get(tool_call.id) or existing_teds_by_name.get(tool_name)
+            ted = existing_teds_by_id.get(tool_call.id or "") or existing_teds_by_name.get(tool_name)
 
             # If not, run the confirmation strategy
             if not ted:
@@ -375,17 +375,19 @@ def _apply_tool_execution_decisions(
     for chat_msg in tool_call_messages:
         new_tool_calls = []
         for tc in chat_msg.tool_calls or []:
-            ted = decision_by_id.get(tc.id) or decision_by_name.get(tc.tool_name)
+            ted = decision_by_id.get(tc.id or "") or decision_by_name.get(tc.tool_name)
             if not ted:
                 # This shouldn't happen, if so something went wrong in _run_confirmation_strategies
                 continue
 
             if not ted.execute:
                 # rejected tool call
-                rejection_messages.extend([
-                    make_assistant_message(chat_msg, [tc]),
-                    ChatMessage.from_tool(tool_result=ted.feedback or "", origin=tc, error=True),
-                ])
+                rejection_messages.extend(
+                    [
+                        make_assistant_message(chat_msg, [tc]),
+                        ChatMessage.from_tool(tool_result=ted.feedback or "", origin=tc, error=True),
+                    ]
+                )
                 continue
 
             # Covers confirm and modify cases
