@@ -293,6 +293,8 @@ def _run_confirmation_strategies(
     state = execution_context.state
     tools_with_names = {tool.name: tool for tool in execution_context.tool_invoker_inputs["tools"]}
     existing_teds = execution_context.tool_execution_decisions if execution_context.tool_execution_decisions else []
+    existing_teds_by_name = {ted.tool_name: ted for ted in existing_teds if ted.tool_name}
+    existing_teds_by_id = {ted.tool_call_id: ted for ted in existing_teds if ted.tool_call_id}
 
     teds = []
     for message in messages_with_tool_calls:
@@ -328,16 +330,7 @@ def _run_confirmation_strategies(
                 continue
 
             # Check if there's already a decision for this tool call in the execution context
-            ted = None
-            for t in existing_teds:
-                # Match by tool_call_id if available
-                if tool_call.id is not None and t.tool_call_id == tool_call.id:
-                    ted = t
-                    break
-                # Fallback to matching by tool_name if tool_call_id is not set
-                if tool_call.id is None and t.tool_name == tool_name:
-                    ted = t
-                    break
+            ted = existing_teds_by_id.get(tool_call.id) or existing_teds_by_name.get(tool_name)
 
             # If not, run the confirmation strategy
             if not ted:
@@ -364,64 +357,53 @@ def _apply_tool_execution_decisions(
         - A list of tool call messages for confirmed or modified tool calls. If tool parameters were modified,
           a user message explaining the modification is included before the tool call message.
     """
+    decision_by_id = {d.tool_call_id: d for d in tool_execution_decisions if d.tool_call_id}
+    decision_by_name = {d.tool_name: d for d in tool_execution_decisions if d.tool_name}
+
+    def make_assistant_message(chat_message, tool_calls):
+        return ChatMessage.from_assistant(
+            text=chat_message.text,
+            meta=chat_message.meta,
+            name=chat_message.name,
+            tool_calls=tool_calls,
+            reasoning=chat_message.reasoning,
+        )
+
     new_tool_call_messages = []
     rejection_messages = []
-    for chat_msg in tool_call_messages:
-        if not chat_msg.tool_calls:
-            continue
 
+    for chat_msg in tool_call_messages:
         new_tool_calls = []
-        for tc in chat_msg.tool_calls:
-            ted = next(
-                ted for ted in tool_execution_decisions if (ted.tool_call_id == tc.id or ted.tool_name == tc.tool_name)
-            )
-            if ted.execute:
-                # Covers confirm and modify cases
-                final_args = ted.final_tool_params or {}
-                if tc.arguments != final_args:
-                    # In the modify case we add a user message explaining the modification otherwise the LLM won't know
-                    # why the tool parameters changed and will likely just try and call the tool again with the
-                    # original parameters.
-                    new_tool_call_messages.append(
-                        ChatMessage.from_user(
-                            text=(
-                                f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n{final_args}"
-                            )
-                        )
-                    )
-                new_tool_calls.append(replace(tc, arguments=final_args))
-            else:
-                # Reject case
-                # We create a tool call and tool call result message pair to put into the chat history of State
-                rejection_messages.append(
-                    # We can't use dataclasses.replace, so we use from_assistant to create a new message
-                    ChatMessage.from_assistant(
-                        text=chat_msg.text,
-                        meta=chat_msg.meta,
-                        name=chat_msg.name,
-                        tool_calls=[tc],
-                        reasoning=chat_msg.reasoning,
+        for tc in chat_msg.tool_calls or []:
+            ted = decision_by_id.get(tc.id) or decision_by_name.get(tc.tool_name)
+            if not ted:
+                # This shouldn't happen, if so something went wrong in _run_confirmation_strategies
+                continue
+
+            if not ted.execute:
+                # rejected tool call
+                rejection_messages.extend([
+                    make_assistant_message(chat_msg, [tc]),
+                    ChatMessage.from_tool(tool_result=ted.feedback or "", origin=tc, error=True),
+                ])
+                continue
+
+            # Covers confirm and modify cases
+            final_args = ted.final_tool_params or {}
+            if tc.arguments != final_args:
+                # In the modify case we add a user message explaining the modification otherwise the LLM won't know
+                # why the tool parameters changed and will likely just try and call the tool again with the
+                # original parameters.
+                new_tool_call_messages.append(
+                    ChatMessage.from_user(
+                        text=f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n{final_args}"
                     )
                 )
-                rejection_messages.append(
-                    ChatMessage.from_tool(
-                        tool_result=ted.feedback or "",
-                        origin=tc,
-                        error=True,
-                    )
-                )
+            new_tool_calls.append(replace(tc, arguments=final_args))
 
         # Only add the tool call message if there are any tool calls left (i.e. not all were rejected)
         if new_tool_calls:
-            new_tool_call_messages.append(
-                ChatMessage.from_assistant(
-                    text=chat_msg.text,
-                    meta=chat_msg.meta,
-                    name=chat_msg.name,
-                    tool_calls=new_tool_calls,
-                    reasoning=chat_msg.reasoning,
-                )
-            )
+            new_tool_call_messages.append(make_assistant_message(chat_msg, new_tool_calls))
 
     return rejection_messages, new_tool_call_messages
 
