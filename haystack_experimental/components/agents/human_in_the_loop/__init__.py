@@ -9,8 +9,9 @@ from lazy_imports import LazyImporter
 
 _import_structure = {
     "dataclasses": ["ConfirmationUIResult", "ToolExecutionDecision"],
+    "errors": ["HITLBreakpointException"],
     "policies": ["AlwaysAskPolicy", "NeverAskPolicy", "AskOncePolicy"],
-    "strategies": ["HumanInTheLoopStrategy"],
+    "strategies": ["BlockingConfirmationStrategy", "BreakpointConfirmationStrategy"],
     "types": ["ConfirmationPolicy", "ConfirmationUI", "ConfirmationStrategy"],
     "user_interfaces": ["RichConsoleUI", "SimpleConsoleUI"],
 }
@@ -18,10 +19,12 @@ _import_structure = {
 if TYPE_CHECKING:
     from .dataclasses import ConfirmationUIResult as ConfirmationUIResult
     from .dataclasses import ToolExecutionDecision as ToolExecutionDecision
+    from .errors import HITLBreakpointException as HITLBreakpointException
     from .policies import AlwaysAskPolicy as AlwaysAskPolicy
     from .policies import AskOncePolicy as AskOncePolicy
     from .policies import NeverAskPolicy as NeverAskPolicy
-    from .strategies import HumanInTheLoopStrategy as HumanInTheLoopStrategy
+    from .strategies import BlockingConfirmationStrategy as BlockingConfirmationStrategy
+    from .strategies import BreakpointConfirmationStrategy as BreakpointConfirmationStrategy
     from .types import ConfirmationPolicy as ConfirmationPolicy
     from .types import ConfirmationStrategy as ConfirmationStrategy
     from .types import ConfirmationUI as ConfirmationUI

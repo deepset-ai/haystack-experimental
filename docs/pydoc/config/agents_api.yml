@@ -3,7 +3,9 @@ loaders:
     search_path: [../../../]
     modules: [
       "haystack_experimental.components.agents.agent",
+      "haystack_experimental.components.agents.human_in_the_loop.breakpoint",
       "haystack_experimental.components.agents.human_in_the_loop.dataclasses",
+      "haystack_experimental.components.agents.human_in_the_loop.errors",
       "haystack_experimental.components.agents.human_in_the_loop.policies",
       "haystack_experimental.components.agents.human_in_the_loop.strategies",
       "haystack_experimental.components.agents.human_in_the_loop.types",

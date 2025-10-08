@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from haystack.tools import create_tool_from_function
 
 from haystack_experimental.components.agents.human_in_the_loop.dataclasses import ConfirmationUIResult

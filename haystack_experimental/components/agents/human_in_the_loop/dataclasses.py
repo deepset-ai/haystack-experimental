@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 
@@ -36,6 +36,9 @@ class ToolExecutionDecision:
         The name of the tool to be executed.
     :param execute:
         A boolean indicating whether to execute the tool with the provided parameters.
+    :param tool_call_id:
+        Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
+        specific tool invocation.
     :param feedback:
         Optional feedback message.
         For example, if the tool execution is rejected, this can contain the reason. Or if the tool parameters were
@@ -46,5 +49,24 @@ class ToolExecutionDecision:
 
     tool_name: str
     execute: bool
+    tool_call_id: Optional[str] = None
     feedback: Optional[str] = None
     final_tool_params: Optional[dict[str, Any]] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the ToolExecutionDecision to a dictionary representation.
+
+        :return: A dictionary containing the tool execution decision details.
+        """
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ToolExecutionDecision":
+        """
+        Populate the ToolExecutionDecision from a dictionary representation.
+
+        :param data: A dictionary containing the tool execution decision details.
+        :return: An instance of ToolExecutionDecision.
+        """
+        return cls(**data)
