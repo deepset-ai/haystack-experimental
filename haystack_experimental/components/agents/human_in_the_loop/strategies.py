@@ -23,6 +23,12 @@ if TYPE_CHECKING:
     from haystack_experimental.components.agents.agent import _ExecutionContext
 
 
+_REJECTION_FEEDBACK_TEMPLATE = "Tool execution for '{tool_name}' was rejected by the user."
+_MODIFICATION_FEEDBACK_TEMPLATE = (
+    "The parameters for tool '{tool_name}' were updated by the user to:\n{final_tool_params}"
+)
+
+
 class BlockingConfirmationStrategy:
     """
     Confirmation strategy that blocks execution to gather user feedback.
@@ -69,30 +75,33 @@ class BlockingConfirmationStrategy:
             )
 
         # Get user confirmation through UI
-        confirmation_result = self.confirmation_ui.get_user_confirmation(tool_name, tool_description, tool_params)
+        confirmation_ui_result = self.confirmation_ui.get_user_confirmation(tool_name, tool_description, tool_params)
 
         # Pass back the result to the policy for any learning/updating
         self.confirmation_policy.update_after_confirmation(
-            tool_name, tool_description, tool_params, confirmation_result
+            tool_name, tool_description, tool_params, confirmation_ui_result
         )
 
         # Process the confirmation result
         final_args = {}
-        if confirmation_result.action == "reject":
-            tool_result_message = f"Tool execution for '{tool_name}' rejected by user"
-            if confirmation_result.feedback:
-                tool_result_message += f" with feedback: {confirmation_result.feedback}"
+        if confirmation_ui_result.action == "reject":
+            explanation_text = _REJECTION_FEEDBACK_TEMPLATE.format(tool_name=tool_name)
+            if confirmation_ui_result.feedback:
+                explanation_text += f" With feedback: {confirmation_ui_result.feedback}"
             return ToolExecutionDecision(
-                tool_name=tool_name, execute=False, tool_call_id=tool_call_id, feedback=tool_result_message
+                tool_name=tool_name, execute=False, tool_call_id=tool_call_id, feedback=explanation_text
             )
-        elif confirmation_result.action == "modify" and confirmation_result.new_tool_params:
+        elif confirmation_ui_result.action == "modify" and confirmation_ui_result.new_tool_params:
             # Update the tool call params with the new params
-            final_args.update(confirmation_result.new_tool_params)
+            final_args.update(confirmation_ui_result.new_tool_params)
+            explanation_text = _MODIFICATION_FEEDBACK_TEMPLATE.format(tool_name=tool_name, final_tool_params=final_args)
+            if confirmation_ui_result.feedback:
+                explanation_text += f" With feedback: {confirmation_ui_result.feedback}"
             return ToolExecutionDecision(
                 tool_name=tool_name,
                 tool_call_id=tool_call_id,
                 execute=True,
-                feedback=f"The tool parameters for {tool_name} were modified by the user.",
+                feedback=explanation_text,
                 final_tool_params=final_args,
             )
         else:  # action == "confirm"
@@ -382,9 +391,7 @@ def _apply_tool_execution_decisions(
 
             if not ted.execute:
                 # rejected tool call
-                tool_result_text = f"Tool execution for '{tc.tool_name}' was rejected by the user."
-                if ted.feedback:
-                    tool_result_text += f" Feedback: {ted.feedback}"
+                tool_result_text = ted.feedback or _REJECTION_FEEDBACK_TEMPLATE.format(tool_name=tc.tool_name)
                 rejection_messages.extend(
                     [
                         make_assistant_message(chat_msg, [tc]),
@@ -399,11 +406,10 @@ def _apply_tool_execution_decisions(
                 # In the modify case we add a user message explaining the modification otherwise the LLM won't know
                 # why the tool parameters changed and will likely just try and call the tool again with the
                 # original parameters.
-                new_tool_call_messages.append(
-                    ChatMessage.from_user(
-                        text=f"The parameters for tool '{tc.tool_name}' were updated by the user to:\n{final_args}"
-                    )
+                user_text = ted.feedback or _MODIFICATION_FEEDBACK_TEMPLATE.format(
+                    tool_name=tc.tool_name, final_tool_params=final_args
                 )
+                new_tool_call_messages.append(ChatMessage.from_user(text=user_text))
             new_tool_calls.append(replace(tc, arguments=final_args))
 
         # Only add the tool call message if there are any tool calls left (i.e. not all were rejected)
