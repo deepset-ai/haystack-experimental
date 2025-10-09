@@ -382,10 +382,13 @@ def _apply_tool_execution_decisions(
 
             if not ted.execute:
                 # rejected tool call
+                tool_result_text = f"Tool execution for '{tc.tool_name}' was rejected by the user."
+                if ted.feedback:
+                    tool_result_text += f" Feedback: {ted.feedback}"
                 rejection_messages.extend(
                     [
                         make_assistant_message(chat_msg, [tc]),
-                        ChatMessage.from_tool(tool_result=ted.feedback or "", origin=tc, error=True),
+                        ChatMessage.from_tool(tool_result=tool_result_text, origin=tc, error=True),
                     ]
                 )
                 continue
