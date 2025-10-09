@@ -25,43 +25,48 @@ def tool():
 
 
 class TestRichConsoleUI:
-    @pytest.mark.parametrize(
-        "choice,expected",
-        [
-            ("y", "confirm"),
-            ("n", "reject"),
-        ],
-    )
-    def test_process_choice(self, tool, choice, expected):
+    @pytest.mark.parametrize("choice", ["y"])
+    def test_process_choice_confirm(self, tool, choice):
         ui = RichConsoleUI(console=MagicMock())
-        params = {"x": 1}
 
         with patch(
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
             side_effect=[choice, "feedback"],
         ):
-            result = ui.get_user_confirmation(tool.name, tool.description, params)
+            result = ui.get_user_confirmation(tool.name, tool.description, {"x": 1})
 
         assert isinstance(result, ConfirmationUIResult)
-        assert result.action == expected
-        if expected == "reject":
-            assert result.feedback == "feedback"
-        if expected == "modify":
-            assert result.new_tool_params == {"x": 2}
+        assert result.action == "confirm"
+        assert result.new_tool_params is None
+        assert result.feedback is None
 
-    def test_process_choice_modify(self, tool):
+    @pytest.mark.parametrize("choice", ["m"])
+    def test_process_choice_modify(self, tool, choice):
         ui = RichConsoleUI(console=MagicMock())
-        params = {"x": 1}
 
         with patch(
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
             side_effect=["m", "2"],
         ):
-            result = ui.get_user_confirmation(tool.name, tool.description, params)
+            result = ui.get_user_confirmation(tool.name, tool.description, {"x": 1})
 
         assert isinstance(result, ConfirmationUIResult)
         assert result.action == "modify"
         assert result.new_tool_params == {"x": 2}
+
+    @pytest.mark.parametrize("choice", ["n"])
+    def test_process_choice_reject(self, tool, choice):
+        ui = RichConsoleUI(console=MagicMock())
+
+        with patch(
+            "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
+            side_effect=["n", "Changed my mind"],
+        ):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"x": 1})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "reject"
+        assert result.feedback == "Changed my mind"
 
     def test_to_dict(self):
         ui = RichConsoleUI()
@@ -79,33 +84,70 @@ class TestRichConsoleUI:
 
 
 class TestSimpleConsoleUI:
-    @pytest.mark.parametrize(
-        "choice,expected",
-        [
-            ("y", "confirm"),
-            ("yes", "confirm"),
-            ("n", "reject"),
-            ("m", "modify"),
-        ],
-    )
-    def test_process_choice(self, tool, choice, expected):
+    @pytest.mark.parametrize( "choice", ["y", "yes", "Y", "YES"])
+    def test_process_choice_confirm(self, tool, choice):
         ui = SimpleConsoleUI()
-        params = {"y": "abc"}
 
-        inputs = {
-            "n": ["feedback"],
-            "m": ["new_value"],
-        }.get(choice, [])
-
-        with patch("builtins.input", side_effect=[choice] + inputs):
-            result = ui.get_user_confirmation(tool.name, tool.description, params)
+        with patch("builtins.input", side_effect=[choice]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"y": "abc"})
 
         assert isinstance(result, ConfirmationUIResult)
-        assert result.action == expected
-        if expected == "reject":
-            assert result.feedback == "feedback"
-        if expected == "modify":
-            assert result.new_tool_params == {"y": "new_value"}
+        assert result.action == "confirm"
+
+    @pytest.mark.parametrize("choice", ["m", "modify", "M", "MODIFY"])
+    def test_process_choice_modify(self, tool, choice):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=[choice, "new_value"]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"y": "abc"})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {"y": "new_value"}
+
+    @pytest.mark.parametrize("choice", ["n", "no", "N", "NO"])
+    def test_process_choice_reject(self, tool, choice):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=[choice, "Changed my mind"]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"param1": "value1"})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "reject"
+        assert result.feedback == "Changed my mind"
+
+    def test_process_choice_no_tool_params_confirm(self, tool):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=["y"]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "confirm"
+        assert result.new_tool_params is None
+        assert result.feedback is None
+
+    def test_process_choice_no_tool_params_modify(self, tool):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=["m"]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {}
+        assert result.feedback is None
+
+    def test_process_choice_no_tool_params_reject(self, tool):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=["n", "Changed my mind"]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "reject"
+        assert result.new_tool_params is None
+        assert result.feedback == "Changed my mind"
 
     def test_to_dict(self):
         ui = SimpleConsoleUI()

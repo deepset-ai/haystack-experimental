@@ -36,8 +36,8 @@ class RichConsoleUI(ConfirmationUI):
         """
         with _ui_lock:
             self._display_tool_info(tool_name, tool_description, tool_params)
-            # y: confirm, n: reject, m: modify
-            choice = Prompt.ask("\nYour choice", choices=["y", "n", "m"], default="y")
+            # If wrong input is provided, Prompt.ask will re-prompt
+            choice = Prompt.ask("\nYour choice", choices=["y", "n", "m"], default="y", console=self.console)
             return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> None:
@@ -76,7 +76,7 @@ class RichConsoleUI(ConfirmationUI):
         elif choice == "m":
             return self._modify_params(tool_params)
         else:  # reject
-            feedback = Prompt.ask("Feedback message (optional)", default="")
+            feedback = Prompt.ask("Feedback message (optional)", default="", console=self.console)
             return ConfirmationUIResult(action="reject", feedback=feedback or None)
 
     def _modify_params(self, tool_params: dict[str, Any]) -> ConfirmationUIResult:
@@ -92,7 +92,7 @@ class RichConsoleUI(ConfirmationUI):
             # We don't JSON dump strings to avoid users needing to input extra quotes
             default_val = json.dumps(v) if not isinstance(v, str) else v
             while True:
-                new_val = Prompt.ask(f"Modify '{k}'", default=default_val)
+                new_val = Prompt.ask(f"Modify '{k}'", default=default_val, console=self.console)
                 try:
                     if isinstance(v, str):
                         # Always treat input as string
@@ -132,7 +132,12 @@ class SimpleConsoleUI(ConfirmationUI):
         """
         with _ui_lock:
             self._display_tool_info(tool_name, tool_description, tool_params)
-            choice = input("Confirm execution? (y=confirm / n=reject / m=modify): ").strip().lower()
+            valid_choices = {"y", "yes", "n", "no", "m", "modify"}
+            while True:
+                choice = input("Confirm execution? (y=confirm / n=reject / m=modify): ").strip().lower()
+                if choice in valid_choices:
+                    break
+                print("Invalid input. Please enter 'y', 'n', or 'm'.")
             return self._process_choice(choice, tool_params)
 
     def _display_tool_info(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> None:
@@ -180,6 +185,11 @@ class SimpleConsoleUI(ConfirmationUI):
             ConfirmationUIResult with modified parameters.
         """
         new_params: dict[str, Any] = {}
+
+        if not tool_params:
+            print("No parameters to modify, skipping modification.")
+            return ConfirmationUIResult(action="modify", new_tool_params=new_params)
+
         for k, v in tool_params.items():
             # We don't JSON dump strings to avoid users needing to input extra quotes
             default_val = json.dumps(v) if not isinstance(v, str) else v
