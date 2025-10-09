@@ -4,9 +4,9 @@
 
 import os
 from pathlib import Path
-import pytest
 from typing import Any, Optional
 
+import pytest
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
