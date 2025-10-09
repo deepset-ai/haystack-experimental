@@ -51,7 +51,8 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`MultiQueryEmbeddingRetriever`][13]                                                                                                                                                    | MultiQueryEmbeddingRetriever   | November 2025     | None         | None                                                                                                                                                                                                                                                 | [Discuss][11] |
 | [`MultiQueryTextRetriever`][14]                                                                                                                                                         | MultiQueryTextRetriever        | November 2025     | None         | None                                                                                                                                                                                                                                                 | [Discuss][12] |
 | [`OpenAIChatGenerator`][9]                                                                                                                                                              | Chat Generator Component       | November 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hallucination_score_calculator.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>  | [Discuss][10] |
-| [`Agent`][15]; [Confirmation Policies][16]; [ConfirmationUIs][17]; [ConfirmationStrategies][18]; [`ConfirmationUIResult` and `ToolExecutionDecision`][19] [HITLBreakpointException][20] | Human in the Loop              | December 2025     | rich         | None                                                                                                                                                                                                                                                 | [Discuss][20] |
+| [`MarkdownHeaderLevelInferrer`][15]                                                                                                                                                     | Preprocessor                   | January 2025      | None         | None                                                                                                                                                                                                                                                 | [Discuss][16] |
+| [`Agent`][17]; [Confirmation Policies][18]; [ConfirmationUIs][19]; [ConfirmationStrategies][20]; [`ConfirmationUIResult` and `ToolExecutionDecision`][21] [HITLBreakpointException][22] | Human in the Loop              | December 2025     | rich         | None                                                                                                                                                                                                                                                 | [Discuss][23] |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
@@ -67,13 +68,15 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [12]: https://github.com/deepset-ai/haystack-experimental/discussions/364
 [13]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_embedding_retriever.py
 [14]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/multi_query_text_retriever.py
-[15]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/agent.py
-[16]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/policies.py
-[17]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/user_interfaces.py
-[18]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/strategies.py
-[19]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/dataclasses.py
-[20]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/errors.py
-[21]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
+[15]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/md_header_level_inferrer.py
+[16]: https://github.com/deepset-ai/haystack-experimental/discussions/376
+[17]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/agent.py
+[18]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/policies.py
+[19]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/user_interfaces.py
+[20]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/strategies.py
+[21]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/dataclasses.py
+[22]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/errors.py
+[23]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
