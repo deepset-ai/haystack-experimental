@@ -521,22 +521,50 @@ class Agent(HaystackAgent):
                     exe_context.counter += 1
                     break
 
-                # Handle breakpoint and ToolInvoker call
-                self._check_tool_invoker_breakpoint(
+                # Apply confirmation strategies and update State and messages sent to ToolInvoker
+                try:
+                    # Run confirmation strategies to get updated tool call messages and modified chat history
+                    modified_tool_call_messages, new_chat_history = _process_confirmation_strategies(
+                        confirmation_strategies=self._confirmation_strategies,
+                        messages_with_tool_calls=llm_messages,
+                        execution_context=exe_context,
+                    )
+                    # Replace the chat history in state with the modified one
+                    exe_context.state.set(key="messages", value=new_chat_history, handler_override=replace_values)
+                except HITLBreakpointException as tbp_error:
+                    # We create a break_point to pass into _check_tool_invoker_breakpoint
+                    break_point = AgentBreakpoint(
+                        agent_name=getattr(self, "__component_name__", ""),
+                        break_point=ToolBreakpoint(
+                            component_name="tool_invoker",
+                            tool_name=tbp_error.tool_name,
+                            visit_count=exe_context.component_visits["tool_invoker"],
+                            snapshot_file_path=tbp_error.snapshot_file_path,
+                        ),
+                    )
+
+                # Handle breakpoint
+                Agent._check_tool_invoker_breakpoint(
                     execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
                 )
+
+                # Run ToolInvoker
                 # We only send the messages from the LLM to the tool invoker
                 tool_invoker_result = await AsyncPipeline._run_component_async(
                     component_name="tool_invoker",
                     component={"instance": self._tool_invoker},
                     component_inputs={
-                        "messages": llm_messages,
+                        "messages": modified_tool_call_messages,
                         "state": exe_context.state,
                         **exe_context.tool_invoker_inputs,
                     },
                     component_visits=exe_context.component_visits,
                     parent_span=span,
                 )
+
+                # Set execution context tool execution decisions to empty after applying them b/c they should only
+                # be used once for the current tool calls
+                exe_context.tool_execution_decisions = None
                 tool_messages = tool_invoker_result["tool_messages"]
                 exe_context.state = tool_invoker_result["state"]
                 exe_context.state.set("messages", tool_messages)
