@@ -93,6 +93,7 @@ def run_agent(
     except BreakpointException:
         return None
 
+
 async def run_agent_async(
     agent: Agent,
     messages: list[ChatMessage],

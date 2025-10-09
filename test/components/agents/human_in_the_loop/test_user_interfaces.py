@@ -54,6 +54,32 @@ class TestRichConsoleUI:
         assert result.action == "modify"
         assert result.new_tool_params == {"x": 2}
 
+    def test_process_choice_modify_dict_param(self, tool):
+        ui = RichConsoleUI(console=MagicMock())
+
+        with patch(
+            "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
+            side_effect=["m", '{"key": "value"}'],
+        ):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"param1": {"old_key": "old_value"}})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {"param1": {"key": "value"}}
+
+    def test_process_choice_modify_dict_param_invalid_json(self, tool):
+        ui = RichConsoleUI(console=MagicMock())
+
+        with patch(
+            "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
+            side_effect=["m", 'invalid_json', '{"key": "value"}'],
+        ):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"param1": {"old_key": "old_value"}})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {"param1": {"key": "value"}}
+
     @pytest.mark.parametrize("choice", ["n"])
     def test_process_choice_reject(self, tool, choice):
         ui = RichConsoleUI(console=MagicMock())
@@ -84,7 +110,7 @@ class TestRichConsoleUI:
 
 
 class TestSimpleConsoleUI:
-    @pytest.mark.parametrize( "choice", ["y", "yes", "Y", "YES"])
+    @pytest.mark.parametrize("choice", ["y", "yes", "Y", "YES"])
     def test_process_choice_confirm(self, tool, choice):
         ui = SimpleConsoleUI()
 
@@ -104,6 +130,26 @@ class TestSimpleConsoleUI:
         assert isinstance(result, ConfirmationUIResult)
         assert result.action == "modify"
         assert result.new_tool_params == {"y": "new_value"}
+
+    def test_process_choice_modify_dict_param(self, tool):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=["m", '{"key": "value"}']):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"param1": {"old_key": "old_value"}})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {"param1": {"key": "value"}}
+
+    def test_process_choice_modify_dict_param_invalid_json(self, tool):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=["m", 'invalid_json', '{"key": "value"}']):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"param1": {"old_key": "old_value"}})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "modify"
+        assert result.new_tool_params == {"param1": {"key": "value"}}
 
     @pytest.mark.parametrize("choice", ["n", "no", "N", "NO"])
     def test_process_choice_reject(self, tool, choice):
@@ -162,3 +208,14 @@ class TestSimpleConsoleUI:
         data = ui.to_dict()
         new_ui = SimpleConsoleUI.from_dict(data)
         assert isinstance(new_ui, SimpleConsoleUI)
+
+    def test_get_user_confirmation_invalid_input_then_valid(self, tool):
+        ui = SimpleConsoleUI()
+
+        with patch("builtins.input", side_effect=["invalid", "y"]):
+            result = ui.get_user_confirmation(tool.name, tool.description, {"x": 1})
+
+        assert isinstance(result, ConfirmationUIResult)
+        assert result.action == "confirm"
+        assert result.new_tool_params is None
+        assert result.feedback is None
