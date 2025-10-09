@@ -72,7 +72,7 @@ class TestRichConsoleUI:
 
         with patch(
             "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.Prompt.ask",
-            side_effect=["m", 'invalid_json', '{"key": "value"}'],
+            side_effect=["m", "invalid_json", '{"key": "value"}'],
         ):
             result = ui.get_user_confirmation(tool.name, tool.description, {"param1": {"old_key": "old_value"}})
 
@@ -144,7 +144,7 @@ class TestSimpleConsoleUI:
     def test_process_choice_modify_dict_param_invalid_json(self, tool):
         ui = SimpleConsoleUI()
 
-        with patch("builtins.input", side_effect=["m", 'invalid_json', '{"key": "value"}']):
+        with patch("builtins.input", side_effect=["m", "invalid_json", '{"key": "value"}']):
             result = ui.get_user_confirmation(tool.name, tool.description, {"param1": {"old_key": "old_value"}})
 
         assert isinstance(result, ConfirmationUIResult)
