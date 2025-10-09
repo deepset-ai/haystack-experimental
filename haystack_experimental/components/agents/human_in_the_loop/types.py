@@ -22,7 +22,7 @@ class ConfirmationUI(Protocol):
         self, tool_name: str, tool_description: str, tool_params: dict[str, Any]
     ) -> ConfirmationUIResult:
         """Get user confirmation for tool execution."""
-        raise NotImplementedError
+        ...
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the UI to a dictionary."""
@@ -39,7 +39,7 @@ class ConfirmationPolicy(Protocol):
 
     def should_ask(self, tool_name: str, tool_description: str, tool_params: dict[str, Any]) -> bool:
         """Determine whether to ask for confirmation."""
-        raise NotImplementedError
+        ...
 
     def update_after_confirmation(
         self,

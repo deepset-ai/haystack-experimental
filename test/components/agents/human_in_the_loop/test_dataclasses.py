@@ -56,7 +56,7 @@ class TestToolExecutionDecision:
             "feedback": "Not needed",
             "final_tool_params": {"paramA": 123},
         }
-        decision = ToolExecutionDecision.from_dict(**data)
+        decision = ToolExecutionDecision.from_dict(data)
         assert decision.execute is False
         assert decision.tool_name == "another_tool"
         assert decision.tool_call_id == "another_tool_call_id"
