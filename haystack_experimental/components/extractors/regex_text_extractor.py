@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import re
-from typing import Any, Dict, List, Union
+from typing import Union
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage
@@ -57,7 +57,7 @@ class RegexTextExtractor:
                 regex_pattern=regex_pattern,
             )
 
-    @component.output_types(captured_text=str, captured_texts=List[str])
+    @component.output_types(captured_text=str, captured_texts=list[str])
     def run(self, text_or_messages: Union[str, list[ChatMessage]]) -> dict:
         """
         Extracts text from input using the configured regex pattern.
@@ -67,8 +67,10 @@ class RegexTextExtractor:
 
         :returns:
           - If match found: {"captured_text": "matched text"}
-          - If no match and return_empty_on_no_match=False: {"captured_text": ""}
           - If no match and return_empty_on_no_match=True: {}
+
+        :raises:
+            - ValueError: if receiving a list the last element is not a ChatMessage instance.
         """
         if isinstance(text_or_messages, str):
             return RegexTextExtractor._build_result(self._extract_from_text(text_or_messages))
@@ -78,13 +80,13 @@ class RegexTextExtractor:
         return self._process_last_message(text_or_messages)
 
     @staticmethod
-    def _build_result(result: Union[str, List[str]]) -> Dict:
+    def _build_result(result: Union[str, list[str]]) -> dict:
         """Helper method to build the return dictionary based on configuration."""
         if (isinstance(result, str) and result == "") or (isinstance(result, list) and not result):
             return {}
         return {"captured_text": result}
 
-    def _process_last_message(self, messages: List[ChatMessage]) -> Dict:
+    def _process_last_message(self, messages: list[ChatMessage]) -> dict:
         """Process only the last message and build the result."""
         last_message = messages[-1]
         if not isinstance(last_message, ChatMessage):
@@ -95,7 +97,7 @@ class RegexTextExtractor:
         result = self._extract_from_text(last_message.text)
         return RegexTextExtractor._build_result(result)
 
-    def _extract_from_text(self, text: str) -> Union[str, List[str]]:
+    def _extract_from_text(self, text: str) -> Union[str, list[str]]:
         """
         Extract text using the regex pattern.
 
