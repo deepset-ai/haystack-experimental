@@ -2,46 +2,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat import AzureOpenAIChatGenerator, OpenAIChatGenerator
+from haystack.components.generators.chat.types import ChatGenerator
+from haystack.core.serialization import component_to_dict
 from haystack.dataclasses import ChatMessage
 from haystack.lazy_imports import LazyImport
-from haystack.utils import deserialize_callable, deserialize_secrets_inplace
+from haystack.utils import deserialize_chatgenerator_inplace
 from tqdm import tqdm
 
 with LazyImport(message="Run 'pip install tiktoken'") as tiktoken_import:
     import tiktoken
 
-with LazyImport(message="Run 'pip install \"amazon-bedrock-haystack>=1.0.2\"'") as amazon_bedrock_generator:
-    from haystack_integrations.components.generators.amazon_bedrock import AmazonBedrockChatGenerator
-
-with LazyImport(message="Run 'pip install \"google-vertex-haystack>=2.0.0\"'") as vertex_ai_gemini_generator:
-    from haystack_integrations.components.generators.google_vertex.chat.gemini import VertexAIGeminiChatGenerator
-    from vertexai.generative_models import GenerationConfig
-
 logger = logging.getLogger(__name__)
-
-
-class LLMProvider(Enum):
-    OPENAI = "openai"
-    OPENAI_AZURE = "openai_azure"
-    AWS_BEDROCK = "aws_bedrock"
-    GOOGLE_VERTEX = "google_vertex"
-
-    @staticmethod
-    def from_str(string: str) -> "LLMProvider":
-        """
-        Convert a string to a LLMProvider enum.
-        """
-        provider_map = {e.value: e for e in LLMProvider}
-        provider = provider_map.get(string)
-        if provider is None:
-            msg = f"Invalid LLMProvider '{string}'Supported LLMProviders are: {list(provider_map.keys())}"
-            raise ValueError(msg)
-        return provider
 
 
 @component
@@ -60,22 +35,23 @@ class Summarizer:
     Example
     ```python
     import wikipedia
-    from haystack_experimental.components.summarizer.summarizer import Summarizer
+    from haystack_experimental.components.summarizers.summarizer import Summarizer
     from haystack import Document
+    from haystack.components.generators.chat import OpenAIChatGenerator
 
     page = wikipedia.page("Berlin")
     textual_content = page.content
     doc = Document(content=textual_content)
 
-    summarizer = Summarizer(generator_api="openai")
+    chat_generator = OpenAIChatGenerator(model="gpt-4")
+    summarizer = Summarizer(chat_generator=chat_generator)
     summarizer.run(documents=[doc])
     ```
     """
 
     def __init__(  # pylint: disable=too-many-positional-arguments
         self,
-        generator_api: Union[str, LLMProvider],
-        generator_api_params: Optional[dict[str, Any]] = None,
+        chat_generator: ChatGenerator,
         system_prompt: Optional[str] = "Rewrite this text in summarized form.",
         summary_detail: float = 0,
         minimum_chunk_size: Optional[int] = 500,
@@ -85,8 +61,7 @@ class Summarizer:
         """
         Initialize the Summarizer component.
 
-        :param generator_api: The API to use for summarization.
-        :param generator_api_params: Parameters for the generator API.
+        :param chat_generator: A ChatGenerator instance to use for summarization.
         :param system_prompt: The prompt to instruct the LLM to summarise text, if not given defaults to:
             "Rewrite this text in summarized form."
         :param summary_detail: The level of detail for the summary (0-1), defaults to 0.
@@ -94,59 +69,31 @@ class Summarizer:
         :param chunk_delimiter: The character used to split the text into chunks, defaults to "."
         :param summarize_recursively: Whether to use previous summaries as context, defaults to False.
         """
+        self._chat_generator = chat_generator
         self.detail = summary_detail
         self.minimum_chunk_size = minimum_chunk_size
         self.chunk_delimiter = chunk_delimiter
         self.system_prompt = system_prompt
         self.summarize_recursively = summarize_recursively
-        self.generator_api = (
-            generator_api if isinstance(generator_api, LLMProvider) else LLMProvider.from_str(generator_api)
-        )
-        self.generator_api_params = generator_api_params or {}
-        self.llm_provider = self._init_generator(self.generator_api, self.generator_api_params)
-
-    @staticmethod
-    def _init_generator(
-        generator_api: LLMProvider, generator_api_params: Optional[dict[str, Any]]
-    ) -> Union[
-        OpenAIChatGenerator, AzureOpenAIChatGenerator, "AmazonBedrockChatGenerator", "VertexAIGeminiChatGenerator"
-    ]:
-        """
-        Initialize the chat generator based on the specified API provider and parameters.
-        """
-        if generator_api == LLMProvider.OPENAI:
-            return OpenAIChatGenerator(**generator_api_params)
-        elif generator_api == LLMProvider.OPENAI_AZURE:
-            return AzureOpenAIChatGenerator(**generator_api_params)
-        elif generator_api == LLMProvider.AWS_BEDROCK:
-            amazon_bedrock_generator.check()
-            return AmazonBedrockChatGenerator(**generator_api_params)
-        elif generator_api == LLMProvider.GOOGLE_VERTEX:
-            vertex_ai_gemini_generator.check()
-            return VertexAIGeminiChatGenerator(**generator_api_params)
-        else:
-            raise ValueError(f"Unsupported generator API: {generator_api}")
 
     def warm_up(self):
         """
-        Warm up the LLM provider component.
+        Warm up the chat generator component.
         """
-        if hasattr(self.llm_provider, "warm_up"):
-            self.llm_provider.warm_up()
+        if hasattr(self._chat_generator, "warm_up"):
+            self._chat_generator.warm_up()
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
         :returns:
             Dictionary with serialized data.
         """
-
-        llm_provider = self.llm_provider.to_dict()
-
         return default_to_dict(
             self,
-            llm_provider=llm_provider,
+            chat_generator=component_to_dict(obj=self._chat_generator, name="chat_generator"),
+            system_prompt=self.system_prompt,
             summary_detail=self.detail,
             minimum_chunk_size=self.minimum_chunk_size,
             chunk_delimiter=self.chunk_delimiter,
@@ -162,39 +109,7 @@ class Summarizer:
         :returns:
             An instance of the component.
         """
-        init_params = data.get("init_parameters", {})
-
-        if "generator_api" in init_params:
-            data["init_parameters"]["generator_api"] = LLMProvider.from_str(data["init_parameters"]["generator_api"])
-
-        if "generator_api_params" in init_params:
-            # Azure
-            azure_openai_keys = ["azure_ad_token"]
-
-            # AWS
-            aws_bedrock_keys = [
-                "aws_access_key_id",
-                "aws_secret_access_key",
-                "aws_session_token",
-                "aws_region_name",
-                "aws_profile_name",
-            ]
-            deserialize_secrets_inplace(
-                data["init_parameters"]["generator_api_params"],
-                keys=["api_key"] + azure_openai_keys + aws_bedrock_keys,
-            )
-
-            # VertexAI
-            if "generation_config" in init_params["generator_api_params"]:
-                data["init_parameters"]["generation_config"] = GenerationConfig.from_dict(
-                    init_params["generator_api_params"]["generation_config"]
-                )
-
-            # common
-            serialized_callback_handler = init_params["generator_api_params"].get("streaming_callback")
-            if serialized_callback_handler:
-                data["init_parameters"]["streaming_callback"] = deserialize_callable(serialized_callback_handler)
-
+        deserialize_chatgenerator_inplace(data["init_parameters"], key="chat_generator")
         return default_from_dict(cls, data)
 
     def num_tokens(self, text: str) -> int:
@@ -214,9 +129,9 @@ class Summarizer:
         :returns:
             The estimated token count
         """
-        if self.generator_api == LLMProvider.OPENAI or self.generator_api == LLMProvider.OPENAI_AZURE:
+        if isinstance(self._chat_generator, (OpenAIChatGenerator, AzureOpenAIChatGenerator)):
             tiktoken_import.check()
-            model_name = self.generator_api_params.get("model", "gpt-4-turbo")
+            model_name = getattr(self._chat_generator, "model", "gpt-4-turbo")
             encoding = tiktoken.encoding_for_model(model_name)
             return len(encoding.encode(text))
 
@@ -337,7 +252,7 @@ class Summarizer:
             # prepare the message and make the LLM call
             messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)]
             # ToDo: some error handling here
-            result = self.llm_provider.run(messages=messages)
+            result = self._chat_generator.run(messages=messages)
             accumulated_summaries.append(result["replies"][0].text)
 
         return accumulated_summaries
