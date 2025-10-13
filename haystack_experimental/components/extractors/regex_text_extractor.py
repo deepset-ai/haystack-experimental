@@ -5,7 +5,7 @@
 import re
 from typing import Union
 
-from haystack import component, default_from_dict, default_to_dict, logging
+from haystack import component, logging
 from haystack.dataclasses import ChatMessage
 
 logger = logging.getLogger(__name__)
