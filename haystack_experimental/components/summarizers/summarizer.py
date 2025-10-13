@@ -275,6 +275,8 @@ class Summarizer:
 
         :returns:
             The textual content summarized by the LLM.
+        
+        :raises ValueError: If detail is not between 0 and 1
         """
 
         if not 0 <= detail <= 1:
