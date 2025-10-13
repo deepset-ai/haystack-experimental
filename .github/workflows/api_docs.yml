@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  HATCH_VERSION: "1.14.1"
+  HATCH_VERSION: "1.14.2"
   PYTHON_VERSION: "3.10"
   SYNC_LAST_N_HAYSTACK_VERSIONS: 1
 
@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 

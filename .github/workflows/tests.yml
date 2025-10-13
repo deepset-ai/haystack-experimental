@@ -26,7 +26,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.9"
-  HATCH_VERSION: "1.14.1"
+  HATCH_VERSION: "1.14.2"
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -38,7 +38,7 @@ jobs:
 
       - name: Get changed files
         id: files
-        uses: tj-actions/changed-files@v46
+        uses: tj-actions/changed-files@v47
         with:
           files_yaml: |
             python:
@@ -47,7 +47,7 @@ jobs:
             pyproject:
               - 'pyproject.toml'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 
@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 
@@ -122,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 
