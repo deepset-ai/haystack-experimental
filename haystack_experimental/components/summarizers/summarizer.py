@@ -166,7 +166,7 @@ class Summarizer:
         return [f"{chunk}{delimiter}" for chunk in combined_chunks]
 
     def _combine_chunks(
-        self, chunks: list[str], max_tokens: int, chunk_delimiter: str ="\n\n", add_ellipsis_overflow: bool = False
+        self, chunks: list[str], max_tokens: int, chunk_delimiter: str = "\n\n", add_ellipsis_overflow: bool = False
     ) -> tuple[list[str], list[list[int]], int]:
         """
         Combines chunks into larger blocks without exceeding a specified token count.
@@ -251,7 +251,7 @@ class Summarizer:
 
             # prepare the message and make the LLM call
             # self.system_prompt is not None
-            messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)] # type: ignore 
+            messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)]  # type: ignore
             # ToDo: some error handling here
             result = self._chat_generator.run(messages=messages)
             accumulated_summaries.append(result["replies"][0].text)
