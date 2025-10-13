@@ -56,7 +56,7 @@ class Summarizer:
         summary_detail: float = 0,
         minimum_chunk_size: Optional[int] = 500,
         chunk_delimiter: str = ".",
-        summarize_recursively=False,
+        summarize_recursively: bool = False,
     ):
         """
         Initialize the Summarizer component.
@@ -166,7 +166,7 @@ class Summarizer:
         return [f"{chunk}{delimiter}" for chunk in combined_chunks]
 
     def _combine_chunks(
-        self, chunks: list[str], max_tokens: int, chunk_delimiter="\n\n", add_ellipsis_overflow=False
+        self, chunks: list[str], max_tokens: int, chunk_delimiter: str ="\n\n", add_ellipsis_overflow: bool = False
     ) -> tuple[list[str], list[list[int]], int]:
         """
         Combines chunks into larger blocks without exceeding a specified token count.
@@ -238,7 +238,7 @@ class Summarizer:
 
         The parameter `summarize_recursively` allows to use previous summaries as context for the next chunk.
         """
-        accumulated_summaries = []
+        accumulated_summaries: list[str] = []
 
         for chunk in tqdm(text_chunks):
             if summarize_recursively and accumulated_summaries:
@@ -250,7 +250,8 @@ class Summarizer:
                 user_message_content = chunk
 
             # prepare the message and make the LLM call
-            messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)]
+            # self.system_prompt is not None
+            messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)] # type: ignore 
             # ToDo: some error handling here
             result = self._chat_generator.run(messages=messages)
             accumulated_summaries.append(result["replies"][0].text)
@@ -262,7 +263,7 @@ class Summarizer:
         text: str,
         detail: float,
         minimum_chunk_size: int,
-        summarize_recursively=False,
+        summarize_recursively: bool = False,
     ) -> str:
         """
         Summarizes text by splitting it into optimally-sized chunks and processing each with an LLM.
@@ -297,7 +298,7 @@ class Summarizer:
         minimum_chunk_size: Optional[int] = None,
         summarize_recursively: Optional[bool] = None,
         system_prompt: Optional[str] = None,
-    ):
+    ) -> dict[str, list[Document]]:
         """
         Run the summarizer on a list of documents.
 
@@ -317,6 +318,9 @@ class Summarizer:
         self.system_prompt = system_prompt if system_prompt else self.system_prompt
 
         for doc in documents:
+            if doc.content is None or doc.content == "":
+                logger.warning("Document ID {doc_id} has an empty content. Skipping this document.", doc_id=doc.id)
+                continue
             summary = self.summarize(
                 doc.content,
                 detail=detail,
