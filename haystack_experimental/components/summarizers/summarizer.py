@@ -291,6 +291,7 @@ class Summarizer:
     @component.output_types(summary=list[Document])
     def run(
         self,
+        *,
         documents: list[Document],
         detail: Optional[float] = None,
         minimum_chunk_size: Optional[int] = None,
