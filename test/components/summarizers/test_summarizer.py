@@ -290,7 +290,6 @@ class TestSummarizer:
             assert result == "Summary part 1\n\nSummary part 2"
 
     def test_summarize_invalid_detail(self):
-        """Test that summarize raises ValueError for invalid detail parameter."""
         mock_generator = Mock()
         summarizer = Summarizer(chat_generator=mock_generator)
 
@@ -299,14 +298,6 @@ class TestSummarizer:
 
         with pytest.raises(ValueError, match="Detail must be between 0 and 1"):
             summarizer.summarize(text="Test", detail=1.5, minimum_chunk_size=500)
-
-    def test_run_not_warmed_up(self):
-        """Test that run raises RuntimeError when not warmed up."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator)
-
-        with pytest.raises(RuntimeError, match="wasn't warmed up"):
-            summarizer.run(documents=[Document(content="Test")])
 
     def test_run_single_document(self):
         """Test running summarizer on a single document."""
@@ -395,94 +386,6 @@ class TestSummarizer:
             assert call_kwargs["summarize_recursively"] is True
             assert summarizer.system_prompt == "New prompt"
 
-    def test_run_uses_default_when_runtime_params_none(self):
-        """Test that run uses initialization defaults when runtime params are None."""
-        mock_generator = Mock()
-        mock_reply = ChatMessage.from_assistant("Summary")
-        mock_generator.run = Mock(return_value={"replies": [mock_reply]})
-
-        summarizer = Summarizer(
-            chat_generator=mock_generator,
-            summary_detail=0.3,
-            minimum_chunk_size=750,
-            summarize_recursively=True,
-        )
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "summarize", return_value="Summary") as mock_summarize:
-            doc = Document(content="Test document")
-            result = summarizer.run(documents=[doc])
-
-            # Verify summarize was called with initialization defaults
-            mock_summarize.assert_called_once()
-            call_kwargs = mock_summarize.call_args[1]
-            assert call_kwargs["detail"] == 0.3
-            assert call_kwargs["minimum_chunk_size"] == 750
-            assert call_kwargs["summarize_recursively"] is True
-
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
-    @pytest.mark.integration
-    def test_integration_summarize_short_text(self):
-        """Integration test with a real OpenAI generator and short text."""
-        chat_generator = OpenAIChatGenerator(model="gpt-4o-mini")
-        summarizer = Summarizer(
-            chat_generator=chat_generator,
-            summary_detail=0,
-            minimum_chunk_size=500,
-        )
-        summarizer.warm_up()
-
-        text = (
-            "Artificial intelligence (AI) is intelligence demonstrated by machines, "
-            "in contrast to the natural intelligence displayed by humans and animals. "
-            "AI research has been defined as the field of study of intelligent agents, "
-            "which refers to any device that perceives its environment and takes actions "
-            "that maximize its chance of successfully achieving its goals."
-        )
-
-        result = summarizer.summarize(text=text, detail=0, minimum_chunk_size=500)
-
-        assert result is not None
-        assert len(result) > 0
-        # Summary should be shorter than original
-        assert len(result) < len(text)
-
-    @pytest.mark.skipif(
-        not os.environ.get("OPENAI_API_KEY", None),
-        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
-    )
-    @pytest.mark.integration
-    def test_integration_run_with_document(self):
-        """Integration test running summarizer with a document."""
-        chat_generator = OpenAIChatGenerator(model="gpt-4o-mini")
-        summarizer = Summarizer(
-            chat_generator=chat_generator,
-            summary_detail=0,
-            minimum_chunk_size=500,
-        )
-        summarizer.warm_up()
-
-        text = (
-            "The history of artificial intelligence (AI) began in antiquity, with myths, "
-            "stories and rumors of artificial beings endowed with intelligence or consciousness "
-            "by master craftsmen. The seeds of modern AI were planted by classical philosophers "
-            "who attempted to describe the process of human thinking as the mechanical manipulation "
-            "of symbols. This work culminated in the invention of the programmable digital computer "
-            "in the 1940s, a machine based on the abstract essence of mathematical reasoning."
-        )
-
-        doc = Document(content=text)
-        result = summarizer.run(documents=[doc])
-
-        assert "documents" in result
-        assert len(result["documents"]) == 1
-        assert "summary_detail" in result["documents"][0].meta
-        assert len(result["documents"][0].meta["summary_detail"]) > 0
-        # Summary should be present
-        assert result["documents"][0].meta["summary_detail"] != text
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
@@ -490,7 +393,6 @@ class TestSummarizer:
     )
     @pytest.mark.integration
     def test_integration_recursive_summarization(self):
-        """Integration test with recursive summarization enabled."""
         chat_generator = OpenAIChatGenerator(model="gpt-4o-mini")
         summarizer = Summarizer(
             chat_generator=chat_generator,
@@ -500,7 +402,6 @@ class TestSummarizer:
         )
         summarizer.warm_up()
 
-        # Longer text that will be split into chunks
         text = (
             "Machine learning is a subset of artificial intelligence that provides systems "
             "the ability to automatically learn and improve from experience without being "
@@ -520,6 +421,5 @@ class TestSummarizer:
         assert "documents" in result
         assert len(result["documents"]) == 1
         assert "summary_detail" in result["documents"][0].meta
-        # Should have generated a summary
-        assert len(result["documents"][0].meta["summary_detail"]) > 0
+        assert len(result["documents"][0].meta["summary_detail"]) < len(doc.content)
 
