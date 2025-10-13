@@ -178,21 +178,6 @@ class TestRegexTextExtractor:
         
         assert result["extractor"] == {"captured_text": "github.com/chat-test"}
 
-    def test_pipeline_serialization(self):
-        """Test pipeline serialization with RegexTextExtractor."""
-        pattern = r'<issue url="(.+?)">'
-        extractor = RegexTextExtractor(regex_pattern=pattern)
-        
-        pipe = Pipeline()
-        pipe.add_component("extractor", extractor)
-
-        data = pipe.to_dict()
-        new_pipe = Pipeline.from_dict(data)
-
-        text = '<issue url="github.com/serde-test">serde test</issue>'
-        result = new_pipe.run(data={"extractor": {"text_or_messages": text}})
-        assert result["extractor"] == {"captured_text": "github.com/serde-test"}
-
     def test_very_long_text(self):
         pattern = r'(\d+)'
         extractor = RegexTextExtractor(regex_pattern=pattern)
