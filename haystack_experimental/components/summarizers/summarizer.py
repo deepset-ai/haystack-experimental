@@ -5,16 +5,12 @@
 from typing import Any, Optional
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
-from haystack.components.generators.chat import AzureOpenAIChatGenerator, OpenAIChatGenerator
 from haystack.components.generators.chat.types import ChatGenerator
-from haystack.core.serialization import component_to_dict
+from haystack.components.preprocessors import RecursiveDocumentSplitter
+from haystack.core.serialization import DeserializationCallbacks, component_to_dict
 from haystack.dataclasses import ChatMessage
-from haystack.lazy_imports import LazyImport
 from haystack.utils import deserialize_chatgenerator_inplace
 from tqdm import tqdm
-
-with LazyImport(message="Run 'pip install tiktoken'") as tiktoken_import:
-    import tiktoken
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +53,7 @@ class Summarizer:
         minimum_chunk_size: Optional[int] = 500,
         chunk_delimiter: str = ".",
         summarize_recursively: bool = False,
+        split_overlap: int = 0,
     ):
         """
         Initialize the Summarizer component.
@@ -66,8 +63,10 @@ class Summarizer:
             "Rewrite this text in summarized form."
         :param summary_detail: The level of detail for the summary (0-1), defaults to 0.
         :param minimum_chunk_size: The minimum token count per chunk, defaults to 500
-        :param chunk_delimiter: The character used to split the text into chunks, defaults to "."
+        :param chunk_delimiter: The character used to determine separator priority.
+            "." uses sentence-based splitting, "\n" uses paragraph-based splitting, defaults to "."
         :param summarize_recursively: Whether to use previous summaries as context, defaults to False.
+        :param split_overlap: Number of tokens to overlap between consecutive chunks, defaults to 0.
         """
         self._chat_generator = chat_generator
         self.detail = summary_detail
@@ -75,13 +74,48 @@ class Summarizer:
         self.chunk_delimiter = chunk_delimiter
         self.system_prompt = system_prompt
         self.summarize_recursively = summarize_recursively
+        self.split_overlap = split_overlap
+
+        # Map chunk_delimiter to appropriate separator strategy
+        separators = self._get_separators_from_delimiter(chunk_delimiter)
+
+        # Initialize RecursiveDocumentSplitter
+        # Note: split_length will be updated dynamically based on detail parameter
+        self._document_splitter = RecursiveDocumentSplitter(
+            split_length=minimum_chunk_size if minimum_chunk_size else 500,
+            split_overlap=split_overlap,
+            split_unit="token",
+            separators=separators,
+        )
+
+    def _get_separators_from_delimiter(self, delimiter: str) -> list[str]:
+        """
+        Map the delimiter to an appropriate list of separators for RecursiveDocumentSplitter.
+
+        :param delimiter: The delimiter character
+        :returns: List of separators in order of preference
+        """
+        if delimiter == ".":
+            # Sentence-focused splitting
+            return ["\n\n", "sentence", "\n", " "]
+        elif delimiter == "\n":
+            # Paragraph-focused splitting
+            return ["\n\n", "\n", "sentence", " "]
+        else:
+            # Custom delimiter - prioritize it
+            return ["\n\n", delimiter, "\n", " "]
 
     def warm_up(self):
         """
-        Warm up the chat generator component.
+        Warm up the chat generator and document splitter components.
         """
+        # Warm up chat generator
         if hasattr(self._chat_generator, "warm_up"):
             self._chat_generator.warm_up()
+
+        # Warm up document splitter (needed for sentence splitting and tokenization)
+        if hasattr(self._document_splitter, "warm_up"):
+            self._document_splitter.warm_up()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -93,11 +127,13 @@ class Summarizer:
         return default_to_dict(
             self,
             chat_generator=component_to_dict(obj=self._chat_generator, name="chat_generator"),
+            document_splitter=component_to_dict(obj=self._document_splitter, name="document_splitter"),
             system_prompt=self.system_prompt,
             summary_detail=self.detail,
             minimum_chunk_size=self.minimum_chunk_size,
             chunk_delimiter=self.chunk_delimiter,
             summarize_recursively=self.summarize_recursively,
+            split_overlap=self.split_overlap,
         )
 
     @classmethod
@@ -109,128 +145,77 @@ class Summarizer:
         :returns:
             An instance of the component.
         """
-        deserialize_chatgenerator_inplace(data["init_parameters"], key="chat_generator")
+        init_params = data.get("init_parameters", {})
+
+        # Deserialize chat_generator
+        deserialize_chatgenerator_inplace(init_params, key="chat_generator")
+
+        # Deserialize document_splitter if present (for backward compatibility)
+        if "document_splitter" in init_params:
+            init_params["document_splitter"] = DeserializationCallbacks.deserialize_component(
+                init_params["document_splitter"]
+            )
+
         return default_from_dict(cls, data)
 
     def num_tokens(self, text: str) -> int:
         """
         Estimates the token count for a given text.
 
-        If we are using OpenAI based models (e.g., GPT-4), this method uses the tiktoken library to estimate the
-        token count.
-
-        If we are using other models, for now, we use a simple heuristic of 4 characters.
-        "You can think of tokens as pieces of words that are roughly 4 characters of typical English text"
-        source: https://techcommunity.microsoft.com/blog/machinelearningblog/introducing-llama-2-on-azure/3881233
-
-        But we should consider using the exact tokenizer from each model to get the exact token count.
+        Uses the RecursiveDocumentSplitter's tokenization logic for consistency.
 
         :param text: The text to tokenize
         :returns:
             The estimated token count
         """
-        if isinstance(self._chat_generator, (OpenAIChatGenerator, AzureOpenAIChatGenerator)):
-            tiktoken_import.check()
-            model_name = getattr(self._chat_generator, "model", "gpt-4-turbo")
-            encoding = tiktoken.encoding_for_model(model_name)
-            return len(encoding.encode(text))
-
-        # fallback to approximate tokenization - assuming most LLMs average ~4 characters per token
-        return len(text) // 4
-
-    def _chunk_on_delimiter(self, text: str, max_tokens: int, delimiter: str) -> list[str]:
-        """
-        Chunks a text into smaller pieces based on a maximum token count and a delimiter.
-
-        :param text: The text to be chunked
-        :param max_tokens: The maximum token count for each chunk
-        :param delimiter: The delimiter used to split the text into chunks
-
-        :returns:
-            List of text chunks with delimiters reattached
-        """
-
-        chunks = text.split(delimiter)
-
-        # combine chunks to optimize token usage
-        combined_chunks, _, dropped_chunk_count = self._combine_chunks(
-            chunks, max_tokens, chunk_delimiter=delimiter, add_ellipsis_overflow=True
-        )
-
-        # warning if chunks were dropped
-        if dropped_chunk_count > 0:
-            msg = f"{dropped_chunk_count} chunks were dropped due to overflow. "
-            logger.warning(msg)
-
-        # add delimiters
-        return [f"{chunk}{delimiter}" for chunk in combined_chunks]
-
-    def _combine_chunks(
-        self, chunks: list[str], max_tokens: int, chunk_delimiter: str = "\n\n", add_ellipsis_overflow: bool = False
-    ) -> tuple[list[str], list[list[int]], int]:
-        """
-        Combines chunks into larger blocks without exceeding a specified token count.
-
-        :param chunks: The list of chunks to be combined
-        :param max_tokens: Maximum token count for each combined chunk
-        :param chunk_delimiter: String used to join chunks together
-        :param add_ellipsis_overflow: Whether to add "..." for chunks that exceed max_tokens
-
-        :returns:
-            Tuple containing:
-                - List of combined text blocks
-                - List of original chunk indices for each combined block
-                - Count of chunks dropped due to overflow
-        """
-        dropped_chunk_count = 0
-        output = []  # Combined chunks
-        output_indices = []  # Original indices of chunks in each combined block
-        candidate: list[str] = []  # Current chunk being built
-        candidate_indices: list[int] = []
-
-        for chunk_i, chunk in enumerate(chunks):
-            # check if single chunk exceeds max_tokens
-            if self.num_tokens(chunk) > max_tokens:
-                logger.warning("Chunk overflow detected")
-                if add_ellipsis_overflow and self.num_tokens(chunk_delimiter.join(candidate + ["..."])) <= max_tokens:
-                    candidate.append("...")
-                    dropped_chunk_count += 1
-                continue  # Skip this chunk as it would break downstream assumptions
-
-            # check if adding this chunk would exceed max_tokens
-            candidate_with_new_chunk = candidate + [chunk]
-            extended_candidate_text = chunk_delimiter.join(candidate_with_new_chunk)
-
-            if self.num_tokens(extended_candidate_text) > max_tokens:
-                # save current candidate and start a new one
-                output.append(chunk_delimiter.join(candidate))
-                output_indices.append(candidate_indices)
-                candidate = [chunk]
-                candidate_indices = [chunk_i]
-            else:
-                # add chunk to current candidate
-                candidate.append(chunk)
-                candidate_indices.append(chunk_i)
-
-        # if it's not empty add the final candidate
-        if len(candidate) > 0:
-            output.append(chunk_delimiter.join(candidate))
-            output_indices.append(candidate_indices)
-
-        return output, output_indices, dropped_chunk_count
+        # Use the document splitter's tokenization method for consistency
+        return self._document_splitter._chunk_length(text)
 
     def _prepare_text_chunks(self, text, detail, minimum_chunk_size, chunk_delimiter):
-        """Prepares text chunks based on detail level."""
-        # calculate optimal chunk count
-        max_chunks = len(self._chunk_on_delimiter(text, minimum_chunk_size, chunk_delimiter))
-        min_chunks = 1
-        num_chunks = int(min_chunks + detail * (max_chunks - min_chunks))
+        """
+        Prepares text chunks based on detail level using RecursiveDocumentSplitter.
 
-        # determine appropriate chunk size
+        The detail parameter (0-1) controls the granularity:
+        - detail=0: Creates fewer, larger chunks (most concise summary)
+        - detail=1: Creates more, smaller chunks (most detailed summary)
+
+        :param text: The text to chunk
+        :param detail: Detail level (0-1)
+        :param minimum_chunk_size: Minimum token count per chunk
+        :param chunk_delimiter: Delimiter for separator selection
+        :returns: List of text chunks
+        """
+        # Calculate document length
         document_length = self.num_tokens(text)
+
+        # Calculate maximum possible chunks (if we split at minimum_chunk_size)
+        max_chunks = max(1, document_length // minimum_chunk_size)
+        min_chunks = 1
+
+        # Interpolate based on detail parameter
+        num_chunks = int(min_chunks + detail * (max_chunks - min_chunks))
+        num_chunks = max(1, num_chunks)  # Ensure at least 1 chunk
+
+        # Calculate target chunk size
         chunk_size = max(minimum_chunk_size, document_length // num_chunks)
 
-        return self._chunk_on_delimiter(text, chunk_size, chunk_delimiter)
+        # Update splitter's split_length dynamically
+        self._document_splitter.split_length = chunk_size
+
+        # Update separators if delimiter changed at runtime
+        if chunk_delimiter != self.chunk_delimiter:
+            self._document_splitter.separators = self._get_separators_from_delimiter(chunk_delimiter)
+
+        # Convert text to Document for splitting
+        temp_doc = Document(content=text)
+
+        # Use RecursiveDocumentSplitter to split the document
+        result = self._document_splitter.run(documents=[temp_doc])
+
+        # Extract text content from resulting Document objects
+        text_chunks = [doc.content for doc in result["documents"]]
+
+        return text_chunks
 
     def _process_chunks(self, text_chunks, summarize_recursively):
         """
@@ -275,7 +260,7 @@ class Summarizer:
 
         :returns:
             The textual content summarized by the LLM.
-        
+
         :raises ValueError: If detail is not between 0 and 1
         """
 
@@ -311,7 +296,12 @@ class Summarizer:
         :param system_prompt: If given it will overwrite prompt given at init time or the default one.
         :param summarize_recursively: Whether to use previous summaries as context, defaults to False overwriting the
                                       component's default.
+
+        :raises RuntimeError: If the component wasn't warmed up.
         """
+        # Check if warmed up
+        if not self._document_splitter._is_warmed_up:
+            raise RuntimeError("The Summarizer component wasn't warmed up. Call 'warm_up()' before calling 'run()'.")
 
         # let's allow to change some of the parameters at run time
         detail = self.detail if detail is None else detail
