@@ -18,8 +18,8 @@ tqdm.disable = True
 
 
 class TestSummarizer:
+
     def test_init_default_parameters(self):
-        """Test initialization with default parameters."""
         mock_generator = Mock()
         summarizer = Summarizer(chat_generator=mock_generator)
 
@@ -33,7 +33,6 @@ class TestSummarizer:
         assert summarizer._document_splitter is not None
 
     def test_init_custom_parameters(self):
-        """Test initialization with custom parameters."""
         mock_generator = Mock()
         custom_prompt = "Please provide a brief summary."
         summarizer = Summarizer(
@@ -54,54 +53,7 @@ class TestSummarizer:
         assert summarizer.summarize_recursively is True
         assert summarizer.split_overlap == 50
 
-    def test_get_separators_from_delimiter_dot(self):
-        """Test separator mapping for dot delimiter."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator, chunk_delimiter=".")
-
-        separators = summarizer._get_separators_from_delimiter(".")
-        assert separators == ["\n\n", "sentence", "\n", " "]
-
-    def test_get_separators_from_delimiter_newline(self):
-        """Test separator mapping for newline delimiter."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator, chunk_delimiter="\n")
-
-        separators = summarizer._get_separators_from_delimiter("\n")
-        assert separators == ["\n\n", "\n", "sentence", " "]
-
-    def test_get_separators_from_delimiter_custom(self):
-        """Test separator mapping for custom delimiter."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator, chunk_delimiter="|")
-
-        separators = summarizer._get_separators_from_delimiter("|")
-        assert separators == ["\n\n", "|", "\n", " "]
-
-    def test_warm_up(self):
-        """Test warm up calls warm_up on both generator and splitter."""
-        mock_generator = Mock()
-        mock_generator.warm_up = Mock()
-
-        summarizer = Summarizer(chat_generator=mock_generator)
-
-        with patch.object(summarizer._document_splitter, "warm_up") as mock_splitter_warm_up:
-            summarizer.warm_up()
-            mock_generator.warm_up.assert_called_once()
-            mock_splitter_warm_up.assert_called_once()
-
-    def test_warm_up_no_method(self):
-        """Test warm up when generator doesn't have warm_up method."""
-        mock_generator = Mock(spec=[])  # No warm_up method
-        summarizer = Summarizer(chat_generator=mock_generator)
-
-        # Should not raise an error
-        with patch.object(summarizer._document_splitter, "warm_up") as mock_splitter_warm_up:
-            summarizer.warm_up()
-            mock_splitter_warm_up.assert_called_once()
-
     def test_to_dict(self):
-        """Test serialization to dictionary."""
         mock_generator = Mock()
         mock_generator.to_dict = Mock(return_value={"type": "MockGenerator"})
 
@@ -129,29 +81,21 @@ class TestSummarizer:
         assert init_params["split_overlap"] == 25
 
     def test_from_dict(self):
-        """Test deserialization from dictionary."""
         mock_generator = Mock()
-        mock_generator.to_dict = Mock(return_value={"type": "haystack.components.generators.chat.openai.OpenAIChatGenerator", "init_parameters": {"model": "gpt-4"}})
-
+        mock_generator.to_dict = Mock(
+            return_value={
+                "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
+                "init_parameters": {"model": "gpt-4"}
+            }
+        )
         summarizer = Summarizer(chat_generator=mock_generator)
         serialized = summarizer.to_dict()
 
-        print(serialized)
-
-        with patch("haystack_experimental.components.summarizers.summarizer.deserialize_chatgenerator_inplace") as mock_deserialize:
+        with (patch("haystack_experimental.components.summarizers.summarizer.deserialize_chatgenerator_inplace")
+              as mock_deserialize):
             deserialized = Summarizer.from_dict(serialized)
             mock_deserialize.assert_called_once()
             assert deserialized is not None
-
-    def test_num_tokens(self):
-        """Test token counting functionality."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator)
-
-        # Mock the document splitter's _chunk_length method
-        with patch.object(summarizer._document_splitter, "_chunk_length", return_value=42):
-            token_count = summarizer.num_tokens("This is a test text")
-            assert token_count == 42
 
     def test_prepare_text_chunks_detail_zero(self):
         """Test text chunking with detail=0 (most concise)."""

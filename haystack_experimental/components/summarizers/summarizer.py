@@ -228,7 +228,7 @@ class Summarizer:
                 user_message_content = chunk
 
             # prepare the message and make the LLM call
-            # self.system_prompt is not None
+            # self.system_prompt is not None where due to the default value in the constructor
             messages = [ChatMessage.from_system(self.system_prompt), ChatMessage.from_user(user_message_content)]  # type: ignore
             # ToDo: some error handling here
             result = self._chat_generator.run(messages=messages)
@@ -292,7 +292,7 @@ class Summarizer:
 
         :raises RuntimeError: If the component wasn't warmed up.
         """
-        # Check if warmed up
+
         if not self._document_splitter._is_warmed_up:
             raise RuntimeError("The Summarizer component wasn't warmed up. Call 'warm_up()' before calling 'run()'.")
 
