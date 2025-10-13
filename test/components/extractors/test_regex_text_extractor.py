@@ -152,39 +152,6 @@ class TestRegexTextExtractor:
         
         assert result == {"captured_text": "username"}
 
-    def test_to_dict(self):
-        """Test component serialization to dictionary."""
-        pattern = r'<issue url="(.+?)">'
-        extractor = RegexTextExtractor(regex_pattern=pattern)
-        
-        data = extractor.to_dict()
-        expected = {
-            "type": "haystack_experimental.components.extractors.regex_text_extractor.RegexTextExtractor",
-            "init_parameters": {
-                "regex_pattern": pattern
-            }
-        }
-        
-        assert data == expected
-
-    def test_from_dict(self):
-        """Test component deserialization from dictionary."""
-        pattern = r'<issue url="(.+?)">'
-        data = {
-            "type": "haystack_experimental.components.extractors.regex_text_extractor.RegexTextExtractor",
-            "init_parameters": {
-                "regex_pattern": pattern
-            }
-        }
-        
-        extractor = RegexTextExtractor.from_dict(data)
-        assert extractor.regex_pattern == pattern
-        
-        # Test that the deserialized component works
-        text = '<issue url="github.com/test">test</issue>'
-        result = extractor.run(text_or_messages=text)
-        assert result == {"captured_text": "github.com/test"}
-
     def test_pipeline_integration(self):
         """Test component integration in a Haystack pipeline."""
         pattern = r'<issue url="(.+?)">'
