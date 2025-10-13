@@ -58,7 +58,7 @@ class RegexTextExtractor:
             )
 
     @component.output_types(captured_text=str, captured_texts=List[str])
-    def run(self, text_or_messages: Union[str, List[ChatMessage]]) -> Dict:
+    def run(self, text_or_messages: Union[str, list[ChatMessage]]) -> dict:
         """
         Extracts text from input using the configured regex pattern.
 
