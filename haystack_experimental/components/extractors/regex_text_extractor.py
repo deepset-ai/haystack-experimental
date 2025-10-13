@@ -57,27 +57,6 @@ class RegexTextExtractor:
                 regex_pattern=regex_pattern,
             )
 
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the component to a dictionary.
-
-        :returns:
-            Dictionary with serialized data.
-        """
-        return default_to_dict(self, regex_pattern=self.regex_pattern)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RegexTextExtractor":
-        """
-        Deserializes the component from a dictionary.
-
-        :param data:
-            The dictionary to deserialize from.
-        :returns:
-            The deserialized component.
-        """
-        return default_from_dict(cls, data)
-
     @component.output_types(captured_text=str, captured_texts=List[str])
     def run(self, text_or_messages: Union[str, List[ChatMessage]]) -> Dict:
         """
