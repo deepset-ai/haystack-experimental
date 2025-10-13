@@ -7,7 +7,7 @@ from typing import Any, Optional
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.components.preprocessors import RecursiveDocumentSplitter
-from haystack.core.serialization import DeserializationCallbacks, component_to_dict
+from haystack.core.serialization import component_to_dict
 from haystack.dataclasses import ChatMessage
 from haystack.utils import deserialize_chatgenerator_inplace
 from tqdm import tqdm
@@ -127,7 +127,6 @@ class Summarizer:
         return default_to_dict(
             self,
             chat_generator=component_to_dict(obj=self._chat_generator, name="chat_generator"),
-            document_splitter=component_to_dict(obj=self._document_splitter, name="document_splitter"),
             system_prompt=self.system_prompt,
             summary_detail=self.detail,
             minimum_chunk_size=self.minimum_chunk_size,
@@ -149,12 +148,6 @@ class Summarizer:
 
         # Deserialize chat_generator
         deserialize_chatgenerator_inplace(init_params, key="chat_generator")
-
-        # Deserialize document_splitter if present (for backward compatibility)
-        if "document_splitter" in init_params:
-            init_params["document_splitter"] = DeserializationCallbacks.deserialize_component(
-                init_params["document_splitter"]
-            )
 
         return default_from_dict(cls, data)
 
