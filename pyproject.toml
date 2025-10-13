@@ -56,7 +56,7 @@ extra-dependencies = [
   "transformers>=4.55.4,<4.57",                       # Issue https://github.com/huggingface/transformers/issues/41339
 
   # LLM-based Summarizer
-  "titoken",
+  "tiktoken",
 
   # Type check
   "mypy",
