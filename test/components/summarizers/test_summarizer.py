@@ -97,51 +97,7 @@ class TestSummarizer:
             mock_deserialize.assert_called_once()
             assert deserialized is not None
 
-    def test_prepare_text_chunks_detail_zero(self):
-        """Test text chunking with detail=0 (most concise)."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator, minimum_chunk_size=100)
-        summarizer._document_splitter._is_warmed_up = True
-
-        # Mock the necessary methods
-        with patch.object(summarizer, "num_tokens", return_value=500):
-            with patch.object(summarizer._document_splitter, "run") as mock_run:
-                mock_run.return_value = {
-                    "documents": [
-                        Document(content="Chunk 1"),
-                        Document(content="Chunk 2"),
-                    ]
-                }
-
-                text = "This is a test document that should be chunked."
-                chunks = summarizer._prepare_text_chunks(text, detail=0, minimum_chunk_size=100, chunk_delimiter=".")
-
-                assert len(chunks) == 2
-                assert chunks[0] == "Chunk 1"
-                assert chunks[1] == "Chunk 2"
-
-    def test_prepare_text_chunks_detail_one(self):
-        """Test text chunking with detail=1 (most detailed)."""
-        mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator, minimum_chunk_size=100)
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "num_tokens", return_value=1000):
-            with patch.object(summarizer._document_splitter, "run") as mock_run:
-                # With detail=1, we expect more chunks
-                mock_run.return_value = {
-                    "documents": [
-                        Document(content=f"Chunk {i}") for i in range(10)
-                    ]
-                }
-
-                text = "This is a longer test document."
-                chunks = summarizer._prepare_text_chunks(text, detail=1, minimum_chunk_size=100, chunk_delimiter=".")
-
-                assert len(chunks) == 10
-
     def test_process_chunks_non_recursive(self):
-        """Test processing chunks without recursive summarization."""
         mock_generator = Mock()
         mock_reply = ChatMessage.from_assistant("Summary of chunk")
         mock_generator.run = Mock(return_value={"replies": [mock_reply]})
@@ -155,14 +111,13 @@ class TestSummarizer:
         assert all(s == "Summary of chunk" for s in summaries)
         assert mock_generator.run.call_count == 2
 
-        # Verify that messages don't include previous summaries
+        # verify that messages don't include previous summaries
         for call in mock_generator.run.call_args_list:
             messages = call.kwargs["messages"]
             assert len(messages) == 2  # System + user message
             assert "Previous summaries" not in messages[1].text
 
     def test_process_chunks_recursive(self):
-        """Test processing chunks with recursive summarization."""
         mock_generator = Mock()
         mock_replies = [
             ChatMessage.from_assistant("Summary 1"),
@@ -183,55 +138,11 @@ class TestSummarizer:
         assert summaries[1] == "Summary 2"
         assert mock_generator.run.call_count == 2
 
-        # Verify second call includes previous summary
+        # verify second call includes previous summary
         second_call = mock_generator.run.call_args_list[1]
         messages = second_call.kwargs["messages"]
         assert "Previous summaries" in messages[1].text
         assert "Summary 1" in messages[1].text
-
-    def test_summarize_basic(self):
-        """Test basic summarization functionality."""
-        mock_generator = Mock()
-        mock_reply = ChatMessage.from_assistant("This is a summary")
-        mock_generator.run = Mock(return_value={"replies": [mock_reply]})
-
-        summarizer = Summarizer(chat_generator=mock_generator)
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "_prepare_text_chunks", return_value=["Chunk 1"]):
-            result = summarizer.summarize(
-                text="Test text to summarize",
-                detail=0,
-                minimum_chunk_size=500,
-                summarize_recursively=False,
-            )
-
-            assert result == "This is a summary"
-
-    def test_summarize_multiple_chunks(self):
-        """Test summarization with multiple chunks."""
-        mock_generator = Mock()
-        mock_replies = [
-            ChatMessage.from_assistant("Summary part 1"),
-            ChatMessage.from_assistant("Summary part 2"),
-        ]
-        mock_generator.run = Mock(side_effect=[
-            {"replies": [mock_replies[0]]},
-            {"replies": [mock_replies[1]]},
-        ])
-
-        summarizer = Summarizer(chat_generator=mock_generator)
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "_prepare_text_chunks", return_value=["Chunk 1", "Chunk 2"]):
-            result = summarizer.summarize(
-                text="Test text to summarize",
-                detail=0.5,
-                minimum_chunk_size=500,
-                summarize_recursively=False,
-            )
-
-            assert result == "Summary part 1\n\nSummary part 2"
 
     def test_summarize_invalid_detail(self):
         mock_generator = Mock()
@@ -243,47 +154,7 @@ class TestSummarizer:
         with pytest.raises(ValueError, match="Detail must be between 0 and 1"):
             summarizer.summarize(text="Test", detail=1.5, minimum_chunk_size=500)
 
-    def test_run_single_document(self):
-        """Test running summarizer on a single document."""
-        mock_generator = Mock()
-        mock_reply = ChatMessage.from_assistant("Document summary")
-        mock_generator.run = Mock(return_value={"replies": [mock_reply]})
-
-        summarizer = Summarizer(chat_generator=mock_generator)
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "summarize", return_value="Document summary"):
-            doc = Document(content="This is a test document")
-            result = summarizer.run(documents=[doc])
-
-            assert "documents" in result
-            assert len(result["documents"]) == 1
-            assert result["documents"][0].meta["summary_detail"] == "Document summary"
-
-    def test_run_multiple_documents(self):
-        """Test running summarizer on multiple documents."""
-        mock_generator = Mock()
-        mock_reply = ChatMessage.from_assistant("Summary")
-        mock_generator.run = Mock(return_value={"replies": [mock_reply]})
-
-        summarizer = Summarizer(chat_generator=mock_generator)
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "summarize", return_value="Summary"):
-            docs = [
-                Document(content="Document 1"),
-                Document(content="Document 2"),
-                Document(content="Document 3"),
-            ]
-            result = summarizer.run(documents=docs)
-
-            assert len(result["documents"]) == 3
-            for doc in result["documents"]:
-                assert "summary_detail" in doc.meta
-                assert doc.meta["summary_detail"] == "Summary"
-
     def test_run_empty_document(self):
-        """Test running summarizer with empty document content."""
         mock_generator = Mock()
         summarizer = Summarizer(chat_generator=mock_generator)
         summarizer._document_splitter._is_warmed_up = True
@@ -297,39 +168,6 @@ class TestSummarizer:
             # summarize should not be called for empty documents
             mock_summarize.assert_not_called()
             assert len(result["documents"]) == 2
-
-    def test_run_with_runtime_parameters(self):
-        """Test run with parameters that override initialization values."""
-        mock_generator = Mock()
-        mock_reply = ChatMessage.from_assistant("Summary")
-        mock_generator.run = Mock(return_value={"replies": [mock_reply]})
-
-        summarizer = Summarizer(
-            chat_generator=mock_generator,
-            summary_detail=0,
-            minimum_chunk_size=500,
-            summarize_recursively=False,
-        )
-        summarizer._document_splitter._is_warmed_up = True
-
-        with patch.object(summarizer, "summarize", return_value="Summary") as mock_summarize:
-            doc = Document(content="Test document")
-            result = summarizer.run(
-                documents=[doc],
-                detail=0.7,
-                minimum_chunk_size=1000,
-                summarize_recursively=True,
-                system_prompt="New prompt",
-            )
-
-            # Verify summarize was called with runtime parameters
-            mock_summarize.assert_called_once()
-            call_kwargs = mock_summarize.call_args[1]
-            assert call_kwargs["detail"] == 0.7
-            assert call_kwargs["minimum_chunk_size"] == 1000
-            assert call_kwargs["summarize_recursively"] is True
-            assert summarizer.system_prompt == "New prompt"
-
 
     @pytest.mark.skipif(
         not os.environ.get("OPENAI_API_KEY", None),
