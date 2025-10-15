@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.summarizers.summarizer import Summarizer
+from haystack_experimental.components.summarizers.llm_summarizer import LLMSummarizer
 
 _all_ = ["Summarizer"]

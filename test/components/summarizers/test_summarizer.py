@@ -10,7 +10,7 @@ from haystack import Document
 from haystack.dataclasses import ChatMessage
 from haystack.components.generators.chat import OpenAIChatGenerator
 
-from haystack_experimental.components.summarizers.summarizer import Summarizer
+from haystack_experimental.components.summarizers.llm_summarizer import LLMSummarizer
 
 # disable tqdm entirely for tests
 from tqdm import tqdm
@@ -21,7 +21,7 @@ class TestSummarizer:
 
     def test_init_default_parameters(self):
         mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator)
+        summarizer = LLMSummarizer(chat_generator=mock_generator)
 
         assert summarizer._chat_generator == mock_generator
         assert summarizer.summary_detail == 0
@@ -35,7 +35,7 @@ class TestSummarizer:
     def test_init_custom_parameters(self):
         mock_generator = Mock()
         custom_prompt = "Please provide a brief summary."
-        summarizer = Summarizer(
+        summarizer = LLMSummarizer(
             chat_generator=mock_generator,
             system_prompt=custom_prompt,
             summary_detail=0.5,
@@ -57,7 +57,7 @@ class TestSummarizer:
         mock_generator = Mock()
         mock_generator.to_dict = Mock(return_value={"type": "MockGenerator"})
 
-        summarizer = Summarizer(
+        summarizer = LLMSummarizer(
             chat_generator=mock_generator,
             system_prompt="Test prompt",
             summary_detail=0.3,
@@ -88,12 +88,12 @@ class TestSummarizer:
                 "init_parameters": {"model": "gpt-4"}
             }
         )
-        summarizer = Summarizer(chat_generator=mock_generator)
+        summarizer = LLMSummarizer(chat_generator=mock_generator)
         serialized = summarizer.to_dict()
 
         with (patch("haystack_experimental.components.summarizers.summarizer.deserialize_chatgenerator_inplace")
               as mock_deserialize):
-            deserialized = Summarizer.from_dict(serialized)
+            deserialized = LLMSummarizer.from_dict(serialized)
             mock_deserialize.assert_called_once()
             assert deserialized is not None
 
@@ -102,7 +102,7 @@ class TestSummarizer:
         mock_reply = ChatMessage.from_assistant("Summary of chunk")
         mock_generator.run = Mock(return_value={"replies": [mock_reply]})
 
-        summarizer = Summarizer(chat_generator=mock_generator, summarize_recursively=False)
+        summarizer = LLMSummarizer(chat_generator=mock_generator, summarize_recursively=False)
 
         chunks = ["Chunk 1 text", "Chunk 2 text"]
         summaries = summarizer._process_chunks(chunks, summarize_recursively=False)
@@ -128,7 +128,7 @@ class TestSummarizer:
             {"replies": [mock_replies[1]]},
         ])
 
-        summarizer = Summarizer(chat_generator=mock_generator, summarize_recursively=True)
+        summarizer = LLMSummarizer(chat_generator=mock_generator, summarize_recursively=True)
 
         chunks = ["Chunk 1 text", "Chunk 2 text"]
         summaries = summarizer._process_chunks(chunks, summarize_recursively=True)
@@ -146,7 +146,7 @@ class TestSummarizer:
 
     def test_summarize_invalid_detail(self):
         mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator)
+        summarizer = LLMSummarizer(chat_generator=mock_generator)
 
         with pytest.raises(ValueError, match="Detail must be between 0 and 1"):
             summarizer.summarize(text="Test", detail=-0.1, minimum_chunk_size=500)
@@ -156,7 +156,7 @@ class TestSummarizer:
 
     def test_run_empty_document(self):
         mock_generator = Mock()
-        summarizer = Summarizer(chat_generator=mock_generator)
+        summarizer = LLMSummarizer(chat_generator=mock_generator)
         summarizer._document_splitter._is_warmed_up = True
 
         doc_empty = Document(content="")
@@ -176,7 +176,7 @@ class TestSummarizer:
     @pytest.mark.integration
     def test_integration_recursive_summarization(self):
         chat_generator = OpenAIChatGenerator(model="gpt-4o-mini")
-        summarizer = Summarizer(
+        summarizer = LLMSummarizer(
             chat_generator=chat_generator,
             summary_detail=0.5,
             minimum_chunk_size=200,

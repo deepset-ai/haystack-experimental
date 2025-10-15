@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @component
-class Summarizer:
+class LLMSummarizer:
     """
     Summarizes text using a language model.
 
@@ -84,7 +84,7 @@ class Summarizer:
         self.split_overlap = split_overlap
 
         # Map chunk_delimiter to an appropriate separator strategy
-        separators = Summarizer._get_separators_from_delimiter(chunk_delimiter)
+        separators = LLMSummarizer._get_separators_from_delimiter(chunk_delimiter)
 
         # Initialize RecursiveDocumentSplitter
         # Note: split_length will be updated dynamically based on detail parameter
@@ -144,7 +144,7 @@ class Summarizer:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Summarizer":
+    def from_dict(cls, data: dict[str, Any]) -> "LLMSummarizer":
         """
         Deserializes the component from a dictionary.
 
