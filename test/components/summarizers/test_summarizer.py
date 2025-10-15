@@ -24,7 +24,7 @@ class TestSummarizer:
         summarizer = Summarizer(chat_generator=mock_generator)
 
         assert summarizer._chat_generator == mock_generator
-        assert summarizer.detail == 0
+        assert summarizer.summary_detail == 0
         assert summarizer.minimum_chunk_size == 500
         assert summarizer.chunk_delimiter == "."
         assert summarizer.system_prompt == "Rewrite this text in summarized form."
@@ -46,7 +46,7 @@ class TestSummarizer:
         )
 
         assert summarizer._chat_generator == mock_generator
-        assert summarizer.detail == 0.5
+        assert summarizer.summary_detail == 0.5
         assert summarizer.minimum_chunk_size == 1000
         assert summarizer.chunk_delimiter == "\n"
         assert summarizer.system_prompt == custom_prompt
@@ -202,6 +202,6 @@ class TestSummarizer:
 
         assert "documents" in result
         assert len(result["documents"]) == 1
-        assert "summary_detail" in result["documents"][0].meta
-        assert len(result["documents"][0].meta["summary_detail"]) < len(doc.content)
+        assert "summary" in result["documents"][0].meta
+        assert len(result["documents"][0].meta["summary"]) < len(doc.content)
 

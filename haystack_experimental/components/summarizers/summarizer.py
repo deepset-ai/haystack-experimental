@@ -22,23 +22,24 @@ class Summarizer:
 
     It's inspired by code from the OpenAI blog post: https://cookbook.openai.com/examples/summarizing_long_documents
 
-    To run this example you need to install the `wikipedia` package:
-
-    ```bash
-        pip install wikipedia
-    ```
-
     Example
     ```python
-    import wikipedia
     from haystack_experimental.components.summarizers.summarizer import Summarizer
-    from haystack import Document
     from haystack.components.generators.chat import OpenAIChatGenerator
+    from haystack import Document
 
-    page = wikipedia.page("Berlin")
-    textual_content = page.content
-    doc = Document(content=textual_content)
+    text = ("Machine learning is a subset of artificial intelligence that provides systems "
+            "the ability to automatically learn and improve from experience without being "
+            "explicitly programmed. The process of learning begins with observations or data. "
+            "Supervised learning algorithms build a mathematical model of sample data, known as "
+            "training data, in order to make predictions or decisions. Unsupervised learning "
+            "algorithms take a set of data that contains only inputs and find structure in the data. "
+            "Reinforcement learning is an area of machine learning where an agent learns to behave "
+            "in an environment by performing actions and seeing the results. Deep learning uses "
+            "artificial neural networks to model complex patterns in data. Neural networks consist "
+            "of layers of connected nodes, each performing a simple computation.")
 
+    doc = Document(content=text)
     chat_generator = OpenAIChatGenerator(model="gpt-4")
     summarizer = Summarizer(chat_generator=chat_generator)
     summarizer.run(documents=[doc])
@@ -62,6 +63,12 @@ class Summarizer:
         :param system_prompt: The prompt to instruct the LLM to summarise text, if not given defaults to:
             "Rewrite this text in summarized form."
         :param summary_detail: The level of detail for the summary (0-1), defaults to 0.
+            This parameter controls the trade-off between conciseness and completeness by adjusting how many
+            chunks the text is divided into. At detail=0, the text is processed as a single chunk (or very few
+            chunks), producing the most concise summary. At detail=1, the text is split into the maximum number
+            of chunks allowed by minimum_chunk_size, enabling more granular analysis and detailed summaries.
+            The formula uses linear interpolation: num_chunks = 1 + detail * (max_chunks - 1), where max_chunks
+            is determined by dividing the document length by minimum_chunk_size.
         :param minimum_chunk_size: The minimum token count per chunk, defaults to 500
         :param chunk_delimiter: The character used to determine separator priority.
             "." uses sentence-based splitting, "\n" uses paragraph-based splitting, defaults to "."
@@ -69,15 +76,15 @@ class Summarizer:
         :param split_overlap: Number of tokens to overlap between consecutive chunks, defaults to 0.
         """
         self._chat_generator = chat_generator
-        self.detail = summary_detail
+        self.summary_detail = summary_detail
         self.minimum_chunk_size = minimum_chunk_size
         self.chunk_delimiter = chunk_delimiter
         self.system_prompt = system_prompt
         self.summarize_recursively = summarize_recursively
         self.split_overlap = split_overlap
 
-        # Map chunk_delimiter to appropriate separator strategy
-        separators = self._get_separators_from_delimiter(chunk_delimiter)
+        # Map chunk_delimiter to an appropriate separator strategy
+        separators = Summarizer._get_separators_from_delimiter(chunk_delimiter)
 
         # Initialize RecursiveDocumentSplitter
         # Note: split_length will be updated dynamically based on detail parameter
@@ -88,7 +95,8 @@ class Summarizer:
             separators=separators,
         )
 
-    def _get_separators_from_delimiter(self, delimiter: str) -> list[str]:
+    @staticmethod
+    def _get_separators_from_delimiter(delimiter: str) -> list[str]:
         """
         Map the delimiter to an appropriate list of separators for RecursiveDocumentSplitter.
 
@@ -128,7 +136,7 @@ class Summarizer:
             self,
             chat_generator=component_to_dict(obj=self._chat_generator, name="chat_generator"),
             system_prompt=self.system_prompt,
-            summary_detail=self.detail,
+            summary_detail=self.summary_detail,
             minimum_chunk_size=self.minimum_chunk_size,
             chunk_delimiter=self.chunk_delimiter,
             summarize_recursively=self.summarize_recursively,
@@ -168,9 +176,16 @@ class Summarizer:
         """
         Prepares text chunks based on detail level using RecursiveDocumentSplitter.
 
-        The detail parameter (0-1) controls the granularity:
+        The detail parameter (0-1) controls the granularity through linear interpolation:
         - detail=0: Creates fewer, larger chunks (most concise summary)
         - detail=1: Creates more, smaller chunks (most detailed summary)
+
+        The formula calculates: num_chunks = 1 + detail * (max_chunks - 1), where max_chunks is the
+        document_length divided by minimum_chunk_size. This interpolates between processing the entire
+        text as one chunk (detail=0) and splitting it into the maximum number of chunks that respect
+        the minimum_chunk_size constraint (detail=1). Higher detail values allow the LLM to analyze
+        smaller portions of text more carefully, preserving more information at the cost of longer
+        processing time and potentially longer summaries.
 
         :param text: The text to chunk
         :param detail: Detail level (0-1)
@@ -178,34 +193,20 @@ class Summarizer:
         :param chunk_delimiter: Delimiter for separator selection
         :returns: List of text chunks
         """
-        # Calculate document length
         document_length = self.num_tokens(text)
-
-        # Calculate maximum possible chunks (if we split at minimum_chunk_size)
         max_chunks = max(1, document_length // minimum_chunk_size)
         min_chunks = 1
 
-        # Interpolate based on detail parameter
         num_chunks = int(min_chunks + detail * (max_chunks - min_chunks))
         num_chunks = max(1, num_chunks)  # Ensure at least 1 chunk
 
-        # Calculate target chunk size
         chunk_size = max(minimum_chunk_size, document_length // num_chunks)
-
-        # Update splitter's split_length dynamically
         self._document_splitter.split_length = chunk_size
-
-        # Update separators if delimiter changed at runtime
         if chunk_delimiter != self.chunk_delimiter:
             self._document_splitter.separators = self._get_separators_from_delimiter(chunk_delimiter)
 
-        # Convert text to Document for splitting
         temp_doc = Document(content=text)
-
-        # Use RecursiveDocumentSplitter to split the document
         result = self._document_splitter.run(documents=[temp_doc])
-
-        # Extract text content from resulting Document objects
         text_chunks = [doc.content for doc in result["documents"]]
 
         return text_chunks
@@ -296,7 +297,7 @@ class Summarizer:
             raise RuntimeError("The Summarizer component wasn't warmed up. Call 'warm_up()' before calling 'run()'.")
 
         # let's allow to change some of the parameters at run time
-        detail = self.detail if detail is None else detail
+        detail = self.summary_detail if detail is None else detail
         minimum_chunk_size = self.minimum_chunk_size if minimum_chunk_size is None else minimum_chunk_size
         summarize_recursively = self.summarize_recursively if summarize_recursively is None else summarize_recursively
         self.system_prompt = system_prompt if system_prompt else self.system_prompt
@@ -311,6 +312,6 @@ class Summarizer:
                 minimum_chunk_size=minimum_chunk_size,  # type: ignore # already checked, cannot be None here
                 summarize_recursively=summarize_recursively,
             )
-            doc.meta["summary_detail"] = summary
+            doc.meta["summary"] = summary
 
         return {"documents": documents}
