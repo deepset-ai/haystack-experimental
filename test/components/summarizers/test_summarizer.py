@@ -91,7 +91,7 @@ class TestSummarizer:
         summarizer = LLMSummarizer(chat_generator=mock_generator)
         serialized = summarizer.to_dict()
 
-        with (patch("haystack_experimental.components.summarizers.summarizer.deserialize_chatgenerator_inplace")
+        with (patch("haystack_experimental.components.summarizers.llm_summarizer.deserialize_chatgenerator_inplace")
               as mock_deserialize):
             deserialized = LLMSummarizer.from_dict(serialized)
             mock_deserialize.assert_called_once()
