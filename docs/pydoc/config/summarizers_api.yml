@@ -1,0 +1,27 @@
+loaders:
+  - type: haystack_pydoc_tools.loaders.CustomPythonLoader
+    search_path: [../../../]
+    modules: ["haystack_experimental.components.summarizers.llm_summarizer"]
+    ignore_when_discovered: ["__init__"]
+processors:
+  - type: filter
+    expression:
+    documented_only: true
+    do_not_filter_modules: false
+    skip_empty_modules: true
+  - type: smart
+  - type: crossref
+renderer:
+  type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
+  excerpt: Components that summarize texts into concise versions.
+  category_slug: experiments-api
+  title: Summarizers
+  slug: experimental-summarizers-api
+  order: 45
+  markdown:
+    descriptive_class_title: false
+    classdef_code_block: false
+    descriptive_module_title: true
+    add_method_class_prefix: true
+    add_member_class_prefix: false
+    filename: experimental_summarizer_api.md
