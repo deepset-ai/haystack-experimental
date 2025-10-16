@@ -53,7 +53,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`OpenAIChatGenerator`][9]                                                                                                                                                              | Chat Generator Component       | November 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hallucination_score_calculator.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>   | [Discuss][10] |
 | [`MarkdownHeaderLevelInferrer`][15]                                                                                                                                                     | Preprocessor                   | January 2025      | None         | None                                                                                                                                                                                                                                                  | [Discuss][16] |
 | [`Agent`][17]; [Confirmation Policies][18]; [ConfirmationUIs][19]; [ConfirmationStrategies][20]; [`ConfirmationUIResult` and `ToolExecutionDecision`][21] [HITLBreakpointException][22] | Human in the Loop              | December 2025     | rich         | None                                                                                                                                                                                                                                                  | [Discuss][23] |
-| [`RegexTextExtractor`][24]                                                                                                                                                              | Text Extractor Component       | January 2025      | None         | None                                                                                                                                                                                                                                                  | [Discuss][25] |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
@@ -78,8 +77,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [21]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/dataclasses.py
 [22]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/errors.py
 [23]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
-[24]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/extractors/regex_text_extractor.py
-[25]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
