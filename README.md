@@ -77,9 +77,9 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [20]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/strategies.py
 [21]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/dataclasses.py
 [22]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/errors.py
-[23]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
+[23]: https://github.com/deepset-ai/haystack-experimental/discussions/381
 [24]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/sumarizers/llm_summarizer.py
-[25]: https://github.com/deepset-ai/haystack-experimental/discussions/XXX
+[25]: https://github.com/deepset-ai/haystack-experimental/discussions/382
 
 ### Adopted experiments
 | Name                                                                                   | Type                                     | Final release |
