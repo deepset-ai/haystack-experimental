@@ -99,7 +99,7 @@ class QueryExpander:
             If None, a default OpenAIChatGenerator with gpt-4.1-mini model is used.
         :param prompt_template: Custom [PromptBuilder](https://docs.haystack.deepset.ai/docs/promptbuilder)
             template for query expansion. The template should instruct the LLM to return a JSON response with the
-            structure: {"queries": ["query1", "query2", "query3"]}. The template should include 'query' and
+            structure: `{"queries": ["query1", "query2", "query3"]}`. The template should include 'query' and
             'n_expansions' variables.
         :param n_expansions: Number of alternative queries to generate (default: 4).
         :param include_original_query: Whether to include the original query in the output.
