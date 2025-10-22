@@ -1,6 +1,8 @@
 name: Sync API reference with Docusaurus
 
 on:
+  # for testing purposes
+  pull_request:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
@@ -38,15 +40,16 @@ jobs:
           pip install -U haystack-pydoc-tools
 
       - name: Generate API reference
-        working-directory: ${{ steps.pathfinder.outputs.project_path }}
+        run: ./.github/utils/pydoc-markdown.sh "docs/pydoc/config_docusaurus/*"
 
-        run: pydoc-markdown pydoc/config_docusaurus.yml
+      - name: print files
+        run: ls -la temp
 
-      - name: Upload API reference artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.pathfinder.outputs.integration_name }}
-          path: ${{ steps.pathfinder.outputs.project_path }}/${{ steps.pathfinder.outputs.integration_name }}.md
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: true
+      # - name: Upload API reference artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ steps.pathfinder.outputs.integration_name }}
+      #     path: ${{ steps.pathfinder.outputs.project_path }}/${{ steps.pathfinder.outputs.integration_name }}.md
+      #     if-no-files-found: error
+      #     retention-days: 1
+      #     overwrite: true
