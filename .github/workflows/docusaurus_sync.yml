@@ -87,12 +87,19 @@ jobs:
           rsync -av --delete --exclude='.git/' "$SOURCE_PATH/" "$DEST_PATH/"
 
           echo "Syncing to all versioned documentation paths"
-          # Find all version directories and sync to each one
-          for version_dir in "$VERSIONED_DEST_PATH"/version-*/experiments-api; do
-            echo "Syncing to $version_dir"
-            mkdir -p "$version_dir"
-            rsync -av --delete --exclude='.git/' "$SOURCE_PATH/" "$version_dir/"
-          done
+          # Check if versioned docs directory exists and find existing version directories
+          if [ -d "$VERSIONED_DEST_PATH" ]; then
+            for version_dir in "$VERSIONED_DEST_PATH"/version-*; do
+              if [ -d "$version_dir" ]; then
+                experiments_api_dir="$version_dir/experiments-api"
+                echo "Syncing to $experiments_api_dir"
+                mkdir -p "$experiments_api_dir"
+                rsync -av --delete --exclude='.git/' "$SOURCE_PATH/" "$experiments_api_dir/"
+              fi
+            done
+          else
+            echo "No versioned docs directory found at $VERSIONED_DEST_PATH"
+          fi
 
       - name: Show Git Status
         run: |
