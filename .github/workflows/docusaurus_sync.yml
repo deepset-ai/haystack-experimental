@@ -77,28 +77,21 @@ jobs:
 
       - name: Sync API reference
         run: |
-          SOURCE_PATH="temp_api_reference"
-          DEST_PATH="docs-website/reference/experiments-api"
-          VERSIONED_DEST_PATH="docs-website/reference_versioned_docs"
+          # Function to sync generated API reference to a destination
+          sync_to_dest() {
+            echo "Syncing to $1"
+            mkdir -p "$1"
+            rsync -av --delete --exclude='.git/' "temp_api_reference/" "$1/"
+          }
 
-          echo "Syncing from $SOURCE_PATH to $DEST_PATH"
-          mkdir -p $DEST_PATH
-          # Using rsync to copy files. This will also remove files in dest that are no longer in source.
-          rsync -av --delete --exclude='.git/' "$SOURCE_PATH/" "$DEST_PATH/"
+          # Sync to main reference
+          sync_to_dest "docs-website/reference/experiments-api"
 
-          echo "Syncing to all versioned documentation paths"
-          # Check if versioned docs directory exists and find existing version directories
-          if [ -d "$VERSIONED_DEST_PATH" ]; then
-            for version_dir in "$VERSIONED_DEST_PATH"/version-*; do
-              if [ -d "$version_dir" ]; then
-                experiments_api_dir="$version_dir/experiments-api"
-                echo "Syncing to $experiments_api_dir"
-                mkdir -p "$experiments_api_dir"
-                rsync -av --delete --exclude='.git/' "$SOURCE_PATH/" "$experiments_api_dir/"
-              fi
+          # Sync to all versioned directories
+          if [ -d "docs-website/reference_versioned_docs" ]; then
+            for version_dir in "docs-website/reference_versioned_docs"/version-*; do
+              [ -d "$version_dir" ] && sync_to_dest "$version_dir/experiments-api"
             done
-          else
-            echo "No versioned docs directory found at $VERSIONED_DEST_PATH"
           fi
 
       - name: Create Pull Request
