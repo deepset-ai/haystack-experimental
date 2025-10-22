@@ -101,32 +101,16 @@ jobs:
             echo "No versioned docs directory found at $VERSIONED_DEST_PATH"
           fi
 
-      - name: Show Git Status
-        run: |
-          cd docs-website
-          echo "=== Git Status ==="
-          git status --porcelain
-          echo ""
-          echo "=== Detailed Git Status ==="
-          git status
-          echo ""
-          echo "=== Files Changed ==="
-          git diff --name-status
-          echo ""
-          echo "=== Diff Summary ==="
-          git diff --stat
-
-      # - name: Create Pull Request
-      #   uses: peter-evans/create-pull-request@v7
-      #   env:
-      #     INTEGRATION_NAME: ${{ needs.generate-api-reference.outputs.integration_name }}
-      #   with:
-      #     token: ${{ secrets.HAYSTACK_BOT_TOKEN }}
-      #     commit-message: "Sync Core Integrations API reference (${{ env.INTEGRATION_NAME }}) on Docusaurus"
-      #     branch: sync-docusaurus-api-reference-${{ env.INTEGRATION_NAME }}
-      #     base: main
-      #     title: "docs: sync Core Integrations API reference (${{ env.INTEGRATION_NAME }}) on Docusaurus"
-      #     add-paths: |
-      #       docs-website
-      #     body: |
-      #       This PR syncs the Core Integrations API reference (${{ env.INTEGRATION_NAME }}) on Docusaurus. Just approve and merge it.
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.HAYSTACK_BOT_TOKEN }}
+          commit-message: "Sync HaystackExperimental API reference on Docusaurus"
+          branch: sync-docusaurus-api-reference-experimental
+          base: main
+          title: "docs: sync HaystackExperimental API reference on Docusaurus"
+          add-paths: |
+            docs-website
+          body: |
+            This PR syncs the HaystackExperimental API reference on Docusaurus. Just approve and merge it.
+          draft: true
