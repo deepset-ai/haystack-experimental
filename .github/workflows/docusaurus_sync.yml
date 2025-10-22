@@ -1,0 +1,52 @@
+name: Sync API reference with Docusaurus
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+  workflow_dispatch: # Activate this workflow manually
+    inputs:
+      tag:
+        description: "Tag with this format: v1.0.0. When running this workflow manually, version is irrelevant so you can use any value."
+        required: true
+        type: string
+        default: v1.0.0
+
+env:
+  # TAG: ${{ inputs.tag || github.ref_name }}
+
+  # for testing purposes
+  TAG: v1.0.0
+
+jobs:
+  generate-api-reference:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U haystack-pydoc-tools
+
+      - name: Generate API reference
+        working-directory: ${{ steps.pathfinder.outputs.project_path }}
+
+        run: pydoc-markdown pydoc/config_docusaurus.yml
+
+      - name: Upload API reference artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pathfinder.outputs.integration_name }}
+          path: ${{ steps.pathfinder.outputs.project_path }}/${{ steps.pathfinder.outputs.integration_name }}.md
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
