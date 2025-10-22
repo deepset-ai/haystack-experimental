@@ -40,7 +40,7 @@ jobs:
           pip install -U haystack-pydoc-tools
 
       - name: Generate API reference
-        run: ./.github/utils/pydoc-markdown.sh "docs/pydoc/config_docusaurus/*"
+        run: ./.github/utils/pydoc-markdown.sh "../config_docusaurus/*"
 
       - name: print files
         run: ls -la temp
