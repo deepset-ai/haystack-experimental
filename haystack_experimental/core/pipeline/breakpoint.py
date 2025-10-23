@@ -8,9 +8,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from haystack import logging
-from haystack.core.errors import BreakpointException
-from haystack.core.pipeline.breakpoint import _save_pipeline_snapshot
-from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, PipelineState, ToolBreakpoint
 from haystack.utils.base_serialization import _serialize_value_with_schema
 from haystack.utils.misc import _get_output_dir
@@ -120,55 +117,3 @@ def _create_pipeline_snapshot_from_tool_invoker(
         final_snapshot = replace(parent_snapshot, agent_snapshot=agent_snapshot)
 
     return final_snapshot
-
-
-def _trigger_tool_invoker_breakpoint(*, llm_messages: list[ChatMessage], pipeline_snapshot: PipelineSnapshot) -> None:
-    """
-    Check if a tool call breakpoint should be triggered before executing the tool invoker.
-
-    NOTE: Only difference to Haystack's native implementation is that it includes the fix from
-    PR https://github.com/deepset-ai/haystack/pull/9853 where we make sure to check all tool calls in a chat message
-    when checking if a BreakpointException should be made.
-
-    :param llm_messages: List of ChatMessage objects containing potential tool calls.
-    :param pipeline_snapshot: PipelineSnapshot object containing the state of the pipeline and Agent snapshot.
-    :raises BreakpointException: If the breakpoint is triggered, indicating a breakpoint has been reached for a tool
-        call.
-    """
-    if not pipeline_snapshot.agent_snapshot:
-        raise ValueError("PipelineSnapshot must contain an AgentSnapshot to trigger a tool call breakpoint.")
-
-    if not isinstance(pipeline_snapshot.agent_snapshot.break_point.break_point, ToolBreakpoint):
-        return
-
-    tool_breakpoint = pipeline_snapshot.agent_snapshot.break_point.break_point
-
-    # Check if we should break for this specific tool or all tools
-    if tool_breakpoint.tool_name is None:
-        # Break for any tool call
-        should_break = any(msg.tool_call for msg in llm_messages)
-    else:
-        # Break only for the specific tool
-        should_break = any(
-            tc.tool_name == tool_breakpoint.tool_name for msg in llm_messages for tc in msg.tool_calls or []
-        )
-
-    if not should_break:
-        return  # No breakpoint triggered
-
-    _save_pipeline_snapshot(pipeline_snapshot=pipeline_snapshot)
-
-    msg = (
-        f"Breaking at {tool_breakpoint.component_name} visit count "
-        f"{pipeline_snapshot.agent_snapshot.component_visits[tool_breakpoint.component_name]}"
-    )
-    if tool_breakpoint.tool_name:
-        msg += f" for tool {tool_breakpoint.tool_name}"
-    logger.info(msg)
-
-    raise BreakpointException(
-        message=msg,
-        component=tool_breakpoint.component_name,
-        inputs=pipeline_snapshot.agent_snapshot.component_inputs,
-        results=pipeline_snapshot.agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["state"],
-    )
