@@ -8,9 +8,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from haystack import logging
-from haystack.core.errors import BreakpointException
-from haystack.core.pipeline.breakpoint import _save_pipeline_snapshot
-from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, PipelineState, ToolBreakpoint
 from haystack.utils.base_serialization import _serialize_value_with_schema
 from haystack.utils.misc import _get_output_dir
