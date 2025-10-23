@@ -7,19 +7,11 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
 
-  workflow_dispatch: # Activate this workflow manually
-    inputs:
-      tag:
-        description: "Tag with this format: v1.0.0. When running this workflow manually, version is irrelevant so you can use any value."
-        required: true
-        type: string
-        default: v1.0.0
-
-env:
-  # TAG: ${{ inputs.tag || github.ref_name }}
-
-  # for testing purposes
-  TAG: v1.0.0
+  # Manual trigger: Use this ONLY if the automatic API reference sync failed during a release.
+  # This will regenerate and sync the API reference to the Haystack repository.
+  # WARNING: Running this workflow when this repository has evolved significantly since the release
+  # will sync an incorrect API reference to Haystack.
+  workflow_dispatch:
 
 jobs:
   generate-api-reference:
