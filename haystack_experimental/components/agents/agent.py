@@ -20,7 +20,6 @@ import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
-hs_breakpoint._trigger_tool_invoker_breakpoint = exp_breakpoint._trigger_tool_invoker_breakpoint
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
