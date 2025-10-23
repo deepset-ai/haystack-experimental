@@ -1,0 +1,28 @@
+loaders:
+- ignore_when_discovered:
+  - __init__
+  modules:
+  - haystack_experimental.chat_message_stores.in_memory
+  search_path:
+  - ../../../
+  type: haystack_pydoc_tools.loaders.CustomPythonLoader
+processors:
+- do_not_filter_modules: false
+  documented_only: true
+  expression: null
+  skip_empty_modules: true
+  type: filter
+- type: smart
+- type: crossref
+renderer:
+  description: Storage for the chat messages.
+  id: experimental-chatmessage-store-api
+  markdown:
+    add_member_class_prefix: false
+    add_method_class_prefix: true
+    classdef_code_block: false
+    descriptive_class_title: false
+    descriptive_module_title: true
+    filename: experimental_chatmessage_store_api.md
+  title: ChatMessage Store
+  type: haystack_pydoc_tools.renderers.DocusaurusRenderer
