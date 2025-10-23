@@ -1,8 +1,6 @@
 name: Sync API reference with Docusaurus
 
 on:
-
-  pull_request:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
@@ -90,12 +88,11 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.HAYSTACK_BOT_TOKEN }}
-          commit-message: "Sync HaystackExperimental API reference on Docusaurus"
+          commit-message: "Sync Haystack Experimental API reference on Docusaurus"
           branch: sync-docusaurus-api-reference-experimental
           base: main
-          title: "docs: sync HaystackExperimental API reference on Docusaurus"
+          title: "docs: sync Haystack Experimental API reference on Docusaurus"
           add-paths: |
             docs-website
           body: |
-            This PR syncs the HaystackExperimental API reference on Docusaurus. Just approve and merge it.
-          draft: true
+            This PR syncs the Haystack Experimental API reference on Docusaurus. Just approve and merge it.
