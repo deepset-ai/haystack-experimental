@@ -20,7 +20,6 @@ import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
-hs_breakpoint._trigger_tool_invoker_breakpoint = exp_breakpoint._trigger_tool_invoker_breakpoint
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
@@ -39,7 +38,7 @@ from haystack.core.serialization import default_from_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
-from haystack.tools import Tool, Toolset, deserialize_tools_or_toolset_inplace
+from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
@@ -122,7 +121,7 @@ class Agent(HaystackAgent):
         self,
         *,
         chat_generator: ChatGenerator,
-        tools: Optional[Union[list[Tool], Toolset]] = None,
+        tools: Optional[ToolsType] = None,
         system_prompt: Optional[str] = None,
         exit_conditions: Optional[list[str]] = None,
         state_schema: Optional[dict[str, Any]] = None,
@@ -172,7 +171,7 @@ class Agent(HaystackAgent):
         requires_async: bool,
         *,
         system_prompt: Optional[str] = None,
-        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+        tools: Optional[Union[ToolsType, list[str]]] = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -213,7 +212,7 @@ class Agent(HaystackAgent):
         streaming_callback: Optional[StreamingCallbackT],
         requires_async: bool,
         *,
-        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+        tools: Optional[Union[ToolsType, list[str]]] = None,
     ) -> _ExecutionContext:
         """
         Initialize execution context from an AgentSnapshot.
@@ -251,7 +250,7 @@ class Agent(HaystackAgent):
         break_point: Optional[AgentBreakpoint] = None,
         snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
         system_prompt: Optional[str] = None,
-        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+        tools: Optional[Union[ToolsType, list[str]]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -435,7 +434,7 @@ class Agent(HaystackAgent):
         break_point: Optional[AgentBreakpoint] = None,
         snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
         system_prompt: Optional[str] = None,
-        tools: Optional[Union[list[Tool], Toolset, list[str]]] = None,
+        tools: Optional[Union[ToolsType, list[str]]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
