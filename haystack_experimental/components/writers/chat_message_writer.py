@@ -2,15 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List
+from typing import Any
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.core.serialization import import_class_by_name
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
-
-logger = logging.getLogger(__name__)
 
 
 @component
@@ -34,7 +32,7 @@ class ChatMessageWriter:
     ```
     """
 
-    def __init__(self, message_store: ChatMessageStore):
+    def __init__(self, message_store: ChatMessageStore) -> None:
         """
         Create a ChatMessageWriter component.
 
@@ -43,7 +41,7 @@ class ChatMessageWriter:
         """
         self.message_store = message_store
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
@@ -53,7 +51,7 @@ class ChatMessageWriter:
         return default_to_dict(self, message_store=self.message_store.to_dict())
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageWriter":
+    def from_dict(cls, data: dict[str, Any]) -> "ChatMessageWriter":
         """
         Deserializes the component from a dictionary.
 
@@ -79,18 +77,20 @@ class ChatMessageWriter:
         return default_from_dict(cls, data)
 
     @component.output_types(messages_written=int)
-    def run(self, messages: List[ChatMessage]) -> Dict[str, int]:
+    def run(self, index: str, messages: list[ChatMessage]) -> dict[str, int]:
         """
         Run the ChatMessageWriter on the given input data.
 
+        :param index:
+            A unique identifier for the chat session or conversation whose messages should be retrieved.
+            Each `index` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
+            For example, use a session ID or conversation ID to isolate messages from different chat sessions.
         :param messages:
             A list of chat messages to write to the store.
+
         :returns:
             - `messages_written`: Number of messages written to the ChatMessageStore.
-
-        :raises ValueError:
-            If the specified message store is not found.
         """
 
-        messages_written = self.message_store.write_messages(messages=messages)
+        messages_written = self.message_store.write_messages(index=index, messages=messages)
         return {"messages_written": messages_written}

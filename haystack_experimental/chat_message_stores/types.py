@@ -2,16 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Protocol
 
-from haystack import logging
 from haystack.dataclasses import ChatMessage
 
-logger = logging.getLogger(__name__)
+# Ellipsis are needed for the type checker, it's safe to disable module-wide
+# pylint: disable=unnecessary-ellipsis
 
 
-class ChatMessageStore(ABC):
+class ChatMessageStore(Protocol):
     """
     Stores ChatMessages to be used by the components of a Pipeline.
 
@@ -22,53 +21,49 @@ class ChatMessageStore(ABC):
     In order to write or retrieve chat messages, consider using a ChatMessageWriter or ChatMessageRetriever.
     """
 
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes this store to a dictionary.
 
         :returns: The serialized store as a dictionary.
         """
+        ...
 
     @classmethod
-    @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageStore":
+    def from_dict(cls, data: dict[str, Any]) -> "ChatMessageStore":
         """
         Deserializes the store from a dictionary.
 
         :param data: The dictionary to deserialize from.
         :returns: The deserialized store.
         """
+        ...
 
-    @abstractmethod
-    def count_messages(self) -> int:
+    def count_messages(self, index: str) -> int:
         """
         Returns the number of chat messages stored.
 
+        :param index: The index for which to count messages.
+
         :returns: The number of messages.
         """
+        ...
 
-    @abstractmethod
-    def write_messages(self, messages: List[ChatMessage]) -> int:
+    def write_messages(self, index: str, messages: list[ChatMessage]) -> int:
         """
         Writes chat messages to the ChatMessageStore.
 
+        :param index: The index under which to store the messages.
         :param messages: A list of ChatMessages to write.
+
         :returns: The number of messages written.
-
-        :raises ValueError: If messages is not a list of ChatMessages.
         """
+        ...
 
-    @abstractmethod
-    def delete_messages(self) -> None:
+    def delete_messages(self, index: str) -> None:
         """
         Deletes all stored chat messages.
-        """
 
-    @abstractmethod
-    def retrieve(self) -> List[ChatMessage]:
+        :param index: The index from which to delete all messages.
         """
-        Retrieves all stored chat messages.
-
-        :returns: A list of chat messages.
-        """
+        ...
