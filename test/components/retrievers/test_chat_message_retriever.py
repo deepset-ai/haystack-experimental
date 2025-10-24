@@ -17,7 +17,7 @@ class TestChatMessageRetriever:
         retriever = ChatMessageRetriever(message_store)
 
         assert retriever.message_store == message_store
-        assert retriever.run() == {"messages": []}
+        assert retriever.run(index="test") == {"messages": []}
 
     def test_retrieve_messages(self):
         """
@@ -29,11 +29,13 @@ class TestChatMessageRetriever:
         ]
 
         message_store = InMemoryChatMessageStore()
-        message_store.write_messages(messages)
+        message_store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(message_store)
 
         assert retriever.message_store == message_store
-        assert retriever.run() == {"messages": messages}
+        assert retriever.run(index="test") == {"messages": messages}
+        # Clean up
+        message_store.delete_messages(index="test")
 
     def test_retrieve_messages_last_k(self):
         """
@@ -47,31 +49,39 @@ class TestChatMessageRetriever:
         ]
 
         message_store = InMemoryChatMessageStore()
-        message_store.write_messages(messages)
+        message_store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(message_store)
 
         assert retriever.message_store == message_store
-        assert retriever.run(last_k=1) == {
-            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]}
+        assert retriever.run(index="test", last_k=1) == {
+            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]
+        }
 
-        assert retriever.run(last_k=2) == {
-            "messages": [ChatMessage.from_user("Hola, como puedo ayudarte?"),
-                         ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
-                         ]}
+        assert retriever.run(index="test", last_k=2) == {
+            "messages": [
+                ChatMessage.from_user("Hola, como puedo ayudarte?"),
+                ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+            ]
+        }
 
         # outliers
-        assert retriever.run(last_k=10) == {
-            "messages": [ChatMessage.from_user("Hello, how can I help you?"),
-                         ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
-                         ChatMessage.from_user("Hola, como puedo ayudarte?"),
-                         ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
-                         ]}
+        assert retriever.run(index="test", last_k=10) == {
+            "messages": [
+                ChatMessage.from_user("Hello, how can I help you?"),
+                ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
+                ChatMessage.from_user("Hola, como puedo ayudarte?"),
+                ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+            ]
+        }
 
         with pytest.raises(ValueError):
-            retriever.run(last_k=0)
+            retriever.run(index="test", last_k=0)
 
         with pytest.raises(ValueError):
-            retriever.run(last_k=-1)
+            retriever.run(index="test", last_k=-1)
+
+        # Clean up
+        message_store.delete_messages(index="test")
 
     def test_retrieve_messages_last_k_init(self):
         """
@@ -86,20 +96,26 @@ class TestChatMessageRetriever:
         ]
 
         message_store = InMemoryChatMessageStore()
-        message_store.write_messages(messages)
+        message_store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(message_store, last_k=2)
 
         assert retriever.message_store == message_store
 
         # last_k is 1 here from run parameter, overrides init of 2
-        assert retriever.run(last_k=1) == {
-            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]}
+        assert retriever.run(index="test", last_k=1) == {
+            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]
+        }
 
         # last_k is 2 here from init
-        assert retriever.run() == {
-            "messages": [ChatMessage.from_user("Hola, como puedo ayudarte?"),
-                         ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
-                         ]}
+        assert retriever.run(index="test") == {
+            "messages": [
+                ChatMessage.from_user("Hola, como puedo ayudarte?"),
+                ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+            ]
+        }
+
+        # Clean up
+        message_store.delete_messages(index="test")
 
     def test_to_dict(self):
         """
@@ -145,27 +161,32 @@ class TestChatMessageRetriever:
         """
         Test that the ChatMessageRetriever can be used in a pipeline and that it works as expected.
         """
+        index = "user_123_session_456"
         store = InMemoryChatMessageStore()
-        store.write_messages([ChatMessage.from_assistant("Hello, how can I help you?")])
+        store.write_messages(index=index, messages=[ChatMessage.from_assistant("Hello, how can I help you?")])
+
+        template = ChatMessage.from_user("""
+Given the following information, answer the question.
+
+Context:
+{% for msg in messages %}
+    {{ msg.text }}
+{% endfor %}
+
+Question: {{ query }}
+Answer:
+""")
 
         pipe = Pipeline()
         pipe.add_component("memory_retriever", ChatMessageRetriever(store))
-        pipe.add_component("prompt_builder", ChatPromptBuilder(variables=["query", "memories"]))
-        pipe.connect("memory_retriever", "prompt_builder.memories")
-        user_prompt = """
-        Given the following information, answer the question.
+        pipe.add_component(
+            "prompt_builder", ChatPromptBuilder(template=[template], required_variables=["query", "messages"]),
+        )
+        pipe.connect("memory_retriever.messages", "prompt_builder.messages")
 
-        Context:
-        {% for memory in memories %}
-            {{ memory.text }}
-        {% endfor %}
-
-        Question: {{ query }}
-        Answer:
-        """
-        question = "What is the capital of France?"
-
-        res = pipe.run(data={"prompt_builder": {"template": [ChatMessage.from_user(user_prompt)], "query": question}})
+        res = pipe.run(
+            data={"prompt_builder": {"query": "What is the capital of France?"}, "memory_retriever": {"index": index}}
+        )
         resulting_prompt = res["prompt_builder"]["prompt"][0].text
         assert "France" in resulting_prompt
         assert "how can I help you" in resulting_prompt
@@ -176,8 +197,6 @@ class TestChatMessageRetriever:
         """
         pipe = Pipeline()
         pipe.add_component("memory_retriever", ChatMessageRetriever(InMemoryChatMessageStore()))
-        pipe.add_component("prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("no template")],
-                                                               variables=["query"]))
 
         # now serialize and deserialize the pipeline
         data = pipe.to_dict()
