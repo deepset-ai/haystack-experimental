@@ -24,7 +24,7 @@ class MarkdownHeaderLevelInferrer:
     from haystack_experimental.components.preprocessors import MarkdownHeaderLevelInferrer
 
     # Create a document with uniform header levels
-    text = "## Title\nSome content\n## Section\nMore content\n## Subsection\nFinal content"
+    text = "## Title\n## Subheader\nSection\n## Subheader\nMore Content"
     doc = Document(content=text)
 
     # Initialize the inferrer and process the document
@@ -33,7 +33,7 @@ class MarkdownHeaderLevelInferrer:
 
     # The headers are now normalized with proper hierarchy
     print(result["documents"][0].content)
-    > # Title\nSome content\n## Section\nMore content\n### Subsection\nFinal content
+    > # Title\n## Subheader\nSection\n## Subheader\nMore Content
     ```
     """
 
