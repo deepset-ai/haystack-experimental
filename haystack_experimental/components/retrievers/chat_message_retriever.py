@@ -87,10 +87,10 @@ class ChatMessageRetriever:
         data["init_parameters"]["message_store"] = default_from_dict(message_store_class, message_store_data)
         return default_from_dict(cls, data)
 
-    # TODO Consider adding messages as an optional input parameter to append to the retrieved messages
-    #      Optionally allow for a init param to pass a custom function for how to combine the messages??
     @component.output_types(messages=list[ChatMessage])
-    def run(self, index: str, last_k: Optional[int] = None) -> dict[str, list[ChatMessage]]:
+    def run(
+        self, index: str, *, last_k: Optional[int] = None, new_messages: Optional[list[ChatMessage]] = None
+    ) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
 
@@ -101,14 +101,30 @@ class ChatMessageRetriever:
         :param last_k: The number of last messages to retrieve. This parameter takes precedence over the last_k
             parameter passed to the ChatMessageRetriever constructor. If unspecified, the last_k parameter passed
             to the constructor will be used.
+        :param new_messages:
+            A list of new chat messages to append to the retrieved messages. This is useful for retrieving the current
+            chat history and appending new messages that are not yet stored in the ChatMessageStore. The output of this
+            can then be directly used as input to a ChatGenerator or an Agent.
 
         :returns:
-            - `messages` - The retrieved chat messages.
+            - `messages` - The retrieved chat messages and optionally the new messages appended if provided.
         :raises ValueError: If last_k is not None and is less than 1
         """
+        if index is None:
+            return {"messages": []}
+
         if last_k is not None and last_k <= 0:
             raise ValueError("last_k must be greater than 0")
 
         resolved_last_k = last_k or self.last_k
 
-        return {"messages": self.message_store.retrieve_messages(index=index, last_k=resolved_last_k)}
+        messages = self.message_store.retrieve_messages(index)
+
+        # TODO Make k a full cycle of user + agent output
+        if resolved_last_k is not None:
+            messages = messages[-resolved_last_k:]
+
+        if new_messages:
+            messages.extend(new_messages)
+
+        return {"messages": messages}

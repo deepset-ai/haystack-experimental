@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from haystack.dataclasses import ChatMessage
 
@@ -68,12 +68,11 @@ class ChatMessageStore(Protocol):
         """
         ...
 
-    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+    def retrieve_messages(self, index: str) -> list[ChatMessage]:
         """
         Retrieves chat messages from the ChatMessageStore.
 
         :param index: The index from which to retrieve messages.
-        :param last_k: The number of last messages to retrieve. If None, retrieves all messages.
 
         :returns: A list of retrieved ChatMessages.
         """

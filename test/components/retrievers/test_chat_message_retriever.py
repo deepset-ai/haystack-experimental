@@ -1,11 +1,28 @@
-
 import pytest
-from haystack import Pipeline
+from typing import Any
+
+from haystack import Pipeline, component
 from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
+from haystack_experimental.components.writers import ChatMessageWriter
+
+
+@component
+class MockChatGenerator:
+    @component.output_types(replies=list[ChatMessage])
+    def run(self, messages: list[ChatMessage]) -> dict[str, list[ChatMessage]]:
+        return {"replies": [ChatMessage.from_assistant("This is a mock response.")]}
+
+
+@component
+class MockAgent:
+    @component.output_types(messages=list[ChatMessage], last_message=ChatMessage)
+    def run(self, messages: list[ChatMessage]) -> dict[str, Any]:
+        assistant_msg = ChatMessage.from_assistant("This is a mock response.")
+        return {"messages": [*messages, assistant_msg], "last_message": assistant_msg}
 
 
 class TestChatMessageRetriever:
@@ -158,38 +175,29 @@ class TestChatMessageRetriever:
         assert retriever.last_k == 4
 
     def test_chat_message_retriever_pipeline(self):
-        """
-        Test that the ChatMessageRetriever can be used in a pipeline and that it works as expected.
-        """
         index = "user_123_session_456"
         store = InMemoryChatMessageStore()
-        store.write_messages(index=index, messages=[ChatMessage.from_assistant("Hello, how can I help you?")])
-
-        template = ChatMessage.from_user("""
-Given the following information, answer the question.
-
-Context:
-{% for msg in messages %}
-    {{ msg.text }}
-{% endfor %}
-
-Question: {{ query }}
-Answer:
-""")
+        messages_to_write = [
+            ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
+            ChatMessage.from_user("What is the capital of France?"),
+            ChatMessage.from_assistant("The capital of France is Paris."),
+        ]
+        store.write_messages(index=index, messages=messages_to_write)
 
         pipe = Pipeline()
-        pipe.add_component("memory_retriever", ChatMessageRetriever(store))
         pipe.add_component(
-            "prompt_builder", ChatPromptBuilder(template=[template], required_variables=["query", "messages"]),
+            "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
         )
-        pipe.connect("memory_retriever.messages", "prompt_builder.messages")
+        pipe.add_component("memory_retriever", ChatMessageRetriever(store))
+        pipe.connect("prompt_builder.prompt", "memory_retriever.new_messages")
 
         res = pipe.run(
-            data={"prompt_builder": {"query": "What is the capital of France?"}, "memory_retriever": {"index": index}}
+            data={"prompt_builder": {"query": "What is the capital of Germany?"}, "memory_retriever": {"index": index}}
         )
-        resulting_prompt = res["prompt_builder"]["prompt"][0].text
-        assert "France" in resulting_prompt
-        assert "how can I help you" in resulting_prompt
+        assert res["memory_retriever"]["messages"] == [*messages_to_write, ChatMessage.from_user("What is the capital of Germany?")]
+
+        # Clean up
+        store.delete_messages(index=index)
 
     def test_chat_message_retriever_pipeline_serde(self):
         """
@@ -204,10 +212,63 @@ Answer:
 
         assert new_pipe == pipe
 
-# TODO Add test for how this would look in a pipeline with an Agent
-#      ChatBuilder --> ChatRetriever --> Agent --> OutputAdapter --> ChatWriter
-#                |-------------------------------^
-#      - Last 4 components could be made into a single ChatAgent component
-#      - If directly integrated into the Agent then agent would need MessageStore as init param.
-#        Then would need chat_store_index param in run() to retrieve and write messages.
-#        Also perhaps a chat_store_last_k or chat_store_kwargs to control retrieval behavior.
+    def test_chat_message_store_with_chat_generator(self):
+        store = InMemoryChatMessageStore()
+
+        pipe = Pipeline()
+        pipe.add_component(
+            "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
+        )
+        pipe.add_component("message_retriever", ChatMessageRetriever(store))
+        pipe.add_component("llm", MockChatGenerator())
+        pipe.add_component("message_writer", ChatMessageWriter(store))
+
+        pipe.connect("prompt_builder.prompt", "message_retriever.new_messages")
+        pipe.connect("message_retriever.messages", "llm.messages")
+        pipe.connect("llm.replies", "message_writer.messages")
+
+        index = "user_123_session_456"
+        result = pipe.run(
+            data={
+                "prompt_builder": {"query": "What is the capital of Germany?"},
+                "message_retriever": {"index": index},
+                "message_writer": {"index": index}
+            },
+            include_outputs_from={"llm"}
+        )
+        assert result["llm"]["replies"] == [ChatMessage.from_assistant("This is a mock response.")]
+        # TODO Should improve example so the user message from prompt builder is also stored.
+        assert store.retrieve_messages(index) == [ChatMessage.from_assistant("This is a mock response.")]
+
+        # Clean up
+        store.delete_messages(index)
+
+    def test_chat_message_store_with_agent(self):
+        store = InMemoryChatMessageStore()
+
+        pipe = Pipeline()
+        pipe.add_component(
+            "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
+        )
+        pipe.add_component("message_retriever", ChatMessageRetriever(store))
+        pipe.add_component("agent", MockAgent())
+        pipe.add_component("message_writer", ChatMessageWriter(store))
+
+        pipe.connect("prompt_builder.prompt", "message_retriever.new_messages")
+        pipe.connect("message_retriever.messages", "agent.messages")
+        pipe.connect("agent.messages", "message_writer.messages")
+
+        index = "user_123_session_456"
+        result = pipe.run(
+            data={
+                "prompt_builder": {"query": "What is the capital of Germany?"},
+                "message_retriever": {"index": index},
+                "message_writer": {"index": index}
+            },
+            include_outputs_from={"agent"}
+        )
+        assert result["agent"]["last_message"] == ChatMessage.from_assistant("This is a mock response.")
+        assert store.count_messages(index) == 2
+
+        # Clean up
+        store.delete_messages(index)
