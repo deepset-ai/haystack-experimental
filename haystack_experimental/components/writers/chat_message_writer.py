@@ -91,6 +91,8 @@ class ChatMessageWriter:
         :returns:
             - `messages_written`: Number of messages written to the ChatMessageStore.
         """
+        if index is None:
+            return {"messages_written": 0}
 
         messages_written = self.message_store.write_messages(index=index, messages=messages)
         return {"messages_written": messages_written}

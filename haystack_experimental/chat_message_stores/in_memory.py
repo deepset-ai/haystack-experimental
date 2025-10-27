@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage
@@ -105,23 +105,16 @@ class InMemoryChatMessageStore:
         """
         _STORAGES.pop(index, None)
 
-    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+    def retrieve_messages(self, index: str) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 
         :param index:
             The index from which to retrieve messages.
-        :param last_k:
-            The number of last messages to retrieve. If None, retrieves all messages.
 
         :returns: A list of chat messages.
         """
-        if last_k is not None and last_k <= 0:
-            raise ValueError("last_k must be greater than 0")
 
         messages = _STORAGES.get(index, [])
-
-        if last_k is not None:
-            return messages[-last_k:]
 
         return messages
