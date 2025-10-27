@@ -203,3 +203,11 @@ Answer:
         new_pipe = Pipeline.from_dict(data)
 
         assert new_pipe == pipe
+
+# TODO Add test for how this would look in a pipeline with an Agent
+#      ChatBuilder --> ChatRetriever --> Agent --> OutputAdapter --> ChatWriter
+#                |-------------------------------^
+#      - Last 4 components could be made into a single ChatAgent component
+#      - If directly integrated into the Agent then agent would need MessageStore as init param.
+#        Then would need chat_store_index param in run() to retrieve and write messages.
+#        Also perhaps a chat_store_last_k or chat_store_kwargs to control retrieval behavior.

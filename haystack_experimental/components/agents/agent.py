@@ -186,6 +186,11 @@ class Agent(HaystackAgent):
             When passing tool names, tools are selected from the Agent's originally configured tools.
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
+        # TODO: The ChatMessageStore.retrieve would go in here if we directly integrate
+        # if self.chat_message_store is not None:
+        #     chat_history = self.chat_message_store.retrieve(index=message_store_index, last_k=message_store_last_k)
+        #     messages = chat_history + messages
+
         exe_context = super(Agent, self)._initialize_fresh_execution(
             messages=messages,
             streaming_callback=streaming_callback,
@@ -431,6 +436,13 @@ class Agent(HaystackAgent):
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
             result["last_message"] = msgs[-1]
+
+        # TODO Add the chat message writer functionality here to write messages to a store if configured
+        # if self.chat_message_store is not None:
+        #     # Write new user message + last assistant message
+        #     messages_to_write = messages + result["last_message"]
+        #     self.chat_message_store.write_messages(messages=messages_to_write)
+
         return result
 
     async def run_async(
