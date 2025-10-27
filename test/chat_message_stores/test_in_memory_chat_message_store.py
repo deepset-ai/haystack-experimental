@@ -11,7 +11,7 @@ class TestInMemoryChatMessageStore:
         """
         store = InMemoryChatMessageStore()
         assert store.count_messages(index="test") == 0
-        assert store.retrieve(index="test") == []
+        assert store.retrieve_messages(index="test") == []
         assert store.write_messages(index="test", messages=[]) == 0
         assert not store.delete_messages(index="test")
 
@@ -56,16 +56,16 @@ class TestInMemoryChatMessageStore:
         Test that the InMemoryChatMessageStore can retrieve all messages from the store correctly.
         """
         store = InMemoryChatMessageStore()
-        assert store.retrieve(index="test") == []
+        assert store.retrieve_messages(index="test") == []
         store.write_messages(index="test", messages=[ChatMessage.from_user("Hello, how can I help you?")])
-        assert store.retrieve(index="test") == [ChatMessage.from_user("Hello, how can I help you?")]
+        assert store.retrieve_messages(index="test") == [ChatMessage.from_user("Hello, how can I help you?")]
         store.write_messages(index="test", messages=[ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?")])
-        assert store.retrieve(index="test") == [
+        assert store.retrieve_messages(index="test") == [
             ChatMessage.from_user("Hello, how can I help you?"),
             ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
         ]
         store.write_messages(index="test", messages=[ChatMessage.from_user("Hola, ¿cómo puedo ayudarte?")])
-        assert store.retrieve() == [
+        assert store.retrieve_messages(index="test") == [
             ChatMessage.from_user("Hello, how can I help you?"),
             ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
             ChatMessage.from_user("Hola, ¿cómo puedo ayudarte?"),
