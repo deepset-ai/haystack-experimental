@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Protocol
+from typing import Any, Optional, Protocol
 
 from haystack.dataclasses import ChatMessage
 
@@ -65,5 +65,16 @@ class ChatMessageStore(Protocol):
         Deletes all stored chat messages.
 
         :param index: The index from which to delete all messages.
+        """
+        ...
+
+    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+        """
+        Retrieves chat messages from the ChatMessageStore.
+
+        :param index: The index from which to retrieve messages.
+        :param last_k: The number of last messages to retrieve. If None, retrieves all messages.
+
+        :returns: A list of retrieved ChatMessages.
         """
         ...

@@ -7,8 +7,6 @@ from typing import Any, Iterable, Optional
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage
 
-from haystack_experimental.chat_message_stores.types import ChatMessageStore
-
 # Global storage for all InMemoryDocumentStore instances, indexed by the index name.
 _STORAGES: dict[str, list[ChatMessage]] = {}
 
@@ -107,7 +105,7 @@ class InMemoryChatMessageStore:
         """
         _STORAGES.pop(index, None)
 
-    def retrieve(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 

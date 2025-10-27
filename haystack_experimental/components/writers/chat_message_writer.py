@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
+from haystack import DeserializationError, component, default_from_dict, default_to_dict
 from haystack.core.serialization import import_class_by_name
 from haystack.dataclasses import ChatMessage
 

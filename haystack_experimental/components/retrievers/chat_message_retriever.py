@@ -111,4 +111,4 @@ class ChatMessageRetriever:
 
         resolved_last_k = last_k or self.last_k
 
-        return {"messages": self.message_store.retrieve(index=index, last_k=resolved_last_k)}
+        return {"messages": self.message_store.retrieve_messages(index=index, last_k=resolved_last_k)}
