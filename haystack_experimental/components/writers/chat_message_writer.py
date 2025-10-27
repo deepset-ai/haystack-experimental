@@ -81,6 +81,9 @@ class ChatMessageWriter:
         """
         Run the ChatMessageWriter on the given input data.
 
+        If any of the incoming messages already have their `meta["is_stored"]` set to `True`, then those messages
+        will be skipped and not written to the ChatMessageStore again.
+
         :param index:
             A unique identifier for the chat session or conversation whose messages should be retrieved.
             Each `index` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
@@ -94,5 +97,7 @@ class ChatMessageWriter:
         if index is None:
             return {"messages_written": 0}
 
-        messages_written = self.message_store.write_messages(index=index, messages=messages)
+        messages_to_write = [msg for msg in messages if msg.meta.get("is_stored", False) is not True]
+        messages_written = self.message_store.write_messages(index=index, messages=messages_to_write)
+
         return {"messages_written": messages_written}

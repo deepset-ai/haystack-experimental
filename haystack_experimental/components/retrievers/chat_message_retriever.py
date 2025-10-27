@@ -103,14 +103,16 @@ class ChatMessageRetriever:
             to the constructor will be used.
         :param new_messages:
             A list of new chat messages to append to the retrieved messages. This is useful for retrieving the current
-            chat history and appending new messages that are not yet stored in the ChatMessageStore. The output of this
-            can then be directly used as input to a ChatGenerator or an Agent.
+            chat history and appending new messages (e.g. user messages) so the output can be directly used as input
+            to a ChatGenerator or an Agent.
 
         :returns:
             - `messages` - The retrieved chat messages and optionally the new messages appended if provided.
         :raises ValueError: If last_k is not None and is less than 1
         """
         if index is None:
+            if new_messages:
+                return {"messages": new_messages}
             return {"messages": []}
 
         if last_k is not None and last_k <= 0:
@@ -123,6 +125,12 @@ class ChatMessageRetriever:
         # TODO Make k a full cycle of user + agent output
         if resolved_last_k is not None:
             messages = messages[-resolved_last_k:]
+
+        # Add an is_stored flag to messages retrieved from the store
+        # This makes it easier to distinguish between messages already in the store and new messages when writing
+        # back to the store.
+        for message in messages:
+            message.meta["is_stored"] = True
 
         if new_messages:
             messages.extend(new_messages)
