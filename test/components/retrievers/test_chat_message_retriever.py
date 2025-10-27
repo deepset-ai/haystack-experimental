@@ -71,23 +71,23 @@ class TestChatMessageRetriever:
 
         assert retriever.message_store == message_store
         assert retriever.run(index="test", last_k=1) == {
-            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]
+            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"is_stored": True})]
         }
 
         assert retriever.run(index="test", last_k=2) == {
             "messages": [
-                ChatMessage.from_user("Hola, como puedo ayudarte?"),
-                ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+                ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"is_stored": True}),
+                ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"is_stored": True}),
             ]
         }
 
         # outliers
         assert retriever.run(index="test", last_k=10) == {
             "messages": [
-                ChatMessage.from_user("Hello, how can I help you?"),
-                ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
-                ChatMessage.from_user("Hola, como puedo ayudarte?"),
-                ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+                ChatMessage.from_user("Hello, how can I help you?", meta={"is_stored": True}),
+                ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?", meta={"is_stored": True}),
+                ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"is_stored": True}),
+                ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"is_stored": True}),
             ]
         }
 
@@ -120,14 +120,14 @@ class TestChatMessageRetriever:
 
         # last_k is 1 here from run parameter, overrides init of 2
         assert retriever.run(index="test", last_k=1) == {
-            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?")]
+            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"is_stored": True})]
         }
 
         # last_k is 2 here from init
         assert retriever.run(index="test") == {
             "messages": [
-                ChatMessage.from_user("Hola, como puedo ayudarte?"),
-                ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+                ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"is_stored": True}),
+                ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"is_stored": True}),
             ]
         }
 
