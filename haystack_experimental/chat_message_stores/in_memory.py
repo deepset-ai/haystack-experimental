@@ -89,7 +89,26 @@ class InMemoryChatMessageStore:
         if not isinstance(messages, Iterable) or any(not isinstance(message, ChatMessage) for message in messages):
             raise ValueError("Please provide a list of ChatMessages.")
 
-        for message in messages:
+        # We assign an ID to messages that don't have one yet. The ID simply corresponds to the index in the array.
+        counter = self.count_messages(index)
+        messages_with_id = []
+        for msg in messages:
+            if not msg.meta.get("chat_message_id"):
+                msg.meta["chat_message_id"] = str(counter)
+                counter += 1
+            messages_with_id.append(msg)
+
+        # TODO We could add a policy param to avoid duplicates based on ID.
+        #      - Overwrite would mean replacing existing messages with the same ID.
+        #      - Skip would mean ignoring messages with IDs that already exist.
+        #      - Does it make sense to have a None option that would allow duplicates?
+        # For default behavior we will skip
+        existing_ids = {msg.meta["chat_message_id"] for msg in self.retrieve_messages(index)}
+        messages_to_write = [
+            message for message in messages_with_id if message.meta["chat_message_id"] not in existing_ids
+        ]
+
+        for message in messages_to_write:
             if index not in _STORAGES:
                 _STORAGES[index] = []
             _STORAGES[index].append(message)
@@ -104,6 +123,12 @@ class InMemoryChatMessageStore:
             The index from which to delete messages.
         """
         _STORAGES.pop(index, None)
+
+    def delete_all_messages(self) -> None:
+        """
+        Deletes all stored chat messages from all indices.
+        """
+        _STORAGES.clear()
 
     def retrieve_messages(self, index: str) -> list[ChatMessage]:
         """

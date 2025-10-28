@@ -68,6 +68,12 @@ class ChatMessageStore(Protocol):
         """
         ...
 
+    def delete_all_messages(self) -> None:
+        """
+        Deletes all stored chat messages from all indices.
+        """
+        ...
+
     def retrieve_messages(self, index: str) -> list[ChatMessage]:
         """
         Retrieves chat messages from the ChatMessageStore.
