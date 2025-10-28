@@ -97,7 +97,5 @@ class ChatMessageWriter:
         if index is None:
             return {"messages_written": 0}
 
-        messages_to_write = [msg for msg in messages if msg.meta.get("is_stored", False) is not True]
-        messages_written = self.message_store.write_messages(index=index, messages=messages_to_write)
-
+        messages_written = self.message_store.write_messages(index=index, messages=messages)
         return {"messages_written": messages_written}
