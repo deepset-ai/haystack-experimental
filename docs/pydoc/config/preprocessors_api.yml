@@ -1,7 +1,11 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.preprocessors.embedding_based_document_splitter"]
+    modules: 
+    [
+      "haystack_experimental.components.preprocessors.embedding_based_document_splitter",
+      "haystack_experimental.components.preprocessors.md_header_level_inferrer",
+    ]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
