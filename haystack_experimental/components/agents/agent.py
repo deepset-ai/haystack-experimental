@@ -5,6 +5,7 @@
 # pylint: disable=wrong-import-order,wrong-import-position,ungrouped-imports
 # ruff: noqa: I001
 
+import inspect
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -285,7 +286,10 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+        if len(inspect.signature(self._runtime_checks).parameters) == 2:
+            self._runtime_checks(break_point, snapshot)
+        else:
+            self._runtime_checks(break_point)  # type: ignore[call-arg]
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
@@ -472,7 +476,10 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+        if len(inspect.signature(self._runtime_checks).parameters) == 2:
+            self._runtime_checks(break_point, snapshot)
+        else:
+            self._runtime_checks(break_point)  # type: ignore[call-arg]
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
