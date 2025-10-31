@@ -5,6 +5,7 @@
 # pylint: disable=wrong-import-order,wrong-import-position,ungrouped-imports
 # ruff: noqa: I001
 
+import inspect
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -285,7 +286,13 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+        # The PR https://github.com/deepset-ai/haystack/pull/9987 removed the unused snapshot parameter from
+        # _runtime_checks. This change will be released in Haystack 2.20.0.
+        # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
+        if len(inspect.signature(self._runtime_checks).parameters) == 2:
+            self._runtime_checks(break_point, snapshot)
+        else:
+            self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
@@ -472,7 +479,13 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+        # The PR https://github.com/deepset-ai/haystack/pull/9987 removed the unused snapshot parameter from
+        # _runtime_checks. This change will be released in Haystack 2.20.0.
+        # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
+        if len(inspect.signature(self._runtime_checks).parameters) == 2:
+            self._runtime_checks(break_point, snapshot)
+        else:
+            self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
