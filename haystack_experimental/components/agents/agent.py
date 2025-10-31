@@ -289,7 +289,7 @@ class Agent(HaystackAgent):
         if len(inspect.signature(self._runtime_checks).parameters) == 2:
             self._runtime_checks(break_point, snapshot)
         else:
-            self._runtime_checks(break_point)  # type: ignore[call-arg]
+            self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
@@ -479,7 +479,7 @@ class Agent(HaystackAgent):
         if len(inspect.signature(self._runtime_checks).parameters) == 2:
             self._runtime_checks(break_point, snapshot)
         else:
-            self._runtime_checks(break_point)  # type: ignore[call-arg]
+            self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
