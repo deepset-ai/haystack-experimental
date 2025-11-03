@@ -23,7 +23,7 @@ processors:
 renderer:
   type: haystack_pydoc_tools.renderers.ReadmeCoreRenderer
   excerpt: Tool-using agents with provider-agnostic chat model support.
-  category_slug: haystack-api
+  category_slug: experiments-api
   title: Agents
   slug: experimental-agents-api
   order: 2
