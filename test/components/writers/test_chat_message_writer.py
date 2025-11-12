@@ -97,10 +97,10 @@ class TestChatMessageWriter:
         """
 
         pipe = Pipeline()
-        pipe.add_component("writer", ChatMessageWriter(store))
         pipe.add_component("prompt_builder", ChatPromptBuilder(
             template=[ChatMessage.from_user(user_prompt)], variables=["query"])
         )
+        pipe.add_component("writer", ChatMessageWriter(store))
         pipe.connect("prompt_builder", "writer")
 
         question = "What is the capital of France?"

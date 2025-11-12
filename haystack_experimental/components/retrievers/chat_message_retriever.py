@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.core.serialization import import_class_by_name
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ChatRole
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
 
@@ -165,7 +165,10 @@ class ChatMessageRetriever:
         if resolved_last_k is not None:
             messages = self._get_last_k_messages(messages, resolved_last_k)
 
-        if new_messages:
-            messages.extend(new_messages)
+        if not new_messages:
+            return {"messages": messages}
 
-        return {"messages": messages}
+        # We maintain the order: system messages first, then stored messages, then new user messages
+        system_messages = [msg for msg in new_messages if msg.is_from(ChatRole.SYSTEM)]
+        other_messages = [msg for msg in new_messages if not msg.is_from(ChatRole.SYSTEM)]
+        return {"messages": system_messages + messages + other_messages}

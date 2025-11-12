@@ -1,8 +1,9 @@
 import pytest
-from typing import Any
+from typing import Any, Optional
 
 from haystack import Pipeline, component
 from haystack.components.builders import ChatPromptBuilder
+from haystack.components.converters import OutputAdapter
 from haystack.dataclasses import ChatMessage, ToolCall
 
 from haystack_experimental.components.retrievers import ChatMessageRetriever
@@ -26,8 +27,15 @@ class MockChatGenerator:
 
 @component
 class MockAgent:
+    def __init__(self, system_prompt: Optional[str] = None):
+        self.system_prompt = system_prompt
+
     @component.output_types(messages=list[ChatMessage], last_message=ChatMessage)
     def run(self, messages: list[ChatMessage]) -> dict[str, Any]:
+        if self.system_prompt:
+            system_msg = ChatMessage.from_system(self.system_prompt)
+            messages = [system_msg, *messages]
+
         assistant_msg = ChatMessage.from_assistant("This is a mock response.")
         return {"messages": [*messages, assistant_msg], "last_message": assistant_msg}
 
@@ -169,7 +177,6 @@ class TestChatMessageRetriever:
     def test_chat_message_retriever_pipeline(self, store):
         index = "user_123_session_456"
         messages_to_write = [
-            ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
             ChatMessage.from_user("What is the capital of France?"),
             ChatMessage.from_assistant("The capital of France is Paris."),
         ]
@@ -177,7 +184,13 @@ class TestChatMessageRetriever:
 
         pipe = Pipeline()
         pipe.add_component(
-            "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
+            "prompt_builder", ChatPromptBuilder(
+                template=[
+                    ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
+                    ChatMessage.from_user("{{ query }}")
+                ],
+                required_variables=["query"]
+            ),
         )
         pipe.add_component("memory_retriever", ChatMessageRetriever(store))
         pipe.connect("prompt_builder.prompt", "memory_retriever.new_messages")
@@ -185,7 +198,12 @@ class TestChatMessageRetriever:
         res = pipe.run(
             data={"prompt_builder": {"query": "What is the capital of Germany?"}, "memory_retriever": {"index": index}}
         )
-        assert res["memory_retriever"]["messages"] == [*messages_to_write, ChatMessage.from_user("What is the capital of Germany?")]
+        assert res["memory_retriever"]["messages"] == [
+            ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
+            ChatMessage.from_user("What is the capital of France?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("The capital of France is Paris.", meta={"chat_message_id": "1"}),
+            ChatMessage.from_user("What is the capital of Germany?")
+        ]
 
     def test_chat_message_retriever_pipeline_serde(self):
         """
@@ -203,15 +221,25 @@ class TestChatMessageRetriever:
     def test_chat_message_store_with_chat_generator(self, store):
         pipe = Pipeline()
         pipe.add_component(
-            "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
+            "prompt_builder",
+            ChatPromptBuilder(
+                template=[ChatMessage.from_system("This is a system prompt."), ChatMessage.from_user("{{ query }}")],
+                required_variables=["query"]
+            ),
         )
         pipe.add_component("message_retriever", ChatMessageRetriever(store))
         pipe.add_component("llm", MockChatGenerator())
+        pipe.add_component(
+            "message_joiner",
+            OutputAdapter(template="{{ prompt + replies }}", output_type=list[ChatMessage], unsafe=True)
+        )
         pipe.add_component("message_writer", ChatMessageWriter(store))
 
         pipe.connect("prompt_builder.prompt", "message_retriever.new_messages")
         pipe.connect("message_retriever.messages", "llm.messages")
-        pipe.connect("llm.replies", "message_writer.messages")
+        pipe.connect("prompt_builder.prompt", "message_joiner.prompt")
+        pipe.connect("llm.replies", "message_joiner.replies")
+        pipe.connect("message_joiner", "message_writer.messages")
 
         index = "user_123_session_456"
         result = pipe.run(
@@ -220,12 +248,44 @@ class TestChatMessageRetriever:
                 "message_retriever": {"index": index},
                 "message_writer": {"index": index}
             },
-            include_outputs_from={"llm"}
+            include_outputs_from={"message_retriever", "llm"}
         )
+        assert result["message_retriever"]["messages"] == [
+            ChatMessage.from_system("This is a system prompt."),
+            ChatMessage.from_user("What is the capital of Germany?"),
+        ]
         assert result["llm"]["replies"] == [ChatMessage.from_assistant("This is a mock response.")]
-        # TODO Should improve example so the user message from prompt builder is also stored.
+        # We don't expect the system prompt to be stored b/c InMemoryChatMessageStore defaults to
+        # skip_system_messages=True
         assert store.retrieve_messages(index) == [
-            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "0"})
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"})
+        ]
+
+        # Second run to verify that retrieval works as expected
+        result = pipe.run(
+            data={
+                "prompt_builder": {"query": "What is the capital of Italy?"},
+                "message_retriever": {"index": index},
+                "message_writer": {"index": index}
+            },
+            include_outputs_from={"message_retriever", "llm"}
+        )
+        # Check that the retrieved messages include all previous messages and that the new user message is appended
+        # and the system prompt is still at the beginning.
+        assert result["message_retriever"]["messages"] == [
+            ChatMessage.from_system("This is a system prompt."),
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
+            # The new user message doesn't have a chat_message_id yet. It's assigned when written to the store.
+            ChatMessage.from_user("What is the capital of Italy?"),
+        ]
+        assert result["llm"]["replies"] == [ChatMessage.from_assistant("This is a mock response.")]
+        assert store.retrieve_messages(index) == [
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
+            ChatMessage.from_user("What is the capital of Italy?", meta={"chat_message_id": "2"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "3"}),
         ]
 
     def test_chat_message_store_with_agent(self, store):
@@ -233,10 +293,11 @@ class TestChatMessageRetriever:
 
         pipe = Pipeline()
         pipe.add_component(
-            "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
+            "prompt_builder",
+            ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
         )
         pipe.add_component("message_retriever", ChatMessageRetriever(store))
-        pipe.add_component("agent", MockAgent())
+        pipe.add_component("agent", MockAgent(system_prompt="This is a system prompt."))
         pipe.add_component("message_writer", ChatMessageWriter(store))
 
         pipe.connect("prompt_builder.prompt", "message_retriever.new_messages")
@@ -252,8 +313,38 @@ class TestChatMessageRetriever:
             },
             include_outputs_from={"agent"}
         )
-        assert result["agent"]["last_message"] == ChatMessage.from_assistant("This is a mock response.")
-        assert store.count_messages(index) == 2
+        assert result["agent"]["messages"] == [
+            ChatMessage.from_system("This is a system prompt."),
+            ChatMessage.from_user("What is the capital of Germany?"),
+            ChatMessage.from_assistant("This is a mock response."),
+        ]
+        assert store.retrieve_messages(index) == [
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
+        ]
+
+        # Second run
+        result = pipe.run(
+            data={
+                "prompt_builder": {"query": "What is the capital of Italy?"},
+                "message_retriever": {"index": index},
+                "message_writer": {"index": index}
+            },
+            include_outputs_from={"agent"}
+        )
+        assert result["agent"]["messages"] == [
+            ChatMessage.from_system("This is a system prompt."),
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
+            ChatMessage.from_user("What is the capital of Italy?"),
+            ChatMessage.from_assistant("This is a mock response."),
+        ]
+        assert store.retrieve_messages(index) == [
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
+            ChatMessage.from_user("What is the capital of Italy?", meta={"chat_message_id": "2"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "3"}),
+        ]
 
 
 class TestChatMessageRetrieveLastK:

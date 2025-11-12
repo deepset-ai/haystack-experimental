@@ -5,7 +5,7 @@
 from typing import Any, Iterable
 
 from haystack import default_from_dict, default_to_dict
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ChatRole
 
 # Global storage for all InMemoryDocumentStore instances, indexed by the index name.
 _STORAGES: dict[str, list[ChatMessage]] = {}
@@ -40,6 +40,13 @@ class InMemoryChatMessageStore:
     print(retrieved_messages)
     ```
     """
+    def __init__(self, skip_system_messages: bool = True) -> None:
+        """
+        Create an InMemoryChatMessageStore.
+
+        :param skip_system_messages: Whether to skip storing system messages. Defaults to True.
+        """
+        self.skip_system_messages = skip_system_messages
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -93,16 +100,15 @@ class InMemoryChatMessageStore:
         counter = self.count_messages(index)
         messages_with_id = []
         for msg in messages:
+            # Skip system messages if configured to do so
+            if self.skip_system_messages and msg.is_from(ChatRole.SYSTEM):
+                continue
             if not msg.meta.get("chat_message_id"):
                 msg.meta["chat_message_id"] = str(counter)
                 counter += 1
             messages_with_id.append(msg)
 
-        # TODO We could add a policy param to avoid duplicates based on ID.
-        #      - Overwrite would mean replacing existing messages with the same ID.
-        #      - Skip would mean ignoring messages with IDs that already exist.
-        #      - Does it make sense to have a None option that would allow duplicates?
-        # For default behavior we will skip
+        # For now, we always skip messages that are already stored based on their ID.
         existing_ids = {msg.meta["chat_message_id"] for msg in self.retrieve_messages(index)}
         messages_to_write = [
             message for message in messages_with_id if message.meta["chat_message_id"] not in existing_ids
