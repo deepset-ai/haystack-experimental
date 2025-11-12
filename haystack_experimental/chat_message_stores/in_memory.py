@@ -40,6 +40,7 @@ class InMemoryChatMessageStore:
     print(retrieved_messages)
     ```
     """
+
     def __init__(self, skip_system_messages: bool = True) -> None:
         """
         Create an InMemoryChatMessageStore.
