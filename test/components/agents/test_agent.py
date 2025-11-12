@@ -160,6 +160,8 @@ class TestAgent:
                         "http_client_kwargs": None,
                     },
                 },
+                "chat_message_store": None,
+                "chat_message_store_last_k": 10,
                 "tools": [
                     {
                         "type": "haystack.tools.tool.Tool",
