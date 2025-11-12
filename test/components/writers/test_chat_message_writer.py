@@ -19,7 +19,7 @@ class TestChatMessageWriter:
         message_store = InMemoryChatMessageStore()
         writer = ChatMessageWriter(message_store)
 
-        assert writer.message_store == message_store
+        assert writer.chat_message_store == message_store
         assert writer.run(index="test", messages=messages) == {"messages_written": 2}
 
         # Cleanup
@@ -36,7 +36,7 @@ class TestChatMessageWriter:
         assert data == {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
-                "message_store": {
+                "chat_message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 }
@@ -49,7 +49,7 @@ class TestChatMessageWriter:
         assert data == {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
-                "message_store": {
+                "chat_message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 }
@@ -66,14 +66,14 @@ class TestChatMessageWriter:
         data = {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
-                "message_store": {
+                "chat_message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 }
             },
         }
         writer = ChatMessageWriter.from_dict(data)
-        assert writer.message_store.to_dict() == {
+        assert writer.chat_message_store.to_dict() == {
             "init_parameters": {},
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
         }
@@ -83,7 +83,7 @@ class TestChatMessageWriter:
         assert results["messages_written"] == 1
 
         # Cleanup
-        writer.message_store.delete_messages(index="test")
+        writer.chat_message_store.delete_messages(index="test")
 
     def test_chat_message_writer_pipeline(self):
         """

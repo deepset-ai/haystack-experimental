@@ -39,16 +39,16 @@ class ChatMessageRetriever:
     ```
     """
 
-    def __init__(self, message_store: ChatMessageStore, last_k: int = 10):
+    def __init__(self, chat_message_store: ChatMessageStore, last_k: int = 10):
         """
         Create the ChatMessageRetriever component.
 
-        :param message_store:
+        :param chat_message_store:
             An instance of a ChatMessageStore.
         :param last_k:
             The number of last messages to retrieve. Defaults to 10 messages if not specified.
         """
-        self.message_store = message_store
+        self.chat_message_store = chat_message_store
         if last_k <= 0:
             raise ValueError(f"last_k must be greater than 0. Currently, the last_k is {last_k}")
         self.last_k = last_k
@@ -60,7 +60,7 @@ class ChatMessageRetriever:
         :returns:
             Dictionary with serialized data.
         """
-        return default_to_dict(self, message_store=self.message_store.to_dict(), last_k=self.last_k)
+        return default_to_dict(self, chat_message_store=self.chat_message_store.to_dict(), last_k=self.last_k)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ChatMessageRetriever":
@@ -73,18 +73,20 @@ class ChatMessageRetriever:
             The deserialized component.
         """
         init_params = data.get("init_parameters", {})
-        if "message_store" not in init_params:
-            raise DeserializationError("Missing 'message_store' in serialization data")
-        if "type" not in init_params["message_store"]:
+        if "chat_message_store" not in init_params:
+            raise DeserializationError("Missing 'chat_message_store' in serialization data")
+        if "type" not in init_params["chat_message_store"]:
             raise DeserializationError("Missing 'type' in message store's serialization data")
 
-        message_store_data = init_params["message_store"]
+        message_store_data = init_params["chat_message_store"]
         try:
             message_store_class = import_class_by_name(message_store_data["type"])
         except ImportError as e:
             raise DeserializationError(f"Class '{message_store_data['type']}' not correctly imported") from e
+        if not hasattr(message_store_class, "from_dict"):
+            raise DeserializationError(f"{message_store_class} does not have from_dict method implemented.")
+        init_params["chat_message_store"] = message_store_class.from_dict(message_store_data)
 
-        data["init_parameters"]["message_store"] = default_from_dict(message_store_class, message_store_data)
         return default_from_dict(cls, data)
 
     def _get_last_k_messages(self, messages: list[ChatMessage], last_k: int) -> list[ChatMessage]:
@@ -160,7 +162,7 @@ class ChatMessageRetriever:
 
         resolved_last_k = last_k or self.last_k
 
-        messages = self.message_store.retrieve_messages(index)
+        messages = self.chat_message_store.retrieve_messages(index)
 
         if resolved_last_k is not None:
             messages = self._get_last_k_messages(messages, resolved_last_k)

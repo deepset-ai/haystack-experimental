@@ -46,7 +46,7 @@ class TestChatMessageRetriever:
         Test that the ChatMessageRetriever component can be initialized with a valid message store.
         """
         retriever = ChatMessageRetriever(store)
-        assert retriever.message_store == store
+        assert retriever.chat_message_store == store
         assert retriever.run(index="test") == {"messages": []}
 
     def test_retrieve_messages(self, store):
@@ -59,7 +59,7 @@ class TestChatMessageRetriever:
         ]
         store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(store)
-        assert retriever.message_store == store
+        assert retriever.chat_message_store == store
         assert retriever.run(index="test") == {"messages": messages}
 
     def test_retrieve_messages_last_k(self, store):
@@ -76,7 +76,7 @@ class TestChatMessageRetriever:
         store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(store)
 
-        assert retriever.message_store == store
+        assert retriever.chat_message_store == store
         assert retriever.run(index="test", last_k=1) == {
             "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"})]
         }
@@ -119,7 +119,7 @@ class TestChatMessageRetriever:
         store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(store, last_k=2)
 
-        assert retriever.message_store == store
+        assert retriever.chat_message_store == store
 
         # last_k is 1 here from run parameter, overrides init of 2
         assert retriever.run(index="test", last_k=1) == {
@@ -145,7 +145,7 @@ class TestChatMessageRetriever:
         assert data == {
             "type": "haystack_experimental.components.retrievers.chat_message_retriever.ChatMessageRetriever",
             "init_parameters": {
-                "message_store": {
+                "chat_message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
                 },
@@ -160,7 +160,7 @@ class TestChatMessageRetriever:
         data = {
             "type": "haystack_experimental.components.retrievers.chat_message_retriever.ChatMessageRetriever",
             "init_parameters": {
-                "message_store": {
+                "chat_message_store": {
                     "init_parameters": {},
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
                 },
@@ -168,7 +168,7 @@ class TestChatMessageRetriever:
             },
         }
         retriever = ChatMessageRetriever.from_dict(data)
-        assert retriever.message_store.to_dict() == {
+        assert retriever.chat_message_store.to_dict() == {
             "init_parameters": {},
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
