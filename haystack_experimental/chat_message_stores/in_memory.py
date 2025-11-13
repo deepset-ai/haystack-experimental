@@ -2,10 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage, ChatRole
+
+from haystack_experimental.chat_message_stores.utils import get_last_k_messages
 
 # Global storage for all InMemoryDocumentStore instances, indexed by the index name.
 _STORAGES: dict[str, list[ChatMessage]] = {}
@@ -41,13 +43,17 @@ class InMemoryChatMessageStore:
     ```
     """
 
-    def __init__(self, skip_system_messages: bool = True) -> None:
+    def __init__(self, skip_system_messages: bool = True, last_k: Optional[int] = 10) -> None:
         """
         Create an InMemoryChatMessageStore.
 
-        :param skip_system_messages: Whether to skip storing system messages. Defaults to True.
+        :param skip_system_messages:
+            Whether to skip storing system messages. Defaults to True.
+        :param last_k:
+            The number of last messages to retrieve. Defaults to 10 messages if not specified.
         """
         self.skip_system_messages = skip_system_messages
+        self.last_k = last_k
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -56,7 +62,7 @@ class InMemoryChatMessageStore:
         :returns:
             Dictionary with serialized data.
         """
-        return default_to_dict(self)
+        return default_to_dict(self, skip_system_messages=self.skip_system_messages, last_k=self.last_k)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "InMemoryChatMessageStore":
@@ -122,6 +128,30 @@ class InMemoryChatMessageStore:
 
         return len(messages)
 
+    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+        """
+        Retrieves all stored chat messages.
+
+        :param index:
+            The index from which to retrieve messages.
+        :param last_k:
+            The number of last messages to retrieve. If unspecified, the last_k parameter passed
+            to the constructor will be used.
+
+        :returns: A list of chat messages.
+        """
+
+        if last_k is not None and last_k <= 0:
+            raise ValueError("last_k must be greater than 0")
+
+        messages = _STORAGES.get(index, [])
+
+        resolved_last_k = last_k or self.last_k
+        if resolved_last_k is not None:
+            messages = get_last_k_messages(messages=messages, last_k=resolved_last_k)
+
+        return messages
+
     def delete_messages(self, index: str) -> None:
         """
         Deletes all stored chat messages.
@@ -136,17 +166,3 @@ class InMemoryChatMessageStore:
         Deletes all stored chat messages from all indices.
         """
         _STORAGES.clear()
-
-    def retrieve_messages(self, index: str) -> list[ChatMessage]:
-        """
-        Retrieves all stored chat messages.
-
-        :param index:
-            The index from which to retrieve messages.
-
-        :returns: A list of chat messages.
-        """
-
-        messages = _STORAGES.get(index, [])
-
-        return messages

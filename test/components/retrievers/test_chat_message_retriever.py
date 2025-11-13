@@ -146,7 +146,10 @@ class TestChatMessageRetriever:
             "type": "haystack_experimental.components.retrievers.chat_message_retriever.ChatMessageRetriever",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {},
+                    "init_parameters": {
+                        "skip_system_messages": True,
+                        "last_k": 10
+                    },
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
                 },
                 "last_k": 4,
@@ -161,7 +164,10 @@ class TestChatMessageRetriever:
             "type": "haystack_experimental.components.retrievers.chat_message_retriever.ChatMessageRetriever",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {},
+                    "init_parameters": {
+                        "skip_system_messages": True,
+                        "last_k": 10
+                    },
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
                 },
                 "last_k": 4,
@@ -169,7 +175,10 @@ class TestChatMessageRetriever:
         }
         retriever = ChatMessageRetriever.from_dict(data)
         assert retriever.chat_message_store.to_dict() == {
-            "init_parameters": {},
+            "init_parameters": {
+                "skip_system_messages": True,
+                "last_k": 10
+            },
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
         assert retriever.last_k == 4
@@ -345,59 +354,3 @@ class TestChatMessageRetriever:
             ChatMessage.from_user("What is the capital of Italy?", meta={"chat_message_id": "2"}),
             ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "3"}),
         ]
-
-
-class TestChatMessageRetrieveLastK:
-    @pytest.mark.parametrize("last_k, start_idx", [(1, 4), (2, 2), (3, 1), (4, 0), (5, 0)])
-    def test_last_k_agent_history(self, last_k, start_idx):
-        tool_call = ToolCall(tool_name="get_weather", arguments={"location": "Paris"})
-        # System, User, ToolCall, ToolOutput, Assistant
-        messages = [
-            ChatMessage.from_system("You are a helpful assistant."),
-            ChatMessage.from_user("What is the weather in Paris?"),
-            ChatMessage.from_assistant(tool_calls=[tool_call]),
-            ChatMessage.from_tool(tool_result="It's sunny in Paris.", origin=tool_call),
-            ChatMessage.from_assistant("The weather in Paris is sunny."),
-        ]
-        retriever = ChatMessageRetriever(InMemoryChatMessageStore())
-
-        last_k_messages = retriever._get_last_k_messages(messages, last_k)
-
-        assert last_k_messages == messages[start_idx:]
-
-    @pytest.mark.parametrize("last_k, start_idx", [(1, 5), (2, 2), (3, 1), (4, 0), (5, 0), (6, 0)])
-    def test_last_k_agent_history_with_two_tool_calls(self, last_k, start_idx):
-        tool_call_1 = ToolCall(tool_name="get_weather", arguments={"location": "Paris"})
-        tool_call_2 = ToolCall(tool_name="get_time", arguments={"location": "Paris"})
-        # System, User, 2 ToolCalls, ToolOutput, ToolOutput, Assistant
-        messages = [
-            ChatMessage.from_system("You are a helpful assistant."),
-            ChatMessage.from_user("What is the weather in Paris?"),
-            ChatMessage.from_assistant(tool_calls=[tool_call_1, tool_call_2]),
-            ChatMessage.from_tool(tool_result="It's sunny in Paris.", origin=tool_call_1),
-            ChatMessage.from_tool(tool_result="It's 3 PM in Paris.", origin=tool_call_2),
-            ChatMessage.from_assistant("The weather in Paris is sunny and it's 3 PM there."),
-        ]
-        retriever = ChatMessageRetriever(InMemoryChatMessageStore())
-
-        last_k_messages = retriever._get_last_k_messages(messages, last_k)
-        assert last_k_messages == messages[start_idx:]
-
-    @pytest.mark.parametrize("last_k,start_idx", [(1, 5), (2, 2), (3, 1), (4, 0), (5, 0), (6, 0)])
-    def test_last_k_agent_history_with_intervening_user_message(self, last_k, start_idx):
-        """Relevant for simulating a human-in-the-loop scenario where the user modifies parameters"""
-        tool_call = ToolCall(tool_name="get_weather", arguments={"location": "Paris"}, id="tc_1")
-        modified_tool_call = ToolCall(tool_name="get_weather", arguments={"location": "London"}, id="tc_1")
-        # System, User, ToolCall, User, ToolOutput, Assistant
-        messages = [
-            ChatMessage.from_system("You are a helpful assistant."),
-            ChatMessage.from_user("What is the weather in Paris?"),
-            ChatMessage.from_assistant(tool_calls=[tool_call]),
-            ChatMessage.from_user("The user modified the tool parameters to {'location': 'London'}."),
-            ChatMessage.from_tool(tool_result="It's sunny in London.", origin=modified_tool_call),
-            ChatMessage.from_assistant("The weather in London is sunny."),
-        ]
-        retriever = ChatMessageRetriever(InMemoryChatMessageStore())
-
-        last_k_messages = retriever._get_last_k_messages(messages, last_k=last_k)
-        assert last_k_messages == messages[start_idx:]

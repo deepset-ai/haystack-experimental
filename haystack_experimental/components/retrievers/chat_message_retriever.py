@@ -9,6 +9,7 @@ from haystack.core.serialization import import_class_by_name
 from haystack.dataclasses import ChatMessage, ChatRole
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
+from haystack_experimental.chat_message_stores.utils import get_last_k_messages
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class ChatMessageRetriever:
     ```
     """
 
-    def __init__(self, chat_message_store: ChatMessageStore, last_k: int = 10):
+    def __init__(self, chat_message_store: ChatMessageStore, last_k: Optional[int] = 10):
         """
         Create the ChatMessageRetriever component.
 
@@ -49,8 +50,8 @@ class ChatMessageRetriever:
             The number of last messages to retrieve. Defaults to 10 messages if not specified.
         """
         self.chat_message_store = chat_message_store
-        if last_k <= 0:
-            raise ValueError(f"last_k must be greater than 0. Currently, the last_k is {last_k}")
+        if last_k and last_k <= 0:
+            raise ValueError(f"last_k must be greater than 0. Currently, last_k is {last_k}")
         self.last_k = last_k
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,46 +90,6 @@ class ChatMessageRetriever:
 
         return default_from_dict(cls, data)
 
-    def _get_last_k_messages(self, messages: list[ChatMessage], last_k: int) -> list[ChatMessage]:
-        """
-        Get the last_k messages from the list of messages while ensuring the chat history remains valid.
-
-        By valid we mean that if there are ToolCalls in the chat history, we want to ensure that we do not slice
-        in a way that a ToolCall is present without its corresponding ToolOutput.
-
-        We handle this by treating ToolCalls and its corresponding ToolOutput(s) as a single unit when slicing the chat
-        history.
-
-        :param messages:
-            The list of chat messages.
-        :param last_k:
-            The number of last messages to retrieve.
-        :returns:
-            The sliced list of chat messages.
-        """
-        # If ToolCalls are present we try to keep pairs of ToolCalls + ToolOutputs together to ensure a valid
-        # chat history. We only slice at indices where the number of ToolCalls matches the number of ToolOutputs.
-        has_tool_calls = any(msg.tool_call is not None for msg in messages)
-        if has_tool_calls:
-            valid_start_indices = []
-            for start_idx in range(len(messages)):
-                sliced_messages = messages[start_idx:]
-                num_tool_calls_in_messages = sum(len(msg.tool_calls) for msg in sliced_messages)
-                num_tool_outputs_in_messages = sum(len(msg.tool_call_results) for msg in sliced_messages)
-                if num_tool_calls_in_messages == num_tool_outputs_in_messages:
-                    valid_start_indices.append(start_idx)
-
-            # If no valid start index is found we return the entire history
-            # This should only occur if the chat history consists of only tool call messages
-            if not valid_start_indices:
-                valid_start_indices = [0]
-
-            new_start_index = valid_start_indices[-last_k] if len(valid_start_indices) >= last_k else 0
-            messages = messages[new_start_index:]
-        else:
-            messages = messages[-last_k:]
-        return messages
-
     @component.output_types(messages=list[ChatMessage])
     def run(
         self, index: str, *, last_k: Optional[int] = None, new_messages: Optional[list[ChatMessage]] = None
@@ -153,19 +114,12 @@ class ChatMessageRetriever:
         :raises ValueError: If last_k is not None and is less than 1
         """
         if index is None:
-            if new_messages:
-                return {"messages": new_messages}
-            return {"messages": []}
+            return {"messages": new_messages or []}
 
         if last_k is not None and last_k <= 0:
             raise ValueError("last_k must be greater than 0")
 
-        resolved_last_k = last_k or self.last_k
-
-        messages = self.chat_message_store.retrieve_messages(index)
-
-        if resolved_last_k is not None:
-            messages = self._get_last_k_messages(messages, resolved_last_k)
+        messages = self.chat_message_store.retrieve_messages(index=index, last_k=last_k or self.last_k)
 
         if not new_messages:
             return {"messages": messages}

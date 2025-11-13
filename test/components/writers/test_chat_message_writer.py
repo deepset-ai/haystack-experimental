@@ -37,7 +37,10 @@ class TestChatMessageWriter:
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {},
+                    "init_parameters": {
+                        "skip_system_messages": True,
+                        "last_k": 10
+                    },
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 }
             },
@@ -50,7 +53,10 @@ class TestChatMessageWriter:
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {},
+                    "init_parameters": {
+                        "skip_system_messages": True,
+                        "last_k": 10
+                    },
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 }
             },
@@ -67,14 +73,20 @@ class TestChatMessageWriter:
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {},
+                    "init_parameters": {
+                        "skip_system_messages": True,
+                        "last_k": 10
+                    },
                     "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 }
             },
         }
         writer = ChatMessageWriter.from_dict(data)
         assert writer.chat_message_store.to_dict() == {
-            "init_parameters": {},
+            "init_parameters": {
+                "skip_system_messages": True,
+                "last_k": 10
+            },
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
         }
 

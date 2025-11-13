@@ -29,7 +29,10 @@ class TestInMemoryChatMessageStore:
         """
         store = InMemoryChatMessageStore()
         assert store.to_dict() == {
-            "init_parameters": {},
+            "init_parameters": {
+                "skip_system_messages": True,
+                "last_k": 10
+            },
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
 
@@ -38,7 +41,10 @@ class TestInMemoryChatMessageStore:
         Test that the InMemoryChatMessageStore can be deserialized from a dictionary.
         """
         data = {
-            "init_parameters": {},
+            "init_parameters": {
+                "skip_system_messages": True,
+                "last_k": 10
+            },
             "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
         }
         store = InMemoryChatMessageStore.from_dict(data)
