@@ -211,7 +211,7 @@ class Agent(HaystackAgent):
         if self._chat_message_retriever and chat_message_store_index:
             messages = self._chat_message_retriever.run(
                 index=chat_message_store_index, last_k=chat_message_store_last_k, current_messages=messages
-            )
+            )["messages"]
 
         if all(m.is_from(ChatRole.SYSTEM) for m in messages):
             logger.warning("All messages provided to the Agent component are system messages. This is not recommended.")
@@ -280,7 +280,7 @@ class Agent(HaystackAgent):
             tool_execution_decisions=snapshot.tool_execution_decisions,
         )
 
-    def run(  # noqa: PLR0915
+    def run(  # type: ignore[override]  # noqa: PLR0915
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -483,7 +483,7 @@ class Agent(HaystackAgent):
 
         return result
 
-    async def run_async(
+    async def run_async(  # type: ignore[override]
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
