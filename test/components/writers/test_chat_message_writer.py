@@ -1,3 +1,4 @@
+import pytest
 from haystack import Pipeline
 from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
@@ -6,8 +7,15 @@ from haystack_experimental.components.writers import ChatMessageWriter
 from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
 
 
+@pytest.fixture
+def store():
+    msg_store = InMemoryChatMessageStore()
+    yield msg_store
+    msg_store.delete_all_messages()
+
+
 class TestChatMessageWriter:
-    def test_init(self):
+    def test_init(self, store):
         """
         Test that the ChatMessageWriter component can be initialized with a valid message store.
         """
@@ -15,23 +23,15 @@ class TestChatMessageWriter:
             ChatMessage.from_user("Hello, how can I help you?"),
             ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
         ]
-
-        message_store = InMemoryChatMessageStore()
-        writer = ChatMessageWriter(message_store)
-
-        assert writer.chat_message_store == message_store
+        writer = ChatMessageWriter(store)
+        assert writer.chat_message_store == store
         assert writer.run(index="test", messages=messages) == {"messages_written": 2}
 
-        # Cleanup
-        message_store.delete_messages(index="test")
-
-    def test_to_dict(self):
+    def test_to_dict(self, store):
         """
         Test that the ChatMessageWriter component can be serialized to a dictionary.
         """
-        message_store = InMemoryChatMessageStore()
-        writer = ChatMessageWriter(message_store)
-
+        writer = ChatMessageWriter(store)
         data = writer.to_dict()
         assert data == {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
@@ -61,9 +61,6 @@ class TestChatMessageWriter:
                 }
             },
         }
-
-        # Cleanup
-        message_store.delete_messages(index="test")
 
     def test_from_dict(self):
         """
@@ -97,11 +94,10 @@ class TestChatMessageWriter:
         # Cleanup
         writer.chat_message_store.delete_messages(index="test")
 
-    def test_chat_message_writer_pipeline(self):
+    def test_chat_message_writer_pipeline(self, store):
         """
         Test that the ChatMessageWriter can be used in a pipeline and that it works as expected.
         """
-        store = InMemoryChatMessageStore()
         user_prompt = """
         Given the following information, answer the question.
         Question: {{ query }}
@@ -128,15 +124,13 @@ class TestChatMessageWriter:
         Answer:
         """
         )
-        # Cleanup
-        store.delete_messages(index="test")
 
-    def test_chat_message_writer_pipeline_serde(self):
+    def test_chat_message_writer_pipeline_serde(self, store):
         """
         Test that the ChatMessageWriter can be serialized and deserialized.
         """
         pipe = Pipeline()
-        pipe.add_component("writer", ChatMessageWriter(InMemoryChatMessageStore()))
+        pipe.add_component("writer", ChatMessageWriter(store))
         pipe.add_component(
             "prompt_builder", ChatPromptBuilder(template=[ChatMessage.from_user("no template")], variables=["query"])
         )

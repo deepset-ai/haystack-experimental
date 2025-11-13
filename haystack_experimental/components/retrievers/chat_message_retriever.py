@@ -9,7 +9,6 @@ from haystack.core.serialization import import_class_by_name
 from haystack.dataclasses import ChatMessage, ChatRole
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
-from haystack_experimental.chat_message_stores.utils import get_last_k_messages
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +91,7 @@ class ChatMessageRetriever:
 
     @component.output_types(messages=list[ChatMessage])
     def run(
-        self, index: str, *, last_k: Optional[int] = None, new_messages: Optional[list[ChatMessage]] = None
+        self, index: str, *, last_k: Optional[int] = None, current_messages: Optional[list[ChatMessage]] = None
     ) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
@@ -104,27 +103,31 @@ class ChatMessageRetriever:
         :param last_k: The number of last messages to retrieve. This parameter takes precedence over the last_k
             parameter passed to the ChatMessageRetriever constructor. If unspecified, the last_k parameter passed
             to the constructor will be used.
-        :param new_messages:
-            A list of new chat messages to append to the retrieved messages. This is useful for retrieving the current
-            chat history and appending new messages (e.g. user messages) so the output can be directly used as input
-            to a ChatGenerator or an Agent.
+        :param current_messages:
+            A list of incoming chat messages to combine with the retrieved messages. System messages from this list
+            are prepended before the retrieved history, while all other messages (e.g., user messages) are appended
+            after. This is useful for including new conversational context alongside stored history so the output
+            can be directly used as input to a ChatGenerator or an Agent. If not provided, only the stored messages
+            will be returned.
 
         :returns:
-            - `messages` - The retrieved chat messages and optionally the new messages appended if provided.
-        :raises ValueError: If last_k is not None and is less than 1
+            A dictionary with the following key:
+            - `messages` - The retrieved chat messages combined with any provided current messages.
+        :raises ValueError: If last_k is not None and is less than 0.
         """
-        if index is None:
-            return {"messages": new_messages or []}
+        if last_k is not None and last_k < 0:
+            raise ValueError("last_k must be 0 or greater")
 
-        if last_k is not None and last_k <= 0:
-            raise ValueError("last_k must be greater than 0")
+        resolved_last_k = last_k or self.last_k
+        if resolved_last_k == 0 or index is None:
+            return {"messages": current_messages or []}
 
-        messages = self.chat_message_store.retrieve_messages(index=index, last_k=last_k or self.last_k)
+        retrieved_messages = self.chat_message_store.retrieve_messages(index=index, last_k=last_k or self.last_k)
 
-        if not new_messages:
-            return {"messages": messages}
+        if not current_messages:
+            return {"messages": retrieved_messages}
 
         # We maintain the order: system messages first, then stored messages, then new user messages
-        system_messages = [msg for msg in new_messages if msg.is_from(ChatRole.SYSTEM)]
-        other_messages = [msg for msg in new_messages if not msg.is_from(ChatRole.SYSTEM)]
-        return {"messages": system_messages + messages + other_messages}
+        system_messages = [msg for msg in current_messages if msg.is_from(ChatRole.SYSTEM)]
+        other_messages = [msg for msg in current_messages if not msg.is_from(ChatRole.SYSTEM)]
+        return {"messages": system_messages + retrieved_messages + other_messages}

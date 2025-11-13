@@ -139,14 +139,18 @@ class InMemoryChatMessageStore:
             to the constructor will be used.
 
         :returns: A list of chat messages.
+        :raises ValueError:
+            If last_k is not None and is less than 0.
         """
 
-        if last_k is not None and last_k <= 0:
-            raise ValueError("last_k must be greater than 0")
-
-        messages = _STORAGES.get(index, [])
+        if last_k is not None and last_k < 0:
+            raise ValueError("last_k must be 0 or greater")
 
         resolved_last_k = last_k or self.last_k
+        if resolved_last_k == 0:
+            return []
+
+        messages = _STORAGES.get(index, [])
         if resolved_last_k is not None:
             messages = get_last_k_messages(messages=messages, last_k=resolved_last_k)
 

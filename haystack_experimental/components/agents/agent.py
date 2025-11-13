@@ -38,7 +38,7 @@ from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import default_from_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage, ChatRole
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
-from haystack.dataclasses.streaming_chunk import StreamingCallbackT
+from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
@@ -210,7 +210,7 @@ class Agent(HaystackAgent):
         # NOTE: difference with parent method to add chat message retrieval
         if self._chat_message_retriever and chat_message_store_index:
             messages = self._chat_message_retriever.run(
-                index=chat_message_store_index, last_k=chat_message_store_last_k, new_messages=messages
+                index=chat_message_store_index, last_k=chat_message_store_last_k, current_messages=messages
             )
 
         if all(m.is_from(ChatRole.SYSTEM) for m in messages):

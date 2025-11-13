@@ -99,9 +99,6 @@ class TestChatMessageRetriever:
         }
 
         with pytest.raises(ValueError):
-            retriever.run(index="test", last_k=0)
-
-        with pytest.raises(ValueError):
             retriever.run(index="test", last_k=-1)
 
     def test_retrieve_messages_last_k_init(self, store):
@@ -202,7 +199,7 @@ class TestChatMessageRetriever:
             ),
         )
         pipe.add_component("memory_retriever", ChatMessageRetriever(store))
-        pipe.connect("prompt_builder.prompt", "memory_retriever.new_messages")
+        pipe.connect("prompt_builder.prompt", "memory_retriever.current_messages")
 
         res = pipe.run(
             data={"prompt_builder": {"query": "What is the capital of Germany?"}, "memory_retriever": {"index": index}}
@@ -244,7 +241,7 @@ class TestChatMessageRetriever:
         )
         pipe.add_component("message_writer", ChatMessageWriter(store))
 
-        pipe.connect("prompt_builder.prompt", "message_retriever.new_messages")
+        pipe.connect("prompt_builder.prompt", "message_retriever.current_messages")
         pipe.connect("message_retriever.messages", "llm.messages")
         pipe.connect("prompt_builder.prompt", "message_joiner.prompt")
         pipe.connect("llm.replies", "message_joiner.replies")
@@ -309,7 +306,7 @@ class TestChatMessageRetriever:
         pipe.add_component("agent", MockAgent(system_prompt="This is a system prompt."))
         pipe.add_component("message_writer", ChatMessageWriter(store))
 
-        pipe.connect("prompt_builder.prompt", "message_retriever.new_messages")
+        pipe.connect("prompt_builder.prompt", "message_retriever.current_messages")
         pipe.connect("message_retriever.messages", "agent.messages")
         pipe.connect("agent.messages", "message_writer.messages")
 
