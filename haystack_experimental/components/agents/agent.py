@@ -135,7 +135,6 @@ class Agent(HaystackAgent):
         confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
         tool_invoker_kwargs: Optional[dict[str, Any]] = None,
         chat_message_store: Optional[ChatMessageStore] = None,
-        chat_message_store_last_k: Optional[int] = 10,
     ) -> None:
         """
         Initialize the agent component.
@@ -170,9 +169,8 @@ class Agent(HaystackAgent):
         )
         self._confirmation_strategies = confirmation_strategies or {}
         self._chat_message_store = chat_message_store
-        self._chat_message_last_k = chat_message_store_last_k
         self._chat_message_retriever = (
-            ChatMessageRetriever(chat_message_store=chat_message_store, last_k=chat_message_store_last_k)
+            ChatMessageRetriever(chat_message_store=chat_message_store)
             if chat_message_store
             else None
         )
@@ -188,8 +186,7 @@ class Agent(HaystackAgent):
         *,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        chat_message_store_index: Optional[str] = None,
-        chat_message_store_last_k: Optional[int] = None,
+        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -208,9 +205,11 @@ class Agent(HaystackAgent):
             messages = [ChatMessage.from_system(system_prompt)] + messages
 
         # NOTE: difference with parent method to add chat message retrieval
-        if self._chat_message_retriever and chat_message_store_index:
+        if self._chat_message_retriever and chat_message_store_kwargs and chat_message_store_kwargs.get("index"):
             messages = self._chat_message_retriever.run(
-                index=chat_message_store_index, last_k=chat_message_store_last_k, current_messages=messages
+                index=chat_message_store_kwargs.get("index"),
+                last_k=chat_message_store_kwargs.get("last_k"),
+                current_messages=messages
             )["messages"]
 
         if all(m.is_from(ChatRole.SYSTEM) for m in messages):
@@ -289,8 +288,7 @@ class Agent(HaystackAgent):
         snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        chat_message_store_index: Optional[str] = None,
-        chat_message_store_last_k: Optional[int] = None,
+        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -306,10 +304,8 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param chat_message_store_index: Optional index for retrieving chat history from the configured
-            ChatMessageStore.
-        :param chat_message_store_last_k: Optional number of last messages to retrieve from the configured
-            ChatMessageStore. If not provided, the `chat_message_last_k` configured in the Agent will be used.
+        :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
+            For example, it can include the `index` and `last_k` parameters for retrieving chat history.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -348,8 +344,7 @@ class Agent(HaystackAgent):
                 requires_async=False,
                 system_prompt=system_prompt,
                 tools=tools,
-                chat_message_store_index=chat_message_store_index,
-                chat_message_store_last_k=chat_message_store_last_k,
+                chat_message_store_kwargs=chat_message_store_kwargs,
                 **kwargs,
             )
 
@@ -478,8 +473,8 @@ class Agent(HaystackAgent):
             result["last_message"] = msgs[-1]
 
         # Write messages to ChatMessageStore if configured
-        if self._chat_message_writer and chat_message_store_index:
-            self._chat_message_writer.run(index=chat_message_store_index, messages=result["messages"])
+        if self._chat_message_writer and chat_message_store_kwargs and chat_message_store_kwargs.get("index"):
+            self._chat_message_writer.run(index=chat_message_store_kwargs.get("index"), messages=result["messages"])
 
         return result
 
@@ -492,8 +487,7 @@ class Agent(HaystackAgent):
         snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        chat_message_store_index: Optional[str] = None,
-        chat_message_store_last_k: Optional[int] = None,
+        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -512,10 +506,8 @@ class Agent(HaystackAgent):
             the relevant information to restart the Agent execution from where it left off.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
-        :param chat_message_store_index: Optional index for retrieving chat history from the configured
-            ChatMessageStore.
-        :param chat_message_store_last_k: Optional number of last messages to retrieve from the configured
-            ChatMessageStore. If not provided, the `chat_message_last_k` configured in the Agent will be used.
+        :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
+            For example, it can include the `index` and `last_k` parameters for retrieving chat history.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -554,8 +546,7 @@ class Agent(HaystackAgent):
                 requires_async=True,
                 system_prompt=system_prompt,
                 tools=tools,
-                chat_message_store_index=chat_message_store_index,
-                chat_message_store_last_k=chat_message_store_last_k,
+                chat_message_store_kwargs=chat_message_store_kwargs,
                 **kwargs,
             )
 
@@ -658,6 +649,11 @@ class Agent(HaystackAgent):
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
             result["last_message"] = msgs[-1]
+
+        # Write messages to ChatMessageStore if configured
+        if self._chat_message_writer and chat_message_store_kwargs and chat_message_store_kwargs.get("index"):
+            self._chat_message_writer.run(index=chat_message_store_kwargs.get("index"), messages=result["messages"])
+
         return result
 
     def to_dict(self) -> dict[str, Any]:
@@ -675,7 +671,6 @@ class Agent(HaystackAgent):
         data["init_parameters"]["chat_message_store"] = (
             self._chat_message_store.to_dict() if self._chat_message_store is not None else None
         )
-        data["init_parameters"]["chat_message_store_last_k"] = self._chat_message_last_k
         return data
 
     @classmethod

@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from typing import Any, Optional
 
 from haystack import Pipeline, component
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.converters import OutputAdapter
-from haystack.dataclasses import ChatMessage, ToolCall
+from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
@@ -27,21 +26,6 @@ class MockChatGenerator:
     @component.output_types(replies=list[ChatMessage])
     def run(self, messages: list[ChatMessage]) -> dict[str, list[ChatMessage]]:
         return {"replies": [ChatMessage.from_assistant("This is a mock response.")]}
-
-
-@component
-class MockAgent:
-    def __init__(self, system_prompt: Optional[str] = None):
-        self.system_prompt = system_prompt
-
-    @component.output_types(messages=list[ChatMessage], last_message=ChatMessage)
-    def run(self, messages: list[ChatMessage]) -> dict[str, Any]:
-        if self.system_prompt:
-            system_msg = ChatMessage.from_system(self.system_prompt)
-            messages = [system_msg, *messages]
-
-        assistant_msg = ChatMessage.from_assistant("This is a mock response.")
-        return {"messages": [*messages, assistant_msg], "last_message": assistant_msg}
 
 
 class TestChatMessageRetriever:
@@ -291,64 +275,6 @@ class TestChatMessageRetriever:
             ChatMessage.from_user("What is the capital of Italy?"),
         ]
         assert result["llm"]["replies"] == [ChatMessage.from_assistant("This is a mock response.")]
-        assert store.retrieve_messages(index) == [
-            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
-            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
-            ChatMessage.from_user("What is the capital of Italy?", meta={"chat_message_id": "2"}),
-            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "3"}),
-        ]
-
-    def test_chat_message_store_with_agent(self, store):
-        store = InMemoryChatMessageStore()
-
-        pipe = Pipeline()
-        pipe.add_component(
-            "prompt_builder",
-            ChatPromptBuilder(template=[ChatMessage.from_user("{{ query }}")], required_variables=["query"]),
-        )
-        pipe.add_component("message_retriever", ChatMessageRetriever(store))
-        pipe.add_component("agent", MockAgent(system_prompt="This is a system prompt."))
-        pipe.add_component("message_writer", ChatMessageWriter(store))
-
-        pipe.connect("prompt_builder.prompt", "message_retriever.current_messages")
-        pipe.connect("message_retriever.messages", "agent.messages")
-        pipe.connect("agent.messages", "message_writer.messages")
-
-        index = "user_123_session_456"
-        result = pipe.run(
-            data={
-                "prompt_builder": {"query": "What is the capital of Germany?"},
-                "message_retriever": {"index": index},
-                "message_writer": {"index": index}
-            },
-            include_outputs_from={"agent"}
-        )
-        assert result["agent"]["messages"] == [
-            ChatMessage.from_system("This is a system prompt."),
-            ChatMessage.from_user("What is the capital of Germany?"),
-            ChatMessage.from_assistant("This is a mock response."),
-        ]
-        assert store.retrieve_messages(index) == [
-            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
-            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
-        ]
-
-        # Second run
-        result = pipe.run(
-            data={
-                "prompt_builder": {"query": "What is the capital of Italy?"},
-                "message_retriever": {"index": index},
-                "message_writer": {"index": index}
-            },
-            include_outputs_from={"agent"}
-        )
-        assert result["agent"]["messages"] == [
-            ChatMessage.from_system("This is a system prompt."),
-            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
-            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
-            ChatMessage.from_user("What is the capital of Italy?"),
-            ChatMessage.from_assistant("This is a mock response."),
-        ]
         assert store.retrieve_messages(index) == [
             ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
             ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),

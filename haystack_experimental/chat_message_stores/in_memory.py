@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import replace
 from typing import Any, Iterable, Optional
 
 from haystack import default_from_dict, default_to_dict
@@ -110,9 +111,13 @@ class InMemoryChatMessageStore:
             # Skip system messages if configured to do so
             if self.skip_system_messages and msg.is_from(ChatRole.SYSTEM):
                 continue
-            if not msg.meta.get("chat_message_id"):
-                msg.meta["chat_message_id"] = str(counter)
+
+            chat_message_id = msg.meta.get("chat_message_id")
+            if chat_message_id is None:
+                # We use replace to avoid mutating the original message
+                msg = replace(msg, _meta={"chat_message_id": str(counter), **msg.meta})
                 counter += 1
+
             messages_with_id.append(msg)
 
         # For now, we always skip messages that are already stored based on their ID.
