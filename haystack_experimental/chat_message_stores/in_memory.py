@@ -2,42 +2,71 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Iterable, List
+from dataclasses import replace
+from typing import Any, Iterable, Optional
 
-from haystack import default_from_dict, default_to_dict, logging
-from haystack.dataclasses import ChatMessage
+from haystack import default_from_dict, default_to_dict
+from haystack.dataclasses import ChatMessage, ChatRole
 
-from haystack_experimental.chat_message_stores.types import ChatMessageStore
+from haystack_experimental.chat_message_stores.utils import get_last_k_messages
 
-logger = logging.getLogger(__name__)
+# Global storage for all InMemoryDocumentStore instances, indexed by the index name.
+_STORAGES: dict[str, list[ChatMessage]] = {}
 
 
-class InMemoryChatMessageStore(ChatMessageStore):
+class InMemoryChatMessageStore:
     """
     Stores chat messages in-memory.
+
+    The `index` parameter is used as a unique identifier for each conversation or chat session.
+    It acts as a namespace that isolates messages from different sessions. Each `index` value corresponds to a
+    separate list of `ChatMessage` objects stored in memory.
+
+    Typical usage involves providing a unique `index` (for example, a session ID or conversation ID)
+    whenever you write, read, or delete messages. This ensures that chat messages from different
+    conversations do not overlap.
+
+    Usage example:
+    ```python
+    from haystack.dataclasses import ChatMessage
+    from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
+
+    message_store = InMemoryChatMessageStore()
+
+    messages = [
+        ChatMessage.from_assistant("Hello, how can I help you?"),
+        ChatMessage.from_user("Hi, I have a question about Python. What is a Protocol?"),
+    ]
+    message_store.write_messages(messages, index="user_456_session_123")
+    retrieved_messages = message_store.retrieve(index="user_456_session_123")
+
+    print(retrieved_messages)
+    ```
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self, skip_system_messages: bool = True, last_k: Optional[int] = 10) -> None:
         """
-        Initializes the InMemoryChatMessageStore.
-        """
-        self.messages = []
+        Create an InMemoryChatMessageStore.
 
-    def to_dict(self) -> Dict[str, Any]:
+        :param skip_system_messages:
+            Whether to skip storing system messages. Defaults to True.
+        :param last_k:
+            The number of last messages to retrieve. Defaults to 10 messages if not specified.
+        """
+        self.skip_system_messages = skip_system_messages
+        self.last_k = last_k
+
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
         :returns:
             Dictionary with serialized data.
         """
-        return default_to_dict(
-            self,
-        )
+        return default_to_dict(self, skip_system_messages=self.skip_system_messages, last_k=self.last_k)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "InMemoryChatMessageStore":
+    def from_dict(cls, data: dict[str, Any]) -> "InMemoryChatMessageStore":
         """
         Deserializes the component from a dictionary.
 
@@ -48,19 +77,26 @@ class InMemoryChatMessageStore(ChatMessageStore):
         """
         return default_from_dict(cls, data)
 
-    def count_messages(self) -> int:
+    def count_messages(self, index: str) -> int:
         """
-        Returns the number of chat messages stored.
+        Returns the number of chat messages stored in this store.
+
+        :param index:
+            The index for which to count messages.
 
         :returns: The number of messages.
         """
-        return len(self.messages)
+        return len(_STORAGES.get(index, []))
 
-    def write_messages(self, messages: List[ChatMessage]) -> int:
+    def write_messages(self, index: str, messages: list[ChatMessage]) -> int:
         """
         Writes chat messages to the ChatMessageStore.
 
-        :param messages: A list of ChatMessages to write.
+        :param index:
+            The index under which to store the messages.
+        :param messages:
+            A list of ChatMessages to write.
+
         :returns: The number of messages written.
 
         :raises ValueError: If messages is not a list of ChatMessages.
@@ -68,19 +104,74 @@ class InMemoryChatMessageStore(ChatMessageStore):
         if not isinstance(messages, Iterable) or any(not isinstance(message, ChatMessage) for message in messages):
             raise ValueError("Please provide a list of ChatMessages.")
 
-        self.messages.extend(messages)
+        # We assign an ID to messages that don't have one yet. The ID simply corresponds to the index in the array.
+        counter = self.count_messages(index)
+        messages_with_id = []
+        for msg in messages:
+            # Skip system messages if configured to do so
+            if self.skip_system_messages and msg.is_from(ChatRole.SYSTEM):
+                continue
+
+            chat_message_id = msg.meta.get("chat_message_id")
+            if chat_message_id is None:
+                # We use replace to avoid mutating the original message
+                msg = replace(msg, _meta={"chat_message_id": str(counter), **msg.meta})
+                counter += 1
+
+            messages_with_id.append(msg)
+
+        # For now, we always skip messages that are already stored based on their ID.
+        existing_ids = {msg.meta["chat_message_id"] for msg in self.retrieve_messages(index)}
+        messages_to_write = [
+            message for message in messages_with_id if message.meta["chat_message_id"] not in existing_ids
+        ]
+
+        for message in messages_to_write:
+            if index not in _STORAGES:
+                _STORAGES[index] = []
+            _STORAGES[index].append(message)
+
         return len(messages)
 
-    def delete_messages(self) -> None:
-        """
-        Deletes all stored chat messages.
-        """
-        self.messages = []
-
-    def retrieve(self) -> List[ChatMessage]:
+    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 
+        :param index:
+            The index from which to retrieve messages.
+        :param last_k:
+            The number of last messages to retrieve. If unspecified, the last_k parameter passed
+            to the constructor will be used.
+
         :returns: A list of chat messages.
+        :raises ValueError:
+            If last_k is not None and is less than 0.
         """
-        return self.messages
+
+        if last_k is not None and last_k < 0:
+            raise ValueError("last_k must be 0 or greater")
+
+        resolved_last_k = last_k or self.last_k
+        if resolved_last_k == 0:
+            return []
+
+        messages = _STORAGES.get(index, [])
+        if resolved_last_k is not None:
+            messages = get_last_k_messages(messages=messages, last_k=resolved_last_k)
+
+        return messages
+
+    def delete_messages(self, index: str) -> None:
+        """
+        Deletes all stored chat messages.
+
+        :param index:
+            The index from which to delete messages.
+        """
+        _STORAGES.pop(index, None)
+
+    def delete_all_messages(self) -> None:
+        """
+        Deletes all stored chat messages from all indices.
+        """
+        _STORAGES.clear()
