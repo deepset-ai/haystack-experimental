@@ -170,9 +170,7 @@ class Agent(HaystackAgent):
         self._confirmation_strategies = confirmation_strategies or {}
         self._chat_message_store = chat_message_store
         self._chat_message_retriever = (
-            ChatMessageRetriever(chat_message_store=chat_message_store)
-            if chat_message_store
-            else None
+            ChatMessageRetriever(chat_message_store=chat_message_store) if chat_message_store else None
         )
         self._chat_message_writer = (
             ChatMessageWriter(chat_message_store=chat_message_store) if chat_message_store else None
@@ -209,7 +207,7 @@ class Agent(HaystackAgent):
             messages = self._chat_message_retriever.run(
                 index=chat_message_store_kwargs.get("index"),
                 last_k=chat_message_store_kwargs.get("last_k"),
-                current_messages=messages
+                current_messages=messages,
             )["messages"]
 
         if all(m.is_from(ChatRole.SYSTEM) for m in messages):
