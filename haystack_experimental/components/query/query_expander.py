@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from haystack import default_from_dict, default_to_dict, logging
 from haystack.components.builders.prompt_builder import PromptBuilder
@@ -91,7 +91,7 @@ class QueryExpander:
         prompt_template: Optional[str] = None,
         n_expansions: int = 4,
         include_original_query: bool = True,
-    ):
+    ) -> None:
         """
         Initialize the QueryExpander component.
 
@@ -134,7 +134,6 @@ class QueryExpander:
             self.chat_generator = chat_generator
 
         self._is_warmed_up = False
-        self._supports_warm_up = hasattr(self.chat_generator, "warm_up")
         self.prompt_template = prompt_template or DEFAULT_PROMPT_TEMPLATE
 
         # Check if required variables are present in the template
@@ -153,7 +152,7 @@ class QueryExpander:
             required_variables=["n_expansions", "query"],
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
@@ -168,7 +167,7 @@ class QueryExpander:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QueryExpander":
+    def from_dict(cls, data: dict[str, Any]) -> "QueryExpander":
         """
         Deserializes the component from a dictionary.
 
@@ -181,12 +180,8 @@ class QueryExpander:
 
         return default_from_dict(cls, data)
 
-    @component.output_types(queries=List[str])
-    def run(
-        self,
-        query: str,
-        n_expansions: Optional[int] = None,
-    ) -> Dict[str, List[str]]:
+    @component.output_types(queries=list[str])
+    def run(self, query: str, n_expansions: Optional[int] = None) -> dict[str, list[str]]:
         """
         Expand the input query into multiple semantically similar queries.
 
@@ -199,11 +194,10 @@ class QueryExpander:
             If include_original_query=True, the original query will be included in addition
             to the n_expansions alternative queries.
         :raises ValueError: If n_expansions is not positive (less than or equal to 0).
-        :raises RuntimeError: If the component is not warmed up and the chat generator does not support warm up.
         """
 
-        if not self._is_warmed_up and self._supports_warm_up:
-            raise RuntimeError("The component is not warmed up. Please call the `warm_up` method first.")
+        if not self._is_warmed_up:
+            self.warm_up()
 
         response = {"queries": [query] if self.include_original_query else []}
 
@@ -252,14 +246,15 @@ class QueryExpander:
 
     def warm_up(self):
         """
-        Warm up the underlying LLM if it supports it.
+        Warm up the LLM provider component.
         """
-        if not self._is_warmed_up and self._supports_warm_up:
-            self.chat_generator.warm_up()  # type: ignore[attr-defined]
+        if not self._is_warmed_up:
+            if hasattr(self.chat_generator, "warm_up"):
+                self.chat_generator.warm_up()
             self._is_warmed_up = True
 
     @staticmethod
-    def _parse_expanded_queries(generator_response: str) -> List[str]:
+    def _parse_expanded_queries(generator_response: str) -> list[str]:
         """
         Parse the generator response to extract individual expanded queries.
 
