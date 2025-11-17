@@ -55,42 +55,18 @@ class TestChatMessageRetriever:
             ]
         }
 
-    def test_retrieve_messages_last_k(self, store):
-        """
-        Test that the ChatMessageRetriever component can retrieve last_k messages from the message store.
-        """
+    def test_retrieve_messages_last_k_raises(self, store):
         messages = [
             ChatMessage.from_user("Hello, how can I help you?"),
-            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_assistant("Hallo, wie kann ich Ihnen helfen?"),
             ChatMessage.from_user("Hola, como puedo ayudarte?"),
-            ChatMessage.from_user("Bonjour, comment puis-je vous aider?"),
+            ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?"),
         ]
 
         store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(store)
 
         assert retriever.chat_message_store == store
-        assert retriever.run(index="test", last_k=1) == {
-            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"})]
-        }
-
-        assert retriever.run(index="test", last_k=2) == {
-            "messages": [
-                ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"chat_message_id": "2"}),
-                ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"}),
-            ]
-        }
-
-        # outliers
-        assert retriever.run(index="test", last_k=10) == {
-            "messages": [
-                ChatMessage.from_user("Hello, how can I help you?", meta={"chat_message_id": "0"}),
-                ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?", meta={"chat_message_id": "1"}),
-                ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"chat_message_id": "2"}),
-                ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"}),
-            ]
-        }
-
         with pytest.raises(ValueError):
             retriever.run(index="test", last_k=-1)
 
@@ -101,9 +77,9 @@ class TestChatMessageRetriever:
         """
         messages = [
             ChatMessage.from_user("Hello, how can I help you?"),
-            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
+            ChatMessage.from_assistant("Hallo, wie kann ich Ihnen helfen?"),
             ChatMessage.from_user("Hola, como puedo ayudarte?"),
-            ChatMessage.from_user("Bonjour, comment puis-je vous aider?"),
+            ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?"),
         ]
 
         store.write_messages(index="test", messages=messages)
@@ -113,14 +89,19 @@ class TestChatMessageRetriever:
 
         # last_k is 1 here from run parameter, overrides init of 2
         assert retriever.run(index="test", last_k=1) == {
-            "messages": [ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"})]
+            "messages": [
+                ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"chat_message_id": "2"}),
+                ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"})
+            ]
         }
 
         # last_k is 2 here from init
         assert retriever.run(index="test") == {
             "messages": [
+                ChatMessage.from_user("Hello, how can I help you?", meta={"chat_message_id": "0"}),
+                ChatMessage.from_assistant("Hallo, wie kann ich Ihnen helfen?", meta={"chat_message_id": "1"}),
                 ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"chat_message_id": "2"}),
-                ChatMessage.from_user("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"}),
+                ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"}),
             ]
         }
 
