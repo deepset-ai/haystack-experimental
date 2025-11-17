@@ -182,6 +182,7 @@ class InMemoryChatMessageStore:
         rounds = []
         current = []
         in_tool_round = False
+        tool_call_count = 0
 
         for msg in messages:
             # Detect start of a new round
@@ -200,14 +201,15 @@ class InMemoryChatMessageStore:
 
                 # Mark that this round contains tool calls
                 if msg.role == "assistant" and msg.tool_calls:
+                    tool_call_count += len(msg.tool_calls)
                     in_tool_round = True
 
-                # TODO Update to actually check for tool output
-                #      Technically check is not correct until number of tool outputs matches number of tool calls
                 # Tool output ends tool-call phase, but not the round itself
-                if msg.role == "assistant" and not msg.tool_calls:
-                    # Final assistant response ends the round
-                    in_tool_round = False
+                if msg.role == "tool" and msg.tool_call_results:
+                    tool_call_count -= len(msg.tool_call_results)
+                    if tool_call_count == 0:
+                        # Final assistant response ends the round
+                        in_tool_round = False
 
         if current:
             rounds.append(current)
