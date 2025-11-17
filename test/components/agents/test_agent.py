@@ -443,7 +443,11 @@ class TestAgentWithChatMessageStore:
             messages=[ChatMessage.from_user("What is the capital of Germany?")],
             chat_message_store_kwargs={"index": index, "last_k": None},
         )
-        assert result["last_message"] == ChatMessage.from_assistant("This is a mock response.")
+        assert result["messages"] == [
+            ChatMessage.from_system("This is a system prompt."),
+            ChatMessage.from_user("What is the capital of Germany?"),
+            ChatMessage.from_assistant("This is a mock response."),
+        ]
         assert store.retrieve_messages(index) == [
             ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
             ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
@@ -454,7 +458,13 @@ class TestAgentWithChatMessageStore:
             messages=[ChatMessage.from_user("What is the capital of Italy?")],
             chat_message_store_kwargs={"index": index, "last_k": None},
         )
-        assert result["last_message"] == ChatMessage.from_assistant("This is a mock response.")
+        assert result["messages"] == [
+            ChatMessage.from_system("This is a system prompt."),
+            ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
+            ChatMessage.from_user("What is the capital of Italy?"),
+            ChatMessage.from_assistant("This is a mock response."),
+        ]
         assert store.retrieve_messages(index) == [
             ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
             ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),

@@ -104,12 +104,15 @@ class TestInMemoryChatMessageStore:
 
 
 class TestGetLastKMessages:
-    @pytest.mark.parametrize("last_k, start_idx", [(1, 4), (2, 2), (3, 1), (4, 0), (5, 0)])
-    def test_last_k_agent_history(self, last_k, start_idx):
+    @pytest.mark.parametrize("last_k, start_idx", [(1, 2), (2, 0), (3, 0)])
+    def test_last_k_chat_history(self, last_k, start_idx):
         tool_call = ToolCall(tool_name="get_weather", arguments={"location": "Paris"})
-        # System, User, ToolCall, ToolOutput, Assistant
+        # This is a history that contains two pairs of User - Assistant messages.
         messages = [
-            ChatMessage.from_system("You are a helpful assistant."),
+            # Pair 1
+            ChatMessage.from_user("Hello!"),
+            ChatMessage.from_assistant("Hi! How can I assist you today?"),
+            # Pair 2 w/ one tool call
             ChatMessage.from_user("What is the weather in Paris?"),
             ChatMessage.from_assistant(tool_calls=[tool_call]),
             ChatMessage.from_tool(tool_result="It's sunny in Paris.", origin=tool_call),
@@ -120,31 +123,59 @@ class TestGetLastKMessages:
 
         assert last_k_messages == messages[start_idx:]
 
-    @pytest.mark.parametrize("last_k, start_idx", [(1, 5), (2, 2), (3, 1), (4, 0), (5, 0), (6, 0)])
-    def test_last_k_agent_history_with_two_tool_calls(self, last_k, start_idx):
+    @pytest.mark.parametrize("last_k, start_idx", [(1, 3), (2, 1), (3, 0)])
+    def test_last_k_chat_history_with_system_prompt(self, last_k, start_idx):
+        tool_call = ToolCall(tool_name="get_weather", arguments={"location": "Paris"})
+        # This is a history that contains three pairs of User - Assistant messages.
+        # The system prompt counts as a full pair.
+        messages = [
+            # "Pair 1"
+            ChatMessage.from_system("You are a helpful assistant."),
+            # Pair 2
+            ChatMessage.from_user("Hello!"),
+            ChatMessage.from_assistant("Hi! How can I assist you today?"),
+            # Pair 3 w/ one tool call
+            ChatMessage.from_user("What is the weather in Paris?"),
+            ChatMessage.from_assistant(tool_calls=[tool_call]),
+            ChatMessage.from_tool(tool_result="It's sunny in Paris.", origin=tool_call),
+            ChatMessage.from_assistant("The weather in Paris is sunny."),
+        ]
+
+        last_k_messages = InMemoryChatMessageStore._get_last_k_messages(messages, last_k)
+
+        assert last_k_messages == messages[start_idx:]
+
+    @pytest.mark.parametrize("last_k, start_idx", [(1, 5), (2, 0)])
+    def test_last_k_chat_history_with_two_tool_calls(self, last_k, start_idx):
         tool_call_1 = ToolCall(tool_name="get_weather", arguments={"location": "Paris"})
         tool_call_2 = ToolCall(tool_name="get_time", arguments={"location": "Paris"})
-        # System, User, 2 ToolCalls, ToolOutput, ToolOutput, Assistant
         messages = [
-            ChatMessage.from_system("You are a helpful assistant."),
+            # Pair 1 w/ two tool calls
+            # System, User, 2 ToolCalls, ToolOutput, ToolOutput, Assistant
             ChatMessage.from_user("What is the weather in Paris?"),
             ChatMessage.from_assistant(tool_calls=[tool_call_1, tool_call_2]),
             ChatMessage.from_tool(tool_result="It's sunny in Paris.", origin=tool_call_1),
             ChatMessage.from_tool(tool_result="It's 3 PM in Paris.", origin=tool_call_2),
             ChatMessage.from_assistant("The weather in Paris is sunny and it's 3 PM there."),
+            # Pair 2
+            ChatMessage.from_user("Thank you!"),
+            ChatMessage.from_assistant("You're welcome! Let me know if you have any other questions."),
         ]
 
         last_k_messages = InMemoryChatMessageStore._get_last_k_messages(messages, last_k)
         assert last_k_messages == messages[start_idx:]
 
-    @pytest.mark.parametrize("last_k,start_idx", [(1, 5), (2, 2), (3, 1), (4, 0), (5, 0), (6, 0)])
-    def test_last_k_agent_history_with_intervening_user_message(self, last_k, start_idx):
+    @pytest.mark.parametrize("last_k,start_idx", [(1, 2), (2, 0)])
+    def test_last_k_agent_chat_with_intervening_user_message(self, last_k, start_idx):
         """Relevant for simulating a human-in-the-loop scenario where the user modifies parameters"""
         tool_call = ToolCall(tool_name="get_weather", arguments={"location": "Paris"}, id="tc_1")
         modified_tool_call = ToolCall(tool_name="get_weather", arguments={"location": "London"}, id="tc_1")
-        # System, User, ToolCall, User, ToolOutput, Assistant
         messages = [
-            ChatMessage.from_system("You are a helpful assistant."),
+            # Pair 1
+            ChatMessage.from_user("Hello!"),
+            ChatMessage.from_assistant("Hi! How can I assist you today?"),
+            # Pair 2 w/ one tool call and an intervening user message
+            # System, User, ToolCall, User, ToolOutput, Assistant
             ChatMessage.from_user("What is the weather in Paris?"),
             ChatMessage.from_assistant(tool_calls=[tool_call]),
             ChatMessage.from_user("The user modified the tool parameters to {'location': 'London'}."),
