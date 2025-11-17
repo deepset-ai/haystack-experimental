@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.components.embedders.types.protocol import TextEmbedder
@@ -74,13 +74,7 @@ class MultiQueryEmbeddingRetriever:
     ```
     """  # noqa E501
 
-    def __init__(
-        self,
-        *,
-        retriever: EmbeddingRetriever,
-        query_embedder: TextEmbedder,
-        max_workers: int = 3,
-    ):
+    def __init__(self, *, retriever: EmbeddingRetriever, query_embedder: TextEmbedder, max_workers: int = 3) -> None:
         """
         Initialize MultiQueryEmbeddingRetriever.
 
@@ -104,12 +98,8 @@ class MultiQueryEmbeddingRetriever:
                 self.retriever.warm_up()
             self._is_warmed_up = True
 
-    @component.output_types(documents=List[Document])
-    def run(
-        self,
-        queries: List[str],
-        retriever_kwargs: Optional[dict[str, Any]] = None,
-    ) -> dict[str, Any]:
+    @component.output_types(documents=list[Document])
+    def run(self, queries: list[str], retriever_kwargs: Optional[dict[str, Any]] = None) -> dict[str, list[Document]]:
         """
         Retrieve documents using multiple queries in parallel.
 
@@ -122,6 +112,9 @@ class MultiQueryEmbeddingRetriever:
         docs: list[Document] = []
         seen_contents = set()
         retriever_kwargs = retriever_kwargs or {}
+
+        if not self._is_warmed_up:
+            self.warm_up()
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             queries_results = executor.map(lambda query: self._run_on_thread(query, retriever_kwargs), queries)
@@ -137,7 +130,7 @@ class MultiQueryEmbeddingRetriever:
         docs.sort(key=lambda x: x.score or 0.0, reverse=True)
         return {"documents": docs}
 
-    def _run_on_thread(self, query: str, retriever_kwargs: Optional[dict[str, Any]] = None) -> Optional[List[Document]]:
+    def _run_on_thread(self, query: str, retriever_kwargs: Optional[dict[str, Any]] = None) -> Optional[list[Document]]:
         """
         Process a single query on a separate thread.
 
