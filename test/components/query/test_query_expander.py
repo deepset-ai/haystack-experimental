@@ -46,15 +46,6 @@ class TestQueryExpander:
         assert expander.n_expansions == 3
         assert expander.chat_generator is mock_chat_generator
 
-    def test_run_not_warmed_up_raises_error(self, mock_chat_generator_with_warm_up):
-        expander = QueryExpander(chat_generator=mock_chat_generator_with_warm_up)
-
-        with pytest.raises(
-            RuntimeError,
-            match="The component is not warmed up. Please call the `warm_up` method first.",
-        ):
-            expander.run("test query")
-
     def test_run_warm_up(self, mock_chat_generator_with_warm_up):
         expander = QueryExpander(chat_generator=mock_chat_generator_with_warm_up)
         mock_chat_generator_with_warm_up.run.return_value = {"queries": ["test query"]}

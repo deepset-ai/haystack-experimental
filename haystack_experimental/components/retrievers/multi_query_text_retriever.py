@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from haystack import Document, component, default_from_dict, default_to_dict
 from haystack.core.serialization import component_to_dict
@@ -57,11 +57,7 @@ class MultiQueryTextRetriever:
     ```
     """  # noqa E501
 
-    def __init__(
-        self,
-        retriever: TextRetriever,
-        max_workers: int = 3,
-    ):
+    def __init__(self, *, retriever: TextRetriever, max_workers: int = 3) -> None:
         """
         Initialize MultiQueryTextRetriever.
 
@@ -82,11 +78,7 @@ class MultiQueryTextRetriever:
             self._is_warmed_up = True
 
     @component.output_types(documents=list[Document])
-    def run(
-        self,
-        queries: List[str],
-        retriever_kwargs: Optional[dict[str, Any]] = None,
-    ) -> dict[str, Any]:
+    def run(self, queries: list[str], retriever_kwargs: Optional[dict[str, Any]] = None) -> dict[str, list[Document]]:
         """
         Retrieve documents using multiple queries in parallel.
 
