@@ -181,36 +181,30 @@ class InMemoryChatMessageStore:
         """
         rounds = []
         current = []
-        in_tool_round = False
-        tool_call_count = 0
 
         for msg in messages:
-            # Detect start of a new round
-            if msg.role in ("system", "user"):
-                # Start a new round only if we are not inside a tool-call round
-                if not in_tool_round:
-                    if current:
-                        rounds.append(current)
-                    current = [msg]
-                else:
-                    # Inside a tool-call round: user messages stay in the same round
-                    current.append(msg)
-            else:
-                # Assistant or tool message
+            # Treat system messages as separate rounds
+            if msg.role == "system":
+                rounds.append([msg])
+                continue
+
+            # User messages always start a new round
+            if msg.role == "user":
                 current.append(msg)
+                continue
 
-                # Mark that this round contains tool calls
-                if msg.role == "assistant" and msg.tool_calls:
-                    tool_call_count += len(msg.tool_calls)
-                    in_tool_round = True
+            # Assistant messages can either end a round or continue it (in case of tool calls)
+            if msg.role == "assistant":
+                current.append(msg)
+                if msg.text and not msg.tool_calls:
+                    rounds.append(current)
+                    current = []
+                continue
 
-                # Tool output ends tool-call phase, but not the round itself
-                if msg.role == "tool" and msg.tool_call_results:
-                    tool_call_count -= len(msg.tool_call_results)
-                    if tool_call_count == 0:
-                        # Final assistant response ends the round
-                        in_tool_round = False
+            # Append all other messages (e.g., tool outputs) to the current round
+            current.append(msg)
 
+        # Catch any remaining messages in the current round
         if current:
             rounds.append(current)
 

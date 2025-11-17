@@ -166,9 +166,9 @@ class TestGetLastKMessages:
         assert last_k_messages == messages[start_idx:]
 
     @pytest.mark.parametrize("last_k,start_idx", [(1, 2), (2, 0)])
-    def test_last_k_agent_chat_with_intervening_user_message(self, last_k, start_idx):
+    def test_last_k_chat_history_with_one_modified_tool_calls(self, last_k, start_idx):
         """Relevant for simulating a human-in-the-loop scenario where the user modifies parameters"""
-        tool_call = ToolCall(tool_name="get_weather", arguments={"location": "Paris"}, id="tc_1")
+        # "Original" tool call had params {"location": "Paris"}
         modified_tool_call = ToolCall(tool_name="get_weather", arguments={"location": "London"}, id="tc_1")
         messages = [
             # Pair 1
@@ -177,9 +177,63 @@ class TestGetLastKMessages:
             # Pair 2 w/ one tool call and an intervening user message
             # System, User, ToolCall, User, ToolOutput, Assistant
             ChatMessage.from_user("What is the weather in Paris?"),
-            ChatMessage.from_assistant(tool_calls=[tool_call]),
             ChatMessage.from_user("The user modified the tool parameters to {'location': 'London'}."),
+            ChatMessage.from_assistant(tool_calls=[modified_tool_call]),
             ChatMessage.from_tool(tool_result="It's sunny in London.", origin=modified_tool_call),
+            ChatMessage.from_assistant("The weather in London is sunny."),
+        ]
+
+        last_k_messages = InMemoryChatMessageStore._get_last_k_messages(messages, last_k=last_k)
+        assert last_k_messages == messages[start_idx:]
+
+    @pytest.mark.parametrize("last_k,start_idx", [(1, 2), (2, 0)])
+    def test_last_k_chat_history_with_two_modified_tool_calls(self, last_k, start_idx):
+        """Relevant for simulating a human-in-the-loop scenario where the user modifies parameters"""
+        # "Original" tool calls had params {"location": "Paris"} and {"location": "Berlin"}
+        modified_tool_call_1 = ToolCall(tool_name="get_weather", arguments={"location": "London"}, id="tc_1")
+        modified_tool_call_2 = ToolCall(tool_name="get_time", arguments={"location": "Brussels"}, id="tc_2")
+        messages = [
+            # Pair 1
+            ChatMessage.from_user("Hello!"),
+            ChatMessage.from_assistant("Hi! How can I assist you today?"),
+            # Pair 2 w/ two tool calls and intervening user messages
+            ChatMessage.from_user("What is the weather in Paris and the time in Berlin?"),
+            ChatMessage.from_user(
+                "The parameters for tool 'get_weather' were updated by the user to:\n{'location': 'London'}."
+            ),
+            ChatMessage.from_user(
+                "The parameters for tool 'get_time' were updated by the user to:\n{'location': 'Brussels'}."
+            ),
+            ChatMessage.from_assistant(tool_calls=[modified_tool_call_1, modified_tool_call_2]),
+            ChatMessage.from_tool(tool_result="It's sunny in London.", origin=modified_tool_call_1),
+            ChatMessage.from_tool(tool_result="It's 13:00 in Brussels.", origin=modified_tool_call_2),
+            ChatMessage.from_assistant("The weather in London is sunny and it's 13:00 in Brussels."),
+        ]
+
+        last_k_messages = InMemoryChatMessageStore._get_last_k_messages(messages, last_k=last_k)
+        assert last_k_messages == messages[start_idx:]
+
+    @pytest.mark.parametrize("last_k,start_idx", [(1, 2), (2, 0)])
+    def test_last_k_chat_history_with_two_tool_calls_one_modified_one_rejected(self, last_k, start_idx):
+        """Relevant for simulating a human-in-the-loop scenario where the user modifies parameters"""
+        modified_tool_call_1 = ToolCall(tool_name="get_weather", arguments={"location": "London"}, id="tc_1")
+        tool_call_2 = ToolCall(tool_name="get_time", arguments={"location": "Berlin"}, id="tc_2")
+        messages = [
+            # Pair 1
+            ChatMessage.from_user("Hello!"),
+            ChatMessage.from_assistant("Hi! How can I assist you today?"),
+            # Pair 2 w/ two tool calls and intervening user messages
+            ChatMessage.from_user("What is the weather in Paris and the time in Berlin?"),
+            ChatMessage.from_assistant(tool_calls=[tool_call_2]),  # Tool Call 2 was rejected
+            ChatMessage.from_tool(
+                tool_result="The tool execution for 'tool2' was rejected by the user. With feedback: Not needed",
+                origin=tool_call_2
+            ),
+            ChatMessage.from_user( # Tool Call 1 was modified
+                "The parameters for tool 'get_weather' were updated by the user to:\n{'location': 'London'}."
+            ),
+            ChatMessage.from_assistant(tool_calls=[modified_tool_call_1]),
+            ChatMessage.from_tool(tool_result="It's sunny in London.", origin=modified_tool_call_1),
             ChatMessage.from_assistant("The weather in London is sunny."),
         ]
 
