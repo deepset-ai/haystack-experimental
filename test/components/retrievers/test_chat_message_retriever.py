@@ -43,12 +43,17 @@ class TestChatMessageRetriever:
         """
         messages = [
             ChatMessage.from_user("Hello, how can I help you?"),
-            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?")
+            ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
         ]
         store.write_messages(index="test", messages=messages)
         retriever = ChatMessageRetriever(store)
         assert retriever.chat_message_store == store
-        assert retriever.run(index="test") == {"messages": messages}
+        assert retriever.run(index="test") == {
+            "messages": [
+                ChatMessage.from_user("Hello, how can I help you?", meta={"chat_message_id": "0"}),
+                ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?", meta={"chat_message_id": "1"}),
+            ]
+        }
 
     def test_retrieve_messages_last_k(self, store):
         """
@@ -58,7 +63,7 @@ class TestChatMessageRetriever:
             ChatMessage.from_user("Hello, how can I help you?"),
             ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
             ChatMessage.from_user("Hola, como puedo ayudarte?"),
-            ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+            ChatMessage.from_user("Bonjour, comment puis-je vous aider?"),
         ]
 
         store.write_messages(index="test", messages=messages)
@@ -98,7 +103,7 @@ class TestChatMessageRetriever:
             ChatMessage.from_user("Hello, how can I help you?"),
             ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
             ChatMessage.from_user("Hola, como puedo ayudarte?"),
-            ChatMessage.from_user("Bonjour, comment puis-je vous aider?")
+            ChatMessage.from_user("Bonjour, comment puis-je vous aider?"),
         ]
 
         store.write_messages(index="test", messages=messages)
@@ -131,11 +136,8 @@ class TestChatMessageRetriever:
             "type": "haystack_experimental.components.retrievers.chat_message_retriever.ChatMessageRetriever",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {
-                        "skip_system_messages": True,
-                        "last_k": 10
-                    },
-                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
+                    "init_parameters": {"skip_system_messages": True, "last_k": 10},
+                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 },
                 "last_k": 4,
             },
@@ -149,22 +151,16 @@ class TestChatMessageRetriever:
             "type": "haystack_experimental.components.retrievers.chat_message_retriever.ChatMessageRetriever",
             "init_parameters": {
                 "chat_message_store": {
-                    "init_parameters": {
-                        "skip_system_messages": True,
-                        "last_k": 10
-                    },
-                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
+                    "init_parameters": {"skip_system_messages": True, "last_k": 10},
+                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
                 },
                 "last_k": 4,
             },
         }
         retriever = ChatMessageRetriever.from_dict(data)
         assert retriever.chat_message_store.to_dict() == {
-            "init_parameters": {
-                "skip_system_messages": True,
-                "last_k": 10
-            },
-            "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore"
+            "init_parameters": {"skip_system_messages": True, "last_k": 10},
+            "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
         }
         assert retriever.last_k == 4
 
@@ -178,12 +174,13 @@ class TestChatMessageRetriever:
 
         pipe = Pipeline()
         pipe.add_component(
-            "prompt_builder", ChatPromptBuilder(
+            "prompt_builder",
+            ChatPromptBuilder(
                 template=[
                     ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
-                    ChatMessage.from_user("{{ query }}")
+                    ChatMessage.from_user("{{ query }}"),
                 ],
-                required_variables=["query"]
+                required_variables=["query"],
             ),
         )
         pipe.add_component("memory_retriever", ChatMessageRetriever(store))
@@ -196,7 +193,7 @@ class TestChatMessageRetriever:
             ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
             ChatMessage.from_user("What is the capital of France?", meta={"chat_message_id": "0"}),
             ChatMessage.from_assistant("The capital of France is Paris.", meta={"chat_message_id": "1"}),
-            ChatMessage.from_user("What is the capital of Germany?")
+            ChatMessage.from_user("What is the capital of Germany?"),
         ]
 
     def test_chat_message_retriever_pipeline_serde(self):
@@ -218,14 +215,14 @@ class TestChatMessageRetriever:
             "prompt_builder",
             ChatPromptBuilder(
                 template=[ChatMessage.from_system("This is a system prompt."), ChatMessage.from_user("{{ query }}")],
-                required_variables=["query"]
+                required_variables=["query"],
             ),
         )
         pipe.add_component("message_retriever", ChatMessageRetriever(store))
         pipe.add_component("llm", MockChatGenerator())
         pipe.add_component(
             "message_joiner",
-            OutputAdapter(template="{{ prompt + replies }}", output_type=list[ChatMessage], unsafe=True)
+            OutputAdapter(template="{{ prompt + replies }}", output_type=list[ChatMessage], unsafe=True),
         )
         pipe.add_component("message_writer", ChatMessageWriter(store))
 
@@ -240,9 +237,9 @@ class TestChatMessageRetriever:
             data={
                 "prompt_builder": {"query": "What is the capital of Germany?"},
                 "message_retriever": {"index": index},
-                "message_writer": {"index": index}
+                "message_writer": {"index": index},
             },
-            include_outputs_from={"message_retriever", "llm"}
+            include_outputs_from={"message_retriever", "llm"},
         )
         assert result["message_retriever"]["messages"] == [
             ChatMessage.from_system("This is a system prompt."),
@@ -253,7 +250,7 @@ class TestChatMessageRetriever:
         # skip_system_messages=True
         assert store.retrieve_messages(index) == [
             ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
-            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"})
+            ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
         ]
 
         # Second run to verify that retrieval works as expected
@@ -261,9 +258,9 @@ class TestChatMessageRetriever:
             data={
                 "prompt_builder": {"query": "What is the capital of Italy?"},
                 "message_retriever": {"index": index},
-                "message_writer": {"index": index}
+                "message_writer": {"index": index},
             },
-            include_outputs_from={"message_retriever", "llm"}
+            include_outputs_from={"message_retriever", "llm"},
         )
         # Check that the retrieved messages include all previous messages and that the new user message is appended
         # and the system prompt is still at the beginning.

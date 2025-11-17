@@ -204,12 +204,13 @@ class Agent(HaystackAgent):
             messages = [ChatMessage.from_system(system_prompt)] + messages
 
         # NOTE: difference with parent method to add chat message retrieval
-        if self._chat_message_retriever and chat_message_store_kwargs and chat_message_store_kwargs.get("index"):
-            messages = self._chat_message_retriever.run(
-                index=chat_message_store_kwargs.get("index"),
-                last_k=chat_message_store_kwargs.get("last_k"),
-                current_messages=messages,
-            )["messages"]
+        if self._chat_message_retriever:
+            retriever_kwargs = _select_kwargs(self._chat_message_retriever, chat_message_store_kwargs or {})
+            if "index" in retriever_kwargs:
+                messages = self._chat_message_retriever.run(
+                    current_messages=messages,
+                    **retriever_kwargs,
+                )["messages"]
 
         if all(m.is_from(ChatRole.SYSTEM) for m in messages):
             logger.warning("All messages provided to the Agent component are system messages. This is not recommended.")
@@ -497,8 +498,10 @@ class Agent(HaystackAgent):
             result["last_message"] = msgs[-1]
 
         # Write messages to ChatMessageStore if configured
-        if self._chat_message_writer and chat_message_store_kwargs and chat_message_store_kwargs.get("index"):
-            self._chat_message_writer.run(index=chat_message_store_kwargs.get("index"), messages=result["messages"])
+        if self._chat_message_writer:
+            writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
+            if "index" in writer_kwargs:
+                self._chat_message_writer.run(messages=result["messages"], **writer_kwargs)
 
         return result
 
@@ -683,8 +686,10 @@ class Agent(HaystackAgent):
             result["last_message"] = msgs[-1]
 
         # Write messages to ChatMessageStore if configured
-        if self._chat_message_writer and chat_message_store_kwargs and chat_message_store_kwargs.get("index"):
-            self._chat_message_writer.run(index=chat_message_store_kwargs.get("index"), messages=result["messages"])
+        if self._chat_message_writer:
+            writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
+            if "index" in writer_kwargs:
+                self._chat_message_writer.run(messages=result["messages"], **writer_kwargs)
 
         return result
 
@@ -746,3 +751,12 @@ class Agent(HaystackAgent):
             init_params["chat_message_store"] = cms_class.from_dict(cms_data)
 
         return default_from_dict(cls, data)
+
+
+def _select_kwargs(obj: Any, source: dict) -> dict[str, Any]:
+    """
+    Select only those key-value pairs from source dict that are valid parameters for obj.run() method.
+    """
+    sig = inspect.signature(obj.run)
+    allowed = set(sig.parameters.keys())
+    return {k: v for k, v in source.items() if k in allowed}
