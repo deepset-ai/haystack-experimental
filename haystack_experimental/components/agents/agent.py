@@ -251,7 +251,7 @@ class Agent(HaystackAgent):
                 streaming_callback=streaming_callback,
                 requires_async=requires_async,
                 generation_kwargs=generation_kwargs,
-                tools=tools
+                tools=tools,
             )
         else:
             exe_context = super(Agent, self)._initialize_from_snapshot(
@@ -333,7 +333,7 @@ class Agent(HaystackAgent):
                 streaming_callback=streaming_callback,
                 requires_async=False,
                 generation_kwargs=generation_kwargs,
-                tools=tools
+                tools=tools,
             )
         else:
             exe_context = self._initialize_fresh_execution(
