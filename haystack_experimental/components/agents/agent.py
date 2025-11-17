@@ -323,7 +323,7 @@ class Agent(HaystackAgent):
         # _runtime_checks. This change will be released in Haystack 2.20.0.
         # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
         if len(inspect.signature(self._runtime_checks).parameters) == 2:
-            self._runtime_checks(break_point, snapshot)  # type: ignore[call-arg]
+            self._runtime_checks(break_point, snapshot)  # type: ignore[call-arg]  # pylint: disable=too-many-function-args
         else:
             self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
 
@@ -524,7 +524,7 @@ class Agent(HaystackAgent):
         # _runtime_checks. This change will be released in Haystack 2.20.0.
         # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
         if len(inspect.signature(self._runtime_checks).parameters) == 2:
-            self._runtime_checks(break_point, snapshot)  # type: ignore[call-arg]
+            self._runtime_checks(break_point, snapshot)  # type: ignore[call-arg]  # pylint: disable=too-many-function-args
         else:
             self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
 
