@@ -1,7 +1,7 @@
 loaders:
   - type: haystack_pydoc_tools.loaders.CustomPythonLoader
     search_path: [../../../]
-    modules: ["haystack_experimental.components.retrievers.chat_message_retriever", "haystack_experimental.components.retrievers.multi_query_embedding_retriever", "haystack_experimental.components.retrievers.multi_query_text_retriever"]
+    modules: ["haystack_experimental.components.retrievers.chat_message_retriever"]
     ignore_when_discovered: ["__init__"]
 processors:
   - type: filter
