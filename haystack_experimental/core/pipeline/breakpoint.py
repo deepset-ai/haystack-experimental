@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from haystack import logging
+from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, PipelineState, ToolBreakpoint
 from haystack.utils.base_serialization import _serialize_value_with_schema
 from haystack.utils.misc import _get_output_dir
@@ -44,8 +44,10 @@ def _create_agent_snapshot(
     """
     return AgentSnapshot(
         component_inputs={
-            "chat_generator": _serialize_value_with_schema(deepcopy(component_inputs["chat_generator"])),
-            "tool_invoker": _serialize_value_with_schema(deepcopy(component_inputs["tool_invoker"])),
+            "chat_generator": _serialize_value_with_schema(
+                _deepcopy_with_exceptions(component_inputs["chat_generator"])
+            ),
+            "tool_invoker": _serialize_value_with_schema(_deepcopy_with_exceptions(component_inputs["tool_invoker"])),
         },
         component_visits=component_visits,
         break_point=agent_breakpoint,

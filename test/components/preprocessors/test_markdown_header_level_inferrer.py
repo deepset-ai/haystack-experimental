@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from haystack import Document
-from haystack_experimental.components.preprocessors.md_header_level_inferrer import MarkdownHeaderLevelInferrer
+from haystack_experimental.components.preprocessors import MarkdownHeaderLevelInferrer
 
 
 def test_single_header_level_inference():
@@ -124,7 +124,7 @@ def test_multiple_documents():
     inferrer = MarkdownHeaderLevelInferrer()
     docs = [Document(content=text1), Document(content=text2)]
     result = inferrer.run(docs)
-    
+
     assert len(result["documents"]) == 2
     assert result["documents"][0].content == "# Title 1\nContent 1"
     assert result["documents"][1].content == "# Title 2\nContent 2"
@@ -154,7 +154,7 @@ def test_very_long_content():
     inferrer = MarkdownHeaderLevelInferrer()
     doc = Document(content=text)
     result = inferrer.run([doc])
-    
+
     # verify first header becomes level 1, others follow the pattern
     content = result["documents"][0].content
     assert content.startswith("# Header 0")
