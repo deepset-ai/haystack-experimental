@@ -255,5 +255,6 @@ class Agent(HaystackAgent):
 
         # Add the new conversation as memories to the memory store
         user_messages = [message for message in result["messages"] if message.role == "user"]
-        self.memory_store.add_memories(user_messages)
+        if self.memory_store:
+            self.memory_store.add_memories(user_messages)
         return result

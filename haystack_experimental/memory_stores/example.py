@@ -1,11 +1,10 @@
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
+from haystack_experimental.memory.src.mem0.memory_store import Mem0MemoryStore
 
 from haystack_experimental.components.memory_agents.agent import Agent
-from haystack_experimental.memory.src.mem0.memory_store import Mem0MemoryStore, Mem0Scope
 
-memory_store = Mem0MemoryStore(scope=Mem0Scope(user_id="haystack_mem0"))
-
+memory_store = Mem0MemoryStore(user_id="haystack_mem1")
 
 messages = [
     ChatMessage.from_user("I like to listen to Russian pop music"),
@@ -20,7 +19,7 @@ messages = [
 ]
 
 memory_store.add_memories(messages)
-
+# memory_store.delete_all_memories()
 result = memory_store.search_memories()
 
 print(result)
