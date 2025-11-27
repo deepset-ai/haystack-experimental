@@ -65,7 +65,7 @@ class ConfirmationPolicy(Protocol):
 
 
 class ConfirmationStrategy(Protocol):
-    def run(
+    def run(  # pylint: disable=R0917
         self,
         tool_name: str,
         tool_description: str,
@@ -89,7 +89,7 @@ class ConfirmationStrategy(Protocol):
         """
         ...
 
-    async def run_async(
+    async def run_async(  # pylint: disable=R0917
         self,
         tool_name: str,
         tool_description: str,

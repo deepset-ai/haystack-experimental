@@ -46,7 +46,7 @@ class BlockingConfirmationStrategy:
         self.confirmation_policy = confirmation_policy
         self.confirmation_ui = confirmation_ui
 
-    def run(
+    def run(  # pylint: disable=R0917
         self,
         tool_name: str,
         tool_description: str,
@@ -117,7 +117,7 @@ class BlockingConfirmationStrategy:
                 tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
             )
 
-    async def run_async(
+    async def run_async(  # pylint: disable=R0917
         self,
         tool_name: str,
         tool_description: str,
@@ -195,7 +195,7 @@ class BreakpointConfirmationStrategy:
         """
         self.snapshot_file_path = snapshot_file_path
 
-    def run(
+    def run(  # pylint: disable=R0917
         self,
         tool_name: str,
         tool_description: str,
@@ -232,7 +232,7 @@ class BreakpointConfirmationStrategy:
             snapshot_file_path=self.snapshot_file_path,
         )
 
-    async def run_async(
+    async def run_async(  # pylint: disable=R0917
         self,
         tool_name: str,
         tool_description: str,
