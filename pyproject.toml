@@ -79,15 +79,6 @@ all = 'pytest {args:test}'
 types = "mypy --install-types --non-interactive {args:haystack_experimental}"
 lint = "pylint -ry -j 0 {args:haystack_experimental}"
 
-[tool.hatch.envs.readme]
-installer = "uv"
-detached = true                         # To avoid installing the dependencies from the default environment
-dependencies = ["haystack-pydoc-tools"]
-
-[tool.hatch.envs.readme.scripts]
-sync = "./.github/utils/pydoc-markdown.sh"
-delete-outdated = "python ./.github/utils/delete_outdated_docs.py {args}"
-
 [tool.hatch.version]
 source = "vcs"
 tag-pattern = 'v(?P<version>.*)'
