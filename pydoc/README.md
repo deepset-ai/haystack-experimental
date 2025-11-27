@@ -6,13 +6,13 @@ You can find Haystack's documentation at https://docs.haystack.deepset.ai/.
 
 We use Pydoc-Markdown to create Markdown files from the docstrings in our code. There is a Github Action that regenerates the API pages when tags are pushed or when manually triggered.
 
-If you want to generate a new Markdown file for a new Haystack module, create a `.yml` file in `docs/pydoc/config_docusaurus` which configures how Pydoc-Markdown will generate the page and commit it to main.
+If you want to generate a new Markdown file for a new Haystack module, create a `.yml` file in `pydoc` which configures how Pydoc-Markdown will generate the page and commit it to main.
 
 All the updates to docstrings get pushed to documentation when a new version is released.
 
 ### Configuration
 
-Pydoc will read the configuration from a `.yml` file which is located under `docs/pydoc/config_docusaurus`. Our files contain three main sections:
+Pydoc will read the configuration from a `.yml` file which is located under `pydoc`. Our files contain three main sections:
 
 - **loaders**: A list of plugins that load API objects from python source files.
     - **type**: Loader for python source files (we use `haystack_pydoc_tools.loaders.CustomPythonLoader`)
