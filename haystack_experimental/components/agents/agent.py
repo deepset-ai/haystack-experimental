@@ -39,7 +39,7 @@ from haystack.core.serialization import default_from_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
-from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
+from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace  # type: ignore[attr-defined]
 from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
@@ -48,7 +48,10 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     ToolExecutionDecision,
     HITLBreakpointException,
 )
-from haystack_experimental.components.agents.human_in_the_loop.strategies import _process_confirmation_strategies
+from haystack_experimental.components.agents.human_in_the_loop.strategies import (
+    _process_confirmation_strategies,
+    _process_confirmation_strategies_async,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +65,14 @@ class _ExecutionContext(Haystack_ExecutionContext):
 
     :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
         the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
+    :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        In web/server environments, this enables passing per-request objects (e.g., WebSocket connections,
+        async queues, or pub/sub clients) that strategies can use for non-blocking user interaction.
+        Accessible in strategies via `execution_context.run_context`.
     """
 
     tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
+    run_context: Optional[dict[str, Any]] = None
 
 
 class Agent(HaystackAgent):
@@ -174,6 +182,7 @@ class Agent(HaystackAgent):
         system_prompt: Optional[str] = None,
         generation_kwargs: Optional[dict[str, Any]] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
+        run_context: Optional[dict[str, Any]] = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -185,6 +194,7 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
+        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
         # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
@@ -214,12 +224,13 @@ class Agent(HaystackAgent):
             exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext
+        # NOTE: 2nd difference is to use the extended _ExecutionContext with run_context
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
             chat_generator_inputs=exe_context.chat_generator_inputs,
             tool_invoker_inputs=exe_context.tool_invoker_inputs,
+            run_context=run_context,
         )
 
     def _initialize_from_snapshot(  # type: ignore[override]
@@ -230,6 +241,7 @@ class Agent(HaystackAgent):
         *,
         generation_kwargs: Optional[dict[str, Any]] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> _ExecutionContext:
         """
         Initialize execution context from an AgentSnapshot.
@@ -241,12 +253,13 @@ class Agent(HaystackAgent):
             override the parameters passed during component initialization.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
+        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
         """
         # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
         # _initialize_from_snapshot. This change has been released in Haystack 2.20.0.
         # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
         if inspect.signature(super(Agent, self)._initialize_from_snapshot).parameters.get("generation_kwargs"):
-            exe_context = super(Agent, self)._initialize_from_snapshot(
+            exe_context = super(Agent, self)._initialize_from_snapshot(  # type: ignore[call-arg]
                 snapshot=snapshot,
                 streaming_callback=streaming_callback,
                 requires_async=requires_async,
@@ -262,7 +275,7 @@ class Agent(HaystackAgent):
             exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext and add tool_execution_decisions
+        # NOTE: 2nd difference is to use the extended _ExecutionContext and add tool_execution_decisions + run_context
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
@@ -271,18 +284,20 @@ class Agent(HaystackAgent):
             counter=exe_context.counter,
             skip_chat_generator=exe_context.skip_chat_generator,
             tool_execution_decisions=snapshot.tool_execution_decisions,
+            run_context=run_context,
         )
 
-    def run(  # noqa: PLR0915
+    def run(  # type: ignore  # noqa: PLR0915
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
         *,
         generation_kwargs: Optional[dict[str, Any]] = None,
         break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
+        snapshot: Optional[AgentSnapshot] = None,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
+        run_context: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -300,6 +315,10 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
+        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+            Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
+            async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
+            Strategies access this via `execution_context.run_context`.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -334,6 +353,7 @@ class Agent(HaystackAgent):
                 requires_async=False,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
+                run_context=run_context,
             )
         else:
             exe_context = self._initialize_fresh_execution(
@@ -343,6 +363,7 @@ class Agent(HaystackAgent):
                 system_prompt=system_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
+                run_context=run_context,
                 **kwargs,
             )
 
@@ -471,16 +492,17 @@ class Agent(HaystackAgent):
             result["last_message"] = msgs[-1]
         return result
 
-    async def run_async(
+    async def run_async(  # type: ignore[override]
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
         *,
         generation_kwargs: Optional[dict[str, Any]] = None,
         break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,  # type: ignore[override]
+        snapshot: Optional[AgentSnapshot] = None,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
+        run_context: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -501,6 +523,10 @@ class Agent(HaystackAgent):
             the relevant information to restart the Agent execution from where it left off.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
+        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+            Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
+            async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
+            Strategies access this via `execution_context.run_context`.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -535,6 +561,7 @@ class Agent(HaystackAgent):
                 requires_async=True,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
+                run_context=run_context,
             )
         else:
             exe_context = self._initialize_fresh_execution(
@@ -544,6 +571,7 @@ class Agent(HaystackAgent):
                 system_prompt=system_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
+                run_context=run_context,
                 **kwargs,
             )
 
@@ -581,8 +609,8 @@ class Agent(HaystackAgent):
 
                 # Apply confirmation strategies and update State and messages sent to ToolInvoker
                 try:
-                    # Run confirmation strategies to get updated tool call messages and modified chat history
-                    modified_tool_call_messages, new_chat_history = _process_confirmation_strategies(
+                    # Run confirmation strategies to get updated tool call messages and modified chat history (async)
+                    modified_tool_call_messages, new_chat_history = await _process_confirmation_strategies_async(
                         confirmation_strategies=self._confirmation_strategies,
                         messages_with_tool_calls=llm_messages,
                         execution_context=exe_context,

@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import replace
+from typing import Any, Optional
+
 import pytest
 from haystack.components.agents.state.state import State
 from haystack.dataclasses import ChatMessage, ToolCall
@@ -14,6 +16,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     AskOncePolicy,
     BlockingConfirmationStrategy,
     BreakpointConfirmationStrategy,
+    ConfirmationStrategy,
     HITLBreakpointException,
     SimpleConsoleUI,
     ToolExecutionDecision,
@@ -23,6 +26,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
 from haystack_experimental.components.agents.human_in_the_loop.strategies import (
     _apply_tool_execution_decisions,
     _run_confirmation_strategies,
+    _run_confirmation_strategies_async,
     _update_chat_history,
 )
 
@@ -338,3 +342,193 @@ class TestUpdateChatHistory:
             chat_history_one_tool_call, rejection_messages=[], tool_call_and_explanation_messages=tool_call_messages
         )
         assert updated_messages == [chat_history_one_tool_call[0], *tool_call_messages]
+
+
+class RunContextCapturingStrategy:
+    def __init__(self):
+        self.captured_execution_context: Optional[_ExecutionContext] = None
+
+    def run(
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: Optional[str] = None,
+        execution_context: Optional[_ExecutionContext] = None,
+    ) -> ToolExecutionDecision:
+        self.captured_execution_context = execution_context
+        return ToolExecutionDecision(
+            tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
+        )
+
+    async def run_async(
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: Optional[str] = None,
+        execution_context: Optional[_ExecutionContext] = None,
+    ) -> ToolExecutionDecision:
+        self.captured_execution_context = execution_context
+        return ToolExecutionDecision(
+            tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"type": "test.RunContextCapturingStrategy", "init_parameters": {}}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RunContextCapturingStrategy":
+        return cls()
+
+
+class TestRunContext:
+    def test_run_context_passed_to_strategy(self, tools):
+        run_context = {"event_queue": "mock_queue", "redis_client": "mock_redis"}
+        execution_context = _ExecutionContext(
+            state=State(schema={"messages": {"type": list[ChatMessage]}}),
+            component_visits={"chat_generator": 0, "tool_invoker": 0},
+            chat_generator_inputs={},
+            tool_invoker_inputs={"tools": tools},
+            counter=0,
+            skip_chat_generator=False,
+            tool_execution_decisions=None,
+            run_context=run_context,
+        )
+
+        capturing_strategy = RunContextCapturingStrategy()
+        teds = _run_confirmation_strategies(
+            confirmation_strategies={tools[0].name: capturing_strategy},
+            messages_with_tool_calls=[
+                ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2})]),
+            ],
+            execution_context=execution_context,
+        )
+
+        # Verify the strategy received the execution_context with run_context
+        assert capturing_strategy.captured_execution_context is not None
+        assert capturing_strategy.captured_execution_context.run_context == run_context
+        assert len(teds) == 1
+        assert teds[0].execute is True
+
+    @pytest.mark.asyncio
+    async def test_run_context_passed_to_strategy_async(self, tools):
+        run_context = {"websocket": "mock_websocket", "request_id": "12345"}
+        execution_context = _ExecutionContext(
+            state=State(schema={"messages": {"type": list[ChatMessage]}}),
+            component_visits={"chat_generator": 0, "tool_invoker": 0},
+            chat_generator_inputs={},
+            tool_invoker_inputs={"tools": tools},
+            counter=0,
+            skip_chat_generator=False,
+            tool_execution_decisions=None,
+            run_context=run_context,
+        )
+
+        capturing_strategy = RunContextCapturingStrategy()
+        teds = await _run_confirmation_strategies_async(
+            confirmation_strategies={tools[0].name: capturing_strategy},
+            messages_with_tool_calls=[
+                ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2})]),
+            ],
+            execution_context=execution_context,
+        )
+
+        # Verify the strategy received the execution_context with run_context
+        assert capturing_strategy.captured_execution_context is not None
+        assert capturing_strategy.captured_execution_context.run_context == run_context
+        assert len(teds) == 1
+        assert teds[0].execute is True
+
+
+class TestAsyncConfirmationStrategies:
+    """Tests for async confirmation strategy methods."""
+
+    @pytest.mark.asyncio
+    async def test_blocking_strategy_run_async(self, monkeypatch):
+        strategy = BlockingConfirmationStrategy(AlwaysAskPolicy(), SimpleConsoleUI())
+
+        # Mock the UI to always confirm
+        def mock_get_user_confirmation(tool_name, tool_description, tool_params):
+            return ConfirmationUIResult(action="confirm")
+
+        monkeypatch.setattr(strategy.confirmation_ui, "get_user_confirmation", mock_get_user_confirmation)
+
+        decision = await strategy.run_async(
+            tool_name="test_tool", tool_description="A test tool", tool_params={"param1": "value1"}
+        )
+        assert decision.tool_name == "test_tool"
+        assert decision.execute is True
+        assert decision.final_tool_params == {"param1": "value1"}
+
+    @pytest.mark.asyncio
+    async def test_breakpoint_strategy_run_async(self):
+        strategy = BreakpointConfirmationStrategy(snapshot_file_path="test_path")
+
+        with pytest.raises(HITLBreakpointException) as exc_info:
+            await strategy.run_async(
+                tool_name="test_tool", tool_description="A test tool", tool_params={"param1": "value1"}
+            )
+
+        assert exc_info.value.tool_name == "test_tool"
+        assert exc_info.value.snapshot_file_path == "test_path"
+
+    @pytest.mark.asyncio
+    async def test_run_confirmation_strategies_async_no_strategy(self, tools, execution_context):
+        teds = await _run_confirmation_strategies_async(
+            confirmation_strategies={},
+            messages_with_tool_calls=[
+                ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2})]),
+            ],
+            execution_context=execution_context,
+        )
+        assert len(teds) == 1
+        assert teds[0].tool_name == tools[0].name
+        assert teds[0].execute is True
+        assert teds[0].final_tool_params == {"a": 1, "b": 2}
+
+    @pytest.mark.asyncio
+    async def test_run_confirmation_strategies_async_with_strategy(self, tools, execution_context):
+        teds = await _run_confirmation_strategies_async(
+            confirmation_strategies={tools[0].name: BlockingConfirmationStrategy(NeverAskPolicy(), SimpleConsoleUI())},
+            messages_with_tool_calls=[
+                ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2})]),
+            ],
+            execution_context=execution_context,
+        )
+        assert len(teds) == 1
+        assert teds[0].tool_name == tools[0].name
+        assert teds[0].execute is True
+
+    @pytest.mark.asyncio
+    async def test_run_confirmation_strategies_async_hitl_breakpoint(self, tmp_path, tools, execution_context):
+        with pytest.raises(HITLBreakpointException):
+            await _run_confirmation_strategies_async(
+                confirmation_strategies={tools[0].name: BreakpointConfirmationStrategy(str(tmp_path))},
+                messages_with_tool_calls=[
+                    ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2})]),
+                ],
+                execution_context=execution_context,
+            )
+
+    @pytest.mark.asyncio
+    async def test_run_confirmation_strategies_async_with_existing_teds(self, tools, execution_context):
+        exe_context_with_teds = replace(
+            execution_context,
+            tool_execution_decisions=[
+                ToolExecutionDecision(
+                    tool_name=tools[0].name, execute=True, tool_call_id="123", final_tool_params={"a": 5, "b": 6}
+                )
+            ],
+        )
+        teds = await _run_confirmation_strategies_async(
+            confirmation_strategies={tools[0].name: BlockingConfirmationStrategy(NeverAskPolicy(), SimpleConsoleUI())},
+            messages_with_tool_calls=[
+                ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2}, id="123")]),
+            ],
+            execution_context=exe_context_with_teds,
+        )
+        # Should use the existing TED, not create a new one
+        assert len(teds) == 1
+        assert teds[0].tool_call_id == "123"
+        assert teds[0].final_tool_params == {"a": 5, "b": 6}
