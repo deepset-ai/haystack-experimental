@@ -7,6 +7,7 @@ from typing import Any, Optional
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.lazy_imports import LazyImport
+from haystack.utils import Secret, deserialize_secrets_inplace
 
 with LazyImport(message="Run 'pip install mem0ai'") as mem0_import:
     from mem0 import Memory, MemoryClient
@@ -22,7 +23,7 @@ class Mem0MemoryStore:
         user_id: Optional[str] = None,
         run_id: Optional[str] = None,
         agent_id: Optional[str] = None,
-        api_key: Optional[str] = None,
+        api_key: Secret = Secret.from_env_var("MEM0_API_KEY"),
         memory_config: Optional[dict[str, Any]] = None,
         search_criteria: Optional[dict[str, Any]] = None,
     ):
@@ -39,12 +40,10 @@ class Mem0MemoryStore:
         """
 
         mem0_import.check()
-        self.api_key = api_key or os.getenv("MEM0_API_KEY")
+        self.api_key = api_key
         self.user_id = user_id
         self.run_id = run_id
         self.agent_id = agent_id
-        if not self.api_key:
-            raise ValueError("Mem0 API key must be provided either as parameter or MEM0_API_KEY environment variable.")
 
         self._check_one_id_is_set()
 
@@ -55,7 +54,7 @@ class Mem0MemoryStore:
             self.client = Memory.from_config(self.memory_config)
         else:
             self.client = MemoryClient(
-                api_key=self.api_key,
+                api_key=self.api_key.resolve_value(),
             )
 
         # We allow setting search criteria in init because
@@ -69,7 +68,7 @@ class Mem0MemoryStore:
             user_id=self.user_id,
             run_id=self.run_id,
             agent_id=self.agent_id,
-            api_key=self.api_key,
+            api_key=self.api_key.to_dict(),
             memory_config=self.memory_config,
             search_criteria=self.search_criteria,
         )
@@ -77,6 +76,8 @@ class Mem0MemoryStore:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Mem0MemoryStore":
         """Deserialize the store from a dictionary."""
+        deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
+
         return default_from_dict(cls, data)
 
     def add_memories(self, messages: list[ChatMessage], infer: bool = True) -> list[str]:
@@ -128,7 +129,8 @@ class Mem0MemoryStore:
         if search_filters:
             mem0_filters = search_filters
         else:
-            mem0_filters = self._get_ids()
+            ids = self._get_ids()
+            mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
 
         try:
             if not search_query:

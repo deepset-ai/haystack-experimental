@@ -27,7 +27,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "haystack-ai",
+  "haystack-ai==2.20.0",
   "rich", # For pretty printing in the console used by human-in-the-loop utilities
   "mem0ai"
 ]

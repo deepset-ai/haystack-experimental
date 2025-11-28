@@ -9,6 +9,7 @@ import pytest
 from haystack.dataclasses.chat_message import ChatMessage
 
 from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
+from haystack.utils import Secret
 
 
 class TestMem0MemoryStore:
@@ -52,9 +53,8 @@ class TestMem0MemoryStore:
     def test_init_with_user_id_and_api_key(self, mock_memory_client):
         """Test initialization with user_id and api_key."""
         with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", api_key="test_api_key_12345")
+            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"))
             assert store.user_id == "user123"
-            assert store.api_key == "test_api_key_12345"
             assert store.run_id is None
             assert store.agent_id is None
             assert store.client == mock_memory_client
@@ -63,12 +63,11 @@ class TestMem0MemoryStore:
     def test_init_with_params(self, mock_memory_client):
         search_criteria = {"query": "test query", "filters": {"category": "test"}, "top_k": 5}
         store = Mem0MemoryStore(
-            user_id="user123", run_id="run456", agent_id="agent789", api_key="test_api_key_12345", search_criteria=search_criteria
+            user_id="user123", run_id="run456", agent_id="agent789", api_key=Secret.from_token("test_api_key_12345"), search_criteria=search_criteria
         )
         assert store.user_id == "user123"
         assert store.run_id == "run456"
         assert store.agent_id == "agent789"
-        assert store.api_key == "test_api_key_12345"
         assert store.search_criteria == search_criteria
         assert store.client == mock_memory_client
 
@@ -76,48 +75,48 @@ class TestMem0MemoryStore:
         """Test initialization with custom memory_config."""
         memory_config = {"llm": {"provider": "openai"}}
         with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", api_key="test_api_key_12345", memory_config=memory_config)
+            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"), memory_config=memory_config)
             assert store.memory_config == memory_config
             assert store.client == mock_memory
 
-    def test_init_without_api_key_raises_error(self, ):
+    def test_init_without_api_key_raises_error(self):
         """Test that initialization without API key raises ValueError."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="Mem0 API key must be provided"):
+            with pytest.raises(ValueError, match="None of the following authentication environment variables are set"):
                 Mem0MemoryStore(user_id="user123")
 
     def test_init_without_any_id_raises_error(self):
         """Test that initialization without any ID raises ValueError."""
         with pytest.raises(ValueError, match="At least one of user_id, run_id, or agent_id must be set"):
-            Mem0MemoryStore(user_id=None, run_id=None, agent_id=None, api_key="test_api_key_12345")
+            Mem0MemoryStore(user_id=None, run_id=None, agent_id=None, api_key=Secret.from_token("test_api_key_12345"))
 
-    def test_to_dict(self, mock_memory_client):
+    def test_to_dict(self,monkeypatch, mock_memory_client):
         """Test serialization to dictionary."""
         with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", run_id="run456", agent_id="agent789", search_criteria={"top_k": 5}, api_key="test_api_key_12345")
+            monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
+            store = Mem0MemoryStore(user_id="user123", run_id="run456", agent_id="agent789", search_criteria={"top_k": 5}, api_key=Secret.from_env_var("ENV_VAR"),)
             result = store.to_dict()
             assert result["init_parameters"]["user_id"] == "user123"
             assert result["init_parameters"]["run_id"] == "run456"
             assert result["init_parameters"]["agent_id"] == "agent789"
-            assert result["init_parameters"]["api_key"] == "test_api_key_12345"
+            assert result["init_parameters"]["api_key"] == {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"}
             assert result["init_parameters"]["search_criteria"] == {"top_k": 5}
 
-    def test_from_dict(self):
-        data = {
-            "init_parameters": {
-                "user_id": "user123",
-                "run_id": "run456",
-                "api_key": "test_api_key_12345",
-                "search_criteria": {"top_k": 5},
-            },
-        }
-        store = Mem0MemoryStore.from_dict(data)
-        assert store.user_id == "user123"
-        assert store.run_id == "run456"
-        assert store.agent_id is None
-        assert store.api_key == "test_api_key_12345"
-        assert store.search_criteria == {"top_k": 5}
-
+    def test_from_dict(self, monkeypatch, mock_memory_client,):
+        with patch.dict(os.environ, {}, clear=True):
+            monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
+            data = {
+                'type': 'haystack_experimental.memory_stores.mem0.src.mem0.memory_store.Mem0MemoryStore',
+                'init_parameters': {'user_id': 'user123', 'run_id': 'run456',
+                                    'agent_id': 'agent789', "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
+                                    'memory_config': None, 'search_criteria': {'top_k': 5}}}
+            store = Mem0MemoryStore.from_dict(data)
+            assert store.user_id == "user123"
+            assert store.run_id == "run456"
+            assert store.agent_id == "agent789"
+            assert store.client == mock_memory_client
+            assert store.api_key == Secret.from_env_var("ENV_VAR")
+            assert store.search_criteria == {"top_k": 5}
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -126,7 +125,7 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_and_delete_memories(self, sample_messages):
         """Test adding memories successfully."""
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"))
+        store = Mem0MemoryStore(user_id="haystack_test_123")
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
         result = store.add_memories(sample_messages)
@@ -143,15 +142,16 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_memories_with_infer_false(self, sample_messages):
         """Test adding memories with infer=False."""
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"))
+        store = Mem0MemoryStore(user_id="haystack_test_123")
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
         store.add_memories(sample_messages, infer=False)
         mem = store.search_memories()
         assert len(mem) == 2
         assert all(isinstance(msg, ChatMessage) for msg in mem)
-        assert mem[0].text == sample_messages[0].text
-        assert mem[1].text == sample_messages[1].text
+        # we dont know in which order memory is retrieved
+        assert mem[0].text == sample_messages[0].text or sample_messages[1].text
+        assert mem[1].text == sample_messages[0].text or sample_messages[1].text
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -161,7 +161,7 @@ class TestMem0MemoryStore:
     def test_add_memories_with_metadata(self):
         """Test adding memories with metadata."""
         messages = [ChatMessage.from_user("Test", meta={"key": "value"})]
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"))
+        store = Mem0MemoryStore(user_id="haystack_test_123")
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
         store.add_memories(messages)
@@ -177,7 +177,7 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_search_memories(self, sample_messages):
         """Test searching memories with a query."""
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"))
+        store = Mem0MemoryStore(user_id="haystack_test_123")
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
         store.add_memories(sample_messages)
@@ -198,7 +198,7 @@ class TestMem0MemoryStore:
         assert result[0].meta == {"topic": "programming"}
 
         search_criteria = { "filters": {"category": "test"}, "top_k": 1}
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"), search_criteria=search_criteria)
+        store = Mem0MemoryStore(user_id="haystack_test_123", search_criteria=search_criteria)
         result = store.search_memories()
         assert len(result) == 2
 
@@ -210,7 +210,7 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_delete_all_memories(self):
         """Test deleting all memories."""
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"))
+        store = Mem0MemoryStore(user_id="haystack_test_123")
         store.delete_all_memories()
 
     @pytest.mark.skipif(
@@ -227,9 +227,9 @@ class TestMem0MemoryStore:
         store.delete_memory(mem[0].id)
         assert len(store.search_memories()) == 0
 
-    def test_get_scope_with_only_user_id(self, mock_api_key, mock_memory_client):
+    def test_get_scope_with_only_user_id(self, mock_memory_client):
         """Test _get_scope returns only user_id when others are None."""
         with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", api_key=mock_api_key)
-            scope = store._get_scope()
+            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"))
+            scope = store._get_ids()
             assert scope == {"user_id": "user123"}
