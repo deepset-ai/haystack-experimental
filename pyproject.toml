@@ -43,11 +43,13 @@ dependencies = [
   # Pre-commit hook
   "pre-commit",
   "ruff",
+  "haystack-pydoc-tools",
 ]
 
 [tool.hatch.envs.default.scripts]
 fmt = "ruff check --fix {args} && ruff format {args}"
 fmt-check = "ruff check {args} && ruff format --check {args}"
+docs = "./.github/utils/pydoc-markdown.sh"
 
 [tool.hatch.envs.test]
 extra-dependencies = [

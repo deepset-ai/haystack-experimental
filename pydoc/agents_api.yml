@@ -11,7 +11,7 @@ loaders:
   - haystack_experimental.components.agents.human_in_the_loop.types
   - haystack_experimental.components.agents.human_in_the_loop.user_interfaces
   search_path:
-  - ../../../
+  - ../
   type: haystack_pydoc_tools.loaders.CustomPythonLoader
 processors:
 - do_not_filter_modules: false
