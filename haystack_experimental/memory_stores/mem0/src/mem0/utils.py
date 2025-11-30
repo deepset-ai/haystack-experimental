@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
+# SPDX-License-Identifier: Apache-2.0
+
 SEMANTIC_MEMORY_EXTRACTION_PROMPT = """
 You are extracting semantic memories from a conversation chain. Semantic memories are general
 preferences or personality traits or facts about the user that occurred during the conversation.
