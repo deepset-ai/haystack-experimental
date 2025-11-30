@@ -6,23 +6,18 @@ from typing import Any, Optional, Union
 
 from haystack import logging
 from haystack.components.agents.agent import Agent as HaystackAgent
-from haystack.components.agents.agent import _schema_from_dict
-from haystack.components.agents.state import replace_values
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.errors import PipelineRuntimeError
-from haystack.core.pipeline import AsyncPipeline, Pipeline
+from haystack.core.pipeline import Pipeline
 from haystack.core.pipeline.breakpoint import (
     _create_pipeline_snapshot_from_chat_generator,
     _create_pipeline_snapshot_from_tool_invoker,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
-from haystack.core.serialization import default_from_dict, import_class_by_name
 from haystack.dataclasses import ChatMessage
-from haystack.dataclasses.breakpoints import AgentBreakpoint, AgentSnapshot, ToolBreakpoint
+from haystack.dataclasses.breakpoints import AgentBreakpoint, AgentSnapshot
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT
-from haystack.tools import Tool, Toolset, ToolsType, deserialize_tools_or_toolset_inplace
-from haystack.utils.callable_serialization import deserialize_callable
-from haystack.utils.deserialization import deserialize_chatgenerator_inplace
+from haystack.tools import ToolsType
 
 from haystack_experimental.memory_stores.mem0.src.mem0.memory_store import Mem0MemoryStore
 
