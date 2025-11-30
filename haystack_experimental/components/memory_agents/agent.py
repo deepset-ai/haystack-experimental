@@ -24,7 +24,7 @@ from haystack.tools import Tool, Toolset, ToolsType, deserialize_tools_or_toolse
 from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
-from haystack_experimental.memory.src.mem0.memory_store import Mem0MemoryStore
+from haystack_experimental.memory_stores.mem0.src.mem0.memory_store import Mem0MemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        self._runtime_checks(break_point=break_point, snapshot=snapshot)
+        self._runtime_checks(break_point=break_point, snapshot=snapshot)  # type:ignore [call-arg]
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(

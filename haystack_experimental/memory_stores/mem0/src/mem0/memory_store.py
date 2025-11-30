@@ -103,7 +103,6 @@ class Mem0MemoryStore:
                 added_ids.append(memory_id)
             except Exception as e:
                 raise RuntimeError(f"Failed to add memory message: {e}") from e
-
         return list(added_ids)
 
     def search_memories(
@@ -111,6 +110,7 @@ class Mem0MemoryStore:
         query: Optional[str] = None,
         filters: Optional[dict[str, Any]] = None,
         top_k: int = 5,
+        _include_memory_metadata: bool = False,
     ) -> list[ChatMessage]:
         """
         Search for memories in Mem0.
@@ -118,30 +118,45 @@ class Mem0MemoryStore:
         :param query: Text query to search for. If not provided, all memories will be returned.
         :param filters: Additional filters to apply on search. For more details on mem0 filters, see https://mem0.ai/docs/search/
         :param top_k: Maximum number of results to return
+        :param _include_memory_metadata: Whether to include the memory metadata in the ChatMessage
         :returns: List of ChatMessage memories matching the criteria
         """
         # Prepare filters for Mem0
 
-        search_query = query or self.search_criteria.get("query", None) if self.search_criteria else None
-        search_filters = filters or self.search_criteria.get("filters", {}) if self.search_criteria else None
-        search_top_k = top_k or self.search_criteria.get("top_k", 10) if self.search_criteria else 10
+        search_query = query or (self.search_criteria.get("query", None) if self.search_criteria else None)
+        search_filters = filters or (self.search_criteria.get("filters", {}) if self.search_criteria else None)
+        search_top_k = top_k or (self.search_criteria.get("top_k", 10) if self.search_criteria else 10)
 
         if search_filters:
             mem0_filters = search_filters
         else:
             ids = self._get_ids()
-            mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
+            if len(ids) == 1:
+                mem0_filters = dict(ids)
+            else:
+                mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
 
         try:
             if not search_query:
-                memories = self.client.get_all(filters=mem0_filters, **self._get_ids())
+                memories = self.client.get_all(filters=mem0_filters)
             else:
                 memories = self.client.search(
-                    query=search_query, limit=search_top_k, filters=mem0_filters, **self._get_ids()
+                    query=search_query,
+                    limit=search_top_k,
+                    filters=mem0_filters,
                 )
-            messages = [
-                ChatMessage.from_user(text=memory["memory"], meta=memory["metadata"]) for memory in memories["results"]
-            ]
+            if _include_memory_metadata:
+                for memory in memories["results"]:
+                    meta = memory.copy()
+                    meta.pop("memory")
+                    messages = [
+                        ChatMessage.from_user(text=memory["memory"], meta=meta) for memory in memories["results"]
+                    ]
+            else:
+                messages = [
+                    ChatMessage.from_user(text=memory["memory"], meta=memory["metadata"])
+                    for memory in memories["results"]
+                ]
             return messages
 
         except Exception as e:

@@ -5,7 +5,7 @@
 import os
 from unittest.mock import Mock, patch
 import pytest
-
+from time import sleep
 from haystack.dataclasses.chat_message import ChatMessage
 
 from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
@@ -71,11 +71,12 @@ class TestMem0MemoryStore:
         assert store.search_criteria == search_criteria
         assert store.client == mock_memory_client
 
-    def test_init_with_memory_config(self, mock_memory):
+    def test_init_with_memory_config(self, monkeypatch, mock_memory):
         """Test initialization with custom memory_config."""
         memory_config = {"llm": {"provider": "openai"}}
         with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"), memory_config=memory_config)
+            monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
+            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_env_var("ENV_VAR"), memory_config=memory_config)
             assert store.memory_config == memory_config
             assert store.client == mock_memory
 
@@ -94,7 +95,7 @@ class TestMem0MemoryStore:
         """Test serialization to dictionary."""
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
-            store = Mem0MemoryStore(user_id="user123", run_id="run456", agent_id="agent789", search_criteria={"top_k": 5}, api_key=Secret.from_env_var("ENV_VAR"),)
+            store = Mem0MemoryStore(user_id="user123", run_id="run456", agent_id="agent789", search_criteria={"top_k": 5}, api_key=Secret.from_env_var("ENV_VAR"))
             result = store.to_dict()
             assert result["init_parameters"]["user_id"] == "user123"
             assert result["init_parameters"]["run_id"] == "run456"
@@ -145,13 +146,8 @@ class TestMem0MemoryStore:
         store = Mem0MemoryStore(user_id="haystack_test_123")
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
-        store.add_memories(sample_messages, infer=False)
-        mem = store.search_memories()
-        assert len(mem) == 2
-        assert all(isinstance(msg, ChatMessage) for msg in mem)
-        # we dont know in which order memory is retrieved
-        assert mem[0].text == sample_messages[0].text or sample_messages[1].text
-        assert mem[1].text == sample_messages[0].text or sample_messages[1].text
+        result = store.add_memories(sample_messages, infer=False)
+        assert len(result) == 2
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -162,13 +158,9 @@ class TestMem0MemoryStore:
         """Test adding memories with metadata."""
         messages = [ChatMessage.from_user("Test", meta={"key": "value"})]
         store = Mem0MemoryStore(user_id="haystack_test_123")
-        # delete all memories for this id
-        store.delete_all_memories(user_id="haystack_test_123")
-        store.add_memories(messages)
-        mem = store.search_memories()
-        assert len(mem) == 1
-        assert mem[0].text == messages[0].text
-        assert mem[0].meta == {"key": "value"}
+
+        added_ids = store.add_memories(messages)
+        assert added_ids[0] is not None
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -176,32 +168,38 @@ class TestMem0MemoryStore:
     )
     @pytest.mark.integration
     def test_search_memories(self, sample_messages):
-        """Test searching memories with a query."""
-        store = Mem0MemoryStore(user_id="haystack_test_123")
-        # delete all memories for this id
-        store.delete_all_memories(user_id="haystack_test_123")
-        store.add_memories(sample_messages)
+        """Test searching memories on previously added memories because the mem0 takes time to index the memory"""
+        store = Mem0MemoryStore(user_id="haystack_simple_memories")
 
         # search without query
         result = store.search_memories()
         assert len(result) == 2
 
         # search with query
-        result = store.search_memories(query="What programming languages do I usually work with?", top_k=1)
-        assert len(result) == 1
-        assert result[0].text == sample_messages[0].text
+        result = store.search_memories(filters={"user_id": "haystack_query_memories"}, query="What programming languages do I usually work with?")
+        assert result[0].text == "User likes working with python on NLP projects"
 
         # search with filters
-        result = store.search_memories(filters={"topic": "programming"})
-        assert len(result) == 1
-        assert result[0].text == sample_messages[1].text
-        assert result[0].meta == {"topic": "programming"}
+        result = store.search_memories(filters={ "AND": [{"user_id": "haystack_query_memories"}, {"categories": {"in":["technology"]}}]})
+        assert result[0].text == "User likes working with python on NLP projects"
 
-        search_criteria = { "filters": {"category": "test"}, "top_k": 1}
-        store = Mem0MemoryStore(user_id="haystack_test_123", search_criteria=search_criteria)
+        # search with metadata
+        mem = store.search_memories(filters={ "AND": [{"user_id": "haystack_memories_with_metadata"}, {"metadata":   {"country": "Italy"}}]})
+        assert mem[0].text == "User has visited Italy in 2025"
+        assert mem[0].meta == {"country": "Italy", "timestamp": "04/2025"}
+
+    @pytest.mark.skipif(
+        not os.environ.get("MEM0_API_KEY", None),
+        reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
+    )
+    @pytest.mark.integration
+    def test_search_criteria_in_init(self):
+        search_criteria = { "filters": {"AND": [{"user_id": "haystack_memories_with_metadata"}, {"metadata": {"timestamp": "04/2025"}}]}, "top_k": 1}
+        store = Mem0MemoryStore(user_id="haystack_memories_with_metadata", search_criteria=search_criteria)
         result = store.search_memories()
-        assert len(result) == 2
-
+        assert len(result) == 1
+        assert result[0].text == "User has visited Italy in 2025"
+        assert result[0].meta == {"country": "Italy", "timestamp": "04/2025"}
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -220,12 +218,15 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_delete_memory(self, sample_messages):
         """Test deleting a single memory."""
-        store = Mem0MemoryStore(user_id="haystack_test_123", api_key=os.environ.get("MEM0_API_KEY"))
+        store = Mem0MemoryStore(user_id="haystack_test_123")
         store.delete_all_memories(user_id="haystack_test_123")
-        store.add_memories(sample_messages)
-        mem = store.search_memories()
-        store.delete_memory(mem[0].id)
-        assert len(store.search_memories()) == 0
+        store.add_memories(sample_messages, infer=False)
+        sleep(10)
+        mem = store.search_memories(_include_memory_metadata=True)
+        store.delete_memory(mem[0].meta["id"])
+        sleep(10)
+        assert len(store.search_memories()) == 1
+
 
     def test_get_scope_with_only_user_id(self, mock_memory_client):
         """Test _get_scope returns only user_id when others are None."""
