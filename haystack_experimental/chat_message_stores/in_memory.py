@@ -35,8 +35,8 @@ class InMemoryChatMessageStore:
         ChatMessage.from_assistant("Hello, how can I help you?"),
         ChatMessage.from_user("Hi, I have a question about Python. What is a Protocol?"),
     ]
-    message_store.write_messages(messages, index="user_456_session_123")
-    retrieved_messages = message_store.retrieve(index="user_456_session_123")
+    message_store.write_messages(index="user_456_session_123", messages=messages)
+    retrieved_messages = message_store.retrieve_messages(index="user_456_session_123")
 
     print(retrieved_messages)
     ```
@@ -119,7 +119,11 @@ class InMemoryChatMessageStore:
             messages_with_id.append(msg)
 
         # For now, we always skip messages that are already stored based on their ID.
-        existing_ids = {msg.meta["chat_message_id"] for msg in self.retrieve_messages(index)}
+        existing_ids = {
+            msg.meta.get("chat_message_id")
+            for msg in self.retrieve_messages(index)
+            if msg.meta.get("chat_message_id") is not None
+        }
         messages_to_write = [
             message for message in messages_with_id if message.meta["chat_message_id"] not in existing_ids
         ]
@@ -129,7 +133,7 @@ class InMemoryChatMessageStore:
                 _STORAGES[index] = []
             _STORAGES[index].append(message)
 
-        return len(messages)
+        return len(messages_to_write)
 
     def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
         """

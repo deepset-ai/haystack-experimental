@@ -28,7 +28,7 @@ class ChatMessageWriter:
     ]
     message_store = InMemoryChatMessageStore()
     writer = ChatMessageWriter(message_store)
-    writer.run(messages)
+    writer.run(index="user_456_session_123", messages=messages)
     ```
     """
 
@@ -85,9 +85,6 @@ class ChatMessageWriter:
         """
         Run the ChatMessageWriter on the given input data.
 
-        If any of the incoming messages already have their `meta["is_stored"]` set to `True`, then those messages
-        will be skipped and not written to the ChatMessageStore again.
-
         :param index:
             A unique identifier for the chat session or conversation whose messages should be retrieved.
             Each `index` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
@@ -98,8 +95,5 @@ class ChatMessageWriter:
         :returns:
             - `messages_written`: Number of messages written to the ChatMessageStore.
         """
-        if index is None:
-            return {"messages_written": 0}
-
         messages_written = self.chat_message_store.write_messages(index=index, messages=messages)
         return {"messages_written": messages_written}

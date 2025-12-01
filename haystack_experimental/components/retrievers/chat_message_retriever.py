@@ -30,10 +30,10 @@ class ChatMessageRetriever:
     ]
 
     message_store = InMemoryChatMessageStore()
-    message_store.write_messages(messages)
+    message_store.write_messages(index="user_456_session_123", messages=messages)
     retriever = ChatMessageRetriever(message_store)
 
-    result = retriever.run()
+    result = retriever.run(index="user_456_session_123")
 
     print(result["messages"])
     ```
