@@ -91,7 +91,11 @@ class ChatMessageRetriever:
 
     @component.output_types(messages=list[ChatMessage])
     def run(
-        self, chat_history_id: str, *, last_k: Optional[int] = None, current_messages: Optional[list[ChatMessage]] = None
+        self,
+        chat_history_id: str,
+        *,
+        last_k: Optional[int] = None,
+        current_messages: Optional[list[ChatMessage]] = None,
     ) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
@@ -122,7 +126,9 @@ class ChatMessageRetriever:
         if resolved_last_k == 0 or chat_history_id is None:
             return {"messages": current_messages or []}
 
-        retrieved_messages = self.chat_message_store.retrieve_messages(chat_history_id=chat_history_id, last_k=last_k or self.last_k)
+        retrieved_messages = self.chat_message_store.retrieve_messages(
+            chat_history_id=chat_history_id, last_k=last_k or self.last_k
+        )
 
         if not current_messages:
             return {"messages": retrieved_messages}
