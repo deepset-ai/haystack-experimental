@@ -20,6 +20,7 @@ class Mem0MemoryStore:
 
     def __init__(
         self,
+        *,
         user_id: Optional[str] = None,
         run_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -94,10 +95,13 @@ class Mem0MemoryStore:
         for message in messages:
             if not message.text:
                 continue
-            mem0_message = [{"role": "user", "content": message.text}]
+            mem0_message = [{"content": message.text, "role": message.role}]
+            mem0_metadata = message.meta
+            # we save the role of the message in the metadata
+            mem0_metadata.update({"role": message.role})
 
             try:
-                result = self.client.add(messages=mem0_message, metadata=message.meta, infer=infer, **self._get_ids())
+                result = self.client.add(messages=mem0_message, metadata=mem0_metadata, infer=infer, **self._get_ids())
                 # Mem0 returns different response formats, handle both
                 memory_id = result.get("id") or result.get("memory_id") or str(result)
                 added_ids.append(memory_id)
@@ -135,7 +139,7 @@ class Mem0MemoryStore:
                 mem0_filters = dict(ids)
             else:
                 mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
-
+        print(f"Mem0 filters: {mem0_filters}")
         try:
             if not search_query:
                 memories = self.client.get_all(filters=mem0_filters)

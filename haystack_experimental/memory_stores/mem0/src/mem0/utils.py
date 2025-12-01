@@ -83,10 +83,18 @@ Extracted semantic memory:
     "facts": []
 }
 
-
 """
 
 semantic_memory_config = {
+    "user_id": "memories_with_custom_extraction_prompt",
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "test",
+            "host": "localhost",
+            "port": 6333,
+        },
+    },
     "llm": {
         "provider": "openai",
         "config": {

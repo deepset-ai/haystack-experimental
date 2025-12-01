@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .src.mem0 import Mem0MemoryStore
+from .src.mem0.memory_store import Mem0MemoryStore
 
 __all__ = ["Mem0MemoryStore"]

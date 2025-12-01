@@ -10,6 +10,7 @@ from haystack.dataclasses.chat_message import ChatMessage
 
 from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 from haystack.utils import Secret
+from haystack_experimental.memory_stores.mem0.src.mem0.utils import semantic_memory_config
 
 
 class TestMem0MemoryStore:
