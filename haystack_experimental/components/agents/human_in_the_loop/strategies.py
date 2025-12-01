@@ -52,7 +52,7 @@ class BlockingConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional["_ExecutionContext"] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Run the human-in-the-loop strategy for a given tool and its parameters.
@@ -66,9 +66,10 @@ class BlockingConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
-        :param execution_context:
-            Optional execution context containing per-request state. Not used by this strategy but included for
-            interface compatibility.
+        :param run_context:
+            Optional dictionary for passing request-scoped resources. Useful in web/server environments
+            to provide per-request objects (e.g., WebSocket connections, async queues, Redis pub/sub clients)
+            that strategies can use for non-blocking user interaction.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters, or a
@@ -123,7 +124,7 @@ class BlockingConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional["_ExecutionContext"] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Calls the sync run() method by default.
@@ -136,13 +137,13 @@ class BlockingConfirmationStrategy:
             The parameters to be passed to the tool.
         :param tool_call_id:
             Optional unique identifier for the tool call.
-        :param execution_context:
-            Optional execution context containing per-request state.
+        :param run_context:
+            Optional dictionary for passing request-scoped resources.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters.
         """
-        return self.run(tool_name, tool_description, tool_params, tool_call_id, execution_context)
+        return self.run(tool_name, tool_description, tool_params, tool_call_id, run_context)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -201,7 +202,7 @@ class BreakpointConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional["_ExecutionContext"] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Run the breakpoint confirmation strategy for a given tool and its parameters.
@@ -215,8 +216,8 @@ class BreakpointConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
-        :param execution_context:
-            Optional execution context containing per-request state. Not used by this strategy but included for
+        :param run_context:
+            Optional dictionary for passing request-scoped resources. Not used by this strategy but included for
             interface compatibility.
 
         :raises HITLBreakpointException:
@@ -238,7 +239,7 @@ class BreakpointConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional["_ExecutionContext"] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Calls the sync run() method.
@@ -251,8 +252,8 @@ class BreakpointConfirmationStrategy:
             The parameters to be passed to the tool.
         :param tool_call_id:
             Optional unique identifier for the tool call.
-        :param execution_context:
-            Optional execution context containing per-request state.
+        :param run_context:
+            Optional dictionary for passing request-scoped resources.
 
         :raises HITLBreakpointException:
             Always raises an `HITLBreakpointException` exception to signal that user confirmation is required.
@@ -260,7 +261,7 @@ class BreakpointConfirmationStrategy:
         :returns:
             This method does not return; it always raises an exception.
         """
-        return self.run(tool_name, tool_description, tool_params, tool_call_id, execution_context)
+        return self.run(tool_name, tool_description, tool_params, tool_call_id, run_context)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -461,7 +462,7 @@ def _run_confirmation_strategies(
                     tool_description=tool_to_invoke.description,
                     tool_params=final_args,
                     tool_call_id=tool_call.id,
-                    execution_context=execution_context,
+                    run_context=execution_context.run_context,
                 )
             teds.append(ted)
 
@@ -536,7 +537,7 @@ async def _run_confirmation_strategies_async(
                         tool_description=tool_to_invoke.description,
                         tool_params=final_args,
                         tool_call_id=tool_call.id,
-                        execution_context=execution_context,
+                        run_context=execution_context.run_context,
                     )
                 else:
                     ted = strategy.run(
@@ -544,7 +545,7 @@ async def _run_confirmation_strategies_async(
                         tool_description=tool_to_invoke.description,
                         tool_params=final_args,
                         tool_call_id=tool_call.id,
-                        execution_context=execution_context,
+                        run_context=execution_context.run_context,
                     )
             teds.append(ted)
 

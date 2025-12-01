@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from haystack.core.serialization import default_from_dict, default_to_dict
 
@@ -10,9 +10,6 @@ from haystack_experimental.components.agents.human_in_the_loop.dataclasses impor
     ConfirmationUIResult,
     ToolExecutionDecision,
 )
-
-if TYPE_CHECKING:
-    from haystack_experimental.components.agents.agent import _ExecutionContext
 
 # Ellipsis are needed to define the Protocol but pylint complains. See https://github.com/pylint-dev/pylint/issues/9319.
 # pylint: disable=unnecessary-ellipsis
@@ -71,7 +68,7 @@ class ConfirmationStrategy(Protocol):
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional["_ExecutionContext"] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
@@ -81,8 +78,9 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
-        :param execution_context: Optional execution context containing per-request state such as hitl_context.
-            This allows strategies to access request-specific resources (e.g., event queues, Redis clients).
+        :param run_context: Optional dictionary for passing request-scoped resources. Useful in web/server
+            environments to provide per-request objects (e.g., WebSocket connections, async queues,
+            Redis pub/sub clients) that strategies can use for non-blocking user interaction.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
@@ -95,7 +93,7 @@ class ConfirmationStrategy(Protocol):
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional["_ExecutionContext"] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Run the confirmation strategy for a given tool and its parameters.
@@ -107,8 +105,9 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
-        :param execution_context: Optional execution context containing per-request state such as hitl_context.
-            This allows strategies to access request-specific resources (e.g., event queues, Redis clients).
+        :param run_context: Optional dictionary for passing request-scoped resources. Useful in web/server
+            environments to provide per-request objects (e.g., WebSocket connections, async queues,
+            Redis pub/sub clients) that strategies can use for non-blocking user interaction.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).

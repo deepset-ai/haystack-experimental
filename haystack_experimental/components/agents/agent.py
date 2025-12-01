@@ -68,7 +68,8 @@ class _ExecutionContext(Haystack_ExecutionContext):
     :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
         In web/server environments, this enables passing per-request objects (e.g., WebSocket connections,
         async queues, or pub/sub clients) that strategies can use for non-blocking user interaction.
-        Accessible in strategies via `execution_context.run_context`.
+        This is passed directly to strategies via the `run_context` parameter in their `run()` and
+        `run_async()` methods.
     """
 
     tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
@@ -318,7 +319,7 @@ class Agent(HaystackAgent):
         :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
             Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
             async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
-            Strategies access this via `execution_context.run_context`.
+            This is passed directly to strategies via the `run_context` parameter in their `run()` method.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -526,7 +527,7 @@ class Agent(HaystackAgent):
         :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
             Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
             async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
-            Strategies access this via `execution_context.run_context`.
+            This is passed directly to strategies via the `run_context` parameter in their `run_async()` method.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:

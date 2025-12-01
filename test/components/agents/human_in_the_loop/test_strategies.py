@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from dataclasses import replace
 from typing import Any, Optional
 
@@ -346,7 +347,7 @@ class TestUpdateChatHistory:
 
 class RunContextCapturingStrategy:
     def __init__(self):
-        self.captured_execution_context: Optional[_ExecutionContext] = None
+        self.captured_run_context: Optional[dict[str, Any]] = None
 
     def run(
         self,
@@ -354,9 +355,9 @@ class RunContextCapturingStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional[_ExecutionContext] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
-        self.captured_execution_context = execution_context
+        self.captured_run_context = run_context
         return ToolExecutionDecision(
             tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
         )
@@ -367,9 +368,9 @@ class RunContextCapturingStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        execution_context: Optional[_ExecutionContext] = None,
+        run_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
-        self.captured_execution_context = execution_context
+        self.captured_run_context = run_context
         return ToolExecutionDecision(
             tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
         )
@@ -380,6 +381,68 @@ class RunContextCapturingStrategy:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RunContextCapturingStrategy":
         return cls()
+
+
+class TrueAsyncConfirmationStrategy:
+    """
+    A confirmation strategy with truly async behavior for testing purposes.
+
+    This strategy simulates an async operation (like waiting for a WebSocket response)
+    by using asyncio.sleep. It demonstrates how custom strategies can implement
+    non-blocking async confirmation flows.
+    """
+
+    def __init__(self, delay: float = 0.01, decision: str = "confirm"):
+        self.delay = delay
+        self.decision = decision
+        self.async_was_called = False
+        self.sync_was_called = False
+
+    def run(
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: Optional[str] = None,
+        run_context: Optional[dict[str, Any]] = None,
+    ) -> ToolExecutionDecision:
+        """Sync version - should NOT be called when run_async is available."""
+        self.sync_was_called = True
+        return ToolExecutionDecision(
+            tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
+        )
+
+    async def run_async(
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: Optional[str] = None,
+        run_context: Optional[dict[str, Any]] = None,
+    ) -> ToolExecutionDecision:
+        """Truly async version that simulates waiting for external confirmation."""
+        self.async_was_called = True
+
+        # Simulate async operation (e.g., waiting for WebSocket response)
+        await asyncio.sleep(self.delay)
+
+        if self.decision == "reject":
+            return ToolExecutionDecision(
+                tool_name=tool_name,
+                execute=False,
+                tool_call_id=tool_call_id,
+                feedback=f"Tool '{tool_name}' was rejected asynchronously.",
+            )
+        return ToolExecutionDecision(
+            tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"type": "test.TrueAsyncConfirmationStrategy", "init_parameters": {"delay": self.delay}}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TrueAsyncConfirmationStrategy":
+        return cls(**data.get("init_parameters", {}))
 
 
 class TestRunContext:
@@ -405,9 +468,9 @@ class TestRunContext:
             execution_context=execution_context,
         )
 
-        # Verify the strategy received the execution_context with run_context
-        assert capturing_strategy.captured_execution_context is not None
-        assert capturing_strategy.captured_execution_context.run_context == run_context
+        # Verify the strategy received the run_context directly
+        assert capturing_strategy.captured_run_context is not None
+        assert capturing_strategy.captured_run_context == run_context
         assert len(teds) == 1
         assert teds[0].execute is True
 
@@ -434,15 +497,57 @@ class TestRunContext:
             execution_context=execution_context,
         )
 
-        # Verify the strategy received the execution_context with run_context
-        assert capturing_strategy.captured_execution_context is not None
-        assert capturing_strategy.captured_execution_context.run_context == run_context
+        # Verify the strategy received the run_context directly
+        assert capturing_strategy.captured_run_context is not None
+        assert capturing_strategy.captured_run_context == run_context
         assert len(teds) == 1
         assert teds[0].execute is True
 
 
 class TestAsyncConfirmationStrategies:
-    """Tests for async confirmation strategy methods."""
+    @pytest.mark.asyncio
+    async def test_async_strategy_confirm(self):
+        strategy = TrueAsyncConfirmationStrategy(delay=0.01, decision="confirm")
+
+        decision = await strategy.run_async(
+            tool_name="test_tool", tool_description="A test tool", tool_params={"param1": "value1"}
+        )
+
+        assert strategy.async_was_called is True
+        assert strategy.sync_was_called is False
+        assert decision.tool_name == "test_tool"
+        assert decision.execute is True
+        assert decision.final_tool_params == {"param1": "value1"}
+
+    @pytest.mark.asyncio
+    async def test_async_strategy_reject(self):
+        strategy = TrueAsyncConfirmationStrategy(delay=0.01, decision="reject")
+
+        decision = await strategy.run_async(
+            tool_name="test_tool", tool_description="A test tool", tool_params={"param1": "value1"}
+        )
+
+        assert strategy.async_was_called is True
+        assert decision.execute is False
+        assert "rejected asynchronously" in decision.feedback
+
+    @pytest.mark.asyncio
+    async def test_async_strategy_used_by_run_confirmation_strategies_async(self, tools, execution_context):
+        strategy = TrueAsyncConfirmationStrategy(delay=0.01, decision="confirm")
+
+        teds = await _run_confirmation_strategies_async(
+            confirmation_strategies={tools[0].name: strategy},
+            messages_with_tool_calls=[
+                ChatMessage.from_assistant(tool_calls=[ToolCall(tools[0].name, {"a": 1, "b": 2})]),
+            ],
+            execution_context=execution_context,
+        )
+
+        # Verify that only the async method was called
+        assert strategy.async_was_called is True
+        assert strategy.sync_was_called is False
+        assert len(teds) == 1
+        assert teds[0].execute is True
 
     @pytest.mark.asyncio
     async def test_blocking_strategy_run_async(self, monkeypatch):
