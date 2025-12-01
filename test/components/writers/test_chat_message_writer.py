@@ -29,7 +29,7 @@ class TestChatMessageWriter:
         ]
         writer = ChatMessageWriter(store)
         assert writer.chat_message_store == store
-        assert writer.run(index="test", messages=messages) == {"messages_written": 2}
+        assert writer.run(chat_history_id="test", messages=messages) == {"messages_written": 2}
 
     def test_to_dict(self, store):
         """
@@ -51,7 +51,7 @@ class TestChatMessageWriter:
         }
 
         # write again and serialize
-        writer.run(index="test", messages=[ChatMessage.from_user("Hello, how can I help you?")])
+        writer.run(chat_history_id="test", messages=[ChatMessage.from_user("Hello, how can I help you?")])
         data = writer.to_dict()
         assert data == {
             "type": "haystack_experimental.components.writers.chat_message_writer.ChatMessageWriter",
@@ -92,11 +92,11 @@ class TestChatMessageWriter:
         }
 
         # write to verify that everything is still working
-        results = writer.run(index="test", messages=[ChatMessage.from_user("Hello, how can I help you?")])
+        results = writer.run(chat_history_id="test", messages=[ChatMessage.from_user("Hello, how can I help you?")])
         assert results["messages_written"] == 1
 
         # Cleanup
-        writer.chat_message_store.delete_messages(index="test")
+        writer.chat_message_store.delete_messages(chat_history_id="test")
 
     def test_chat_message_writer_pipeline(self, store):
         """
@@ -117,11 +117,11 @@ class TestChatMessageWriter:
 
         question = "What is the capital of France?"
 
-        res = pipe.run(data={"prompt_builder": {"query": question}, "writer": {"index": "test"}})
+        res = pipe.run(data={"prompt_builder": {"query": question}, "writer": {"chat_history_id": "test"}})
         assert res["writer"]["messages_written"] == 1  # only one message is written
-        assert len(store.retrieve_messages(index="test")) == 1  # only one message is written
+        assert len(store.retrieve_messages(chat_history_id="test")) == 1  # only one message is written
         assert (
-            store.retrieve_messages(index="test")[0].text
+            store.retrieve_messages(chat_history_id="test")[0].text
             == """
         Given the following information, answer the question.
         Question: What is the capital of France?

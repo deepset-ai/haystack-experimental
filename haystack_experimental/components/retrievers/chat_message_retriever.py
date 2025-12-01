@@ -30,10 +30,10 @@ class ChatMessageRetriever:
     ]
 
     message_store = InMemoryChatMessageStore()
-    message_store.write_messages(index="user_456_session_123", messages=messages)
+    message_store.write_messages(chat_history_id="user_456_session_123", messages=messages)
     retriever = ChatMessageRetriever(message_store)
 
-    result = retriever.run(index="user_456_session_123")
+    result = retriever.run(chat_history_id="user_456_session_123")
 
     print(result["messages"])
     ```
@@ -91,14 +91,14 @@ class ChatMessageRetriever:
 
     @component.output_types(messages=list[ChatMessage])
     def run(
-        self, index: str, *, last_k: Optional[int] = None, current_messages: Optional[list[ChatMessage]] = None
+        self, chat_history_id: str, *, last_k: Optional[int] = None, current_messages: Optional[list[ChatMessage]] = None
     ) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
 
-        :param index:
+        :param chat_history_id:
             A unique identifier for the chat session or conversation whose messages should be retrieved.
-            Each `index` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
+            Each `chat_history_id` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
             For example, use a session ID or conversation ID to isolate messages from different chat sessions.
         :param last_k: The number of last messages to retrieve. This parameter takes precedence over the last_k
             parameter passed to the ChatMessageRetriever constructor. If unspecified, the last_k parameter passed
@@ -119,10 +119,10 @@ class ChatMessageRetriever:
             raise ValueError("last_k must be 0 or greater")
 
         resolved_last_k = last_k or self.last_k
-        if resolved_last_k == 0 or index is None:
+        if resolved_last_k == 0 or chat_history_id is None:
             return {"messages": current_messages or []}
 
-        retrieved_messages = self.chat_message_store.retrieve_messages(index=index, last_k=last_k or self.last_k)
+        retrieved_messages = self.chat_message_store.retrieve_messages(chat_history_id=chat_history_id, last_k=last_k or self.last_k)
 
         if not current_messages:
             return {"messages": retrieved_messages}

@@ -8,7 +8,7 @@ from typing import Any, Iterable, Optional
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage, ChatRole
 
-# Global storage for all InMemoryDocumentStore instances, indexed by the index name.
+# Global storage for all InMemoryDocumentStore instances, indexed by the chat history id.
 _STORAGES: dict[str, list[ChatMessage]] = {}
 
 
@@ -16,11 +16,11 @@ class InMemoryChatMessageStore:
     """
     Stores chat messages in-memory.
 
-    The `index` parameter is used as a unique identifier for each conversation or chat session.
-    It acts as a namespace that isolates messages from different sessions. Each `index` value corresponds to a
+    The `chat_history_id` parameter is used as a unique identifier for each conversation or chat session.
+    It acts as a namespace that isolates messages from different sessions. Each `chat_history_id` value corresponds to a
     separate list of `ChatMessage` objects stored in memory.
 
-    Typical usage involves providing a unique `index` (for example, a session ID or conversation ID)
+    Typical usage involves providing a unique `chat_history_id` (for example, a session ID or conversation ID)
     whenever you write, read, or delete messages. This ensures that chat messages from different
     conversations do not overlap.
 
@@ -35,8 +35,8 @@ class InMemoryChatMessageStore:
         ChatMessage.from_assistant("Hello, how can I help you?"),
         ChatMessage.from_user("Hi, I have a question about Python. What is a Protocol?"),
     ]
-    message_store.write_messages(index="user_456_session_123", messages=messages)
-    retrieved_messages = message_store.retrieve_messages(index="user_456_session_123")
+    message_store.write_messages(chat_history_id="user_456_session_123", messages=messages)
+    retrieved_messages = message_store.retrieve_messages(chat_history_id="user_456_session_123")
 
     print(retrieved_messages)
     ```
@@ -75,23 +75,23 @@ class InMemoryChatMessageStore:
         """
         return default_from_dict(cls, data)
 
-    def count_messages(self, index: str) -> int:
+    def count_messages(self, chat_history_id: str) -> int:
         """
         Returns the number of chat messages stored in this store.
 
-        :param index:
-            The index for which to count messages.
+        :param chat_history_id:
+            The chat history id for which to count messages.
 
         :returns: The number of messages.
         """
-        return len(_STORAGES.get(index, []))
+        return len(_STORAGES.get(chat_history_id, []))
 
-    def write_messages(self, index: str, messages: list[ChatMessage]) -> int:
+    def write_messages(self, chat_history_id: str, messages: list[ChatMessage]) -> int:
         """
         Writes chat messages to the ChatMessageStore.
 
-        :param index:
-            The index under which to store the messages.
+        :param chat_history_id:
+            The chat history id under which to store the messages.
         :param messages:
             A list of ChatMessages to write.
 
@@ -102,8 +102,9 @@ class InMemoryChatMessageStore:
         if not isinstance(messages, Iterable) or any(not isinstance(message, ChatMessage) for message in messages):
             raise ValueError("Please provide a list of ChatMessages.")
 
-        # We assign an ID to messages that don't have one yet. The ID simply corresponds to the index in the array.
-        counter = self.count_messages(index)
+        # We assign an ID to messages that don't have one yet. The ID simply corresponds to the chat_history_id in the
+        # array.
+        counter = self.count_messages(chat_history_id)
         messages_with_id = []
         for msg in messages:
             # Skip system messages if configured to do so
@@ -121,7 +122,7 @@ class InMemoryChatMessageStore:
         # For now, we always skip messages that are already stored based on their ID.
         existing_ids = {
             msg.meta.get("chat_message_id")
-            for msg in self.retrieve_messages(index)
+            for msg in self.retrieve_messages(chat_history_id)
             if msg.meta.get("chat_message_id") is not None
         }
         messages_to_write = [
@@ -129,18 +130,18 @@ class InMemoryChatMessageStore:
         ]
 
         for message in messages_to_write:
-            if index not in _STORAGES:
-                _STORAGES[index] = []
-            _STORAGES[index].append(message)
+            if chat_history_id not in _STORAGES:
+                _STORAGES[chat_history_id] = []
+            _STORAGES[chat_history_id].append(message)
 
         return len(messages_to_write)
 
-    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+    def retrieve_messages(self, chat_history_id: str, last_k: Optional[int] = None) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 
-        :param index:
-            The index from which to retrieve messages.
+        :param chat_history_id:
+            The chat history id from which to retrieve messages.
         :param last_k:
             The number of last messages to retrieve. If unspecified, the last_k parameter passed
             to the constructor will be used.
@@ -157,7 +158,7 @@ class InMemoryChatMessageStore:
         if resolved_last_k == 0:
             return []
 
-        messages = _STORAGES.get(index, [])
+        messages = _STORAGES.get(chat_history_id, [])
         if resolved_last_k is not None:
             messages = self._get_last_k_messages(messages=messages, last_k=resolved_last_k)
 
@@ -215,14 +216,14 @@ class InMemoryChatMessageStore:
         selected = rounds[-last_k:]
         return [m for r in selected for m in r]
 
-    def delete_messages(self, index: str) -> None:
+    def delete_messages(self, chat_history_id: str) -> None:
         """
         Deletes all stored chat messages.
 
-        :param index:
-            The index from which to delete messages.
+        :param chat_history_id:
+            The chat history id from which to delete messages.
         """
-        _STORAGES.pop(index, None)
+        _STORAGES.pop(chat_history_id, None)
 
     def delete_all_messages(self) -> None:
         """

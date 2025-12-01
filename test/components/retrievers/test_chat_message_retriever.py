@@ -35,7 +35,7 @@ class TestChatMessageRetriever:
         """
         retriever = ChatMessageRetriever(store)
         assert retriever.chat_message_store == store
-        assert retriever.run(index="test") == {"messages": []}
+        assert retriever.run(chat_history_id="test") == {"messages": []}
 
     def test_retrieve_messages(self, store):
         """
@@ -45,10 +45,10 @@ class TestChatMessageRetriever:
             ChatMessage.from_user("Hello, how can I help you?"),
             ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?"),
         ]
-        store.write_messages(index="test", messages=messages)
+        store.write_messages(chat_history_id="test", messages=messages)
         retriever = ChatMessageRetriever(store)
         assert retriever.chat_message_store == store
-        assert retriever.run(index="test") == {
+        assert retriever.run(chat_history_id="test") == {
             "messages": [
                 ChatMessage.from_user("Hello, how can I help you?", meta={"chat_message_id": "0"}),
                 ChatMessage.from_user("Hallo, wie kann ich Ihnen helfen?", meta={"chat_message_id": "1"}),
@@ -63,12 +63,12 @@ class TestChatMessageRetriever:
             ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?"),
         ]
 
-        store.write_messages(index="test", messages=messages)
+        store.write_messages(chat_history_id="test", messages=messages)
         retriever = ChatMessageRetriever(store)
 
         assert retriever.chat_message_store == store
         with pytest.raises(ValueError):
-            retriever.run(index="test", last_k=-1)
+            retriever.run(chat_history_id="test", last_k=-1)
 
     def test_retrieve_messages_last_k_init(self, store):
         """
@@ -82,21 +82,21 @@ class TestChatMessageRetriever:
             ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?"),
         ]
 
-        store.write_messages(index="test", messages=messages)
+        store.write_messages(chat_history_id="test", messages=messages)
         retriever = ChatMessageRetriever(store, last_k=2)
 
         assert retriever.chat_message_store == store
 
         # last_k is 1 here from run parameter, overrides init of 2
-        assert retriever.run(index="test", last_k=1) == {
+        assert retriever.run(chat_history_id="test", last_k=1) == {
             "messages": [
                 ChatMessage.from_user("Hola, como puedo ayudarte?", meta={"chat_message_id": "2"}),
-                ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"})
+                ChatMessage.from_assistant("Bonjour, comment puis-je vous aider?", meta={"chat_message_id": "3"}),
             ]
         }
 
         # last_k is 2 here from init
-        assert retriever.run(index="test") == {
+        assert retriever.run(chat_history_id="test") == {
             "messages": [
                 ChatMessage.from_user("Hello, how can I help you?", meta={"chat_message_id": "0"}),
                 ChatMessage.from_assistant("Hallo, wie kann ich Ihnen helfen?", meta={"chat_message_id": "1"}),
@@ -146,12 +146,12 @@ class TestChatMessageRetriever:
         assert retriever.last_k == 4
 
     def test_chat_message_retriever_pipeline(self, store):
-        index = "user_123_session_456"
+        chat_history_id = "user_123_session_456"
         messages_to_write = [
             ChatMessage.from_user("What is the capital of France?"),
             ChatMessage.from_assistant("The capital of France is Paris."),
         ]
-        store.write_messages(index=index, messages=messages_to_write)
+        store.write_messages(chat_history_id=chat_history_id, messages=messages_to_write)
 
         pipe = Pipeline()
         pipe.add_component(
@@ -168,7 +168,10 @@ class TestChatMessageRetriever:
         pipe.connect("prompt_builder.prompt", "memory_retriever.current_messages")
 
         res = pipe.run(
-            data={"prompt_builder": {"query": "What is the capital of Germany?"}, "memory_retriever": {"index": index}}
+            data={
+                "prompt_builder": {"query": "What is the capital of Germany?"},
+                "memory_retriever": {"chat_history_id": chat_history_id},
+            }
         )
         assert res["memory_retriever"]["messages"] == [
             ChatMessage.from_system("You are a helpful assistant. Answer the user's question."),
@@ -213,12 +216,12 @@ class TestChatMessageRetriever:
         pipe.connect("llm.replies", "message_joiner.replies")
         pipe.connect("message_joiner", "message_writer.messages")
 
-        index = "user_123_session_456"
+        chat_history_id = "user_123_session_456"
         result = pipe.run(
             data={
                 "prompt_builder": {"query": "What is the capital of Germany?"},
-                "message_retriever": {"index": index},
-                "message_writer": {"index": index},
+                "message_retriever": {"chat_history_id": chat_history_id},
+                "message_writer": {"chat_history_id": chat_history_id},
             },
             include_outputs_from={"message_retriever", "llm"},
         )
@@ -229,7 +232,7 @@ class TestChatMessageRetriever:
         assert result["llm"]["replies"] == [ChatMessage.from_assistant("This is a mock response.")]
         # We don't expect the system prompt to be stored b/c InMemoryChatMessageStore defaults to
         # skip_system_messages=True
-        assert store.retrieve_messages(index) == [
+        assert store.retrieve_messages(chat_history_id) == [
             ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
             ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
         ]
@@ -238,8 +241,8 @@ class TestChatMessageRetriever:
         result = pipe.run(
             data={
                 "prompt_builder": {"query": "What is the capital of Italy?"},
-                "message_retriever": {"index": index},
-                "message_writer": {"index": index},
+                "message_retriever": {"chat_history_id": chat_history_id},
+                "message_writer": {"chat_history_id": chat_history_id},
             },
             include_outputs_from={"message_retriever", "llm"},
         )
@@ -253,7 +256,7 @@ class TestChatMessageRetriever:
             ChatMessage.from_user("What is the capital of Italy?"),
         ]
         assert result["llm"]["replies"] == [ChatMessage.from_assistant("This is a mock response.")]
-        assert store.retrieve_messages(index) == [
+        assert store.retrieve_messages(chat_history_id) == [
             ChatMessage.from_user("What is the capital of Germany?", meta={"chat_message_id": "0"}),
             ChatMessage.from_assistant("This is a mock response.", meta={"chat_message_id": "1"}),
             ChatMessage.from_user("What is the capital of Italy?", meta={"chat_message_id": "2"}),

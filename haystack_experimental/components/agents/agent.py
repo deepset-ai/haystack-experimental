@@ -206,7 +206,7 @@ class Agent(HaystackAgent):
         # NOTE: difference with parent method to add chat message retrieval
         if self._chat_message_retriever:
             retriever_kwargs = _select_kwargs(self._chat_message_retriever, chat_message_store_kwargs or {})
-            if "index" in retriever_kwargs:
+            if "chat_history_id" in retriever_kwargs:
                 messages = self._chat_message_retriever.run(
                     current_messages=messages,
                     **retriever_kwargs,
@@ -325,7 +325,7 @@ class Agent(HaystackAgent):
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
-            For example, it can include the `index` and `last_k` parameters for retrieving chat history.
+            For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -500,7 +500,7 @@ class Agent(HaystackAgent):
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
             writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
-            if "index" in writer_kwargs:
+            if "chat_history_id" in writer_kwargs:
                 self._chat_message_writer.run(messages=result["messages"], **writer_kwargs)
 
         return result
@@ -537,7 +537,7 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
-            For example, it can include the `index` and `last_k` parameters for retrieving chat history.
+            For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -688,7 +688,7 @@ class Agent(HaystackAgent):
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
             writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
-            if "index" in writer_kwargs:
+            if "chat_history_id" in writer_kwargs:
                 self._chat_message_writer.run(messages=result["messages"], **writer_kwargs)
 
         return result

@@ -39,32 +39,32 @@ class ChatMessageStore(Protocol):
         """
         ...
 
-    def count_messages(self, index: str) -> int:
+    def count_messages(self, chat_history_id: str) -> int:
         """
         Returns the number of chat messages stored.
 
-        :param index: The index for which to count messages.
+        :param chat_history_id: The chat history id for which to count messages.
 
         :returns: The number of messages.
         """
         ...
 
-    def write_messages(self, index: str, messages: list[ChatMessage]) -> int:
+    def write_messages(self, chat_history_id: str, messages: list[ChatMessage]) -> int:
         """
         Writes chat messages to the ChatMessageStore.
 
-        :param index: The index under which to store the messages.
+        :param chat_history_id: The chat history id under which to store the messages.
         :param messages: A list of ChatMessages to write.
 
         :returns: The number of messages written.
         """
         ...
 
-    def delete_messages(self, index: str) -> None:
+    def delete_messages(self, chat_history_id: str) -> None:
         """
         Deletes all stored chat messages.
 
-        :param index: The index from which to delete all messages.
+        :param chat_history_id: The chat history id from which to delete all messages.
         """
         ...
 
@@ -74,11 +74,11 @@ class ChatMessageStore(Protocol):
         """
         ...
 
-    def retrieve_messages(self, index: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+    def retrieve_messages(self, chat_history_id: str, last_k: Optional[int] = None) -> list[ChatMessage]:
         """
         Retrieves chat messages from the ChatMessageStore.
 
-        :param index: The index from which to retrieve messages.
+        :param chat_history_id: The chat history id from which to retrieve messages.
         :param last_k: The number of last messages to retrieve. If None, retrieves all messages.
 
         :returns: A list of retrieved ChatMessages.

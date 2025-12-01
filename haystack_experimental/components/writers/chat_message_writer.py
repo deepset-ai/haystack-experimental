@@ -28,7 +28,7 @@ class ChatMessageWriter:
     ]
     message_store = InMemoryChatMessageStore()
     writer = ChatMessageWriter(message_store)
-    writer.run(index="user_456_session_123", messages=messages)
+    writer.run(chat_history_id="user_456_session_123", messages=messages)
     ```
     """
 
@@ -81,13 +81,13 @@ class ChatMessageWriter:
         return default_from_dict(cls, data)
 
     @component.output_types(messages_written=int)
-    def run(self, index: str, messages: list[ChatMessage]) -> dict[str, int]:
+    def run(self, chat_history_id: str, messages: list[ChatMessage]) -> dict[str, int]:
         """
         Run the ChatMessageWriter on the given input data.
 
-        :param index:
+        :param chat_history_id:
             A unique identifier for the chat session or conversation whose messages should be retrieved.
-            Each `index` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
+            Each `chat_history_id` corresponds to a distinct chat history stored in the underlying ChatMessageStore.
             For example, use a session ID or conversation ID to isolate messages from different chat sessions.
         :param messages:
             A list of chat messages to write to the store.
@@ -95,5 +95,5 @@ class ChatMessageWriter:
         :returns:
             - `messages_written`: Number of messages written to the ChatMessageStore.
         """
-        messages_written = self.chat_message_store.write_messages(index=index, messages=messages)
+        messages_written = self.chat_message_store.write_messages(chat_history_id=chat_history_id, messages=messages)
         return {"messages_written": messages_written}
