@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Protocol
+from typing import Any, Protocol
 
 from haystack import Document
 
@@ -15,7 +15,7 @@ class DocumentEmbedder(Protocol):
     Protocol for Document Embedders.
     """
 
-    def run(self, documents: List[Document]) -> Dict[str, Any]:
+    def run(self, documents: list[Document]) -> dict[str, Any]:
         """
         Generate embeddings for the input documents.
 

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Iterable
 
 from haystack import default_from_dict, default_to_dict, logging
 from haystack.dataclasses import ChatMessage
@@ -25,7 +25,7 @@ class InMemoryChatMessageStore(ChatMessageStore):
         """
         self.messages = []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
@@ -37,7 +37,7 @@ class InMemoryChatMessageStore(ChatMessageStore):
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "InMemoryChatMessageStore":
+    def from_dict(cls, data: dict[str, Any]) -> "InMemoryChatMessageStore":
         """
         Deserializes the component from a dictionary.
 
@@ -56,7 +56,7 @@ class InMemoryChatMessageStore(ChatMessageStore):
         """
         return len(self.messages)
 
-    def write_messages(self, messages: List[ChatMessage]) -> int:
+    def write_messages(self, messages: list[ChatMessage]) -> int:
         """
         Writes chat messages to the ChatMessageStore.
 
@@ -77,7 +77,7 @@ class InMemoryChatMessageStore(ChatMessageStore):
         """
         self.messages = []
 
-    def retrieve(self) -> List[ChatMessage]:
+    def retrieve(self) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 
