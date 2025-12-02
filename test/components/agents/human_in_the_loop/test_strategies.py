@@ -17,7 +17,6 @@ from haystack_experimental.components.agents.human_in_the_loop import (
     AskOncePolicy,
     BlockingConfirmationStrategy,
     BreakpointConfirmationStrategy,
-    ConfirmationStrategy,
     HITLBreakpointException,
     SimpleConsoleUI,
     ToolExecutionDecision,
@@ -45,7 +44,7 @@ def tools() -> list[Tool]:
 
 
 @pytest.fixture
-def execution_context(tools) -> _ExecutionContext:
+def execution_context(tools: list[Tool]) -> _ExecutionContext:
     return _ExecutionContext(
         state=State(schema={"messages": {"type": list[ChatMessage]}}),
         component_visits={"chat_generator": 0, "tool_invoker": 0},
@@ -529,7 +528,7 @@ class TestAsyncConfirmationStrategies:
 
         assert strategy.async_was_called is True
         assert decision.execute is False
-        assert "rejected asynchronously" in decision.feedback
+        assert decision.feedback is not None and "rejected asynchronously" in decision.feedback
 
     @pytest.mark.asyncio
     async def test_async_strategy_used_by_run_confirmation_strategies_async(self, tools, execution_context):
