@@ -34,6 +34,7 @@ class Mem0MemoryStore:
         :param user_id: The user ID to to store and retrieve memories from the memory store.
         :param run_id: The run ID to to store and retrieve memories from the memory store.
         :param agent_id: The agent ID to to store and retrieve memories from the memory store.
+            If you want Mem0 to store chat messages from the assistant, you need to set the agent_id.
         :param api_key: The Mem0 API key (if not provided, uses MEM0_API_KEY environment variable)
         :param memory_config: Configuration dictionary for Mem0 client
         :param search_criteria: Set the search configuration for the memory store.
@@ -95,10 +96,12 @@ class Mem0MemoryStore:
         for message in messages:
             if not message.text:
                 continue
-            mem0_message = [{"content": message.text, "role": message.role}]
+            mem0_message = [{"content": message.text, "role": message.role.value}]
             mem0_metadata = message.meta
             # we save the role of the message in the metadata
-            mem0_metadata.update({"role": message.role})
+            mem0_metadata.update({"role": message.role.value})
+            print(f"Mem0 message: {mem0_message}")
+            print(f"Mem0 metadata: {mem0_metadata}")
 
             try:
                 result = self.client.add(messages=mem0_message, metadata=mem0_metadata, infer=infer, **self._get_ids())

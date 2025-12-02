@@ -9,7 +9,6 @@ from haystack_experimental.components.memory_agents.agent import Agent
 from haystack_experimental.memory_stores.mem0.src.mem0.memory_store import Mem0MemoryStore
 
 memory_store = Mem0MemoryStore(user_id="haystack_mem0", search_criteria={
-
     "top_k": 10
 })
 
