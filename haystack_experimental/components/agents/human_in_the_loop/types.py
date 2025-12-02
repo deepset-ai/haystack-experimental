@@ -78,8 +78,9 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
-        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context` for passing
-            request-scoped resources (e.g., WebSocket connections, async queues) in web/server environments.
+        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context`
+            for passing request-scoped resources (e.g., WebSocket connections, async queues) in web/server
+            environments.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
@@ -104,8 +105,9 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
-        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context` for passing
-            request-scoped resources (e.g., WebSocket connections, async queues) in web/server environments.
+        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context`
+            for passing request-scoped resources (e.g., WebSocket connections, async queues) in web/server
+            environments.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
