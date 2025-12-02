@@ -65,11 +65,11 @@ class _ExecutionContext(Haystack_ExecutionContext):
 
     :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
         the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
-    :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
-        In web/server environments, this enables passing per-request objects (e.g., WebSocket connections,
-        async queues, or pub/sub clients) that strategies can use for non-blocking user interaction.
-        This is passed directly to strategies via the `confirmation_strategy_context` parameter in their `run()` and
-        `run_async()` methods.
+    :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
+        to confirmation strategies. In web/server environments, this enables passing per-request
+        objects (e.g., WebSocket connections, async queues, or pub/sub clients) that strategies can use for
+        non-blocking user interaction. This is passed directly to strategies via the `confirmation_strategy_context`
+        parameter in their `run()` and `run_async()` methods.
     """
 
     tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
@@ -195,7 +195,8 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
+            to confirmation strategies.
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
         # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
@@ -254,7 +255,8 @@ class Agent(HaystackAgent):
             override the parameters passed during component initialization.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
+            to confirmation strategies.
         """
         # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
         # _initialize_from_snapshot. This change has been released in Haystack 2.20.0.
@@ -276,7 +278,8 @@ class Agent(HaystackAgent):
             exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext and add tool_execution_decisions + confirmation_strategy_context
+        # NOTE: 2nd difference is to use the extended _ExecutionContext
+        # and add tool_execution_decisions + confirmation_strategy_context
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
@@ -316,9 +319,10 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
-            Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
-            async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
+            to confirmation strategies. Useful in web/server environments to provide per-request
+            objects (e.g., WebSocket connections, async queues, Redis pub/sub clients) that strategies
+            can use for non-blocking user interaction.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -523,9 +527,10 @@ class Agent(HaystackAgent):
             the relevant information to restart the Agent execution from where it left off.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
-        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
-            Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
-            async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
+            to confirmation strategies. Useful in web/server environments to provide per-request
+            objects (e.g., WebSocket connections, async queues, Redis pub/sub clients) that strategies
+            can use for non-blocking user interaction.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
