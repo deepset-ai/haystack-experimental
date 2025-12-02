@@ -141,14 +141,23 @@ class Mem0MemoryStore:
                 mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
         print(f"Mem0 filters: {mem0_filters}")
         try:
-            if not search_query:
-                memories = self.client.get_all(filters=mem0_filters)
-            else:
+            if self.memory_config:
                 memories = self.client.search(
                     query=search_query,
-                    limit=search_top_k,
-                    filters=mem0_filters,
+                    filters=search_filters,
+                    user_id=self.user_id,
+                    run_id=self.run_id,
+                    agent_id=self.agent_id,
                 )
+            else:
+                if not search_query:
+                    memories = self.client.get_all(filters=mem0_filters)
+                else:
+                    memories = self.client.search(
+                        query=search_query,
+                        limit=search_top_k,
+                        filters=mem0_filters,
+                    )
             if _include_memory_metadata:
                 for memory in memories["results"]:
                     meta = memory.copy()

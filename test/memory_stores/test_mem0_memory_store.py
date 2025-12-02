@@ -235,3 +235,23 @@ class TestMem0MemoryStore:
             store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"))
             scope = store._get_ids()
             assert scope == {"user_id": "user123"}
+
+
+    @pytest.mark.skipif(
+        not os.environ.get("OPENAI_API_KEY", None),
+        reason="Export an env var called OPENAI_API_KEY containing the OpenAI API key to run this test.",
+    )
+    @pytest.mark.integration
+    def test_memory_from_config_with_custom_extraction_prompt(self):
+        messages = [
+            ChatMessage.from_user("I'm planning to watch a movie tonight. Any recommendations?"),
+            ChatMessage.from_assistant("How about thriller movies? They can be quite engaging."),
+            ChatMessage.from_user("I am not a big fan of thriller movies but I love sci-fi movies."),
+            ChatMessage.from_assistant("Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.")
+        ]
+
+        store = Mem0MemoryStore(user_id="custome_123", memory_config=semantic_memory_config)
+        assert store.client is not None
+        store.add_memories(messages)
+        mem = store.search_memories()
+        print(mem)
