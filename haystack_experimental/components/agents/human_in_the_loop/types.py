@@ -62,13 +62,13 @@ class ConfirmationPolicy(Protocol):
 
 
 class ConfirmationStrategy(Protocol):
-    def run(  # pylint: disable=R0917
+    def run(
         self,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
@@ -78,22 +78,21 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
-        :param run_context: Optional dictionary for passing request-scoped resources. Useful in web/server
-            environments to provide per-request objects (e.g., WebSocket connections, async queues,
-            Redis pub/sub clients) that strategies can use for non-blocking user interaction.
+        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context` for passing
+            request-scoped resources (e.g., WebSocket connections, async queues) in web/server environments.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
         """
         ...
 
-    async def run_async(  # pylint: disable=R0917
+    async def run_async(
         self,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Run the confirmation strategy for a given tool and its parameters.
@@ -105,9 +104,8 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
-        :param run_context: Optional dictionary for passing request-scoped resources. Useful in web/server
-            environments to provide per-request objects (e.g., WebSocket connections, async queues,
-            Redis pub/sub clients) that strategies can use for non-blocking user interaction.
+        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context` for passing
+            request-scoped resources (e.g., WebSocket connections, async queues) in web/server environments.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
