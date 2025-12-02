@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.core.serialization import import_class_by_name
@@ -53,7 +53,7 @@ class ChatMessageRetriever:
             raise ValueError(f"last_k must be greater than 0. Currently, the last_k is {last_k}")
         self.last_k = last_k
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
@@ -64,7 +64,7 @@ class ChatMessageRetriever:
         return default_to_dict(self, message_store=message_store, last_k=self.last_k)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageRetriever":
+    def from_dict(cls, data: dict[str, Any]) -> "ChatMessageRetriever":
         """
         Deserializes the component from a dictionary.
 
@@ -88,8 +88,8 @@ class ChatMessageRetriever:
         data["init_parameters"]["message_store"] = default_from_dict(message_store_class, message_store_data)
         return default_from_dict(cls, data)
 
-    @component.output_types(messages=List[ChatMessage])
-    def run(self, last_k: Optional[int] = None) -> Dict[str, List[ChatMessage]]:
+    @component.output_types(messages=list[ChatMessage])
+    def run(self, last_k: Optional[int] = None) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
 

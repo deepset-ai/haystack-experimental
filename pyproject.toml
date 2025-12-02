@@ -190,7 +190,7 @@ check_untyped_defs = true
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py39"
 exclude = ["test", ".github", "examples"]
 
 [tool.ruff.lint]
@@ -208,6 +208,7 @@ select = [
   "SIM",   # flake8-simplify
   "SLOT",  # flake8-slots
   "T10",   # flake8-debugger
+  "UP006", # non-pep585-annotation
   "W",     # pycodestyle
   "YTT",   # flake8-2020
   "I",     # isort

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any
 
 from haystack import logging
 from haystack.dataclasses import ChatMessage
@@ -23,7 +23,7 @@ class ChatMessageStore(ABC):
     """
 
     @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes this store to a dictionary.
 
@@ -32,7 +32,7 @@ class ChatMessageStore(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessageStore":
+    def from_dict(cls, data: dict[str, Any]) -> "ChatMessageStore":
         """
         Deserializes the store from a dictionary.
 
@@ -49,7 +49,7 @@ class ChatMessageStore(ABC):
         """
 
     @abstractmethod
-    def write_messages(self, messages: List[ChatMessage]) -> int:
+    def write_messages(self, messages: list[ChatMessage]) -> int:
         """
         Writes chat messages to the ChatMessageStore.
 
@@ -66,7 +66,7 @@ class ChatMessageStore(ABC):
         """
 
     @abstractmethod
-    def retrieve(self) -> List[ChatMessage]:
+    def retrieve(self) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 

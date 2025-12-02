@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 from haystack import Pipeline, component, default_from_dict, default_to_dict
 from haystack.components.embedders import SentenceTransformersDocumentEmbedder
@@ -51,13 +51,13 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
         batch_size: int = 32,
         progress_bar: bool = True,
         normalize_embeddings: bool = False,
-        meta_fields_to_embed: Optional[List[str]] = None,
+        meta_fields_to_embed: Optional[list[str]] = None,
         embedding_separator: str = "\n",
         trust_remote_code: bool = False,
         truncate_dim: Optional[int] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tokenizer_kwargs: Optional[Dict[str, Any]] = None,
-        config_kwargs: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[dict[str, Any]] = None,
+        tokenizer_kwargs: Optional[dict[str, Any]] = None,
+        config_kwargs: Optional[dict[str, Any]] = None,
         precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
         duplicate_policy: DuplicatePolicy = DuplicatePolicy.OVERWRITE,
     ) -> None:
@@ -141,7 +141,7 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
             output_mapping={"writer.documents_written": "documents_written"},
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize this instance to a dictionary.
         """
@@ -173,7 +173,7 @@ class SentenceTransformersDocumentIndexer(SuperComponent):
         return serialization_dict
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SentenceTransformersDocumentIndexer":
+    def from_dict(cls, data: dict[str, Any]) -> "SentenceTransformersDocumentIndexer":
         """
         Load an instance of this component from a dictionary.
         """
