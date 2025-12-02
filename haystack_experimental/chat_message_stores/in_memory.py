@@ -120,10 +120,9 @@ class InMemoryChatMessageStore:
             messages_with_id.append(msg)
 
         # For now, we always skip messages that are already stored based on their ID.
+        existing_messages = _STORAGES.get(chat_history_id, [])
         existing_ids = {
-            msg.meta.get("chat_message_id")
-            for msg in self.retrieve_messages(chat_history_id)
-            if msg.meta.get("chat_message_id") is not None
+            msg.meta.get("chat_message_id") for msg in existing_messages if msg.meta.get("chat_message_id") is not None
         }
         messages_to_write = [
             message for message in messages_with_id if message.meta["chat_message_id"] not in existing_ids
@@ -154,7 +153,7 @@ class InMemoryChatMessageStore:
         if last_k is not None and last_k < 0:
             raise ValueError("last_k must be 0 or greater")
 
-        resolved_last_k = last_k or self.last_k
+        resolved_last_k = last_k if last_k is not None else self.last_k
         if resolved_last_k == 0:
             return []
 
@@ -227,6 +226,6 @@ class InMemoryChatMessageStore:
 
     def delete_all_messages(self) -> None:
         """
-        Deletes all stored chat messages from all indices.
+        Deletes all stored chat messages from all chat history ids.
         """
         _STORAGES.clear()

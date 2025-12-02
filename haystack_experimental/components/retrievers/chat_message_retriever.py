@@ -123,7 +123,7 @@ class ChatMessageRetriever:
             raise ValueError("last_k must be 0 or greater")
 
         resolved_last_k = last_k or self.last_k
-        if resolved_last_k == 0 or chat_history_id is None:
+        if resolved_last_k == 0:
             return {"messages": current_messages or []}
 
         retrieved_messages = self.chat_message_store.retrieve_messages(
