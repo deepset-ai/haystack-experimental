@@ -119,7 +119,8 @@ class Agent(HaystackAgent):
         # We pop parent_snapshot from kwargs to avoid passing it into State.
         parent_snapshot = kwargs.pop("parent_snapshot", None)
         retrieved_memory: list[ChatMessage] = []
-        updated_system_prompt: str = system_prompt
+        updated_system_prompt = system_prompt
+
         # Retrieve memories from the memory store
         if self.memory_store:
             retrieved_memory = self.memory_store.search_memories(query=messages[-1].text)
@@ -322,7 +323,7 @@ class Agent(HaystackAgent):
         parent_snapshot = kwargs.pop("parent_snapshot", None)
 
         retrieved_memory: list[ChatMessage] = []
-        updated_system_prompt: str = system_prompt
+        updated_system_prompt = system_prompt
 
         # Retrieve memories from the memory store
         if self.memory_store:
