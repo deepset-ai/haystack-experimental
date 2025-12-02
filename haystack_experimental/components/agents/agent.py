@@ -65,15 +65,15 @@ class _ExecutionContext(Haystack_ExecutionContext):
 
     :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
         the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
-    :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+    :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
         In web/server environments, this enables passing per-request objects (e.g., WebSocket connections,
         async queues, or pub/sub clients) that strategies can use for non-blocking user interaction.
-        This is passed directly to strategies via the `run_context` parameter in their `run()` and
+        This is passed directly to strategies via the `confirmation_strategy_context` parameter in their `run()` and
         `run_async()` methods.
     """
 
     tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
-    run_context: Optional[dict[str, Any]] = None
+    confirmation_strategy_context: Optional[dict[str, Any]] = None
 
 
 class Agent(HaystackAgent):
@@ -183,7 +183,7 @@ class Agent(HaystackAgent):
         system_prompt: Optional[str] = None,
         generation_kwargs: Optional[dict[str, Any]] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -195,7 +195,7 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
         # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
@@ -225,13 +225,13 @@ class Agent(HaystackAgent):
             exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext with run_context
+        # NOTE: 2nd difference is to use the extended _ExecutionContext with confirmation_strategy_context
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
             chat_generator_inputs=exe_context.chat_generator_inputs,
             tool_invoker_inputs=exe_context.tool_invoker_inputs,
-            run_context=run_context,
+            confirmation_strategy_context=confirmation_strategy_context,
         )
 
     def _initialize_from_snapshot(  # type: ignore[override]
@@ -242,7 +242,7 @@ class Agent(HaystackAgent):
         *,
         generation_kwargs: Optional[dict[str, Any]] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> _ExecutionContext:
         """
         Initialize execution context from an AgentSnapshot.
@@ -254,7 +254,7 @@ class Agent(HaystackAgent):
             override the parameters passed during component initialization.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
         """
         # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
         # _initialize_from_snapshot. This change has been released in Haystack 2.20.0.
@@ -276,7 +276,7 @@ class Agent(HaystackAgent):
             exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext and add tool_execution_decisions + run_context
+        # NOTE: 2nd difference is to use the extended _ExecutionContext and add tool_execution_decisions + confirmation_strategy_context
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
@@ -285,10 +285,10 @@ class Agent(HaystackAgent):
             counter=exe_context.counter,
             skip_chat_generator=exe_context.skip_chat_generator,
             tool_execution_decisions=snapshot.tool_execution_decisions,
-            run_context=run_context,
+            confirmation_strategy_context=confirmation_strategy_context,
         )
 
-    def run(  # type: ignore  # noqa: PLR0915
+    def run(  # type: ignore[override]
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -298,7 +298,7 @@ class Agent(HaystackAgent):
         snapshot: Optional[AgentSnapshot] = None,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -316,10 +316,9 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
-        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
             Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
             async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
-            This is passed directly to strategies via the `run_context` parameter in their `run()` method.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -354,7 +353,7 @@ class Agent(HaystackAgent):
                 requires_async=False,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
-                run_context=run_context,
+                confirmation_strategy_context=confirmation_strategy_context,
             )
         else:
             exe_context = self._initialize_fresh_execution(
@@ -364,7 +363,7 @@ class Agent(HaystackAgent):
                 system_prompt=system_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
-                run_context=run_context,
+                confirmation_strategy_context=confirmation_strategy_context,
                 **kwargs,
             )
 
@@ -503,7 +502,7 @@ class Agent(HaystackAgent):
         snapshot: Optional[AgentSnapshot] = None,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -524,10 +523,9 @@ class Agent(HaystackAgent):
             the relevant information to restart the Agent execution from where it left off.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
-        :param run_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
+        :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources to confirmation strategies.
             Useful in web/server environments to provide per-request objects (e.g., WebSocket connections,
             async queues, Redis pub/sub clients) that strategies can use for non-blocking user interaction.
-            This is passed directly to strategies via the `run_context` parameter in their `run_async()` method.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -562,7 +560,7 @@ class Agent(HaystackAgent):
                 requires_async=True,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
-                run_context=run_context,
+                confirmation_strategy_context=confirmation_strategy_context,
             )
         else:
             exe_context = self._initialize_fresh_execution(
@@ -572,7 +570,7 @@ class Agent(HaystackAgent):
                 system_prompt=system_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
-                run_context=run_context,
+                confirmation_strategy_context=confirmation_strategy_context,
                 **kwargs,
             )
 

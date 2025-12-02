@@ -52,7 +52,7 @@ class BlockingConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Run the human-in-the-loop strategy for a given tool and its parameters.
@@ -66,7 +66,7 @@ class BlockingConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
-        :param run_context:
+        :param confirmation_strategy_context:
             Optional dictionary for passing request-scoped resources. Useful in web/server environments
             to provide per-request objects (e.g., WebSocket connections, async queues, Redis pub/sub clients)
             that strategies can use for non-blocking user interaction.
@@ -124,7 +124,7 @@ class BlockingConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Calls the sync run() method by default.
@@ -137,13 +137,13 @@ class BlockingConfirmationStrategy:
             The parameters to be passed to the tool.
         :param tool_call_id:
             Optional unique identifier for the tool call.
-        :param run_context:
+        :param confirmation_strategy_context:
             Optional dictionary for passing request-scoped resources.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters.
         """
-        return self.run(tool_name, tool_description, tool_params, tool_call_id, run_context)
+        return self.run(tool_name, tool_description, tool_params, tool_call_id, confirmation_strategy_context)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -202,7 +202,7 @@ class BreakpointConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Run the breakpoint confirmation strategy for a given tool and its parameters.
@@ -216,7 +216,7 @@ class BreakpointConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
-        :param run_context:
+        :param confirmation_strategy_context:
             Optional dictionary for passing request-scoped resources. Not used by this strategy but included for
             interface compatibility.
 
@@ -239,7 +239,7 @@ class BreakpointConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Calls the sync run() method.
@@ -252,7 +252,7 @@ class BreakpointConfirmationStrategy:
             The parameters to be passed to the tool.
         :param tool_call_id:
             Optional unique identifier for the tool call.
-        :param run_context:
+        :param confirmation_strategy_context:
             Optional dictionary for passing request-scoped resources.
 
         :raises HITLBreakpointException:
@@ -261,7 +261,7 @@ class BreakpointConfirmationStrategy:
         :returns:
             This method does not return; it always raises an exception.
         """
-        return self.run(tool_name, tool_description, tool_params, tool_call_id, run_context)
+        return self.run(tool_name, tool_description, tool_params, tool_call_id, confirmation_strategy_context)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -462,7 +462,7 @@ def _run_confirmation_strategies(
                     tool_description=tool_to_invoke.description,
                     tool_params=final_args,
                     tool_call_id=tool_call.id,
-                    run_context=execution_context.run_context,
+                    confirmation_strategy_context=execution_context.confirmation_strategy_context,
                 )
             teds.append(ted)
 
@@ -537,7 +537,7 @@ async def _run_confirmation_strategies_async(
                         tool_description=tool_to_invoke.description,
                         tool_params=final_args,
                         tool_call_id=tool_call.id,
-                        run_context=execution_context.run_context,
+                        confirmation_strategy_context=execution_context.confirmation_strategy_context,
                     )
                 else:
                     ted = strategy.run(
@@ -545,7 +545,7 @@ async def _run_confirmation_strategies_async(
                         tool_description=tool_to_invoke.description,
                         tool_params=final_args,
                         tool_call_id=tool_call.id,
-                        run_context=execution_context.run_context,
+                        confirmation_strategy_context=execution_context.confirmation_strategy_context,
                     )
             teds.append(ted)
 

@@ -345,9 +345,9 @@ class TestUpdateChatHistory:
         assert updated_messages == [chat_history_one_tool_call[0], *tool_call_messages]
 
 
-class RunContextCapturingStrategy:
+class ConfirmationStrategyContextCapturingStrategy:
     def __init__(self):
-        self.captured_run_context: Optional[dict[str, Any]] = None
+        self.captured_confirmation_strategy_context: Optional[dict[str, Any]] = None
 
     def run(
         self,
@@ -355,9 +355,9 @@ class RunContextCapturingStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
-        self.captured_run_context = run_context
+        self.captured_confirmation_strategy_context = confirmation_strategy_context
         return ToolExecutionDecision(
             tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
         )
@@ -368,9 +368,9 @@ class RunContextCapturingStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
-        self.captured_run_context = run_context
+        self.captured_confirmation_strategy_context = confirmation_strategy_context
         return ToolExecutionDecision(
             tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
         )
@@ -379,7 +379,7 @@ class RunContextCapturingStrategy:
         return {"type": "test.RunContextCapturingStrategy", "init_parameters": {}}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RunContextCapturingStrategy":
+    def from_dict(cls, data: dict[str, Any]) -> "ConfirmationStrategyContextCapturingStrategy":
         return cls()
 
 
@@ -404,7 +404,7 @@ class TrueAsyncConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """Sync version - should NOT be called when run_async is available."""
         self.sync_was_called = True
@@ -418,7 +418,7 @@ class TrueAsyncConfirmationStrategy:
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: Optional[str] = None,
-        run_context: Optional[dict[str, Any]] = None,
+        confirmation_strategy_context: Optional[dict[str, Any]] = None,
     ) -> ToolExecutionDecision:
         """Truly async version that simulates waiting for external confirmation."""
         self.async_was_called = True
@@ -446,8 +446,8 @@ class TrueAsyncConfirmationStrategy:
 
 
 class TestRunContext:
-    def test_run_context_passed_to_strategy(self, tools):
-        run_context = {"event_queue": "mock_queue", "redis_client": "mock_redis"}
+    def test_confirmation_strategy_context_passed_to_strategy(self, tools):
+        confirmation_strategy_context = {"event_queue": "mock_queue", "redis_client": "mock_redis"}
         execution_context = _ExecutionContext(
             state=State(schema={"messages": {"type": list[ChatMessage]}}),
             component_visits={"chat_generator": 0, "tool_invoker": 0},
@@ -456,10 +456,10 @@ class TestRunContext:
             counter=0,
             skip_chat_generator=False,
             tool_execution_decisions=None,
-            run_context=run_context,
+            confirmation_strategy_context=confirmation_strategy_context,
         )
 
-        capturing_strategy = RunContextCapturingStrategy()
+        capturing_strategy = ConfirmationStrategyContextCapturingStrategy()
         teds = _run_confirmation_strategies(
             confirmation_strategies={tools[0].name: capturing_strategy},
             messages_with_tool_calls=[
@@ -468,15 +468,15 @@ class TestRunContext:
             execution_context=execution_context,
         )
 
-        # Verify the strategy received the run_context directly
-        assert capturing_strategy.captured_run_context is not None
-        assert capturing_strategy.captured_run_context == run_context
+        # Verify the strategy received the confirmation_strategy_context directly
+        assert capturing_strategy.captured_confirmation_strategy_context is not None
+        assert capturing_strategy.captured_confirmation_strategy_context == confirmation_strategy_context
         assert len(teds) == 1
         assert teds[0].execute is True
 
     @pytest.mark.asyncio
-    async def test_run_context_passed_to_strategy_async(self, tools):
-        run_context = {"websocket": "mock_websocket", "request_id": "12345"}
+    async def test_confirmation_strategy_context_passed_to_strategy_async(self, tools):
+        confirmation_strategy_context = {"websocket": "mock_websocket", "request_id": "12345"}
         execution_context = _ExecutionContext(
             state=State(schema={"messages": {"type": list[ChatMessage]}}),
             component_visits={"chat_generator": 0, "tool_invoker": 0},
@@ -485,10 +485,10 @@ class TestRunContext:
             counter=0,
             skip_chat_generator=False,
             tool_execution_decisions=None,
-            run_context=run_context,
+            confirmation_strategy_context=confirmation_strategy_context,
         )
 
-        capturing_strategy = RunContextCapturingStrategy()
+        capturing_strategy = ConfirmationStrategyContextCapturingStrategy()
         teds = await _run_confirmation_strategies_async(
             confirmation_strategies={tools[0].name: capturing_strategy},
             messages_with_tool_calls=[
@@ -497,9 +497,9 @@ class TestRunContext:
             execution_context=execution_context,
         )
 
-        # Verify the strategy received the run_context directly
-        assert capturing_strategy.captured_run_context is not None
-        assert capturing_strategy.captured_run_context == run_context
+        # Verify the strategy received the confirmation_strategy_context directly
+        assert capturing_strategy.captured_confirmation_strategy_context is not None
+        assert capturing_strategy.captured_confirmation_strategy_context == confirmation_strategy_context
         assert len(teds) == 1
         assert teds[0].execute is True
 
