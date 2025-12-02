@@ -100,8 +100,6 @@ class Mem0MemoryStore:
             mem0_metadata = message.meta
             # we save the role of the message in the metadata
             mem0_metadata.update({"role": message.role.value})
-            print(f"Mem0 message: {mem0_message}")
-            print(f"Mem0 metadata: {mem0_metadata}")
 
             try:
                 result = self.client.add(messages=mem0_message, metadata=mem0_metadata, infer=infer, **self._get_ids())
@@ -142,7 +140,6 @@ class Mem0MemoryStore:
                 mem0_filters = dict(ids)
             else:
                 mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
-        print(f"Mem0 filters: {mem0_filters}")
         try:
             if self.memory_config:
                 memories = self.client.search(

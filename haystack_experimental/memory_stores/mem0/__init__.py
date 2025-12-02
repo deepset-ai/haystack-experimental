@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from lazy_imports import LazyImporter
 
 _import_structure = {
-    "memory_store": ["Mem0MemoryStore"],
+    "src.mem0.memory_store": ["Mem0MemoryStore"],
 }
 
 if TYPE_CHECKING:

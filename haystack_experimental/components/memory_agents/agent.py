@@ -135,7 +135,7 @@ class Agent(HaystackAgent):
             memory_messages = [
                 ChatMessage.from_system(
                     text=f"[MEMORY #{idx + 1}] {memory.text}",
-                    meta={**(memory.meta or {}), "memory": True},
+                    meta=memory.meta,
                 )
                 for idx, memory in enumerate(retrieved_memory)
             ]
@@ -339,7 +339,7 @@ class Agent(HaystackAgent):
             memory_messages = [
                 ChatMessage.from_system(
                     text=f"[MEMORY #{idx + 1}] {memory.text}",
-                    meta={**(memory.meta or {}), "memory": True},
+                    meta=memory.meta,
                 )
                 for idx, memory in enumerate(retrieved_memory)
             ]
