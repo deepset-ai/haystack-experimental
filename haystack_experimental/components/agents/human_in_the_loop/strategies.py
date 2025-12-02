@@ -196,8 +196,9 @@ class BreakpointConfirmationStrategy:
         """
         self.snapshot_file_path = snapshot_file_path
 
-    def run(  # pylint: disable=R0917
+    def run(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -233,8 +234,9 @@ class BreakpointConfirmationStrategy:
             snapshot_file_path=self.snapshot_file_path,
         )
 
-    async def run_async(  # pylint: disable=R0917
+    async def run_async(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -261,7 +263,13 @@ class BreakpointConfirmationStrategy:
         :returns:
             This method does not return; it always raises an exception.
         """
-        return self.run(tool_name, tool_description, tool_params, tool_call_id, confirmation_strategy_context)
+        return self.run(
+            tool_name=tool_name,
+            tool_description=tool_description,
+            tool_params=tool_params,
+            tool_call_id=tool_call_id,
+            confirmation_strategy_context=confirmation_strategy_context,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """
