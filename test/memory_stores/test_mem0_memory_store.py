@@ -10,7 +10,6 @@ from haystack.dataclasses.chat_message import ChatMessage
 
 from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 from haystack.utils import Secret
-from haystack_experimental.memory_stores.mem0.src.mem0.utils import semantic_memory_config
 
 
 class TestMem0MemoryStore:
@@ -228,6 +227,11 @@ class TestMem0MemoryStore:
         sleep(10)
         assert len(store.search_memories()) == 1
 
+    @pytest.mark.skipif(
+        not os.environ.get("MEM0_API_KEY", None),
+        reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
+    )
+    @pytest.mark.integration
     def test_role_based_memories(self):
         messages = [
             ChatMessage.from_user("I'm planning to watch a movie tonight. Any recommendations?"),
