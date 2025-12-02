@@ -46,8 +46,9 @@ class BlockingConfirmationStrategy:
         self.confirmation_policy = confirmation_policy
         self.confirmation_ui = confirmation_ui
 
-    def run(  # pylint: disable=R0917
+    def run(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -118,8 +119,9 @@ class BlockingConfirmationStrategy:
                 tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
             )
 
-    async def run_async(  # pylint: disable=R0917
+    async def run_async(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -143,7 +145,13 @@ class BlockingConfirmationStrategy:
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters.
         """
-        return self.run(tool_name, tool_description, tool_params, tool_call_id, confirmation_strategy_context)
+        return self.run(
+            tool_name=tool_name,
+            tool_description=tool_description,
+            tool_params=tool_params,
+            tool_call_id=tool_call_id,
+            confirmation_strategy_context=confirmation_strategy_context,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """
