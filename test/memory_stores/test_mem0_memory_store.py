@@ -238,6 +238,11 @@ class TestMem0MemoryStore:
         assert len(assistant_mem) == 2
         assert len(user_mem) == 2
 
+    @pytest.mark.skipif(
+        not (os.environ.get("MEM0_API_KEY", None) and os.environ.get("OPENAI_API_KEY", None)),
+        reason="Export an env var called MEM0_API_KEY and OPENAI_API_KEY containing the Mem0 API key and OpenAI API key to run this test.",
+    )
+    @pytest.mark.integration
     def test_memory_store_with_agent(self):
         memory_store = Mem0MemoryStore(user_id="haystack_mem0", search_criteria={
             "top_k": 3
