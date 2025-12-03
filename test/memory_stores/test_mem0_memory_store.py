@@ -9,7 +9,7 @@ from time import sleep
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack_experimental.components.memory_agents.agent import Agent
-from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
+from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
 from haystack.utils import Secret
 
 
@@ -18,7 +18,7 @@ class TestMem0MemoryStore:
     @pytest.fixture
     def mock_memory_client(self):
         """Mock the Mem0 MemoryClient."""
-        with patch("haystack_experimental.memory_stores.mem0.src.mem0.memory_store.MemoryClient") as mock_client_class:
+        with patch("haystack_experimental.memory_stores.mem0.memory_store.MemoryClient") as mock_client_class:
             mock_client = Mock()
             mock_client_class.return_value = mock_client
             yield mock_client
@@ -26,7 +26,7 @@ class TestMem0MemoryStore:
     @pytest.fixture
     def mock_memory(self):
         """Mock the Mem0 Memory class."""
-        with patch("haystack_experimental.memory_stores.mem0.src.mem0.memory_store.Memory") as mock_memory_class:
+        with patch("haystack_experimental.memory_stores.mem0.memory_store.Memory") as mock_memory_class:
             mock_memory = Mock()
             mock_memory_class.from_config.return_value = mock_memory
             yield mock_memory
@@ -96,7 +96,7 @@ class TestMem0MemoryStore:
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
             data = {
-                'type': 'haystack_experimental.memory_stores.mem0.src.mem0.memory_store.Mem0MemoryStore',
+                'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
                 'init_parameters': {'user_id': 'user123', 'run_id': 'run456',
                                     'agent_id': 'agent789', "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
                                     'memory_config': None, 'search_criteria': {'top_k': 5}}}

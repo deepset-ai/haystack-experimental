@@ -9,13 +9,9 @@ from typing import TYPE_CHECKING
 from lazy_imports import LazyImporter
 
 _import_structure = {
-    "src.mem0.memory_store": ["Mem0MemoryStore"],
+    "memory_stores.mem0.memory_store": ["Mem0MemoryStore"],
 }
 
-if TYPE_CHECKING:
-    from .src.mem0.memory_store import Mem0MemoryStore as Mem0MemoryStore
-
-else:
-    sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)
+sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)
 
 __all__ = ["Mem0MemoryStore"]
