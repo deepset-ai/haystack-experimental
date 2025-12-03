@@ -265,18 +265,22 @@ class Agent(HaystackAgent):
             span.set_tag("haystack.agent.steps_taken", exe_context.counter)
 
         # Add the new conversation as memories to the memory store
-        print(result)
-        user_messages = [
+        new_memories = [
             message
             for message in result["replies"]
             if message.role.value == "user" or message.role.value == "assistant"
         ]
         if self.memory_store:
-            self.memory_store.add_memories(user_messages)
+            self.memory_store.add_memories(new_memories)
 
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            result["last_message"] = msgs[-1]
+            # Filter out memory messages (system messages starting with [MEMORY)
+            filtered_messages = [
+                msg for msg in msgs if not (msg.role.value == "system" and msg.text.startswith("[MEMORY"))
+            ]
+            result["messages"] = filtered_messages
+            result["last_message"] = filtered_messages[-1] if filtered_messages else None
         return result
 
     async def run_async(
@@ -444,16 +448,20 @@ class Agent(HaystackAgent):
             span.set_tag("haystack.agent.steps_taken", exe_context.counter)
 
         # Add the new conversation as memories to the memory store
-        user_messages = [
+        new_memories = [
             message
             for message in result["replies"]
             if message.role.value == "user" or message.role.value == "assistant"
         ]
         if self.memory_store:
-            self.memory_store.add_memories(user_messages)
+            self.memory_store.add_memories(new_memories)
 
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            result["last_message"] = msgs[-1]
-
+            # Filter out memory messages (system messages starting with [MEMORY)
+            filtered_messages = [
+                msg for msg in msgs if not (msg.role.value == "system" and msg.text.startswith("[MEMORY"))
+            ]
+            result["messages"] = filtered_messages
+            result["last_message"] = filtered_messages[-1] if filtered_messages else None
         return result

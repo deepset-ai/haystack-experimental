@@ -7,7 +7,8 @@ from unittest.mock import Mock, patch
 import pytest
 from time import sleep
 from haystack.dataclasses.chat_message import ChatMessage
-
+from haystack.components.generators.chat.openai import OpenAIChatGenerator
+from haystack_experimental.components.memory_agents.agent import Agent
 from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 from haystack.utils import Secret
 
@@ -36,18 +37,6 @@ class TestMem0MemoryStore:
         return [
             ChatMessage.from_user("I usually work with Python language on LLM agents", meta={"source": "test"}),
             ChatMessage.from_user("I like working with Haystack. Show me how to make a simple RAG pipeline.", meta={"topic": "programming"}),
-        ]
-
-    @pytest.fixture
-    def sample_conversation_with_assistant(self):
-        return [
-            ChatMessage.from_user("Suggest me some Italian food to cook at home."),
-            ChatMessage.from_assistant("Nice! Do you prefer pasta dishes or something else?"),
-            ChatMessage.from_user("Mostly pasta, especially anything with pesto."),
-            ChatMessage.from_assistant("Here is a recipe of spicy Mediterranean pasta with pesto."),
-            ChatMessage.from_user("Suggest me something not spicy."),
-            ChatMessage.from_assistant("Here is a recipe of creamy mushroom pasta."),
-            ChatMessage.from_user("What's the cooking time for this recipe?"),
         ]
 
     def test_init_with_user_id_and_api_key(self, mock_memory_client):
@@ -248,6 +237,16 @@ class TestMem0MemoryStore:
         user_mem = store.search_memories(filters={"user_id": "haystack_role_based_memories"})
         assert len(assistant_mem) == 2
         assert len(user_mem) == 2
+
+    def test_memory_store_with_agent(self):
+        memory_store = Mem0MemoryStore(user_id="haystack_mem0", search_criteria={
+            "top_k": 3
+        })
+        chat_generator = OpenAIChatGenerator()
+        agent = Agent(chat_generator=chat_generator, memory_store=memory_store)
+        answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")])
+        assert answer is not None
+        assert "python" in answer["last_message"].text.lower()
 
 
     def test_get_scope_with_only_user_id(self, mock_memory_client):
