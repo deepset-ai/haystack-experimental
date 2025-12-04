@@ -42,21 +42,15 @@ class TestMem0MemoryStore:
     def test_init_with_user_id_and_api_key(self, mock_memory_client):
         """Test initialization with user_id and api_key."""
         with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"))
-            assert store.user_id == "user123"
-            assert store.run_id is None
-            assert store.agent_id is None
+            store = Mem0MemoryStore(api_key=Secret.from_token("test_api_key_12345"))
             assert store.client == mock_memory_client
             assert store.search_criteria == None
 
     def test_init_with_params(self, mock_memory_client):
         search_criteria = {"query": "test query", "filters": {"category": "test"}, "top_k": 5}
         store = Mem0MemoryStore(
-            user_id="user123", run_id="run456", agent_id="agent789", api_key=Secret.from_token("test_api_key_12345"), search_criteria=search_criteria
+            api_key=Secret.from_token("test_api_key_12345"), search_criteria=search_criteria
         )
-        assert store.user_id == "user123"
-        assert store.run_id == "run456"
-        assert store.agent_id == "agent789"
         assert store.search_criteria == search_criteria
         assert store.client == mock_memory_client
 
@@ -65,7 +59,7 @@ class TestMem0MemoryStore:
         memory_config = {"llm": {"provider": "openai"}}
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
-            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_env_var("ENV_VAR"), memory_config=memory_config)
+            store = Mem0MemoryStore( api_key=Secret.from_env_var("ENV_VAR"), memory_config=memory_config)
             assert store.memory_config == memory_config
             assert store.client == mock_memory
 
@@ -73,22 +67,15 @@ class TestMem0MemoryStore:
         """Test that initialization without API key raises ValueError."""
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValueError, match="None of the following authentication environment variables are set"):
-                Mem0MemoryStore(user_id="user123")
+                Mem0MemoryStore()
 
-    def test_init_without_any_id_raises_error(self):
-        """Test that initialization without any ID raises ValueError."""
-        with pytest.raises(ValueError, match="At least one of user_id, run_id, or agent_id must be set"):
-            Mem0MemoryStore(user_id=None, run_id=None, agent_id=None, api_key=Secret.from_token("test_api_key_12345"))
 
     def test_to_dict(self,monkeypatch, mock_memory_client):
         """Test serialization to dictionary."""
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
-            store = Mem0MemoryStore(user_id="user123", run_id="run456", agent_id="agent789", search_criteria={"top_k": 5}, api_key=Secret.from_env_var("ENV_VAR"))
+            store = Mem0MemoryStore( search_criteria={"top_k": 5}, api_key=Secret.from_env_var("ENV_VAR"))
             result = store.to_dict()
-            assert result["init_parameters"]["user_id"] == "user123"
-            assert result["init_parameters"]["run_id"] == "run456"
-            assert result["init_parameters"]["agent_id"] == "agent789"
             assert result["init_parameters"]["api_key"] == {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"}
             assert result["init_parameters"]["search_criteria"] == {"top_k": 5}
 
@@ -97,13 +84,9 @@ class TestMem0MemoryStore:
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
             data = {
                 'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
-                'init_parameters': {'user_id': 'user123', 'run_id': 'run456',
-                                    'agent_id': 'agent789', "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
+                'init_parameters': { "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
                                     'memory_config': None, 'search_criteria': {'top_k': 5}}}
             store = Mem0MemoryStore.from_dict(data)
-            assert store.user_id == "user123"
-            assert store.run_id == "run456"
-            assert store.agent_id == "agent789"
             assert store.client == mock_memory_client
             assert store.api_key == Secret.from_env_var("ENV_VAR")
             assert store.search_criteria == {"top_k": 5}
@@ -115,13 +98,13 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_and_delete_memories(self, sample_messages):
         """Test adding memories successfully."""
-        store = Mem0MemoryStore(user_id="haystack_test_123")
+        store = Mem0MemoryStore()
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
-        result = store.add_memories(sample_messages)
+        result = store.add_memories(sample_messages, user_id="haystack_test_123")
         assert len(result) == 2
         store.delete_all_memories(user_id="haystack_test_123")
-        mem = store.search_memories()
+        mem = store.search_memories(user_id="haystack_test_123")
         assert len(mem) == 0
 
 
@@ -132,10 +115,10 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_memories_with_infer_false(self, sample_messages):
         """Test adding memories with infer=False."""
-        store = Mem0MemoryStore(user_id="haystack_test_123")
+        store = Mem0MemoryStore()
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
-        result = store.add_memories(sample_messages, infer=False)
+        result = store.add_memories(sample_messages, infer=False, user_id="haystack_test_123")
         assert len(result) == 2
 
     @pytest.mark.skipif(
@@ -146,9 +129,9 @@ class TestMem0MemoryStore:
     def test_add_memories_with_metadata(self):
         """Test adding memories with metadata."""
         messages = [ChatMessage.from_user("Test", meta={"key": "value"})]
-        store = Mem0MemoryStore(user_id="haystack_test_123")
+        store = Mem0MemoryStore()
 
-        added_ids = store.add_memories(messages)
+        added_ids = store.add_memories(messages, user_id="haystack_test_123")
         assert added_ids[0] is not None
 
     @pytest.mark.skipif(
@@ -158,10 +141,10 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_search_memories(self, sample_messages):
         """Test searching memories on previously added memories because the mem0 takes time to index the memory"""
-        store = Mem0MemoryStore(user_id="haystack_simple_memories")
+        store = Mem0MemoryStore()
 
         # search without query
-        result = store.search_memories()
+        result = store.search_memories(user_id="haystack_simple_memories")
         assert len(result) == 2
 
         # search with query
@@ -184,8 +167,8 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_search_criteria_in_init(self):
         search_criteria = { "filters": {"AND": [{"user_id": "haystack_memories_with_metadata"}, {"metadata": {"timestamp": "04/2025"}}]}, "top_k": 1}
-        store = Mem0MemoryStore(user_id="haystack_memories_with_metadata", search_criteria=search_criteria)
-        result = store.search_memories()
+        store = Mem0MemoryStore( search_criteria=search_criteria)
+        result = store.search_memories(user_id="haystack_memories_with_metadata")
         assert len(result) == 1
         assert result[0].text == "User has visited Italy in 2025"
         assert result[0].meta == {"country": "Italy", "timestamp": "04/2025"}
@@ -197,8 +180,8 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_delete_all_memories(self):
         """Test deleting all memories."""
-        store = Mem0MemoryStore(user_id="haystack_test_123")
-        store.delete_all_memories()
+        store = Mem0MemoryStore()
+        store.delete_all_memories(user_id="haystack_test_123")
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -207,14 +190,14 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_delete_memory(self, sample_messages):
         """Test deleting a single memory."""
-        store = Mem0MemoryStore(user_id="haystack_test_123")
+        store = Mem0MemoryStore()
         store.delete_all_memories(user_id="haystack_test_123")
-        store.add_memories(sample_messages, infer=False)
+        store.add_memories(sample_messages, infer=False, user_id="haystack_test_123")
         sleep(10)
-        mem = store.search_memories(_include_memory_metadata=True)
+        mem = store.search_memories(user_id="haystack_test_123", _include_memory_metadata=True)
         store.delete_memory(mem[0].meta["id"])
         sleep(10)
-        assert len(store.search_memories()) == 1
+        assert len(store.search_memories(user_id="haystack_test_123")) == 1
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -228,11 +211,11 @@ class TestMem0MemoryStore:
             ChatMessage.from_user("I'm not a big fan of thriller movies but I love sci-fi movies."),
             ChatMessage.from_assistant("Got it! Then I would recommend Interstellar or Inception? I would also recommend watching some Japanese anime movies."),
         ]
-        store = Mem0MemoryStore(user_id="haystack_role_based_memories", agent_id="movie_agent")
+        store = Mem0MemoryStore()
         store.delete_all_memories(user_id="haystack_role_based_memories")
         store.delete_all_memories(agent_id="movie_agent")
         sleep(10)
-        store.add_memories(messages, infer=False)
+        store.add_memories(messages, infer=False, user_id="haystack_role_based_memories", agent_id="movie_agent")
         assistant_mem = store.search_memories(filters={"agent_id": "movie_agent"})
         user_mem = store.search_memories(filters={"user_id": "haystack_role_based_memories"})
         assert len(assistant_mem) == 2
@@ -244,19 +227,17 @@ class TestMem0MemoryStore:
     )
     @pytest.mark.integration
     def test_memory_store_with_agent(self):
-        memory_store = Mem0MemoryStore(user_id="haystack_mem0", search_criteria={
+        memory_store = Mem0MemoryStore( search_criteria={
             "top_k": 3
         })
         chat_generator = OpenAIChatGenerator()
+        memory_store_kwargs = {
+            "user_id": "haystack_mem0",
+            "search_criteria": {
+                "top_k": 3
+            }
+        }
         agent = Agent(chat_generator=chat_generator, memory_store=memory_store)
         answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")])
         assert answer is not None
         assert "python" in answer["last_message"].text.lower()
-
-
-    def test_get_scope_with_only_user_id(self, mock_memory_client):
-        """Test _get_scope returns only user_id when others are None."""
-        with patch.dict(os.environ, {}, clear=True):
-            store = Mem0MemoryStore(user_id="user123", api_key=Secret.from_token("test_api_key_12345"))
-            scope = store._get_ids()
-            assert scope == {"user_id": "user123"}

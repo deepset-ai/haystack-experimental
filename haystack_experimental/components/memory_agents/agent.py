@@ -287,6 +287,7 @@ class Agent(HaystackAgent):
         snapshot: Optional[AgentSnapshot] = None,
         system_prompt: Optional[str] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
+        memory_store_kwargs: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
