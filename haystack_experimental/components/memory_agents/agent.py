@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 class Agent(HaystackAgent):
     """
     A Haystack component that implements a memory-based agent.
-
-    :param memory_store: The memory store to use for the agent.
     """
 
     def __init__(
@@ -443,21 +441,15 @@ class Agent(HaystackAgent):
             span.set_content_tag("haystack.agent.output", exe_context.state.data)
             span.set_tag("haystack.agent.steps_taken", exe_context.counter)
 
-        # Add the new conversation as memories to the memory store
-        new_memories = [
-            message
-            for message in result["replies"]
-            if message.role.value == "user" or message.role.value == "assistant"
-        ]
-        if self.memory_store:
-            self.memory_store.add_memories(new_memories)
-
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            # Filter out memory messages (system messages starting with [MEMORY)
-            filtered_messages = [
-                msg for msg in msgs if not (msg.role.value == "system" and msg.text.startswith("[MEMORY"))
+            result["messages"] = msgs
+            result["last_message"] = msgs[-1] if msgs else None
+
+            # Add the new conversation as memories to the memory store
+            new_memories = [
+                message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
-            result["messages"] = filtered_messages
-            result["last_message"] = filtered_messages[-1] if filtered_messages else None
+            if self.memory_store:
+                self.memory_store.add_memories(new_memories)
         return result
