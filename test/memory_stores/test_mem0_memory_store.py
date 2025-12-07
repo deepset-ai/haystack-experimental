@@ -44,14 +44,11 @@ class TestMem0MemoryStore:
         with patch.dict(os.environ, {}, clear=True):
             store = Mem0MemoryStore(api_key=Secret.from_token("test_api_key_12345"))
             assert store.client == mock_memory_client
-            assert store.search_criteria == None
 
     def test_init_with_params(self, mock_memory_client):
-        search_criteria = {"query": "test query", "filters": {"category": "test"}, "top_k": 5}
         store = Mem0MemoryStore(
-            api_key=Secret.from_token("test_api_key_12345"), search_criteria=search_criteria
+            api_key=Secret.from_token("test_api_key_12345")
         )
-        assert store.search_criteria == search_criteria
         assert store.client == mock_memory_client
 
     def test_init_with_memory_config(self, monkeypatch, mock_memory):
@@ -66,30 +63,49 @@ class TestMem0MemoryStore:
     def test_init_without_api_key_raises_error(self):
         """Test that initialization without API key raises ValueError."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="None of the following authentication environment variables are set"):
+            with pytest.raises(ValueError,
+                               match="None of the following authentication environment variables are set"):
                 Mem0MemoryStore()
 
-
-    def test_to_dict(self,monkeypatch, mock_memory_client):
+    def test_to_dict(self, monkeypatch, mock_memory_client):
         """Test serialization to dictionary."""
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
-            store = Mem0MemoryStore( search_criteria={"top_k": 5}, api_key=Secret.from_env_var("ENV_VAR"))
+            store = Mem0MemoryStore(
+                api_key=Secret.from_env_var("ENV_VAR"),
+                memory_config={
+                    "vector_store": {
+                        "provider": "qdrant",
+                        "config": {
+                            "collection_name": "test",
+                            "host": "localhost",
+                            "port": 6333,
+                        },
+                    },
+                })
             result = store.to_dict()
             assert result["init_parameters"]["api_key"] == {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"}
-            assert result["init_parameters"]["search_criteria"] == {"top_k": 5}
+            assert result["init_parameters"]["memory_config"] == {
+                "vector_store": {
+                    "provider": "qdrant",
+                    "config": {
+                        "collection_name": "test",
+                        "host": "localhost",
+                        "port": 6333,
+                    },
+                }
+            }
 
-    def test_from_dict(self, monkeypatch, mock_memory_client,):
+    def test_to_dict(self, monkeypatch, mock_memory_client, mock_memory):
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
             data = {
                 'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
                 'init_parameters': { "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
-                                    'memory_config': None, 'search_criteria': {'top_k': 5}}}
+                                    'memory_config': None,}}
             store = Mem0MemoryStore.from_dict(data)
             assert store.client == mock_memory_client
             assert store.api_key == Secret.from_env_var("ENV_VAR")
-            assert store.search_criteria == {"top_k": 5}
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -165,19 +181,6 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
     )
     @pytest.mark.integration
-    def test_search_criteria_in_init(self):
-        search_criteria = { "filters": {"AND": [{"user_id": "haystack_memories_with_metadata"}, {"metadata": {"timestamp": "04/2025"}}]}, "top_k": 1}
-        store = Mem0MemoryStore( search_criteria=search_criteria)
-        result = store.search_memories(user_id="haystack_memories_with_metadata")
-        assert len(result) == 1
-        assert result[0].text == "User has visited Italy in 2025"
-        assert result[0].meta == {"country": "Italy", "timestamp": "04/2025"}
-
-    @pytest.mark.skipif(
-        not os.environ.get("MEM0_API_KEY", None),
-        reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
-    )
-    @pytest.mark.integration
     def test_delete_all_memories(self):
         """Test deleting all memories."""
         store = Mem0MemoryStore()
@@ -194,7 +197,7 @@ class TestMem0MemoryStore:
         store.delete_all_memories(user_id="haystack_test_123")
         store.add_memories(sample_messages, infer=False, user_id="haystack_test_123")
         sleep(10)
-        mem = store.search_memories(user_id="haystack_test_123", _include_memory_metadata=True)
+        mem = store.search_memories(user_id="haystack_test_123", include_memory_metadata=True)
         store.delete_memory(mem[0].meta["id"])
         sleep(10)
         assert len(store.search_memories(user_id="haystack_test_123")) == 1
@@ -227,9 +230,7 @@ class TestMem0MemoryStore:
     )
     @pytest.mark.integration
     def test_memory_store_with_agent(self):
-        memory_store = Mem0MemoryStore( search_criteria={
-            "top_k": 3
-        })
+        memory_store = Mem0MemoryStore()
         chat_generator = OpenAIChatGenerator()
         memory_store_kwargs = {
             "user_id": "haystack_mem0",
@@ -238,6 +239,6 @@ class TestMem0MemoryStore:
             }
         }
         agent = Agent(chat_generator=chat_generator, memory_store=memory_store)
-        answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")])
+        answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs=memory_store_kwargs)
         assert answer is not None
         assert "python" in answer["last_message"].text.lower()

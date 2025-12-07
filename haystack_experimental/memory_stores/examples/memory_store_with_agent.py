@@ -6,11 +6,10 @@ from haystack.components.generators.chat.openai import OpenAIChatGenerator
 
 from haystack.dataclasses import ChatMessage
 
-from haystack_experimental.components.memory_agents.agent import Agent
+from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
 
-memory_store = Mem0MemoryStore(user_id="haystack_mem0",
-                               search_criteria={"top_k": 3})
+memory_store = Mem0MemoryStore()
 
 messages = [
     ChatMessage.from_user("I like to listen to Russian pop music"),
@@ -28,6 +27,6 @@ memory_store.add_memories(messages)
 
 chat_generator = OpenAIChatGenerator()
 agent = Agent(chat_generator=chat_generator, memory_store=memory_store)
-answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")])
+answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs={"user_id": "haystack_test_123"})
 
 print("Replies: ", answer)

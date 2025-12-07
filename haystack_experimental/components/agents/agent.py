@@ -368,8 +368,9 @@ class Agent(HaystackAgent):
         updated_system_prompt = system_prompt
 
         # Retrieve memories from the memory store
-        if self.memory_store:
-            retrieved_memory = self.memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
+        memory_store_kwargs = memory_store_kwargs or {}
+        if self._memory_store:
+            retrieved_memory = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
 
         if retrieved_memory:
             memory_instruction = (
@@ -555,8 +556,8 @@ class Agent(HaystackAgent):
             new_memories = [
                 message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
-            if self.memory_store:
-                self.memory_store.add_memories(new_memories)
+            if self._memory_store:
+                self._memory_store.add_memories(new_memories)
 
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
@@ -630,8 +631,9 @@ class Agent(HaystackAgent):
         updated_system_prompt = system_prompt
 
         # Retrieve memories from the memory store
-        if self.memory_store:
-            retrieved_memory = self.memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
+        memory_store_kwargs = memory_store_kwargs or {}
+        if self._memory_store:
+            retrieved_memory = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
 
         if retrieved_memory:
             memory_instruction = (
@@ -793,8 +795,8 @@ class Agent(HaystackAgent):
             new_memories = [
                 message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
-            if self.memory_store:
-                self.memory_store.add_memories(new_memories)
+            if self._memory_store:
+                self._memory_store.add_memories(new_memories)
 
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
