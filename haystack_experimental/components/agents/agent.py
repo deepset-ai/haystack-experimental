@@ -52,7 +52,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _process_confirmation_strategies
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
-from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
+from haystack_experimental.memory_stores.types.protocol import MemoryStore
 
 
 logger = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ class Agent(HaystackAgent):
         confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
         tool_invoker_kwargs: Optional[dict[str, Any]] = None,
         chat_message_store: Optional[ChatMessageStore] = None,
-        memory_store: Optional[Mem0MemoryStore] = None,
+        memory_store: Optional[MemoryStore] = None,
     ) -> None:
         """
         Initialize the agent component.
