@@ -52,7 +52,7 @@ from haystack_experimental.components.agents.human_in_the_loop import (
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _process_confirmation_strategies
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
-from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
+from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 
 
 logger = logging.getLogger(__name__)
