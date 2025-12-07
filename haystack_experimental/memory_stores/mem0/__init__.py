@@ -3,15 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import sys
-from typing import TYPE_CHECKING
-
-from lazy_imports import LazyImporter
-
-_import_structure = {
-    ".memory_store": ["Mem0MemoryStore"],
-}
-
-sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)
+from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
 
 __all__ = ["Mem0MemoryStore"]

@@ -8,7 +8,7 @@ import pytest
 from time import sleep
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack_experimental.components.memory_agents.agent import Agent
+from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
 from haystack.utils import Secret
 
