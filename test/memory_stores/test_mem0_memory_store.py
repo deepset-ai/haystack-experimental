@@ -9,7 +9,7 @@ from time import sleep
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
+from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 from haystack.utils import Secret
 
 
@@ -164,7 +164,7 @@ class TestMem0MemoryStore:
         assert len(result) == 2
 
         # search with query
-        result = store.search_memories(filters={"user_id": "haystack_query_memories"}, query="What programming languages do I usually work with?")
+        result = store.search_memories(filters={"user_id": "haystack_query_memories"}, query="What programming languages do I usually work with?", include_memory_metadata=True)
         assert result[0].text == "User likes working with python on NLP projects"
 
         # search with filters
@@ -198,7 +198,7 @@ class TestMem0MemoryStore:
         store.add_memories(sample_messages, infer=False, user_id="haystack_test_123")
         sleep(10)
         mem = store.search_memories(user_id="haystack_test_123", include_memory_metadata=True)
-        store.delete_memory(mem[0].meta["id"])
+        store.delete_memory(mem[0].meta["retrieved_memory_metadata"]["id"])
         sleep(10)
         assert len(store.search_memories(user_id="haystack_test_123")) == 1
 

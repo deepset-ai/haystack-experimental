@@ -7,7 +7,7 @@ from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
+from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 
 memory_store = Mem0MemoryStore()
 
