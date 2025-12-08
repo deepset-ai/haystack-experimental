@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -7,7 +9,7 @@
 
 import inspect
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional, TYPE_CHECKING, Union
 
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
@@ -52,7 +54,9 @@ from haystack_experimental.components.agents.human_in_the_loop import (
 from haystack_experimental.components.agents.human_in_the_loop.strategies import _process_confirmation_strategies
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
-from haystack_experimental.memory_stores.types import MemoryStore  # pylint: disable=import-error
+
+if TYPE_CHECKING:
+    from haystack_experimental.memory_stores.types import MemoryStore
 
 
 logger = logging.getLogger(__name__)
