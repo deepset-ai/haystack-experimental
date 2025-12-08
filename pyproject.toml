@@ -27,9 +27,8 @@ classifiers = [
 ]
 
 dependencies = [
-  "haystack-ai>=2.20.0",
-  "rich", # For pretty printing in the console used by human-in-the-loop utilities,
-  "mem0ai", # For Mem0 memory store
+  "haystack-ai",
+  "rich", # For pretty printing in the console used by human-in-the-loop utilities
 ]
 
 [project.urls]
