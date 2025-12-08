@@ -23,13 +23,6 @@ class TestMem0MemoryStore:
             mock_client_class.return_value = mock_client
             yield mock_client
 
-    @pytest.fixture
-    def mock_memory(self):
-        """Mock the Mem0 Memory class."""
-        with patch("haystack_experimental.memory_stores.mem0.memory_store.Memory") as mock_memory_class:
-            mock_memory = Mock()
-            mock_memory_class.from_config.return_value = mock_memory
-            yield mock_memory
 
     @pytest.fixture
     def sample_messages(self):
@@ -51,14 +44,6 @@ class TestMem0MemoryStore:
         )
         assert store.client == mock_memory_client
 
-    def test_init_with_memory_config(self, monkeypatch, mock_memory):
-        """Test initialization with custom memory_config."""
-        memory_config = {"llm": {"provider": "openai"}}
-        with patch.dict(os.environ, {}, clear=True):
-            monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
-            store = Mem0MemoryStore( api_key=Secret.from_env_var("ENV_VAR"), memory_config=memory_config)
-            assert store.memory_config == memory_config
-            assert store.client == mock_memory
 
     def test_init_without_api_key_raises_error(self):
         """Test that initialization without API key raises ValueError."""
@@ -72,37 +57,19 @@ class TestMem0MemoryStore:
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
             store = Mem0MemoryStore(
-                api_key=Secret.from_env_var("ENV_VAR"),
-                memory_config={
-                    "vector_store": {
-                        "provider": "qdrant",
-                        "config": {
-                            "collection_name": "test",
-                            "host": "localhost",
-                            "port": 6333,
-                        },
-                    },
-                })
+                api_key=Secret.from_env_var("ENV_VAR"))
+
             result = store.to_dict()
             assert result["init_parameters"]["api_key"] == {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"}
-            assert result["init_parameters"]["memory_config"] == {
-                "vector_store": {
-                    "provider": "qdrant",
-                    "config": {
-                        "collection_name": "test",
-                        "host": "localhost",
-                        "port": 6333,
-                    },
-                }
-            }
 
-    def test_to_dict(self, monkeypatch, mock_memory_client, mock_memory):
+
+    def test_from_dict(self, monkeypatch, mock_memory_client):
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
             data = {
                 'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
                 'init_parameters': { "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
-                                    'memory_config': None,}}
+                                    }}
             store = Mem0MemoryStore.from_dict(data)
             assert store.client == mock_memory_client
             assert store.api_key == Secret.from_env_var("ENV_VAR")
