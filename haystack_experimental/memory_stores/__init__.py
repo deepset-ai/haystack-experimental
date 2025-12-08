@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.memory_stores.types import MemoryStore
+from .types import MemoryStore
 
 __all__ = ["MemoryStore"]
