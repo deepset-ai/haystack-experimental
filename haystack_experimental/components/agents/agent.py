@@ -141,7 +141,7 @@ class Agent(HaystackAgent):
         confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
         tool_invoker_kwargs: Optional[dict[str, Any]] = None,
         chat_message_store: Optional[ChatMessageStore] = None,
-        memory_store: Optional[MemoryStore] = None,
+        memory_store: Optional["MemoryStore"] = None,
     ) -> None:
         """
         Initialize the agent component.
