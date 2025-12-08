@@ -26,7 +26,7 @@ messages = [
 memory_store.add_memories(user_id="agent_example", messages=messages)
 
 chat_generator = OpenAIChatGenerator()
-agent = Agent(chat_generator=chat_generator, memory_store=memory_store)
+agent = Agent(chat_generator=chat_generator, memory_store=memory_store) # type: ignore[arg-type]
 answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs={"user_id": "agent_example"})
 
 print(answer)

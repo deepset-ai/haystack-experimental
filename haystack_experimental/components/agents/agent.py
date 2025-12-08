@@ -561,7 +561,7 @@ class Agent(HaystackAgent):
                 message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
             if self._memory_store:
-                self._memory_store.add_memories(new_memories)
+                self._memory_store.add_memories(messages=new_memories)
 
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
@@ -800,7 +800,7 @@ class Agent(HaystackAgent):
                 message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
             if self._memory_store:
-                self._memory_store.add_memories(new_memories)
+                self._memory_store.add_memories(messages=new_memories)
 
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:

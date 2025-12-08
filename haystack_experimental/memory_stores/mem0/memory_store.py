@@ -57,7 +57,9 @@ class Mem0MemoryStore:
         user_id: Optional[str] = None,
         run_id: Optional[str] = None,
         agent_id: Optional[str] = None,
-    ) -> list[str]:
+        async_mode: bool = False,
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
         """
         Add ChatMessage memories to Mem0.
 
@@ -68,26 +70,30 @@ class Mem0MemoryStore:
         :param run_id: The run ID to to store and retrieve memories from the memory store.
         :param agent_id: The agent ID to to store and retrieve memories from the memory store.
             If you want Mem0 to store chat messages from the assistant, you need to set the agent_id.
-        :returns: List of memory IDs for the added messages
+        :param async_mode: Whether to add memories asynchronously.
+            If True, the method will return immediately and the memories will be added in the background.
+        :param kwargs: Additional keyword arguments to pass to the Mem0 client.add method.
+            Note: ChatMessage.meta in the list of messages will be ignored because Mem0 doesn't allow
+            passing metadata for each message in the list. You can pass metadata for the whole memory
+            by passing the `metadata` keyword argument to the method.
+        :returns: List of objects with the memory_id and the memory
         """
         added_ids = []
         ids = self._get_ids(user_id, run_id, agent_id)
+        mem0_messages = []
         for message in messages:
             if not message.text:
                 continue
-            mem0_message = [{"content": message.text, "role": message.role.value}]
-            mem0_metadata = message.meta.copy()
             # we save the role of the message in the metadata
-            mem0_metadata.update({"role": message.role.value})
-
-            try:
-                result = self.client.add(messages=mem0_message, metadata=mem0_metadata, infer=infer, **ids)
-                # Mem0 returns different response formats, handle both
-                memory_id = result.get("id") or result.get("memory_id") or str(result)
+            mem0_messages.append({"content": message.text, "role": message.role.value})
+        try:
+            status = self.client.add(messages=mem0_messages, infer=infer, **ids, async_mode=async_mode, **kwargs)
+            for result in status["results"]:
+                memory_id = {"memory_id": result.get("id"), "memory": result["memory"]}
                 added_ids.append(memory_id)
-            except Exception as e:
-                raise RuntimeError(f"Failed to add memory message: {e}") from e
-        return list(added_ids)
+        except Exception as e:
+            raise RuntimeError(f"Failed to add memory message: {e}") from e
+        return added_ids
 
     def search_memories(
         self,
@@ -99,6 +105,7 @@ class Mem0MemoryStore:
         run_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         include_memory_metadata: bool = False,
+        **kwargs: Any,
     ) -> list[ChatMessage]:
         """
         Search for memories in Mem0.
@@ -117,6 +124,9 @@ class Mem0MemoryStore:
             If True, the metadata will include the mem0 related metadata i.e. memory_id, score, etc.
             in the `mem0_memory_metadata` key.
             If False, the `ChatMessage.meta` will only contain the user defined metadata.
+        :param kwargs: Additional keyword arguments to pass to the Mem0 client.
+            If query is passed, the kwargs will be passed to the Mem0 client.search method.
+            If query is not passed, the kwargs will be passed to the Mem0 client.get_all method.
         :returns: List of ChatMessage memories matching the criteria
         """
         # Prepare filters for Mem0
@@ -131,12 +141,13 @@ class Mem0MemoryStore:
                 mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
         try:
             if not query:
-                memories = self.client.get_all(filters=mem0_filters)
+                memories = self.client.get_all(filters=mem0_filters, **kwargs)
             else:
                 memories = self.client.search(
                     query=query,
                     top_k=top_k,
                     filters=mem0_filters,
+                    **kwargs,
                 )
             if include_memory_metadata:
                 # we also include the mem0 related metadata i.e. memory_id, score, etc.
@@ -162,7 +173,12 @@ class Mem0MemoryStore:
     # mem0 doesn't allow passing filter to delete endpoint,
     # we can delete all memories for a user by passing the user_id
     def delete_all_memories(
-        self, *, user_id: Optional[str] = None, run_id: Optional[str] = None, agent_id: Optional[str] = None
+        self,
+        *,
+        user_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         """
         Delete memory records from Mem0.
@@ -171,23 +187,25 @@ class Mem0MemoryStore:
         :param user_id: The user ID to delete memories from.
         :param run_id: The run ID to delete memories from.
         :param agent_id: The agent ID to delete memories from.
+        :param kwargs: Additional keyword arguments to pass to the Mem0 client.delete_all method.
         """
         ids = self._get_ids(user_id, run_id, agent_id)
 
         try:
-            self.client.delete_all(**ids)
+            self.client.delete_all(**ids, **kwargs)
             print(f"All memories deleted successfully for scope {ids}")
         except Exception as e:
             raise RuntimeError(f"Failed to delete memories with scope {ids}: {e}") from e
 
-    def delete_memory(self, memory_id: str) -> None:
+    def delete_memory(self, memory_id: str, **kwargs: Any) -> None:
         """
         Delete memory from Mem0.
 
         :param memory_id: The ID of the memory to delete.
+        :param kwargs: Additional keyword arguments to pass to the Mem0 client.delete method.
         """
         try:
-            self.client.delete(memory_id=memory_id)
+            self.client.delete(memory_id=memory_id, **kwargs)
             print(f"Memory {memory_id} deleted successfully")
         except Exception as e:
             raise RuntimeError(f"Failed to delete memory {memory_id}: {e}") from e

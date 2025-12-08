@@ -29,7 +29,7 @@ class TestMem0MemoryStore:
         """Sample ChatMessage objects for testing."""
         return [
             ChatMessage.from_user("I usually work with Python language on LLM agents", meta={"source": "test"}),
-            ChatMessage.from_user("I like working with Haystack. Show me how to make a simple RAG pipeline.", meta={"topic": "programming"}),
+            ChatMessage.from_user("I like working with Haystack.", meta={"topic": "programming"}),
         ]
 
     def test_init_with_user_id_and_api_key(self, mock_memory_client):
@@ -84,12 +84,13 @@ class TestMem0MemoryStore:
         store = Mem0MemoryStore()
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
-        result = store.add_memories(sample_messages, user_id="haystack_test_123")
+        result = store.add_memories(messages=sample_messages, user_id="haystack_test_123")
         assert len(result) == 2
+
         store.delete_all_memories(user_id="haystack_test_123")
+        sleep(10)
         mem = store.search_memories(user_id="haystack_test_123")
         assert len(mem) == 0
-
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -101,7 +102,7 @@ class TestMem0MemoryStore:
         store = Mem0MemoryStore()
         # delete all memories for this id
         store.delete_all_memories(user_id="haystack_test_123")
-        result = store.add_memories(sample_messages, infer=False, user_id="haystack_test_123")
+        result = store.add_memories(messages=sample_messages, infer=False, user_id="haystack_test_123")
         assert len(result) == 2
 
     @pytest.mark.skipif(
@@ -111,11 +112,13 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_memories_with_metadata(self):
         """Test adding memories with metadata."""
-        messages = [ChatMessage.from_user("Test", meta={"key": "value"})]
+        messages = [ChatMessage.from_user("User likes to work with python on NLP projects")]
         store = Mem0MemoryStore()
-
-        added_ids = store.add_memories(messages, user_id="haystack_test_123")
-        assert added_ids[0] is not None
+        store.delete_all_memories(user_id="haystack_test_123")
+        result = store.add_memories(messages=messages,
+                                    user_id="haystack_test_123",
+                                    metadata={"key": "value"}, async_mode=False)
+        assert len(result) == 1
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -162,10 +165,10 @@ class TestMem0MemoryStore:
         """Test deleting a single memory."""
         store = Mem0MemoryStore()
         store.delete_all_memories(user_id="haystack_test_123")
-        store.add_memories(sample_messages, infer=False, user_id="haystack_test_123")
+        store.add_memories(messages=sample_messages, infer=False, user_id="haystack_test_123")
         sleep(10)
         mem = store.search_memories(user_id="haystack_test_123", include_memory_metadata=True)
-        store.delete_memory(mem[0].meta["retrieved_memory_metadata"]["id"])
+        store.delete_memory(memory_id=mem[0].meta["retrieved_memory_metadata"]["id"])
         sleep(10)
         assert len(store.search_memories(user_id="haystack_test_123")) == 1
 
@@ -185,7 +188,7 @@ class TestMem0MemoryStore:
         store.delete_all_memories(user_id="haystack_role_based_memories")
         store.delete_all_memories(agent_id="movie_agent")
         sleep(10)
-        store.add_memories(messages, infer=False, user_id="haystack_role_based_memories", agent_id="movie_agent")
+        store.add_memories(messages=messages, infer=False, user_id="haystack_role_based_memories", agent_id="movie_agent")
         assistant_mem = store.search_memories(filters={"agent_id": "movie_agent"})
         user_mem = store.search_memories(filters={"user_id": "haystack_role_based_memories"})
         assert len(assistant_mem) == 2
