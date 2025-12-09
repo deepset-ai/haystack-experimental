@@ -4,15 +4,15 @@
 
 from typing import Any, Optional
 
-from haystack import default_from_dict, default_to_dict
+from haystack import default_from_dict, default_to_dict, logging
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_secrets_inplace
 
-MemoryClient = None  # type: ignore[assignment]
-
 with LazyImport(message="Run 'pip install mem0ai'") as mem0_import:
     from mem0 import MemoryClient  # pylint: disable=import-error
+
+logger = logging.getLogger(__name__)
 
 
 class Mem0MemoryStore:
@@ -254,7 +254,7 @@ class Mem0MemoryStore:
 
         try:
             self.client.delete_all(**ids, **kwargs)
-            print(f"All memories deleted successfully for scope {ids}")
+            logger.info(f"All memories deleted successfully for scope {ids}")
         except Exception as e:
             raise RuntimeError(f"Failed to delete memories with scope {ids}: {e}") from e
 
@@ -267,7 +267,7 @@ class Mem0MemoryStore:
         """
         try:
             self.client.delete(memory_id=memory_id, **kwargs)
-            print(f"Memory {memory_id} deleted successfully")
+            logger.info(f"Memory {memory_id} deleted successfully")
         except Exception as e:
             raise RuntimeError(f"Failed to delete memory {memory_id}: {e}") from e
 
