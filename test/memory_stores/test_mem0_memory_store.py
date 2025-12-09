@@ -146,6 +146,14 @@ class TestMem0MemoryStore:
         assert mem[0].text == "User has visited Italy in 2025"
         assert mem[0].meta == {"country": "Italy", "timestamp": "04/2025"}
 
+    def test_search_memories_as_single_message(self):
+        """Test searching memories as a single message."""
+        store = Mem0MemoryStore()
+
+        result = store.search_memories_as_single_message(user_id="haystack_simple_memories")
+        assert result.text is not None
+        assert len(result) == 1
+
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",

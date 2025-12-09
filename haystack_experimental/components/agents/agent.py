@@ -197,6 +197,7 @@ class Agent(HaystackAgent):
         generation_kwargs: Optional[dict[str, Any]] = None,
         tools: Optional[Union[ToolsType, list[str]]] = None,
         chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        memory_store_kwargs: Optional[dict[str, Any]] = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -216,23 +217,45 @@ class Agent(HaystackAgent):
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
         system_prompt = system_prompt or self.system_prompt
-        if system_prompt is not None:
-            messages = [ChatMessage.from_system(system_prompt)] + messages
+        retrieved_memory: list[ChatMessage] = []
+        updated_system_prompt = system_prompt
+
+        # Retrieve memories from the memory store
+        memory_store_kwargs = memory_store_kwargs or {}
+        if self._memory_store:
+            retrieved_memory = self._memory_store.search_memories_as_single_message(
+                query=messages[-1].text, **memory_store_kwargs
+            )
+
+        if retrieved_memory:
+            memory_instruction = (
+                "\n\nWhen messages start with `[MEMORY]`, treat them as long-term "
+                "context and use them to guide the response if relevant."
+            )
+            updated_system_prompt = f"{system_prompt}{memory_instruction}"
+
+            retrieved_memory.text = f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
+        else:
+            retrieved_memory = None
+
+        combined_messages = messages + [retrieved_memory] if retrieved_memory else messages
+        if updated_system_prompt is not None:
+            combined_messages = [ChatMessage.from_system(updated_system_prompt)] + combined_messages
 
         # NOTE: difference with parent method to add chat message retrieval
         if self._chat_message_retriever:
             retriever_kwargs = _select_kwargs(self._chat_message_retriever, chat_message_store_kwargs or {})
             if "chat_history_id" in retriever_kwargs:
                 messages = self._chat_message_retriever.run(
-                    current_messages=messages,
+                    current_messages=combined_messages,
                     **retriever_kwargs,
                 )["messages"]
 
-        if all(m.is_from(ChatRole.SYSTEM) for m in messages):
+        if all(m.is_from(ChatRole.SYSTEM) for m in combined_messages):
             logger.warning("All messages provided to the Agent component are system messages. This is not recommended.")
 
         state = State(schema=self.state_schema, data=kwargs)
-        state.set("messages", messages)
+        state.set("messages", combined_messages)
 
         streaming_callback = select_streaming_callback(  # type: ignore[call-overload]
             init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=requires_async
@@ -368,36 +391,9 @@ class Agent(HaystackAgent):
         """
         # We pop parent_snapshot from kwargs to avoid passing it into State.
         parent_snapshot = kwargs.pop("parent_snapshot", None)
-        retrieved_memory: list[ChatMessage] = []
-        updated_system_prompt = system_prompt
 
-        # Retrieve memories from the memory store
-        memory_store_kwargs = memory_store_kwargs or {}
-        if self._memory_store:
-            retrieved_memory = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
-
-        if retrieved_memory:
-            memory_instruction = (
-                "\n\nWhen messages start with `[MEMORY]`, treat them as long-term "
-                "context and use them to guide the response if relevant."
-            )
-            updated_system_prompt = f"{system_prompt}{memory_instruction}"
-
-            memory_text = "\n".join(
-                f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memory)
-            )
-
-            memory_message = ChatMessage.from_system(
-                text=f"Here are the relevant memories for the user's query: {memory_text}",
-                meta=retrieved_memory[0].meta,
-            )
-            memory_messages = [memory_message]
-        else:
-            memory_messages = []
-
-        combined_messages = messages + memory_messages
         agent_inputs = {
-            "messages": combined_messages,
+            "messages": messages,
             "streaming_callback": streaming_callback,
             "break_point": break_point,
             "snapshot": snapshot,
@@ -424,10 +420,11 @@ class Agent(HaystackAgent):
                 messages=messages,
                 streaming_callback=streaming_callback,
                 requires_async=False,
-                system_prompt=updated_system_prompt,
+                system_prompt=system_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
                 chat_message_store_kwargs=chat_message_store_kwargs,
+                memory_store_kwargs=memory_store_kwargs,
                 **kwargs,
             )
 
@@ -631,36 +628,9 @@ class Agent(HaystackAgent):
         """
         # We pop parent_snapshot from kwargs to avoid passing it into State.
         parent_snapshot = kwargs.pop("parent_snapshot", None)
-        retrieved_memory: list[ChatMessage] = []
-        updated_system_prompt = system_prompt
 
-        # Retrieve memories from the memory store
-        memory_store_kwargs = memory_store_kwargs or {}
-        if self._memory_store:
-            retrieved_memory = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
-
-        if retrieved_memory:
-            memory_instruction = (
-                "\n\nWhen messages start with `[MEMORY]`, treat them as long-term "
-                "context and use them to guide the response if relevant."
-            )
-            updated_system_prompt = f"{system_prompt}{memory_instruction}"
-
-            memory_text = "\n".join(
-                f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memory)
-            )
-
-            memory_message = ChatMessage.from_system(
-                text=f"Here are the relevant memories for the user's query: {memory_text}",
-                meta=retrieved_memory[0].meta,
-            )
-            memory_messages = [memory_message]
-        else:
-            memory_messages = []
-
-        combined_messages = messages + memory_messages
         agent_inputs = {
-            "messages": combined_messages,
+            "messages": messages,
             "streaming_callback": streaming_callback,
             "break_point": break_point,
             "snapshot": snapshot,
@@ -684,13 +654,14 @@ class Agent(HaystackAgent):
             )
         else:
             exe_context = self._initialize_fresh_execution(
-                messages=combined_messages,
+                messages=messages,
                 streaming_callback=streaming_callback,
                 requires_async=True,
-                system_prompt=updated_system_prompt,
+                system_prompt=system_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
                 chat_message_store_kwargs=chat_message_store_kwargs,
+                memory_store_kwargs=memory_store_kwargs,
                 **kwargs,
             )
 

@@ -9,6 +9,8 @@ from haystack.dataclasses.chat_message import ChatMessage
 from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_secrets_inplace
 
+MemoryClient = None  # type: ignore[assignment]
+
 with LazyImport(message="Run 'pip install mem0ai'") as mem0_import:
     from mem0 import MemoryClient  # pylint: disable=import-error
 
@@ -166,6 +168,65 @@ class Mem0MemoryStore:
                     for memory in memories["results"]
                 ]
             return messages
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to search memories: {e}") from e
+
+    def search_memories_as_single_message(
+        self,
+        *,
+        query: Optional[str] = None,
+        filters: Optional[dict[str, Any]] = None,
+        top_k: int = 5,
+        user_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> ChatMessage:
+        """
+        Search for memories in Mem0 and return a single ChatMessage object.
+
+        If filters are not provided, at least one of user_id, run_id, or agent_id must be set.
+        If filters are provided, the search will be scoped to the provided filters and the other ids will be ignored.
+        :param query: Text query to search for. If not provided, all memories will be returned.
+        :param filters: Additional filters to apply on search. For more details on mem0 filters, see https://mem0.ai/docs/search/
+        :param top_k: Maximum number of results to return
+        :param user_id: The user ID to to store and retrieve memories from the memory store.
+        :param run_id: The run ID to to store and retrieve memories from the memory store.
+        :param agent_id: The agent ID to to store and retrieve memories from the memory store.
+            If you want Mem0 to store chat messages from the assistant, you need to set the agent_id.
+        :param kwargs: Additional keyword arguments to pass to the Mem0 client.
+            If query is passed, the kwargs will be passed to the Mem0 client.search method.
+            If query is not passed, the kwargs will be passed to the Mem0 client.get_all method.
+        :returns: A single ChatMessage object with the memories matching the criteria
+        """
+        # Prepare filters for Mem0
+        if filters:
+            mem0_filters = filters
+        else:
+            ids = self._get_ids(user_id, run_id, agent_id)
+            if len(ids) == 1:
+                mem0_filters = dict(ids)
+            else:
+                mem0_filters = {"AND": [{key: value} for key, value in ids.items()]}
+
+        try:
+            if not query:
+                memories = self.client.get_all(filters=mem0_filters, **kwargs)
+            else:
+                memories = self.client.search(
+                    query=query,
+                    top_k=top_k,
+                    filters=mem0_filters,
+                    **kwargs,
+                )
+
+            # we combine the memories into a single string
+            combined_memory = "\n".join(
+                f"- MEMORY #{idx + 1}: {memory['memory']}" for idx, memory in enumerate(memories["results"])
+            )
+
+            return ChatMessage.from_system(text=combined_memory)
 
         except Exception as e:
             raise RuntimeError(f"Failed to search memories: {e}") from e
