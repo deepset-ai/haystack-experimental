@@ -172,7 +172,7 @@ class TestAgent:
     def test_to_dict(self, tools, confirmation_strategies, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(), tools=tools, confirmation_strategies=confirmation_strategies
+            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, confirmation_strategies=confirmation_strategies
         )
         agent_dict = agent.to_dict()
         assert agent_dict == {

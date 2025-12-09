@@ -28,7 +28,7 @@ classifiers = [
 
 dependencies = [
   "haystack-ai",
-  "rich", # For pretty printing in the console used by human-in-the-loop utilities
+  "rich", # For pretty printing in the console used by human-in-the-loop utilities,
 ]
 
 [project.urls]
@@ -56,6 +56,7 @@ extra-dependencies = [
   "sentence-transformers>=4.1.0",                     # EmbeddingBasedDocumentSplitter
   "nltk>=3.9.1",                                      # EmbeddingBasedDocumentSplitter
   "transformers>=4.55.4,<4.57",                       # Issue https://github.com/huggingface/transformers/issues/41339
+  "mem0ai>=0.1.0",                                    # Mem0MemoryStore
 
   # LLM-based Summarizer
   "tiktoken",
