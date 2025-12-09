@@ -250,6 +250,7 @@ class Agent(HaystackAgent):
                     current_messages=combined_messages,
                     **retriever_kwargs,
                 )["messages"]
+                combined_messages = messages
 
         if all(m.is_from(ChatRole.SYSTEM) for m in combined_messages):
             logger.warning("All messages provided to the Agent component are system messages. This is not recommended.")
