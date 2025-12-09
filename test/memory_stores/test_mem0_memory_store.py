@@ -212,9 +212,6 @@ class TestMem0MemoryStore:
         chat_generator = OpenAIChatGenerator()
         memory_store_kwargs = {
             "user_id": "haystack_mem0",
-            "search_criteria": {
-                "top_k": 3
-            }
         }
         agent = Agent(chat_generator=chat_generator, memory_store=memory_store)
         answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs=memory_store_kwargs)

@@ -56,7 +56,7 @@ from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
 
 if TYPE_CHECKING:
-    from haystack_experimental.memory_stores.types import MemoryStore
+    from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
 
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ class Agent(HaystackAgent):
         confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
         tool_invoker_kwargs: Optional[dict[str, Any]] = None,
         chat_message_store: Optional[ChatMessageStore] = None,
-        memory_store: Optional["MemoryStore"] = None,
+        memory_store: Optional["Mem0MemoryStore"] = None,
     ) -> None:
         """
         Initialize the agent component.
@@ -217,15 +217,14 @@ class Agent(HaystackAgent):
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
         system_prompt = system_prompt or self.system_prompt
-        retrieved_memory: list[ChatMessage] = []
+        retrieved_memory = None
         updated_system_prompt = system_prompt
 
         # Retrieve memories from the memory store
-        memory_store_kwargs = memory_store_kwargs or {}
         if self._memory_store:
             retrieved_memory = self._memory_store.search_memories_as_single_message(
                 query=messages[-1].text, **memory_store_kwargs
-            )
+            )  # type: ignore[arg-type]
 
         if retrieved_memory:
             memory_instruction = (
@@ -234,11 +233,12 @@ class Agent(HaystackAgent):
             )
             updated_system_prompt = f"{system_prompt}{memory_instruction}"
 
-            retrieved_memory.text = f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
+            memory_text = f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
+            updated_memory = ChatMessage.from_system(text=memory_text, meta=retrieved_memory.meta)
         else:
-            retrieved_memory = None
+            updated_memory = None
 
-        combined_messages = messages + [retrieved_memory] if retrieved_memory else messages
+        combined_messages = messages + [updated_memory] if updated_memory else messages
         if updated_system_prompt is not None:
             combined_messages = [ChatMessage.from_system(updated_system_prompt)] + combined_messages
 
@@ -391,6 +391,7 @@ class Agent(HaystackAgent):
         """
         # We pop parent_snapshot from kwargs to avoid passing it into State.
         parent_snapshot = kwargs.pop("parent_snapshot", None)
+        memory_store_kwargs = memory_store_kwargs or {}
 
         agent_inputs = {
             "messages": messages,
@@ -558,7 +559,7 @@ class Agent(HaystackAgent):
                 message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
             if self._memory_store:
-                self._memory_store.add_memories(messages=new_memories)
+                self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
 
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
@@ -628,6 +629,7 @@ class Agent(HaystackAgent):
         """
         # We pop parent_snapshot from kwargs to avoid passing it into State.
         parent_snapshot = kwargs.pop("parent_snapshot", None)
+        memory_store_kwargs = memory_store_kwargs or {}
 
         agent_inputs = {
             "messages": messages,
@@ -770,8 +772,9 @@ class Agent(HaystackAgent):
             new_memories = [
                 message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
             ]
+
             if self._memory_store:
-                self._memory_store.add_memories(messages=new_memories)
+                self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
 
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
