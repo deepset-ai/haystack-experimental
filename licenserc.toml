@@ -3,7 +3,7 @@ headerPath = "license-header.txt"
 excludes = [
     ".github",
     "docker",
-    "docs",
+    "pydoc",
     "examples",
     "proposals",
     "releasenotes",
