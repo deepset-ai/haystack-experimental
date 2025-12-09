@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 import pytest
 from haystack.components.agents.state.state import State
-from haystack.dataclasses import ChatMessage, ToolCall
+from haystack.dataclasses import ChatMessage, ToolCall, ChatRole, TextContent, ToolCallResult
 from haystack.tools import Tool, create_tool_from_function
 
 from haystack_experimental.components.agents.agent import _ExecutionContext
@@ -342,6 +342,91 @@ class TestUpdateChatHistory:
             chat_history_one_tool_call, rejection_messages=[], tool_call_and_explanation_messages=tool_call_messages
         )
         assert updated_messages == [chat_history_one_tool_call[0], *tool_call_messages]
+
+    def test_update_chat_history_modify_two_tool_calls(self):
+        tool_call_message = ChatMessage.from_assistant(
+            tool_calls=[ToolCall("tool1", {"a": 1, "b": 2}, id="1"), ToolCall("tool2", {"a": 3, "b": 4}, id="2")]
+        )
+        chat_history = [ChatMessage.from_user("What is 1 + 2? and 3 + 4?"), tool_call_message]
+        rejection_messages, modified_tool_call_messages = _apply_tool_execution_decisions(
+            tool_call_messages=[tool_call_message],
+            tool_execution_decisions=[
+                ToolExecutionDecision(
+                    tool_name="tool1",
+                    execute=True,
+                    tool_call_id="1",
+                    final_tool_params={"a": 5, "b": 6},
+                    feedback="The parameters for tool 'tool1' were updated by the user to:\n{'a': 5, 'b': 6}",
+                ),
+                ToolExecutionDecision(
+                    tool_name="tool2",
+                    execute=True,
+                    tool_call_id="2",
+                    final_tool_params={"a": 7, "b": 8},
+                    feedback="The parameters for tool 'tool2' were updated by the user to:\n{'a': 7, 'b': 8}'",
+                ),
+            ],
+        )
+        updated_messages = _update_chat_history(
+            chat_history,
+            rejection_messages=rejection_messages,
+            tool_call_and_explanation_messages=modified_tool_call_messages,
+        )
+        assert updated_messages == [
+            chat_history[0],
+            ChatMessage.from_user("The parameters for tool 'tool1' were updated by the user to:\n{'a': 5, 'b': 6}"),
+            ChatMessage.from_user("The parameters for tool 'tool2' were updated by the user to:\n{'a': 7, 'b': 8}'"),
+            ChatMessage.from_assistant(
+                tool_calls=[
+                    ToolCall(tool_name="tool1", arguments={"a": 5, "b": 6}, id="1", extra=None),
+                    ToolCall(tool_name="tool2", arguments={"a": 7, "b": 8}, id="2", extra=None),
+                ],
+            ),
+        ]
+
+    def test_update_chat_history_two_tool_calls_modify_and_reject(self):
+        tool_call_message = ChatMessage.from_assistant(
+            tool_calls=[ToolCall("tool1", {"a": 1, "b": 2}, id="1"), ToolCall("tool2", {"a": 3, "b": 4}, id="2")]
+        )
+        chat_history = [ChatMessage.from_user("What is 1 + 2? and 3 + 4?"), tool_call_message]
+        rejection_messages, modified_tool_call_messages = _apply_tool_execution_decisions(
+            tool_call_messages=[tool_call_message],
+            tool_execution_decisions=[
+                ToolExecutionDecision(
+                    tool_name="tool1",
+                    execute=True,
+                    tool_call_id="1",
+                    final_tool_params={"a": 5, "b": 6},
+                    feedback="The parameters for tool 'tool1' were updated by the user to:\n{'a': 5, 'b': 6}",
+                ),
+                ToolExecutionDecision(
+                    tool_name="tool2",
+                    execute=False,
+                    tool_call_id="2",
+                    feedback="The tool execution for 'tool2' was rejected by the user. With feedback: Not needed",
+                ),
+            ],
+        )
+        updated_messages = _update_chat_history(
+            chat_history,
+            rejection_messages=rejection_messages,
+            tool_call_and_explanation_messages=modified_tool_call_messages,
+        )
+        assert updated_messages == [
+            chat_history[0],
+            ChatMessage.from_assistant(
+                tool_calls=[ToolCall(tool_name="tool2", arguments={"a": 3, "b": 4}, id="2", extra=None)],
+            ),
+            ChatMessage.from_tool(
+                tool_result="The tool execution for 'tool2' was rejected by the user. With feedback: Not needed",
+                origin=ToolCall(tool_name="tool2", arguments={"a": 3, "b": 4}, id="2", extra=None),
+                error=True,
+            ),
+            ChatMessage.from_user("The parameters for tool 'tool1' were updated by the user to:\n{'a': 5, 'b': 6}"),
+            ChatMessage.from_assistant(
+                tool_calls=[ToolCall(tool_name="tool1", arguments={"a": 5, "b": 6}, id="1", extra=None)],
+            ),
+        ]
 
 
 class ConfirmationStrategyContextCapturingStrategy:

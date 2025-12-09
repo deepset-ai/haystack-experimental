@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 from haystack import Document, component, logging
@@ -136,8 +136,8 @@ class EmbeddingBasedDocumentSplitter:
             self.document_embedder.warm_up()
         self._is_warmed_up = True
 
-    @component.output_types(documents=List[Document])
-    def run(self, documents: List[Document]) -> Dict[str, List[Document]]:
+    @component.output_types(documents=list[Document])
+    def run(self, documents: list[Document]) -> dict[str, list[Document]]:
         """
         Split documents based on embedding similarity.
 
@@ -162,7 +162,7 @@ class EmbeddingBasedDocumentSplitter:
         if not isinstance(documents, list) or (documents and not isinstance(documents[0], Document)):
             raise TypeError("EmbeddingBasedDocumentSplitter expects a List of Documents as input.")
 
-        split_docs: List[Document] = []
+        split_docs: list[Document] = []
         for doc in documents:
             if doc.content is None:
                 raise ValueError(
@@ -178,7 +178,7 @@ class EmbeddingBasedDocumentSplitter:
 
         return {"documents": split_docs}
 
-    def _split_document(self, doc: Document) -> List[Document]:
+    def _split_document(self, doc: Document) -> list[Document]:
         """
         Split a single document based on embedding similarity.
         """
@@ -194,7 +194,7 @@ class EmbeddingBasedDocumentSplitter:
         # Create Document objects from the final splits
         return EmbeddingBasedDocumentSplitter._create_documents_from_splits(splits=final_splits, original_doc=doc)
 
-    def _split_text(self, text: str) -> List[str]:
+    def _split_text(self, text: str) -> list[str]:
         """
         Split a text into smaller chunks based on embedding similarity.
         """
@@ -221,7 +221,7 @@ class EmbeddingBasedDocumentSplitter:
 
         return sub_splits
 
-    def _group_sentences(self, sentences: List[str]) -> List[str]:
+    def _group_sentences(self, sentences: list[str]) -> list[str]:
         """
         Group sentences into groups of sentences_per_group.
         """
@@ -235,7 +235,7 @@ class EmbeddingBasedDocumentSplitter:
 
         return groups
 
-    def _calculate_embeddings(self, sentence_groups: List[str]) -> List[List[float]]:
+    def _calculate_embeddings(self, sentence_groups: list[str]) -> list[list[float]]:
         """
         Calculate embeddings for each sentence group using the DocumentEmbedder.
         """
@@ -246,7 +246,7 @@ class EmbeddingBasedDocumentSplitter:
         embeddings = [doc.embedding for doc in embedded_docs]
         return embeddings
 
-    def _find_split_points(self, embeddings: List[List[float]]) -> List[int]:
+    def _find_split_points(self, embeddings: list[list[float]]) -> list[int]:
         """
         Find split points based on cosine distances between sequential embeddings.
         """
@@ -273,7 +273,7 @@ class EmbeddingBasedDocumentSplitter:
         return split_points
 
     @staticmethod
-    def _cosine_distance(embedding1: List[float], embedding2: List[float]) -> float:
+    def _cosine_distance(embedding1: list[float], embedding2: list[float]) -> float:
         """
         Calculate cosine distance between two embeddings.
         """
@@ -291,7 +291,7 @@ class EmbeddingBasedDocumentSplitter:
         return 1.0 - cosine_sim
 
     @staticmethod
-    def _create_splits_from_points(sentence_groups: List[str], split_points: List[int]) -> List[str]:
+    def _create_splits_from_points(sentence_groups: list[str], split_points: list[int]) -> list[str]:
         """
         Create splits based on split points.
         """
@@ -315,7 +315,7 @@ class EmbeddingBasedDocumentSplitter:
 
         return splits
 
-    def _merge_small_splits(self, splits: List[str]) -> List[str]:
+    def _merge_small_splits(self, splits: list[str]) -> list[str]:
         """
         Merge splits that are below min_length.
         """
@@ -341,7 +341,7 @@ class EmbeddingBasedDocumentSplitter:
 
         return merged
 
-    def _split_large_splits(self, splits: List[str]) -> List[str]:
+    def _split_large_splits(self, splits: list[str]) -> list[str]:
         """
         Recursively split splits that are above max_length.
 
@@ -375,7 +375,7 @@ class EmbeddingBasedDocumentSplitter:
         return final_splits
 
     @staticmethod
-    def _create_documents_from_splits(splits: List[str], original_doc: Document) -> List[Document]:
+    def _create_documents_from_splits(splits: list[str], original_doc: Document) -> list[Document]:
         """
         Create Document objects from splits.
         """
@@ -405,7 +405,7 @@ class EmbeddingBasedDocumentSplitter:
 
         return documents
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the component to a dictionary.
         """
@@ -422,7 +422,7 @@ class EmbeddingBasedDocumentSplitter:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EmbeddingBasedDocumentSplitter":
+    def from_dict(cls, data: dict[str, Any]) -> "EmbeddingBasedDocumentSplitter":
         """
         Deserializes the component from a dictionary.
         """

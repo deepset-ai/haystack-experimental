@@ -2,11 +2,9 @@ loaders:
 - ignore_when_discovered:
   - __init__
   modules:
-  - haystack_experimental.components.retrievers.chat_message_retriever
-  - haystack_experimental.components.retrievers.multi_query_embedding_retriever
-  - haystack_experimental.components.retrievers.multi_query_text_retriever
+  - haystack_experimental.components.writers.chat_message_writer
   search_path:
-  - ../../../
+  - ../
   type: haystack_pydoc_tools.loaders.CustomPythonLoader
 processors:
 - do_not_filter_modules: false
@@ -17,15 +15,14 @@ processors:
 - type: smart
 - type: crossref
 renderer:
-  description: Sweep through Document Stores and return a set of candidate documents
-    that are relevant to the query.
-  id: experimental-retrievers-api
+  description: Writers for Haystack.
+  id: experimental-writers-api
   markdown:
     add_member_class_prefix: false
     add_method_class_prefix: true
     classdef_code_block: false
     descriptive_class_title: false
     descriptive_module_title: true
-    filename: experimental_retrievers_api.md
-  title: Retrievers
+    filename: experimental_writers_api.md
+  title: Writers
   type: haystack_pydoc_tools.renderers.DocusaurusRenderer
