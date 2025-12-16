@@ -29,6 +29,8 @@ classifiers = [
 dependencies = [
   "haystack-ai",
   "rich", # For pretty printing in the console used by human-in-the-loop utilities
+  "pandas",
+  "quickchart.io>=1.0.0"
 ]
 
 [project.urls]
