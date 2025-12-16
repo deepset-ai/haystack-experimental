@@ -5,7 +5,7 @@
 import json
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -125,7 +125,7 @@ class PandasChartJSConverter:
     def run(
         self,
         dataframe: pd.DataFrame,
-        chart_columns_config: str | Dict[str, Any],
+        chart_columns_config: Union[str, Dict[str, Any]],
         other_chart_config: Optional[Dict[str, Any]] = None,
         meta: Optional[Dict[str, Any]] = None,
         get_long_url: bool = True,
@@ -341,7 +341,7 @@ class PandasChartJSConverter:
         return chart_config
 
     @staticmethod
-    def _str_to_json(text: str | Dict[str, Any]) -> Dict[str, Any]:
+    def _str_to_json(text: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Convert a string or dict to JSON dict."""
         if not text:
             return {}
