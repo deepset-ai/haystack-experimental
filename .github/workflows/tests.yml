@@ -105,8 +105,9 @@ jobs:
         # if: github.event_name == 'schedule'
         id: nightly-haystack-main
         run: |
-          hatch run pip install git+https://github.com/deepset-ai/haystack.git
-          hatch run test:unit
+          hatch env prune
+          hatch -e test env run -- uv pip install git+https://github.com/deepset-ai/haystack.git@main
+          hatch run test:all
 
   integration-tests:
     name: Integration / ${{ matrix.os }}
