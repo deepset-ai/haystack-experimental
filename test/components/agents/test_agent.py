@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -12,13 +13,11 @@ from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.dataclasses.breakpoints import PipelineSnapshot
 from haystack.tools import Tool, create_tool_from_function
 
 from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
-from haystack_experimental.components.retrievers import ChatMessageRetriever
-from haystack_experimental.components.writers import ChatMessageWriter
 from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.components.agents.human_in_the_loop import (
     AlwaysAskPolicy,
@@ -34,6 +33,8 @@ from haystack_experimental.components.agents.human_in_the_loop import (
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
     get_tool_calls_and_descriptions_from_snapshot,
 )
+from haystack_experimental.components.retrievers import ChatMessageRetriever
+from haystack_experimental.components.writers import ChatMessageWriter
 
 
 @pytest.fixture
@@ -48,6 +49,19 @@ class MockChatGenerator:
     @component.output_types(replies=list[ChatMessage])
     def run(self, messages: list[ChatMessage], tools: Any) -> dict[str, list[ChatMessage]]:
         return {"replies": [ChatMessage.from_assistant("This is a mock response.")]}
+
+
+@component
+class MockChatGeneratorToolsResponse:
+    @component.output_types(replies=list[ChatMessage])
+    def run(self, messages: list[ChatMessage], tools: Any) -> dict[str, list[ChatMessage]]:
+        return {
+            "replies": [
+                ChatMessage.from_assistant(
+                    tool_calls=[ToolCall(tool_name="addition_tool", arguments={"a": 2, "b": 3})]
+                )
+            ]
+        }
 
 
 @component
@@ -257,6 +271,35 @@ class TestAgent:
 
 
 class TestAgentConfirmationStrategy:
+    def test_get_tool_calls_and_descriptions_from_snapshot_no_mutation_of_snapshot(self, tools, tmp_path):
+        agent = Agent(
+            chat_generator=MockChatGeneratorToolsResponse(),
+            tools=tools,
+            confirmation_strategies={
+                "addition_tool": BreakpointConfirmationStrategy(snapshot_file_path=str(tmp_path)),
+            },
+        )
+        agent.warm_up()
+
+        # Run the agent to create a snapshot with a breakpoint
+        try:
+            agent.run([ChatMessage.from_user("What is 2+2?")])
+        except BreakpointException:
+            pass
+
+        # Load the latest snapshot from disk
+        loaded_snapshot = get_latest_snapshot(snapshot_file_path=str(tmp_path))
+
+        original_snapshot = copy.deepcopy(loaded_snapshot)
+
+        # Extract tool calls and descriptions
+        _ = get_tool_calls_and_descriptions_from_snapshot(
+            agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
+        )
+
+        # Verify that the original snapshot has not been mutated
+        assert loaded_snapshot == original_snapshot
+
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
     def test_run_blocking_confirmation_strategy_modify(self, tools):
