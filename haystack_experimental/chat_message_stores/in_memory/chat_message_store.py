@@ -137,7 +137,7 @@ class InMemoryChatMessageStore:
 
     def retrieve_messages(self, chat_history_id: str, last_k: Optional[int] = None) -> list[ChatMessage]:
         """
-        Retrieves all stored chat messages.
+        Retrieves chat messages stored under the given chat history id.
 
         :param chat_history_id:
             The chat history id from which to retrieve messages.
