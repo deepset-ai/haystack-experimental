@@ -34,6 +34,7 @@ from haystack.core.pipeline.breakpoint import (
     _create_pipeline_snapshot_from_chat_generator,
     _create_pipeline_snapshot_from_tool_invoker,
     _save_pipeline_snapshot,
+    _should_trigger_tool_invoker_breakpoint,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import default_from_dict, import_class_by_name
@@ -316,7 +317,7 @@ class Agent(HaystackAgent):
             confirmation_strategy_context=confirmation_strategy_context,
         )
 
-    def run(  # type: ignore[override]  # noqa: PLR0915
+    def run(  # type: ignore[override]  # noqa: PLR0915 PLR0912
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -361,8 +362,6 @@ class Agent(HaystackAgent):
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
         :raises BreakpointException: If an agent breakpoint is triggered.
         """
-        # We pop parent_snapshot from kwargs to avoid passing it into State.
-        parent_snapshot = kwargs.pop("parent_snapshot", None)
         agent_inputs = {
             "messages": messages,
             "streaming_callback": streaming_callback,
@@ -556,7 +555,7 @@ class Agent(HaystackAgent):
 
         return result
 
-    async def run_async(  # type: ignore[override]
+    async def run_async(  # type: ignore[override] # noqa: PLR0915
         self,
         messages: list[ChatMessage],
         streaming_callback: Optional[StreamingCallbackT] = None,
@@ -604,8 +603,6 @@ class Agent(HaystackAgent):
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
         :raises BreakpointException: If an agent breakpoint is triggered.
         """
-        # We pop parent_snapshot from kwargs to avoid passing it into State.
-        parent_snapshot = kwargs.pop("parent_snapshot", None)
         agent_inputs = {
             "messages": messages,
             "streaming_callback": streaming_callback,
