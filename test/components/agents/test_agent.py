@@ -65,7 +65,7 @@ class MockAgent:
         return {"messages": [*messages, assistant_msg], "last_message": assistant_msg}
 
 
-class TestUserInterface(ConfirmationUI):
+class MockUserInterface(ConfirmationUI):
     def __init__(self, ui_result: ConfirmationUIResult) -> None:
         self.ui_result = ui_result
 
@@ -82,7 +82,7 @@ def frontend_simulate_tool_decision(
 ) -> list[dict]:
     confirmation_strategy = BlockingConfirmationStrategy(
         confirmation_policy=AlwaysAskPolicy(),
-        confirmation_ui=TestUserInterface(ui_result=confirmation_ui_result),
+        confirmation_ui=MockUserInterface(ui_result=confirmation_ui_result),
     )
 
     tool_execution_decisions = []
@@ -266,7 +266,7 @@ class TestAgentConfirmationStrategy:
             confirmation_strategies={
                 "addition_tool": BlockingConfirmationStrategy(
                     AlwaysAskPolicy(),
-                    TestUserInterface(ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3})),
+                    MockUserInterface(ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3})),
                 )
             },
         )
@@ -325,7 +325,7 @@ class TestAgentConfirmationStrategy:
             confirmation_strategies={
                 "addition_tool": BlockingConfirmationStrategy(
                     AlwaysAskPolicy(),
-                    TestUserInterface(ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3})),
+                    MockUserInterface(ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3})),
                 )
             },
         )
