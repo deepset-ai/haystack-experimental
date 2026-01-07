@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import deepcopy
+
 from haystack.dataclasses.breakpoints import AgentSnapshot, ToolBreakpoint
 from haystack.utils import _deserialize_value_with_schema
 
@@ -31,7 +33,7 @@ def get_tool_calls_and_descriptions_from_snapshot(
     tool_caused_break_point = break_point.tool_name
 
     # Deserialize the tool invoker inputs from the snapshot
-    tool_invoker_inputs = _deserialize_value_with_schema(agent_snapshot.component_inputs["tool_invoker"])
+    tool_invoker_inputs = _deserialize_value_with_schema(deepcopy(agent_snapshot.component_inputs["tool_invoker"]))
     tool_call_messages = tool_invoker_inputs["messages"]
     state = tool_invoker_inputs["state"]
     tool_name_to_tool = {t.name: t for t in tool_invoker_inputs["tools"]}
