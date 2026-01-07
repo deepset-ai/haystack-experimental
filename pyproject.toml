@@ -48,7 +48,7 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-fmt = "ruff check --fix {args} && ruff format {args}"
+fmt = "ruff check --fix {args}; ruff format {args}"
 fmt-check = "ruff check {args} && ruff format --check {args}"
 docs = "./.github/utils/pydoc-markdown.sh"
 
