@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
   "haystack-ai",
   "rich", # For pretty printing in the console used by human-in-the-loop utilities
+  "lazy-imports<1.2.0"  # 1.2.0 requires Python 3.10+, see https://github.com/bachorp/lazy-imports/releases/tag/1.2.0
 ]
 
 [project.urls]
@@ -47,7 +48,7 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-fmt = "ruff check --fix {args} && ruff format {args}"
+fmt = "ruff check --fix {args}; ruff format {args}"
 fmt-check = "ruff check {args} && ruff format --check {args}"
 docs = "./.github/utils/pydoc-markdown.sh"
 
