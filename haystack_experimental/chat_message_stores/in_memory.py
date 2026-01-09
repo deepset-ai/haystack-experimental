@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import replace
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage, ChatRole
@@ -42,7 +42,7 @@ class InMemoryChatMessageStore:
     ```
     """
 
-    def __init__(self, skip_system_messages: bool = True, last_k: Optional[int] = 10) -> None:
+    def __init__(self, skip_system_messages: bool = True, last_k: int | None = 10) -> None:
         """
         Create an InMemoryChatMessageStore.
 
@@ -135,7 +135,7 @@ class InMemoryChatMessageStore:
 
         return len(messages_to_write)
 
-    def retrieve_messages(self, chat_history_id: str, last_k: Optional[int] = None) -> list[ChatMessage]:
+    def retrieve_messages(self, chat_history_id: str, last_k: int | None = None) -> list[ChatMessage]:
         """
         Retrieves all stored chat messages.
 

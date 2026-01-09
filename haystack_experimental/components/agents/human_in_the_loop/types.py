@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from haystack.core.serialization import default_from_dict, default_to_dict
 
@@ -67,8 +67,8 @@ class ConfirmationStrategy(Protocol):
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
-        tool_call_id: Optional[str] = None,
-        **kwargs: Optional[dict[str, Any]],
+        tool_call_id: str | None = None,
+        **kwargs: dict[str, Any] | None,
     ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
@@ -92,8 +92,8 @@ class ConfirmationStrategy(Protocol):
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
-        tool_call_id: Optional[str] = None,
-        **kwargs: Optional[dict[str, Any]],
+        tool_call_id: str | None = None,
+        **kwargs: dict[str, Any] | None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Run the confirmation strategy for a given tool and its parameters.

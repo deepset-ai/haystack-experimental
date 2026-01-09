@@ -176,7 +176,6 @@ log_cli = true
 asyncio_mode = "auto"
 
 [tool.mypy]
-python_version = "3.9"
 disallow_incomplete_defs = true
 warn_return_any = false
 warn_unused_configs = true
@@ -185,7 +184,6 @@ check_untyped_defs = true
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
 exclude = ["test", ".github", "examples"]
 
 [tool.ruff.lint]
@@ -203,7 +201,9 @@ select = [
   "SIM",   # flake8-simplify
   "SLOT",  # flake8-slots
   "T10",   # flake8-debugger
-  "UP006", # non-pep585-annotation
+  "UP006", # non-pep585-annotation (enforce list, dict, etc.)
+  "UP007", # non-pep604-annotation-union (enforce X | Y syntax)
+  "UP045", # non-pep604-annotation-optional (enforce X | None syntax)
   "W",     # pycodestyle
   "YTT",   # flake8-2020
   "I",     # isort

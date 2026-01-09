@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional
+from typing import Any
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.generators.chat.types import ChatGenerator
@@ -49,9 +49,9 @@ class LLMSummarizer:
     def __init__(  # pylint: disable=too-many-positional-arguments
         self,
         chat_generator: ChatGenerator,
-        system_prompt: Optional[str] = "Rewrite this text in summarized form.",
+        system_prompt: str | None = "Rewrite this text in summarized form.",
         summary_detail: float = 0,
-        minimum_chunk_size: Optional[int] = 500,
+        minimum_chunk_size: int | None = 500,
         chunk_delimiter: str = ".",
         summarize_recursively: bool = False,
         split_overlap: int = 0,
@@ -274,10 +274,10 @@ class LLMSummarizer:
         self,
         *,
         documents: list[Document],
-        detail: Optional[float] = None,
-        minimum_chunk_size: Optional[int] = None,
-        summarize_recursively: Optional[bool] = None,
-        system_prompt: Optional[str] = None,
+        detail: float | None = None,
+        minimum_chunk_size: int | None = None,
+        summarize_recursively: bool | None = None,
+        system_prompt: str | None = None,
     ) -> dict[str, list[Document]]:
         """
         Run the summarizer on a list of documents.
