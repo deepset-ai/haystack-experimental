@@ -2,7 +2,7 @@ loaders:
 - ignore_when_discovered:
   - __init__
   modules:
-  - haystack_experimental.components.preprocessors.embedding_based_document_splitter
+  - haystack_experimental.components.preprocessors.md_header_level_inferrer
   search_path:
   - ../
   type: haystack_pydoc_tools.loaders.CustomPythonLoader
