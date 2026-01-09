@@ -54,8 +54,8 @@ docs = "./.github/utils/pydoc-markdown.sh"
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  # LLM-based Summarizer
-  "tiktoken",
+  "tiktoken",     # LLM-based Summarizer
+  "nltk>=3.9.1",  # LLM-based Summarizer
 
   # Type check
   "mypy",
