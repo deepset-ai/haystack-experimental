@@ -4,7 +4,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
