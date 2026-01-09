@@ -81,7 +81,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | `QueryExpander`                                                                                                                                                                                                                            | Query Expansion Component                | 0.14.3        |
 | `MultiQueryEmbeddingRetriever`                                                                                                                                                                                                             | MultiQueryEmbeddingRetriever             | 0.14.3        |
 | `MultiQueryTextRetriever`                                                                                                                                                                                                                  | MultiQueryTextRetriever                  | 0.14.3        |
-| EmbeddingBasedDocumentSplitter                                                                                                                                                                                                             | Document Splitting                       | 0.14.3        |
+| EmbeddingBasedDocumentSplitter                                                                                                                                                                                                             | Document Splitting                       | 0.15.2        |
 
 ### Discontinued experiments
 

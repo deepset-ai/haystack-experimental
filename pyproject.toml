@@ -54,10 +54,6 @@ docs = "./.github/utils/pydoc-markdown.sh"
 
 [tool.hatch.envs.test]
 extra-dependencies = [
-  "sentence-transformers>=4.1.0",                     # EmbeddingBasedDocumentSplitter
-  "nltk>=3.9.1",                                      # EmbeddingBasedDocumentSplitter
-  "transformers>=4.55.4,<4.57",                       # Issue https://github.com/huggingface/transformers/issues/41339
-
   # LLM-based Summarizer
   "tiktoken",
 
