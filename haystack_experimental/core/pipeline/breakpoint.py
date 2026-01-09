@@ -4,7 +4,7 @@
 
 from dataclasses import replace
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from haystack import logging
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
@@ -27,7 +27,7 @@ def _create_agent_snapshot(
     component_visits: dict[str, int],
     agent_breakpoint: AgentBreakpoint,
     component_inputs: dict[str, Any],
-    tool_execution_decisions: Optional[list["ToolExecutionDecision"]] = None,
+    tool_execution_decisions: list["ToolExecutionDecision"] | None = None,
 ) -> AgentSnapshot:
     """
     Create a snapshot of the agent's state.
@@ -59,10 +59,10 @@ def _create_agent_snapshot(
 def _create_pipeline_snapshot_from_tool_invoker(
     *,
     execution_context: "_ExecutionContext",
-    tool_name: Optional[str] = None,
-    agent_name: Optional[str] = None,
-    break_point: Optional[AgentBreakpoint] = None,
-    parent_snapshot: Optional[PipelineSnapshot] = None,
+    tool_name: str | None = None,
+    agent_name: str | None = None,
+    break_point: AgentBreakpoint | None = None,
+    parent_snapshot: PipelineSnapshot | None = None,
 ) -> PipelineSnapshot:
     """
     Create a pipeline snapshot when a tool invoker breakpoint is raised or an exception during execution occurs.

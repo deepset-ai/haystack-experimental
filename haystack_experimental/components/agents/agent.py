@@ -7,7 +7,7 @@
 
 import inspect
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
@@ -77,8 +77,8 @@ class _ExecutionContext(Haystack_ExecutionContext):
         parameter in their `run()` and `run_async()` methods.
     """
 
-    tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
-    confirmation_strategy_context: Optional[dict[str, Any]] = None
+    tool_execution_decisions: list[ToolExecutionDecision] | None = None
+    confirmation_strategy_context: dict[str, Any] | None = None
 
 
 class Agent(HaystackAgent):
@@ -136,16 +136,16 @@ class Agent(HaystackAgent):
         self,
         *,
         chat_generator: ChatGenerator,
-        tools: Optional[ToolsType] = None,
-        system_prompt: Optional[str] = None,
-        exit_conditions: Optional[list[str]] = None,
-        state_schema: Optional[dict[str, Any]] = None,
+        tools: ToolsType | None = None,
+        system_prompt: str | None = None,
+        exit_conditions: list[str] | None = None,
+        state_schema: dict[str, Any] | None = None,
         max_agent_steps: int = 100,
-        streaming_callback: Optional[StreamingCallbackT] = None,
+        streaming_callback: StreamingCallbackT | None = None,
         raise_on_tool_invocation_failure: bool = False,
-        confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
-        tool_invoker_kwargs: Optional[dict[str, Any]] = None,
-        chat_message_store: Optional[ChatMessageStore] = None,
+        confirmation_strategies: dict[str, ConfirmationStrategy] | None = None,
+        tool_invoker_kwargs: dict[str, Any] | None = None,
+        chat_message_store: ChatMessageStore | None = None,
     ) -> None:
         """
         Initialize the agent component.
@@ -190,14 +190,14 @@ class Agent(HaystackAgent):
     def _initialize_fresh_execution(
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT],
+        streaming_callback: StreamingCallbackT | None,
         requires_async: bool,
         *,
-        system_prompt: Optional[str] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
-        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        system_prompt: str | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+        chat_message_store_kwargs: dict[str, Any] | None = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -264,12 +264,12 @@ class Agent(HaystackAgent):
     def _initialize_from_snapshot(  # type: ignore[override]
         self,
         snapshot: AgentSnapshot,
-        streaming_callback: Optional[StreamingCallbackT],
+        streaming_callback: StreamingCallbackT | None,
         requires_async: bool,
         *,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> _ExecutionContext:
         """
         Initialize execution context from an AgentSnapshot.
@@ -320,15 +320,15 @@ class Agent(HaystackAgent):
     def run(  # type: ignore[override]  # noqa: PLR0915 PLR0912
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
+        streaming_callback: StreamingCallbackT | None = None,
         *,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,
-        system_prompt: Optional[str] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
-        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        break_point: AgentBreakpoint | None = None,
+        snapshot: AgentSnapshot | None = None,
+        system_prompt: str | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+        chat_message_store_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -558,15 +558,15 @@ class Agent(HaystackAgent):
     async def run_async(  # type: ignore[override] # noqa: PLR0915
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
+        streaming_callback: StreamingCallbackT | None = None,
         *,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,
-        system_prompt: Optional[str] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
-        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        break_point: AgentBreakpoint | None = None,
+        snapshot: AgentSnapshot | None = None,
+        system_prompt: str | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+        chat_message_store_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from haystack.components.agents.state import State
 from haystack.components.tools.tool_invoker import ToolInvoker
@@ -52,8 +52,8 @@ class BlockingConfirmationStrategy:
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
-        tool_call_id: Optional[str] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Run the human-in-the-loop strategy for a given tool and its parameters.
@@ -125,8 +125,8 @@ class BlockingConfirmationStrategy:
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
-        tool_call_id: Optional[str] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Calls the sync run() method by default.
@@ -210,8 +210,8 @@ class BreakpointConfirmationStrategy:
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
-        tool_call_id: Optional[str] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Run the breakpoint confirmation strategy for a given tool and its parameters.
@@ -248,8 +248,8 @@ class BreakpointConfirmationStrategy:
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
-        tool_call_id: Optional[str] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Calls the sync run() method.
@@ -304,7 +304,7 @@ def _prepare_tool_args(
     tool: Tool,
     tool_call_arguments: dict[str, Any],
     state: State,
-    streaming_callback: Optional[StreamingCallbackT] = None,
+    streaming_callback: StreamingCallbackT | None = None,
     enable_streaming_passthrough: bool = False,
 ) -> dict[str, Any]:
     """

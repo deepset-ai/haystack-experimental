@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -23,8 +23,8 @@ class ConfirmationUIResult:
     """
 
     action: str  # "confirm", "reject", "modify"
-    feedback: Optional[str] = None
-    new_tool_params: Optional[dict[str, Any]] = None
+    feedback: str | None = None
+    new_tool_params: dict[str, Any] | None = None
 
 
 @dataclass
@@ -49,9 +49,9 @@ class ToolExecutionDecision:
 
     tool_name: str
     execute: bool
-    tool_call_id: Optional[str] = None
-    feedback: Optional[str] = None
-    final_tool_params: Optional[dict[str, Any]] = None
+    tool_call_id: str | None = None
+    feedback: str | None = None
+    final_tool_params: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """

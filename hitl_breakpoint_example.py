@@ -4,7 +4,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
@@ -98,9 +98,9 @@ def run_agent(
     agent: Agent,
     messages: list[ChatMessage],
     console: Console,
-    snapshot_file_path: Optional[str] = None,
-    tool_execution_decisions: Optional[list[dict[str, Any]]] = None,
-) -> Optional[dict[str, Any]]:
+    snapshot_file_path: str | None = None,
+    tool_execution_decisions: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     """
     Run the agent with the given messages and optional snapshot.
     """

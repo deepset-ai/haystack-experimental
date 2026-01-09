@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional
+from typing import Any
 
 from haystack import DeserializationError, component, default_from_dict, default_to_dict, logging
 from haystack.core.serialization import import_class_by_name
@@ -39,7 +39,7 @@ class ChatMessageRetriever:
     ```
     """
 
-    def __init__(self, chat_message_store: ChatMessageStore, last_k: Optional[int] = 10):
+    def __init__(self, chat_message_store: ChatMessageStore, last_k: int | None = 10):
         """
         Create the ChatMessageRetriever component.
 
@@ -94,8 +94,8 @@ class ChatMessageRetriever:
         self,
         chat_history_id: str,
         *,
-        last_k: Optional[int] = None,
-        current_messages: Optional[list[ChatMessage]] = None,
+        last_k: int | None = None,
+        current_messages: list[ChatMessage] | None = None,
     ) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
