@@ -49,7 +49,7 @@ class ConfirmationPolicy(Protocol):
         confirmation_result: ConfirmationUIResult,
     ) -> None:
         """Update the policy based on the confirmation UI result."""
-        pass
+        return
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the policy to a dictionary."""
@@ -64,6 +64,7 @@ class ConfirmationPolicy(Protocol):
 class ConfirmationStrategy(Protocol):
     def run(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -88,6 +89,7 @@ class ConfirmationStrategy(Protocol):
 
     async def run_async(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
