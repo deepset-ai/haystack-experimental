@@ -68,9 +68,8 @@ class BlockingConfirmationStrategy:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
         :param confirmation_strategy_context:
-            Optional dictionary for passing request-scoped resources. Useful in web/server environments
-            to provide per-request objects (e.g., WebSocket connections, async queues, Redis pub/sub clients)
-            that strategies can use for non-blocking user interaction.
+            Optional dictionary for passing request-scoped resources. Not used by this strategy but included for
+            interface compatibility.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters, or a
@@ -140,7 +139,8 @@ class BlockingConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call.
         :param confirmation_strategy_context:
-            Optional dictionary for passing request-scoped resources.
+            Optional dictionary for passing request-scoped resources. Not used by this strategy but included for
+            interface compatibility.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters.
@@ -263,7 +263,8 @@ class BreakpointConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call.
         :param confirmation_strategy_context:
-            Optional dictionary for passing request-scoped resources.
+            Optional dictionary for passing request-scoped resources. Not used by this strategy but included for
+            interface compatibility.
 
         :raises HITLBreakpointException:
             Always raises an `HITLBreakpointException` exception to signal that user confirmation is required.
