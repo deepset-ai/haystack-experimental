@@ -16,7 +16,7 @@ env:
   PYTHON_VERSION: "3.11"
 jobs:
   generate-api-reference:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout this repo
@@ -34,7 +34,7 @@ jobs:
         run: hatch run docs
 
       - name: Upload API reference artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: experimental-api-reference
           path: pydoc/temp
@@ -44,12 +44,12 @@ jobs:
 
 
   sync-api-reference:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     needs: generate-api-reference
 
     steps:
       - name: Checkout Haystack repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: deepset-ai/haystack
           ref: main
@@ -61,7 +61,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Download API reference artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: experimental-api-reference
           path: temp_api_reference
@@ -86,7 +86,7 @@ jobs:
           fi
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.HAYSTACK_BOT_TOKEN }}
           commit-message: "Sync Haystack Experimental API reference on Docusaurus"
@@ -97,3 +97,4 @@ jobs:
             docs-website
           body: |
             This PR syncs the Haystack Experimental API reference on Docusaurus. Just approve and merge it.
+          reviewers: "${{ github.actor }}"

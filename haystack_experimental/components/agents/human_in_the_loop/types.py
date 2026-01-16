@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from haystack.core.serialization import default_from_dict, default_to_dict
 
@@ -63,7 +63,12 @@ class ConfirmationPolicy(Protocol):
 
 class ConfirmationStrategy(Protocol):
     def run(
-        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_call_id: Optional[str] = None
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: str | None = None,
+        **kwargs: dict[str, Any] | None,
     ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
@@ -73,6 +78,36 @@ class ConfirmationStrategy(Protocol):
         :param tool_params: The parameters to be passed to the tool.
         :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
             the decision with a specific tool invocation.
+        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context`
+            for passing request-scoped resources (e.g., WebSocket connections, async queues) in web/server
+            environments.
+
+        :returns:
+            The result of the confirmation strategy (e.g., tool output, rejection message, etc.).
+        """
+        ...
+
+    async def run_async(
+        self,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: str | None = None,
+        **kwargs: dict[str, Any] | None,
+    ) -> ToolExecutionDecision:
+        """
+        Async version of run. Run the confirmation strategy for a given tool and its parameters.
+
+        Default implementation calls the sync run() method. Override for true async behavior.
+
+        :param tool_name: The name of the tool to be executed.
+        :param tool_description: The description of the tool.
+        :param tool_params: The parameters to be passed to the tool.
+        :param tool_call_id: Optional unique identifier for the tool call. This can be used to track and correlate
+            the decision with a specific tool invocation.
+        :param kwargs: Additional keyword arguments. Implementations may accept `confirmation_strategy_context`
+            for passing request-scoped resources (e.g., WebSocket connections, async queues) in web/server
+            environments.
 
         :returns:
             The result of the confirmation strategy (e.g., tool output, rejection message, etc.).

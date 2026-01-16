@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from haystack.components.agents.state import State
 from haystack.components.tools.tool_invoker import ToolInvoker
@@ -47,7 +47,13 @@ class BlockingConfirmationStrategy:
         self.confirmation_ui = confirmation_ui
 
     def run(
-        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_call_id: Optional[str] = None
+        self,
+        *,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Run the human-in-the-loop strategy for a given tool and its parameters.
@@ -61,6 +67,10 @@ class BlockingConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
+        :param confirmation_strategy_context:
+            Optional dictionary for passing request-scoped resources. Useful in web/server environments
+            to provide per-request objects (e.g., WebSocket connections, async queues, Redis pub/sub clients)
+            that strategies can use for non-blocking user interaction.
 
         :returns:
             A ToolExecutionDecision indicating whether to execute the tool with the given parameters, or a
@@ -108,6 +118,40 @@ class BlockingConfirmationStrategy:
             return ToolExecutionDecision(
                 tool_name=tool_name, execute=True, tool_call_id=tool_call_id, final_tool_params=tool_params
             )
+
+    async def run_async(
+        self,
+        *,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+    ) -> ToolExecutionDecision:
+        """
+        Async version of run. Calls the sync run() method by default.
+
+        :param tool_name:
+            The name of the tool to be executed.
+        :param tool_description:
+            The description of the tool.
+        :param tool_params:
+            The parameters to be passed to the tool.
+        :param tool_call_id:
+            Optional unique identifier for the tool call.
+        :param confirmation_strategy_context:
+            Optional dictionary for passing request-scoped resources.
+
+        :returns:
+            A ToolExecutionDecision indicating whether to execute the tool with the given parameters.
+        """
+        return self.run(
+            tool_name=tool_name,
+            tool_description=tool_description,
+            tool_params=tool_params,
+            tool_call_id=tool_call_id,
+            confirmation_strategy_context=confirmation_strategy_context,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -161,7 +205,13 @@ class BreakpointConfirmationStrategy:
         self.snapshot_file_path = snapshot_file_path
 
     def run(
-        self, tool_name: str, tool_description: str, tool_params: dict[str, Any], tool_call_id: Optional[str] = None
+        self,
+        *,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Run the breakpoint confirmation strategy for a given tool and its parameters.
@@ -175,6 +225,9 @@ class BreakpointConfirmationStrategy:
         :param tool_call_id:
             Optional unique identifier for the tool call. This can be used to track and correlate the decision with a
             specific tool invocation.
+        :param confirmation_strategy_context:
+            Optional dictionary for passing request-scoped resources. Not used by this strategy but included for
+            interface compatibility.
 
         :raises HITLBreakpointException:
             Always raises an `HITLBreakpointException` exception to signal that user confirmation is required.
@@ -187,6 +240,43 @@ class BreakpointConfirmationStrategy:
             tool_name=tool_name,
             tool_call_id=tool_call_id,
             snapshot_file_path=self.snapshot_file_path,
+        )
+
+    async def run_async(
+        self,
+        *,
+        tool_name: str,
+        tool_description: str,
+        tool_params: dict[str, Any],
+        tool_call_id: str | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+    ) -> ToolExecutionDecision:
+        """
+        Async version of run. Calls the sync run() method.
+
+        :param tool_name:
+            The name of the tool to be executed.
+        :param tool_description:
+            The description of the tool.
+        :param tool_params:
+            The parameters to be passed to the tool.
+        :param tool_call_id:
+            Optional unique identifier for the tool call.
+        :param confirmation_strategy_context:
+            Optional dictionary for passing request-scoped resources.
+
+        :raises HITLBreakpointException:
+            Always raises an `HITLBreakpointException` exception to signal that user confirmation is required.
+
+        :returns:
+            This method does not return; it always raises an exception.
+        """
+        return self.run(
+            tool_name=tool_name,
+            tool_description=tool_description,
+            tool_params=tool_params,
+            tool_call_id=tool_call_id,
+            confirmation_strategy_context=confirmation_strategy_context,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -214,7 +304,7 @@ def _prepare_tool_args(
     tool: Tool,
     tool_call_arguments: dict[str, Any],
     state: State,
-    streaming_callback: Optional[StreamingCallbackT] = None,
+    streaming_callback: StreamingCallbackT | None = None,
     enable_streaming_passthrough: bool = False,
 ) -> dict[str, Any]:
     """
@@ -264,6 +354,46 @@ def _process_confirmation_strategies(
     """
     # Run confirmation strategies and get tool execution decisions
     teds = _run_confirmation_strategies(
+        confirmation_strategies=confirmation_strategies,
+        messages_with_tool_calls=messages_with_tool_calls,
+        execution_context=execution_context,
+    )
+
+    # Apply tool execution decisions to messages_with_tool_calls
+    rejection_messages, modified_tool_call_messages = _apply_tool_execution_decisions(
+        tool_call_messages=messages_with_tool_calls,
+        tool_execution_decisions=teds,
+    )
+
+    # Update the chat history with rejection messages and new tool call messages
+    new_chat_history = _update_chat_history(
+        chat_history=execution_context.state.get("messages"),
+        rejection_messages=rejection_messages,
+        tool_call_and_explanation_messages=modified_tool_call_messages,
+    )
+
+    return modified_tool_call_messages, new_chat_history
+
+
+async def _process_confirmation_strategies_async(
+    *,
+    confirmation_strategies: dict[str, ConfirmationStrategy],
+    messages_with_tool_calls: list[ChatMessage],
+    execution_context: "_ExecutionContext",
+) -> tuple[list[ChatMessage], list[ChatMessage]]:
+    """
+    Async version of _process_confirmation_strategies.
+
+    Run the confirmation strategies and return modified tool call messages and updated chat history.
+
+    :param confirmation_strategies: Mapping of tool names to their corresponding confirmation strategies
+    :param messages_with_tool_calls: Chat messages containing tool calls
+    :param execution_context: The current execution context of the agent
+    :returns:
+        Tuple of modified messages with confirmed tool calls and updated chat history
+    """
+    # Run confirmation strategies and get tool execution decisions (async version)
+    teds = await _run_confirmation_strategies_async(
         confirmation_strategies=confirmation_strategies,
         messages_with_tool_calls=messages_with_tool_calls,
         execution_context=execution_context,
@@ -344,8 +474,95 @@ def _run_confirmation_strategies(
             # If not, run the confirmation strategy
             if not ted:
                 ted = confirmation_strategies[tool_name].run(
-                    tool_name=tool_name, tool_description=tool_to_invoke.description, tool_params=final_args
+                    tool_name=tool_name,
+                    tool_description=tool_to_invoke.description,
+                    tool_params=final_args,
+                    tool_call_id=tool_call.id,
+                    confirmation_strategy_context=execution_context.confirmation_strategy_context,
                 )
+            teds.append(ted)
+
+    return teds
+
+
+async def _run_confirmation_strategies_async(
+    confirmation_strategies: dict[str, ConfirmationStrategy],
+    messages_with_tool_calls: list[ChatMessage],
+    execution_context: "_ExecutionContext",
+) -> list[ToolExecutionDecision]:
+    """
+    Async version of _run_confirmation_strategies.
+
+    Run confirmation strategies for tool calls in the provided chat messages.
+
+    :param confirmation_strategies: Mapping of tool names to their corresponding confirmation strategies
+    :param messages_with_tool_calls: Messages containing tool calls to process
+    :param execution_context: The current execution context containing state and inputs
+    :returns:
+        A list of ToolExecutionDecision objects representing the decisions made for each tool call.
+    """
+    state = execution_context.state
+    tools_with_names = {tool.name: tool for tool in execution_context.tool_invoker_inputs["tools"]}
+    existing_teds = execution_context.tool_execution_decisions if execution_context.tool_execution_decisions else []
+    existing_teds_by_name = {ted.tool_name: ted for ted in existing_teds if ted.tool_name}
+    existing_teds_by_id = {ted.tool_call_id: ted for ted in existing_teds if ted.tool_call_id}
+
+    teds = []
+    for message in messages_with_tool_calls:
+        if not message.tool_calls:
+            continue
+
+        for tool_call in message.tool_calls:
+            tool_name = tool_call.tool_name
+            tool_to_invoke = tools_with_names[tool_name]
+
+            # Prepare final tool args
+            final_args = _prepare_tool_args(
+                tool=tool_to_invoke,
+                tool_call_arguments=tool_call.arguments,
+                state=state,
+                streaming_callback=execution_context.tool_invoker_inputs.get("streaming_callback"),
+                enable_streaming_passthrough=execution_context.tool_invoker_inputs.get(
+                    "enable_streaming_passthrough", False
+                ),
+            )
+
+            # Get tool execution decisions from confirmation strategies
+            # If no confirmation strategy is defined for this tool, proceed with execution
+            if tool_name not in confirmation_strategies:
+                teds.append(
+                    ToolExecutionDecision(
+                        tool_call_id=tool_call.id,
+                        tool_name=tool_name,
+                        execute=True,
+                        final_tool_params=final_args,
+                    )
+                )
+                continue
+
+            # Check if there's already a decision for this tool call in the execution context
+            ted = existing_teds_by_id.get(tool_call.id or "") or existing_teds_by_name.get(tool_name)
+
+            # If not, run the confirmation strategy (async version)
+            if not ted:
+                strategy = confirmation_strategies[tool_name]
+                # Use run_async if available, otherwise fall back to sync run
+                if hasattr(strategy, "run_async"):
+                    ted = await strategy.run_async(
+                        tool_name=tool_name,
+                        tool_description=tool_to_invoke.description,
+                        tool_params=final_args,
+                        tool_call_id=tool_call.id,
+                        confirmation_strategy_context=execution_context.confirmation_strategy_context,
+                    )
+                else:
+                    ted = strategy.run(
+                        tool_name=tool_name,
+                        tool_description=tool_to_invoke.description,
+                        tool_params=final_args,
+                        tool_call_id=tool_call.id,
+                        confirmation_strategy_context=execution_context.confirmation_strategy_context,
+                    )
             teds.append(ted)
 
     return teds

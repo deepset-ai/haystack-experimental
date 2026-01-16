@@ -5,7 +5,7 @@
 import json
 import re
 import time
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Sequence
 
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
@@ -24,7 +24,7 @@ _DECISION_ALLOWED = ("answer", "refuse")
 
 def _decision_messages_closed_book(
     user_prompt: str,
-) -> list[Union[ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam]]:
+) -> list[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam]:
     system = (
         "You are a safety-critical QA assistant operating **without external evidence**. "
         "Decide whether to answer based on your pretrained knowledge and the prompt alone. "
@@ -36,7 +36,7 @@ def _decision_messages_closed_book(
 
 def _decision_messages_evidence(
     user_prompt: str,
-) -> list[Union[ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam]]:
+) -> list[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam]:
     system = (
         "You are a safety-critical QA assistant. Decide whether to answer based on the "
         "provided prompt and its internal evidence/context. If evidence is insufficient or "
@@ -160,7 +160,7 @@ class OpenAIPlanner:
         backend: OpenAIChatGenerator,
         temperature: float = 0.5,
         max_tokens_decision: int = 8,
-        q_floor: Optional[float] = None,
+        q_floor: float | None = None,
     ) -> None:
         """
         Initialize OpenAIPlanner with given parameters.

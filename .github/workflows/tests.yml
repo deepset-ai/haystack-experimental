@@ -25,7 +25,7 @@ on:
       - ".github/workflows/tests.yml"
 
 env:
-  PYTHON_VERSION: "3.9"
+  PYTHON_VERSION: "3.10"
   HATCH_VERSION: "1.14.2"
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
@@ -105,7 +105,8 @@ jobs:
         if: github.event_name == 'schedule'
         id: nightly-haystack-main
         run: |
-          hatch run pip install git+https://github.com/deepset-ai/haystack.git
+          hatch env prune
+          hatch -e test env run -- uv pip install git+https://github.com/deepset-ai/haystack.git@main
           hatch run test:unit
 
   integration-tests:

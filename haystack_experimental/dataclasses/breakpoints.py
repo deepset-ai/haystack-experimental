@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from haystack.dataclasses.breakpoints import AgentBreakpoint
 from haystack.dataclasses.breakpoints import AgentSnapshot as HaystackAgentSnapshot
@@ -14,7 +14,7 @@ from haystack_experimental.components.agents.human_in_the_loop.dataclasses impor
 
 @dataclass
 class AgentSnapshot(HaystackAgentSnapshot):
-    tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
+    tool_execution_decisions: list[ToolExecutionDecision] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """

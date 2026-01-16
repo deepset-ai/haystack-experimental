@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import replace
-from typing import Any, Optional
+from typing import Any
 
 from haystack import component
 from haystack.components.generators.chat.openai import OpenAIChatGenerator as BaseOpenAIChatGenerator
@@ -56,12 +56,12 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     def run(
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
+        streaming_callback: StreamingCallbackT | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
         *,
-        tools: Optional[ToolsType] = None,
-        tools_strict: Optional[bool] = None,
-        hallucination_score_config: Optional[HallucinationScoreConfig] = None,
+        tools: ToolsType | None = None,
+        tools_strict: bool | None = None,
+        hallucination_score_config: HallucinationScoreConfig | None = None,
     ) -> dict[str, list[ChatMessage]]:
         """
         Invokes chat completion based on the provided messages and generation parameters.
@@ -123,12 +123,12 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     async def run_async(
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
+        streaming_callback: StreamingCallbackT | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
         *,
-        tools: Optional[ToolsType] = None,
-        tools_strict: Optional[bool] = None,
-        hallucination_score_config: Optional[HallucinationScoreConfig] = None,
+        tools: ToolsType | None = None,
+        tools_strict: bool | None = None,
+        hallucination_score_config: HallucinationScoreConfig | None = None,
     ) -> dict[str, list[ChatMessage]]:
         """
         Asynchronously invokes chat completion based on the provided messages and generation parameters.

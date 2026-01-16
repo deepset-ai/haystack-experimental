@@ -3,7 +3,7 @@
 # Modified by deepset, 2025.
 # Licensed under the Apache License, Version 2.0 (see LICENSE-APACHE).
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 
 @dataclass
@@ -51,13 +51,13 @@ class OpenAIItem:
     prompt: str
     n_samples: int = 3
     m: int = 6
-    seeds: Optional[list[int]] = None
-    fields_to_erase: Optional[list[str]] = None  # evidence-based mode
+    seeds: list[int] | None = None
+    fields_to_erase: list[str] | None = None  # evidence-based mode
     mask_token: str = "[…]"
     skeleton_policy: Literal["auto", "evidence_erase", "closed_book"] = "auto"
-    attempted: Optional[bool] = None
-    answered_correctly: Optional[bool] = None
-    meta: Optional[dict] = None
+    attempted: bool | None = None
+    answered_correctly: bool | None = None
+    meta: dict | None = None
 
 
 @dataclass
@@ -71,6 +71,6 @@ class ItemMetrics:
     roh_bound: float
     decision_answer: bool
     rationale: str
-    attempted: Optional[bool] = None
-    answered_correctly: Optional[bool] = None
-    meta: Optional[dict] = None
+    attempted: bool | None = None
+    answered_correctly: bool | None = None
+    meta: dict | None = None

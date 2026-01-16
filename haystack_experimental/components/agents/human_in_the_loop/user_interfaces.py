@@ -4,7 +4,7 @@
 
 import json
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 
 from haystack.core.serialization import default_to_dict
 from rich.console import Console
@@ -20,7 +20,7 @@ _ui_lock = Lock()
 class RichConsoleUI(ConfirmationUI):
     """Rich console interface for user interaction."""
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Console | None = None):
         self.console = console or Console()
 
     def get_user_confirmation(
