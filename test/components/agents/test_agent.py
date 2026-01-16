@@ -129,6 +129,7 @@ def run_agent(
     snapshot = None
     if snapshot_file_path:
         snapshot = get_latest_snapshot(snapshot_file_path=snapshot_file_path)
+        assert snapshot.agent_snapshot is not None
 
         # Add any new tool execution decisions to the snapshot
         if tool_execution_decisions:
@@ -152,6 +153,7 @@ def run_pipeline_with_agent(
     snapshot = None
     if snapshot_file_path:
         snapshot = get_latest_snapshot(snapshot_file_path=snapshot_file_path)
+        assert snapshot.agent_snapshot is not None
 
         # Add any new tool execution decisions to the snapshot
         if tool_execution_decisions:
@@ -175,6 +177,7 @@ async def run_agent_async(
     snapshot = None
     if snapshot_file_path:
         snapshot = get_latest_snapshot(snapshot_file_path=snapshot_file_path)
+        assert snapshot.agent_snapshot is not None
 
         # Add any new tool execution decisions to the snapshot
         if tool_execution_decisions:
@@ -316,6 +319,7 @@ class TestAgentConfirmationStrategy:
         original_snapshot = copy.deepcopy(loaded_snapshot)
 
         # Extract tool calls and descriptions
+        assert loaded_snapshot.agent_snapshot is not None
         _ = get_tool_calls_and_descriptions_from_snapshot(
             agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
         )
@@ -341,6 +345,7 @@ class TestAgentConfirmationStrategy:
         result = agent.run([ChatMessage.from_user("What is 2+2?")])
 
         assert isinstance(result["last_message"], ChatMessage)
+        assert result["last_message"].text is not None
         assert "5" in result["last_message"].text
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
@@ -362,6 +367,7 @@ class TestAgentConfirmationStrategy:
         while result is None:
             # Load the latest snapshot from disk and prep data for front-end
             loaded_snapshot = get_latest_snapshot(snapshot_file_path=str(tmp_path))
+            assert loaded_snapshot.agent_snapshot is not None
             serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions_from_snapshot(
                 agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
             )
@@ -379,6 +385,7 @@ class TestAgentConfirmationStrategy:
         # Step 3: Final result
         last_message = result["last_message"]
         assert isinstance(last_message, ChatMessage)
+        assert last_message.text is not None
         assert "5" in last_message.text
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
@@ -402,6 +409,7 @@ class TestAgentConfirmationStrategy:
         while result is None:
             # Load the latest snapshot from disk and prep data for front-end
             loaded_snapshot = get_latest_snapshot(snapshot_file_path=str(tmp_path))
+            assert loaded_snapshot.agent_snapshot is not None
             serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions_from_snapshot(
                 agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
             )
@@ -419,6 +427,7 @@ class TestAgentConfirmationStrategy:
         # Step 3: Final result
         last_message = result["agent"]["last_message"]
         assert isinstance(last_message, ChatMessage)
+        assert last_message.text is not None
         assert "5" in last_message.text
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
@@ -440,6 +449,7 @@ class TestAgentConfirmationStrategy:
         result = await agent.run_async([ChatMessage.from_user("What is 2+2?")])
 
         assert isinstance(result["last_message"], ChatMessage)
+        assert result["last_message"].text is not None
         assert "5" in result["last_message"].text
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
@@ -462,6 +472,7 @@ class TestAgentConfirmationStrategy:
         while result is None:
             # Load the latest snapshot from disk and prep data for front-end
             loaded_snapshot = get_latest_snapshot(snapshot_file_path=str(tmp_path))
+            assert loaded_snapshot.agent_snapshot is not None
             serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions_from_snapshot(
                 agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
             )
@@ -479,6 +490,7 @@ class TestAgentConfirmationStrategy:
         # Step 3: Final result
         last_message = result["last_message"]
         assert isinstance(last_message, ChatMessage)
+        assert last_message.text is not None
         assert "5" in last_message.text
 
 
