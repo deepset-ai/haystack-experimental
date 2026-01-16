@@ -68,7 +68,7 @@ class ConfirmationStrategy(Protocol):
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: str | None = None,
-        **kwargs: dict[str, Any] | None,
+        **kwargs: Any,
     ) -> ToolExecutionDecision:
         """
         Run the confirmation strategy for a given tool and its parameters.
@@ -93,7 +93,7 @@ class ConfirmationStrategy(Protocol):
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: str | None = None,
-        **kwargs: dict[str, Any] | None,
+        **kwargs: Any,
     ) -> ToolExecutionDecision:
         """
         Async version of run. Run the confirmation strategy for a given tool and its parameters.
