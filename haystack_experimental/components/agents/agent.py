@@ -23,9 +23,16 @@ hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
 
 from haystack import DeserializationError, logging
-from haystack.components.agents.agent import Agent as HaystackAgent
-from haystack.components.agents.agent import _ExecutionContext as Haystack_ExecutionContext
-from haystack.components.agents.agent import _schema_from_dict
+from haystack.components.agents.agent import (
+    Agent as HaystackAgent,
+    _ExecutionContext as Haystack_ExecutionContext,
+    _schema_from_dict
+)
+from haystack.components.agents.human_in_the_loop.strategies import (
+    ConfirmationStrategy,
+    _process_confirmation_strategies,
+    _process_confirmation_strategies_async,
+)
 from haystack.components.agents.state import replace_values, State
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.errors import BreakpointException, PipelineRuntimeError
@@ -38,7 +45,7 @@ from haystack.core.pipeline.breakpoint import (
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.core.serialization import default_from_dict, import_class_by_name
-from haystack.dataclasses import ChatMessage, ChatRole
+from haystack.dataclasses import ChatMessage, ChatRole, ToolExecutionDecision
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
@@ -46,15 +53,7 @@ from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_chatgenerator_inplace
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
-from haystack_experimental.components.agents.human_in_the_loop import (
-    ConfirmationStrategy,
-    ToolExecutionDecision,
-    HITLBreakpointException,
-)
-from haystack_experimental.components.agents.human_in_the_loop.strategies import (
-    _process_confirmation_strategies,
-    _process_confirmation_strategies_async,
-)
+from haystack_experimental.components.agents.human_in_the_loop import HITLBreakpointException
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
 
@@ -70,15 +69,9 @@ class _ExecutionContext(Haystack_ExecutionContext):
 
     :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
         the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
-    :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
-        to confirmation strategies. In web/server environments, this enables passing per-request
-        objects (e.g., WebSocket connections, async queues, or pub/sub clients) that strategies can use for
-        non-blocking user interaction. This is passed directly to strategies via the `confirmation_strategy_context`
-        parameter in their `run()` and `run_async()` methods.
     """
 
     tool_execution_decisions: list[ToolExecutionDecision] | None = None
-    confirmation_strategy_context: dict[str, Any] | None = None
 
 
 class Agent(HaystackAgent):
@@ -177,8 +170,8 @@ class Agent(HaystackAgent):
             streaming_callback=streaming_callback,
             raise_on_tool_invocation_failure=raise_on_tool_invocation_failure,
             tool_invoker_kwargs=tool_invoker_kwargs,
+            confirmation_strategies=confirmation_strategies,
         )
-        self._confirmation_strategies = confirmation_strategies or {}
         self._chat_message_store = chat_message_store
         self._chat_message_retriever = (
             ChatMessageRetriever(chat_message_store=chat_message_store) if chat_message_store else None
@@ -246,13 +239,11 @@ class Agent(HaystackAgent):
         if generation_kwargs is not None:
             generator_inputs["generation_kwargs"] = generation_kwargs
 
-        # NOTE: difference with parent method to add this to tool_invoker_inputs
         if self._tool_invoker:
             tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
                 self._tool_invoker.enable_streaming_callback_passthrough
             )
 
-        # NOTE: difference is to use the extended _ExecutionContext with confirmation_strategy_context
         return _ExecutionContext(
             state=state,
             component_visits=dict.fromkeys(["chat_generator", "tool_invoker"], 0),
