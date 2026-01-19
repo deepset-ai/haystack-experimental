@@ -237,9 +237,12 @@ class Agent(HaystackAgent):
 
         # Retrieve memories from the memory store
         if self._memory_store:
-            retrieved_memory = self._memory_store.search_memories_as_single_message(
-                query=messages[-1].text, **memory_store_kwargs
-            )  # type: ignore[arg-type]
+            retrieved_memories = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
+            # we combine the memories into a single string
+            combined_memory = "\n".join(
+                f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memories)
+            )
+            retrieved_memory = ChatMessage.from_system(text=combined_memory)
 
         if retrieved_memory:
             memory_instruction = (

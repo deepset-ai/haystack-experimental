@@ -134,15 +134,28 @@ class TestMem0MemoryStore:
         assert len(result) == 2
 
         # search with query
-        result = store.search_memories(filters={"user_id": "haystack_query_memories"}, query="What programming languages do I usually work with?", include_memory_metadata=True)
+        result = store.search_memories(user_id="haystack_query_memories", query="What programming languages do I usually work with?", include_memory_metadata=True)
         assert result[0].text == "User likes working with python on NLP projects"
 
         # search with filters
-        result = store.search_memories(filters={ "AND": [{"user_id": "haystack_query_memories"}, {"categories": {"in":["technology"]}}]})
+        result = store.search_memories( filters={
+            "operator": "AND",
+            "conditions": [
+                {"field": "user_id", "operator": "==", "value": "haystack_query_memories"},
+                {"field": "categories", "operator": "in", "value": ["technology"]},
+            ],
+        })
         assert result[0].text == "User likes working with python on NLP projects"
 
         # search with metadata
-        mem = store.search_memories(filters={ "AND": [{"user_id": "haystack_memories_with_metadata"}, {"metadata":   {"country": "Italy"}}]})
+        mem = store.search_memories(filters={
+            "operator": "AND",
+            "conditions": [
+                {"field": "user_id", "operator": "==", "value": "haystack_memories_with_metadata"},
+                {"field": "metadata", "operator": "==", "value": {"country": "Italy"}},
+                 ]},
+
+        )
         assert mem[0].text == "User has visited Italy in 2025"
         assert mem[0].meta == {"country": "Italy", "timestamp": "04/2025"}
 
@@ -222,3 +235,13 @@ class TestMem0MemoryStore:
         answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs=memory_store_kwargs)
         assert answer is not None
         assert "python" in answer["last_message"].text.lower()
+
+    @pytest.mark.skipif(
+        not os.environ.get("MEM0_API_KEY", None),
+        reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
+    )
+    @pytest.mark.integration
+    def test_search_memories_with_filters(self):
+        store = Mem0MemoryStore()
+        result = store.search_memories(filters={"user_id": "haystack_test_123"})
+        assert result is not None

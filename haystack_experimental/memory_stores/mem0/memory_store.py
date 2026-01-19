@@ -56,9 +56,9 @@ class Mem0MemoryStore:
         *,
         messages: list[ChatMessage],
         infer: bool = True,
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        user_id: str | None = None,
+        run_id: str | None = None,
+        agent_id: str | None = None,
         async_mode: bool = False,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
@@ -82,6 +82,12 @@ class Mem0MemoryStore:
         """
         added_ids = []
         ids = self._get_ids(user_id, run_id, agent_id)
+        instructions = """
+        Store all memories from the user and suggestions from the assistant.
+
+        """
+
+        self.client.project.update(custom_instructions=instructions)
         mem0_messages = []
         for message in messages:
             if not message.text:
@@ -89,10 +95,13 @@ class Mem0MemoryStore:
             # we save the role of the message in the metadata
             mem0_messages.append({"content": message.text, "role": message.role.value})
         try:
+            print("mem0_messages: ", mem0_messages)
             status = self.client.add(messages=mem0_messages, infer=infer, **ids, async_mode=async_mode, **kwargs)
-            for result in status["results"]:
-                memory_id = {"memory_id": result.get("id"), "memory": result["memory"]}
-                added_ids.append(memory_id)
+            print("status: ", status)
+            if status:
+                for result in status["results"]:
+                    memory_id = {"memory_id": result.get("id"), "memory": result["memory"]}
+                    added_ids.append(memory_id)
         except Exception as e:
             raise RuntimeError(f"Failed to add memory message: {e}") from e
         return added_ids
@@ -100,12 +109,12 @@ class Mem0MemoryStore:
     def search_memories(
         self,
         *,
-        query: Optional[str] = None,
-        filters: Optional[dict[str, Any]] = None,
+        query: str | None = None,
+        filters: dict[str, Any] | None = None,
         top_k: int = 5,
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        user_id: str | None = None,
+        run_id: str | None = None,
+        agent_id: str | None = None,
         include_memory_metadata: bool = False,
         **kwargs: Any,
     ) -> list[ChatMessage]:
@@ -115,13 +124,13 @@ class Mem0MemoryStore:
         If filters are not provided, at least one of user_id, run_id, or agent_id must be set.
         If filters are provided, the search will be scoped to the provided filters and the other ids will be ignored.
         :param query: Text query to search for. If not provided, all memories will be returned.
-        :param filters: Additional filters to apply on search. For more details on mem0 filters, see https://mem0.ai/docs/search/
+        :param filters: Haystack filters to apply on search. For more details on Haystack filters, see https://docs.haystack.deepset.ai/docs/metadata-filtering
         :param top_k: Maximum number of results to return
         :param user_id: The user ID to to store and retrieve memories from the memory store.
         :param run_id: The run ID to to store and retrieve memories from the memory store.
         :param agent_id: The agent ID to to store and retrieve memories from the memory store.
             If you want Mem0 to store chat messages from the assistant, you need to set the agent_id.
-        :param include_memory_metadata: Whether to include the memory related metadata from the
+        :param include_memory_metadata: Whether to include the mem0 related metadata for the
             retrieved memory in the ChatMessage.
             If True, the metadata will include the mem0 related metadata i.e. memory_id, score, etc.
             in the `mem0_memory_metadata` key.
@@ -134,7 +143,7 @@ class Mem0MemoryStore:
         # Prepare filters for Mem0
 
         if filters:
-            mem0_filters = filters
+            mem0_filters = self.convert_haystack_filters_to_mem0_filters(filters)
         else:
             ids = self._get_ids(user_id, run_id, agent_id)
             if len(ids) == 1:
@@ -175,12 +184,12 @@ class Mem0MemoryStore:
     def search_memories_as_single_message(
         self,
         *,
-        query: Optional[str] = None,
-        filters: Optional[dict[str, Any]] = None,
+        query: str | None = None,
+        filters: dict[str, Any] | None = None,
         top_k: int = 5,
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        user_id: str | None = None,
+        run_id: str | None = None,
+        agent_id: str | None = None,
         **kwargs: Any,
     ) -> ChatMessage:
         """
@@ -202,7 +211,7 @@ class Mem0MemoryStore:
         """
         # Prepare filters for Mem0
         if filters:
-            mem0_filters = filters
+            mem0_filters = self.convert_haystack_filters_to_mem0_filters(filters)
         else:
             ids = self._get_ids(user_id, run_id, agent_id)
             if len(ids) == 1:
@@ -236,9 +245,9 @@ class Mem0MemoryStore:
     def delete_all_memories(
         self,
         *,
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        user_id: str | None = None,
+        run_id: str | None = None,
+        agent_id: str | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -272,7 +281,7 @@ class Mem0MemoryStore:
             raise RuntimeError(f"Failed to delete memory {memory_id}: {e}") from e
 
     def _get_ids(
-        self, user_id: Optional[str] = None, run_id: Optional[str] = None, agent_id: Optional[str] = None
+        self, user_id: str | None = None, run_id: str | None = None, agent_id: str | None = None
     ) -> dict[str, Any]:
         """
         Check that at least one of the ids is set.
@@ -287,3 +296,41 @@ class Mem0MemoryStore:
             "agent_id": agent_id,
         }
         return {key: value for key, value in ids.items() if value is not None}
+
+    @staticmethod
+    def convert_haystack_filters_to_mem0_filters(filters: dict[str, Any]) -> dict[str, Any]:
+        """
+        Convert Haystack filters to Mem0 filters.
+        """
+
+        def convert_comparison(condition: dict[str, Any]) -> dict[str, Any]:
+            operator_map = {
+                "==": lambda field, value: {field: value},
+                "!=": lambda field, value: {field: {"ne": value}},
+                ">": lambda field, value: {field: {"gt": value}},
+                ">=": lambda field, value: {field: {"gte": value}},
+                "<": lambda field, value: {field: {"lt": value}},
+                "<=": lambda field, value: {field: {"lte": value}},
+                "in": lambda field, value: {field: {"in": value if isinstance(value, list) else [value]}},
+                "not in": lambda field, value: {field: {"ne": value}},
+            }
+            field = condition["field"]
+            value = condition["value"]
+            operator = condition["operator"]
+            if operator not in operator_map:
+                raise ValueError(f"Unsupported operator {operator}")
+            return operator_map[operator](field, value)
+
+        def convert_logic(node: dict[str, Any]) -> dict[str, Any]:
+            operator = node["operator"].upper()
+            if operator not in ("AND", "OR", "NOT"):
+                raise ValueError(f"Unsupported logic operator {operator}")
+            mem0_conditions = [convert_node(cond) for cond in node["conditions"]]
+            return {operator: mem0_conditions}
+
+        def convert_node(node: dict[str, Any]) -> dict[str, Any]:
+            if "field" in node:
+                return convert_comparison(node)
+            return convert_logic(node)
+
+        return convert_node(filters)

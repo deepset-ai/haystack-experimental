@@ -27,6 +27,6 @@ memory_store.add_memories(user_id="agent_example", messages=messages)
 
 chat_generator = OpenAIChatGenerator()
 agent = Agent(chat_generator=chat_generator, memory_store=memory_store) # type: ignore[arg-type]
-answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs={"user_id": "agent_example"})
+answer = agent.run(messages=[ChatMessage.from_user("I have a travel chatbot I want to build for my new startup called Xavier. Based on what programming language I like to work with, suggest me a database that I can use for the travel chatbot. Keep it brief.")], memory_store_kwargs={"user_id": "agent_example"})
 
 print(answer)

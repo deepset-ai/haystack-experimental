@@ -35,43 +35,36 @@ class MemoryStore(Protocol):
         self,
         *,
         messages: list[ChatMessage],
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-    ) -> list[str]:
+        user_id: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Add ChatMessage memories to the store.
 
         :param messages: List of ChatMessage objects with memory metadata.
         :param user_id: User ID to scope memories.
-        :param run_id: Run ID to scope memories.
-        :param agent_id: Agent ID to scope memories.
-        :returns: List of memory IDs for the added messages.
+        :param kwargs: Additional keyword arguments to pass to the add method.
         """
         ...
 
     def search_memories(
         self,
         *,
-        query: Optional[str] = None,
-        filters: Optional[dict[str, Any]] = None,
+        query: str | None = None,
+        filters: dict[str, Any] | None = None,
         top_k: int = 5,
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        include_memory_metadata: bool = False,
+        user_id: str | None = None,
+        **kwargs: Any,
     ) -> list[ChatMessage]:
         """
         Search for memories in the store.
 
         :param query: Text query to search for. If not provided, all memories may be returned.
-        :param filters: Backend-specific filter structure.
+        :param filters: Haystack filters to apply on search.
         :param top_k: Maximum number of results to return.
         :param user_id: User ID to scope memories.
-        :param run_id: Run ID to scope memories.
-        :param agent_id: Agent ID to scope memories.
-        :param include_memory_metadata: Whether to include backend-specific
-            memory metadata in ChatMessage.meta.
+        :param kwargs: Additional keyword arguments to pass to the search method.
+
         :returns: List of ChatMessage memories matching the criteria.
         """
         ...
@@ -79,14 +72,15 @@ class MemoryStore(Protocol):
     def delete_all_memories(
         self,
         *,
-        user_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
+        user_id: str | None = None,
+        **kwargs: Any,
     ) -> None:
         """
         Delete all memories in the given scope.
 
-        At least one of user_id, run_id, or agent_id should be set.
+        In case of multiple optional ids, one of the ids must be set.
+        :param user_id: User ID to delete memories.
+        :param kwargs: Additional keyword arguments to pass to the delete method.
         """
         ...
 
