@@ -10,7 +10,7 @@ from lazy_imports import LazyImporter
 _import_structure = {
     "dataclasses": ["ToolExecutionDecision"],
     "errors": ["HITLBreakpointException"],
-    "strategies": ["BreakpointConfirmationStrategy"]
+    "strategies": ["BreakpointConfirmationStrategy"],
 }
 
 if TYPE_CHECKING:

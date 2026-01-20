@@ -22,11 +22,7 @@ hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
 
 from haystack import logging
-from haystack.components.agents.agent import (
-    Agent as HaystackAgent,
-    _ExecutionContext,
-    _schema_from_dict
-)
+from haystack.components.agents.agent import Agent as HaystackAgent, _ExecutionContext, _schema_from_dict
 from haystack.human_in_the_loop.strategies import (
     ConfirmationStrategy,
     _process_confirmation_strategies,
@@ -251,7 +247,7 @@ class Agent(HaystackAgent):
             requires_async=requires_async,
             generation_kwargs=generation_kwargs,
             tools=tools,
-            confirmation_strategy_context=confirmation_strategy_context
+            confirmation_strategy_context=confirmation_strategy_context,
         )
         # NOTE: Only difference is to use pass tool_execution_decisions to _ExecutionContext
         return _ExecutionContext(

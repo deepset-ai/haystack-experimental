@@ -9,7 +9,6 @@ from haystack.dataclasses import ToolExecutionDecision
 
 from haystack_experimental.components.agents.human_in_the_loop import HITLBreakpointException
 
-
 _REJECTION_FEEDBACK_TEMPLATE = "Tool execution for '{tool_name}' was rejected by the user."
 _MODIFICATION_FEEDBACK_TEMPLATE = (
     "The parameters for tool '{tool_name}' were updated by the user to:\n{final_tool_params}"
