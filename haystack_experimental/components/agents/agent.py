@@ -21,7 +21,7 @@ import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
 
-from haystack import DeserializationError, logging
+from haystack import logging
 from haystack.components.agents.agent import (
     Agent as HaystackAgent,
     _ExecutionContext,
@@ -43,10 +43,10 @@ from haystack.core.pipeline.breakpoint import (
     _should_trigger_tool_invoker_breakpoint,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
-from haystack.core.serialization import default_from_dict, import_class_by_name
-from haystack.dataclasses import ChatMessage, ChatRole
+from haystack.core.serialization import default_from_dict
+from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
-from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
+from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
 from haystack.utils.deserialization import deserialize_component_inplace
@@ -768,18 +768,9 @@ class Agent(HaystackAgent):
             for name in init_params["confirmation_strategies"]:
                 deserialize_component_inplace(init_params["confirmation_strategies"], key=name)
 
-        # TODO Could potentially use deserialize_component_inplace here
         # NOTE: This is different from the base Agent class to handle ChatMessageStore deserialization
         if "chat_message_store" in init_params and init_params["chat_message_store"] is not None:
             deserialize_component_inplace(init_params, key="chat_message_store")
-            # cms_data = init_params["chat_message_store"]
-            # try:
-            #     cms_class = import_class_by_name(cms_data["type"])
-            # except ImportError as e:
-            #     raise DeserializationError(f"Class '{cms_data['type']}' not correctly imported") from e
-            # if not hasattr(cms_class, "from_dict"):
-            #     raise DeserializationError(f"{cms_class} does not have from_dict method implemented.")
-            # init_params["chat_message_store"] = cms_class.from_dict(cms_data)
 
         return default_from_dict(cls, data)
 
