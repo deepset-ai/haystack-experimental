@@ -160,22 +160,14 @@ class Mem0MemoryStore:
                     filters=mem0_filters,
                     **kwargs,
                 )
-            if include_memory_metadata:
+            messages = []
+            for memory in memories["results"]:
+                meta = memory["metadata"].copy() if memory["metadata"] else {}
                 # we also include the mem0 related metadata i.e. memory_id, score, etc.
-                # metadata
-                for memory in memories["results"]:
-                    meta = memory["metadata"].copy() if memory["metadata"] else {}
+                if include_memory_metadata:
                     meta["retrieved_memory_metadata"] = memory.copy()
                     meta["retrieved_memory_metadata"].pop("memory")
-                    messages = [
-                        ChatMessage.from_system(text=memory["memory"], meta=meta) for memory in memories["results"]
-                    ]
-            else:
-                # we only include the metadata stored in the memory in ChatMessage
-                messages = [
-                    ChatMessage.from_system(text=memory["memory"], meta=memory["metadata"])
-                    for memory in memories["results"]
-                ]
+                messages.append(ChatMessage.from_system(text=memory["memory"], meta=meta))
             return messages
 
         except Exception as e:
@@ -240,8 +232,6 @@ class Mem0MemoryStore:
         except Exception as e:
             raise RuntimeError(f"Failed to search memories: {e}") from e
 
-    # mem0 doesn't allow passing filter to delete endpoint,
-    # we can delete all memories for a user by passing the user_id
     def delete_all_memories(
         self,
         *,
@@ -263,7 +253,7 @@ class Mem0MemoryStore:
 
         try:
             self.client.delete_all(**ids, **kwargs)
-            logger.info(f"All memories deleted successfully for scope {ids}")
+            logger.info("All memories deleted successfully for scope {ids}", ids=ids)
         except Exception as e:
             raise RuntimeError(f"Failed to delete memories with scope {ids}: {e}") from e
 
@@ -276,7 +266,7 @@ class Mem0MemoryStore:
         """
         try:
             self.client.delete(memory_id=memory_id, **kwargs)
-            logger.info(f"Memory {memory_id} deleted successfully")
+            logger.info("Memory deleted successfully for memory_id {memory_id}", memory_id=memory_id)
         except Exception as e:
             raise RuntimeError(f"Failed to delete memory {memory_id}: {e}") from e
 

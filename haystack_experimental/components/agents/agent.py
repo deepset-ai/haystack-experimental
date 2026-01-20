@@ -237,7 +237,8 @@ class Agent(HaystackAgent):
 
         # Retrieve memories from the memory store
         if self._memory_store:
-            retrieved_memories = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
+            retrieved_memories = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)  # type: ignore[arg-type]
+
             # we combine the memories into a single string
             combined_memory = "\n".join(
                 f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memories)
@@ -605,14 +606,11 @@ class Agent(HaystackAgent):
 
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            result["messages"] = msgs
             result["last_message"] = msgs[-1] if msgs else None
 
             # Add the new conversation as memories to the memory store
-            new_memories = [
-                message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
-            ]
             if self._memory_store:
+                new_memories = [message for message in msgs if message.role.value != "system"]
                 self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
 
         # Write messages to ChatMessageStore if configured
@@ -857,15 +855,11 @@ class Agent(HaystackAgent):
 
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            result["messages"] = msgs
             result["last_message"] = msgs[-1] if msgs else None
 
             # Add the new conversation as memories to the memory store
-            new_memories = [
-                message for message in msgs if message.role.value == "user" or message.role.value == "assistant"
-            ]
-
             if self._memory_store:
+                new_memories = [message for message in msgs if message.role.value != "system"]
                 self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
 
         # Write messages to ChatMessageStore if configured
