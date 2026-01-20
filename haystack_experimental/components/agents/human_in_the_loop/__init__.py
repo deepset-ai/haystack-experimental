@@ -7,9 +7,14 @@ from typing import TYPE_CHECKING
 
 from lazy_imports import LazyImporter
 
-_import_structure = {"errors": ["HITLBreakpointException"], "strategies": ["BreakpointConfirmationStrategy"]}
+_import_structure = {
+    "dataclasses": ["ToolExecutionDecision"],
+    "errors": ["HITLBreakpointException"],
+    "strategies": ["BreakpointConfirmationStrategy"]
+}
 
 if TYPE_CHECKING:
+    from .dataclasses import ToolExecutionDecision as ToolExecutionDecision
     from .errors import HITLBreakpointException as HITLBreakpointException
     from .strategies import BreakpointConfirmationStrategy as BreakpointConfirmationStrategy
 

@@ -25,10 +25,10 @@ hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._crea
 from haystack import DeserializationError, logging
 from haystack.components.agents.agent import (
     Agent as HaystackAgent,
-    _ExecutionContext as Haystack_ExecutionContext,
+    _ExecutionContext,
     _schema_from_dict
 )
-from haystack.components.agents.human_in_the_loop.strategies import (
+from haystack.human_in_the_loop.strategies import (
     ConfirmationStrategy,
     _process_confirmation_strategies,
     _process_confirmation_strategies_async,
@@ -50,7 +50,7 @@ from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
 from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
 from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
-from haystack.utils.deserialization import deserialize_chatgenerator_inplace
+from haystack.utils.deserialization import deserialize_component_inplace
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
 from haystack_experimental.components.agents.human_in_the_loop import HITLBreakpointException
@@ -58,20 +58,6 @@ from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class _ExecutionContext(Haystack_ExecutionContext):
-    """
-    Execution context for the Agent component
-
-    Extends Haystack's _ExecutionContext to include tool execution decisions for human-in-the-loop strategies.
-
-    :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
-        the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
-    """
-
-    tool_execution_decisions: list[ToolExecutionDecision] | None = None
 
 
 class Agent(HaystackAgent):
@@ -275,28 +261,15 @@ class Agent(HaystackAgent):
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
             to confirmation strategies.
         """
-        # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
-        # _initialize_from_snapshot. This change has been released in Haystack 2.20.0.
-        # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
-        if inspect.signature(super(Agent, self)._initialize_from_snapshot).parameters.get("generation_kwargs"):
-            exe_context = super(Agent, self)._initialize_from_snapshot(  # type: ignore[call-arg]
-                snapshot=snapshot,
-                streaming_callback=streaming_callback,
-                requires_async=requires_async,
-                generation_kwargs=generation_kwargs,
-                tools=tools,
-            )
-        else:
-            exe_context = super(Agent, self)._initialize_from_snapshot(
-                snapshot=snapshot, streaming_callback=streaming_callback, requires_async=requires_async, tools=tools
-            )
-        # NOTE: 1st difference with parent method to add this to tool_invoker_inputs
-        if self._tool_invoker:
-            exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
-                self._tool_invoker.enable_streaming_callback_passthrough
-            )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext
-        # and add tool_execution_decisions + confirmation_strategy_context
+        exe_context = super(Agent, self)._initialize_from_snapshot(  # type: ignore[call-arg]
+            snapshot=snapshot,
+            streaming_callback=streaming_callback,
+            requires_async=requires_async,
+            generation_kwargs=generation_kwargs,
+            tools=tools,
+            confirmation_strategy_context=confirmation_strategy_context
+        )
+        # NOTE: 1st difference is to use the extended _ExecutionContext and add tool_execution_decisions
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
@@ -304,8 +277,8 @@ class Agent(HaystackAgent):
             tool_invoker_inputs=exe_context.tool_invoker_inputs,
             counter=exe_context.counter,
             skip_chat_generator=exe_context.skip_chat_generator,
+            confirmation_strategy_context=exe_context.confirmation_strategy_context,
             tool_execution_decisions=snapshot.tool_execution_decisions,
-            confirmation_strategy_context=confirmation_strategy_context,
         )
 
     def run(  # type: ignore[override]  # noqa: PLR0915 PLR0912
@@ -779,11 +752,7 @@ class Agent(HaystackAgent):
         :return: Dictionary with serialized data
         """
         data = super(Agent, self).to_dict()
-        data["init_parameters"]["confirmation_strategies"] = (
-            {name: strategy.to_dict() for name, strategy in self._confirmation_strategies.items()}
-            if self._confirmation_strategies
-            else None
-        )
+        # NOTE: This is different from the base Agent class to handle ChatMessageStore serialization
         data["init_parameters"]["chat_message_store"] = (
             self._chat_message_store.to_dict() if self._chat_message_store is not None else None
         )
@@ -799,9 +768,9 @@ class Agent(HaystackAgent):
         """
         init_params = data.get("init_parameters", {})
 
-        deserialize_chatgenerator_inplace(init_params, key="chat_generator")
+        deserialize_component_inplace(init_params, key="chat_generator")
 
-        if "state_schema" in init_params:
+        if init_params.get("state_schema") is not None:
             init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
 
         if init_params.get("streaming_callback") is not None:
@@ -810,15 +779,11 @@ class Agent(HaystackAgent):
         deserialize_tools_or_toolset_inplace(init_params, key="tools")
 
         if "confirmation_strategies" in init_params and init_params["confirmation_strategies"] is not None:
-            for name, strategy_dict in init_params["confirmation_strategies"].items():
-                try:
-                    strategy_class = import_class_by_name(strategy_dict["type"])
-                except ImportError as e:
-                    raise DeserializationError(f"Class '{strategy_dict['type']}' not correctly imported") from e
-                if not hasattr(strategy_class, "from_dict"):
-                    raise DeserializationError(f"{strategy_class} does not have from_dict method implemented.")
-                init_params["confirmation_strategies"][name] = strategy_class.from_dict(strategy_dict)
+            for name in init_params["confirmation_strategies"]:
+                deserialize_component_inplace(init_params["confirmation_strategies"], key=name)
 
+        # TODO Could potentially use deserialize_component_inplace here
+        # NOTE: This is different from the base Agent class to handle ChatMessageStore deserialization
         if "chat_message_store" in init_params and init_params["chat_message_store"] is not None:
             cms_data = init_params["chat_message_store"]
             try:
