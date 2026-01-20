@@ -194,6 +194,82 @@ def tools() -> list[Tool]:
     return [tool]
 
 
+class TestAgent:
+    def test_to_dict(self, tools, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+        agent = Agent(
+            chat_generator=OpenAIChatGenerator(), tools=tools, chat_message_store=InMemoryChatMessageStore()
+        )
+        agent_dict = agent.to_dict()
+        assert agent_dict == {
+            "type": "haystack_experimental.components.agents.agent.Agent",
+            "init_parameters": {
+                "chat_generator": {
+                    "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
+                    "init_parameters": {
+                        "model": "gpt-5-mini",
+                        "streaming_callback": None,
+                        "api_base_url": None,
+                        "organization": None,
+                        "generation_kwargs": {},
+                        "api_key": {"type": "env_var", "env_vars": ["OPENAI_API_KEY"], "strict": True},
+                        "timeout": None,
+                        "max_retries": None,
+                        "tools": None,
+                        "tools_strict": False,
+                        "http_client_kwargs": None,
+                    },
+                },
+                "chat_message_store": {
+                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
+                    "init_parameters": {
+                        "last_k": 10,
+                        "skip_system_messages": True,
+                    },
+                },
+                "tools": [
+                    {
+                        "type": "haystack.tools.tool.Tool",
+                        "data": {
+                            "name": "addition_tool",
+                            "description": "A tool that adds two integers together.",
+                            "parameters": {
+                                "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                                "required": ["a", "b"],
+                                "type": "object",
+                            },
+                            "function": "test.components.agents.test_agent.addition_tool",
+                            "outputs_to_string": None,
+                            "inputs_from_state": None,
+                            "outputs_to_state": None,
+                        },
+                    }
+                ],
+                "system_prompt": None,
+                "exit_conditions": ["text"],
+                "state_schema": {},
+                "max_agent_steps": 100,
+                "streaming_callback": None,
+                "raise_on_tool_invocation_failure": False,
+                "tool_invoker_kwargs": None,
+                "confirmation_strategies": None,
+            },
+        }
+
+    def test_from_dict(self, tools, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+        agent = Agent(
+            chat_generator=OpenAIChatGenerator(), tools=tools, chat_message_store=InMemoryChatMessageStore()
+        )
+        deserialized_agent = Agent.from_dict(agent.to_dict())
+        assert deserialized_agent.to_dict() == agent.to_dict()
+        assert isinstance(deserialized_agent.chat_generator, OpenAIChatGenerator)
+        assert len(deserialized_agent.tools) == 1
+        assert deserialized_agent.tools[0].name == "addition_tool"
+        assert isinstance(deserialized_agent._tool_invoker, type(agent._tool_invoker))
+        assert isinstance(deserialized_agent._chat_message_store, InMemoryChatMessageStore)
+
+
 class TestAgentConfirmationStrategy:
     def test_get_tool_calls_and_descriptions_from_snapshot_no_mutation_of_snapshot(
         self, tools, tmp_path, monkeypatch
