@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Optional
+from typing import Any
 
 from haystack import default_from_dict, default_to_dict, logging
 from haystack.dataclasses.chat_message import ChatMessage
