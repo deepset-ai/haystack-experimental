@@ -84,10 +84,11 @@ class MemoryStore(Protocol):
         """
         ...
 
-    def delete_memory(self, memory_id: str) -> None:
+    def delete_memory(self, memory_id: str, **kwargs: Any) -> None:
         """
         Delete a single memory by its ID.
 
         :param memory_id: The ID of the memory to delete.
+        :param kwargs: Additional keyword arguments to pass to the delete method.
         """
         ...

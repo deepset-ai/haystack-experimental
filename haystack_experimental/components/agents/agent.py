@@ -606,7 +606,7 @@ class Agent(HaystackAgent):
 
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            result["last_message"] = msgs[-1] if msgs else None
+            result["last_message"] = msgs[-1]
 
             # Add the new conversation as memories to the memory store
             if self._memory_store:
@@ -855,7 +855,7 @@ class Agent(HaystackAgent):
 
         result = {**exe_context.state.data}
         if msgs := result.get("messages"):
-            result["last_message"] = msgs[-1] if msgs else None
+            result["last_message"] = msgs[-1]
 
             # Add the new conversation as memories to the memory store
             if self._memory_store:

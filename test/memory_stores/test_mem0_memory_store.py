@@ -215,8 +215,12 @@ class TestMem0MemoryStore:
         store.delete_all_memories(agent_id="movie_agent")
         sleep(10)
         store.add_memories(messages=messages, infer=False, user_id="haystack_role_based_memories", agent_id="movie_agent")
-        assistant_mem = store.search_memories(filters={"agent_id": "movie_agent"})
-        user_mem = store.search_memories(filters={"user_id": "haystack_role_based_memories"})
+        assistant_mem = store.search_memories(filters=
+                {"field": "agent_id", "operator": "==", "value": "movie_agent"},
+        )
+        user_mem = store.search_memories(filters=
+                {"field": "user_id", "operator": "==", "value": "haystack_role_based_memories"},
+        )
         assert len(assistant_mem) == 2
         assert len(user_mem) == 2
 
@@ -235,13 +239,3 @@ class TestMem0MemoryStore:
         answer = agent.run(messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")], memory_store_kwargs=memory_store_kwargs)
         assert answer is not None
         assert "python" in answer["last_message"].text.lower()
-
-    @pytest.mark.skipif(
-        not os.environ.get("MEM0_API_KEY", None),
-        reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
-    )
-    @pytest.mark.integration
-    def test_search_memories_with_filters(self):
-        store = Mem0MemoryStore()
-        result = store.search_memories(filters={"user_id": "haystack_test_123"})
-        assert result is not None

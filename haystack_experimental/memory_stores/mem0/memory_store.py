@@ -95,9 +95,7 @@ class Mem0MemoryStore:
             # we save the role of the message in the metadata
             mem0_messages.append({"content": message.text, "role": message.role.value})
         try:
-            print("mem0_messages: ", mem0_messages)
             status = self.client.add(messages=mem0_messages, infer=infer, **ids, async_mode=async_mode, **kwargs)
-            print("status: ", status)
             if status:
                 for result in status["results"]:
                     memory_id = {"memory_id": result.get("id"), "memory": result["memory"]}
@@ -143,7 +141,7 @@ class Mem0MemoryStore:
         # Prepare filters for Mem0
 
         if filters:
-            mem0_filters = self.convert_haystack_filters_to_mem0_filters(filters)
+            mem0_filters = self.normalize_filters(filters)
         else:
             ids = self._get_ids(user_id, run_id, agent_id)
             if len(ids) == 1:
@@ -203,7 +201,7 @@ class Mem0MemoryStore:
         """
         # Prepare filters for Mem0
         if filters:
-            mem0_filters = self.convert_haystack_filters_to_mem0_filters(filters)
+            mem0_filters = self.normalize_filters(filters)
         else:
             ids = self._get_ids(user_id, run_id, agent_id)
             if len(ids) == 1:
@@ -288,7 +286,7 @@ class Mem0MemoryStore:
         return {key: value for key, value in ids.items() if value is not None}
 
     @staticmethod
-    def convert_haystack_filters_to_mem0_filters(filters: dict[str, Any]) -> dict[str, Any]:
+    def normalize_filters(filters: dict[str, Any]) -> dict[str, Any]:
         """
         Convert Haystack filters to Mem0 filters.
         """
