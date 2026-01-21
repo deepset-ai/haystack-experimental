@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 # SPDX-FileCopyrightText: 2022-present deepset GmbH <info@deepset.ai>
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -9,7 +7,7 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
@@ -59,10 +57,7 @@ from haystack_experimental.components.agents.human_in_the_loop.strategies import
 )
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
-
-if TYPE_CHECKING:
-    from haystack_experimental.memory_stores.mem0.memory_store import Mem0MemoryStore
-
+from haystack_experimental.memory_stores.types import MemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +147,7 @@ class Agent(HaystackAgent):
         confirmation_strategies: dict[str, ConfirmationStrategy] | None = None,
         tool_invoker_kwargs: dict[str, Any] | None = None,
         chat_message_store: ChatMessageStore | None = None,
-        memory_store: Mem0MemoryStore | None = None,
+        memory_store: MemoryStore | None = None,
     ) -> None:
         """
         Initialize the agent component.
@@ -222,7 +217,7 @@ class Agent(HaystackAgent):
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
 
-        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the Mem0MemoryStore.
+        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
             For example, it can include the `user_id`, `run_id`, and `agent_id` parameters
             for storing and retrieving memories.
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
@@ -397,7 +392,7 @@ class Agent(HaystackAgent):
             can use for non-blocking user interaction.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
-        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the Mem0MemoryStore.
+        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
             It can include:
             - `user_id`: The user ID to search and add memories from.
             - `run_id`: The run ID to search and add memories from.
@@ -661,7 +656,7 @@ class Agent(HaystackAgent):
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
-        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the Mem0MemoryStore.
+        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
             It can include:
             - `user_id`: The user ID to search and add memories from.
             - `run_id`: The run ID to search and add memories from.
