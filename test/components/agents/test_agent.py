@@ -43,7 +43,6 @@ def store():
     yield msg_store
     msg_store.delete_all_messages()
 
-
 @component
 class MockChatGenerator:
     @component.output_types(replies=list[ChatMessage])
