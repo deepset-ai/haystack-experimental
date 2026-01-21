@@ -253,7 +253,7 @@ class Agent(HaystackAgent):
             updated_system_prompt = f"{system_prompt}{memory_instruction}"
 
             memory_text = f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
-            updated_memory = ChatMessage.from_system(text=memory_text, meta=retrieved_memory.meta)
+            updated_memory = ChatMessage.from_system(text=memory_text)
         else:
             updated_memory = None
 
