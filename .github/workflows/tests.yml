@@ -113,6 +113,19 @@ jobs:
           hatch -e test env run -- uv pip install git+https://github.com/deepset-ai/haystack.git@main
           hatch run test:unit
 
+  aws-auth:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'dependabot/'))
+    env:
+      AWS_CI_ROLE_ARN: ${{ secrets.AWS_CI_ROLE_ARN }}
+    steps:
+      - name: Configure AWS credentials
+        if: ${{ env.AWS_CI_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@...
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
+
   integration-tests:
     name: Integration / ${{ matrix.os }}
     needs: linting
@@ -133,15 +146,6 @@ jobs:
 
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
-
-      # Do not authenticate on PRs from forks and on PRs created by dependabot
-      - name: AWS authentication
-        id: aws-auth
-        if: github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'dependabot/'))
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
 
       - name: Run
         run: hatch run test:integration-retry
