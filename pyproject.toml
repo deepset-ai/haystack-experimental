@@ -27,7 +27,7 @@ classifiers = [
 
 dependencies = [
   "haystack-ai",
-  "rich", # For pretty printing in the console used by human-in-the-loop utilities
+  "rich", # For pretty printing in the console used by human-in-the-loop utilities,
 ]
 
 [project.urls]
@@ -54,7 +54,10 @@ docs = "./.github/utils/pydoc-markdown.sh"
 extra-dependencies = [
   "tiktoken",     # LLM-based Summarizer
   "nltk>=3.9.1",  # LLM-based Summarizer
-
+  "mem0ai", # Mem0MemoryStore
+  "amazon-bedrock-haystack",
+  "google-genai-haystack",
+  "cohere-haystack",
   # Type check
   "mypy",
   "pip",
