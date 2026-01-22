@@ -30,6 +30,9 @@ env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+  MEM0_API_KEY: ${{ secrets.MEM0_API_KEY }}
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 jobs:
   linting:
     runs-on: ubuntu-latest
