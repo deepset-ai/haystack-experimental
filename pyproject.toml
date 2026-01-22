@@ -54,7 +54,7 @@ docs = "./.github/utils/pydoc-markdown.sh"
 extra-dependencies = [
   "tiktoken",     # LLM-based Summarizer
   "nltk>=3.9.1",  # LLM-based Summarizer
-  "mem0ai>=0.1.0", # Mem0MemoryStore
+  "mem0ai", # Mem0MemoryStore
   "amazon-bedrock-haystack",
   "google-genai-haystack",
   "cohere-haystack",
