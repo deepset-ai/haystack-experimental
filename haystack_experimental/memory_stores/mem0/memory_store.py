@@ -84,7 +84,6 @@ class Mem0MemoryStore:
         ids = self._get_ids(user_id, run_id, agent_id)
         instructions = """
         Store all memories from the user and suggestions from the assistant.
-
         """
 
         self.client.project.update(custom_instructions=instructions)

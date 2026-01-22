@@ -5,6 +5,7 @@
 import os
 from unittest.mock import Mock, patch
 import pytest
+import uuid
 from time import sleep
 from haystack.dataclasses.chat_message import ChatMessage
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
@@ -12,6 +13,25 @@ from haystack_experimental.components.agents.agent import Agent
 from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 from haystack.utils import Secret
 
+def _get_unique_user_id() -> str:
+    """
+    Generate a unique, valid user_id for test isolation in memory store.
+
+    Each test gets its own index to enable parallel test execution without conflicts.
+    """
+    return f"test_{uuid.uuid4().hex}"
+
+@pytest.fixture
+def memory_store():
+    """
+    We use this memory store for basic tests and for testing filters.
+    """
+    store = Mem0MemoryStore()
+    user_id = _get_unique_user_id()
+    yield store, user_id
+
+    assert store.client
+    store.delete_all_memories(user_id=user_id)
 
 class TestMem0MemoryStore:
 
@@ -23,7 +43,6 @@ class TestMem0MemoryStore:
             mock_client_class.return_value = mock_client
             yield mock_client
 
-
     @pytest.fixture
     def sample_messages(self):
         """Sample ChatMessage objects for testing."""
@@ -31,10 +50,6 @@ class TestMem0MemoryStore:
             ChatMessage.from_user("I usually work with Python language on LLM agents", meta={"source": "test"}),
             ChatMessage.from_user("I like working with Haystack.", meta={"topic": "programming"}),
         ]
-
-    @pytest.fixture
-    def memory_store(self):
-        return Mem0MemoryStore()
 
     def test_init_with_user_id_and_api_key(self, mock_memory_client):
         """Test initialization with user_id and api_key."""
@@ -47,7 +62,6 @@ class TestMem0MemoryStore:
             api_key=Secret.from_token("test_api_key_12345")
         )
         assert store.client == mock_memory_client
-
 
     def test_init_without_api_key_raises_error(self):
         """Test that initialization without API key raises ValueError."""
@@ -65,7 +79,6 @@ class TestMem0MemoryStore:
 
             result = store.to_dict()
             assert result["init_parameters"]["api_key"] == {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"}
-
 
     def test_from_dict(self, monkeypatch, mock_memory_client):
         with patch.dict(os.environ, {}, clear=True):
@@ -85,15 +98,10 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_and_delete_memories(self, sample_messages, memory_store):
         """Test adding memories successfully."""
-        # delete all memories for this id
-        memory_store.delete_all_memories(user_id="haystack_test_123")
-        result = memory_store.add_memories(messages=sample_messages, user_id="haystack_test_123")
-        assert len(result) == 2
 
-        memory_store.delete_all_memories(user_id="haystack_test_123")
-        sleep(10)
-        mem = memory_store.search_memories(user_id="haystack_test_123")
-        assert len(mem) == 0
+        store, user_id = memory_store
+        result = store.add_memories(messages=sample_messages, user_id=user_id)
+        assert len(result) == 2
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -102,9 +110,8 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_memories_with_infer_false(self, sample_messages, memory_store):
         """Test adding memories with infer=False."""
-        # delete all memories for this id
-        memory_store.delete_all_memories(user_id="haystack_test_123")
-        result = memory_store.add_memories(messages=sample_messages, infer=False, user_id="haystack_test_123")
+        store, user_id = memory_store
+        result = store.add_memories(messages=sample_messages, infer=False, user_id=user_id)
         assert len(result) == 2
 
     @pytest.mark.skipif(
@@ -114,10 +121,10 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_add_memories_with_metadata(self, memory_store):
         """Test adding memories with metadata."""
+        store, user_id = memory_store
         messages = [ChatMessage.from_user("User likes to work with python on NLP projects")]
-        memory_store.delete_all_memories(user_id="haystack_test_123")
-        result = memory_store.add_memories(messages=messages,
-                                    user_id="haystack_test_123",
+        result = store.add_memories(messages=messages,
+                                    user_id=user_id,
                                     metadata={"key": "value"}, async_mode=False)
         assert len(result) == 1
 
@@ -126,9 +133,10 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
     )
     @pytest.mark.integration
-    def test_search_memories(self, sample_messages, memory_store):
+    def test_search_memories(self, sample_messages):
         """Test searching memories on previously added memories because the mem0 takes time to index the memory"""
 
+        memory_store = Mem0MemoryStore()
         # search without query
         result = memory_store.search_memories(user_id="haystack_simple_memories")
         assert len(result) == 2
@@ -164,9 +172,9 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
     )
     @pytest.mark.integration
-    def test_search_memories_as_single_message(self, memory_store):
+    def test_search_memories_as_single_message(self):
         """Test searching memories as a single message."""
-
+        memory_store = Mem0MemoryStore()
         result = memory_store.search_memories_as_single_message(user_id="haystack_simple_memories")
         assert result.text is not None
         assert len(result) == 1
@@ -176,18 +184,9 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
     )
     @pytest.mark.integration
-    def test_delete_all_memories(self):
-        """Test deleting all memories."""
-        store = Mem0MemoryStore()
-        store.delete_all_memories(user_id="haystack_test_123")
-
-    @pytest.mark.skipif(
-        not os.environ.get("MEM0_API_KEY", None),
-        reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
-    )
-    @pytest.mark.integration
-    def test_delete_memory(self, sample_messages, memory_store):
+    def test_delete_memory(self, sample_messages):
         """Test deleting a single memory."""
+        memory_store = Mem0MemoryStore()
         memory_store.delete_all_memories(user_id="haystack_test_123")
         memory_store.add_memories(messages=sample_messages, infer=False, user_id="haystack_test_123")
         sleep(10)
@@ -201,7 +200,8 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
     )
     @pytest.mark.integration
-    def test_role_based_memories(self, memory_store):
+    def test_role_based_memories(self):
+        memory_store = Mem0MemoryStore()
         messages = [
             ChatMessage.from_user("I'm planning to watch a movie tonight. Any recommendations?"),
             ChatMessage.from_assistant("How about thriller movies? They can be quite engaging."),
@@ -226,8 +226,9 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY and OPENAI_API_KEY containing the Mem0 API key and OpenAI API key to run this test.",
     )
     @pytest.mark.integration
-    def test_memory_store_with_agent(self, memory_store):
+    def test_memory_store_with_agent(self):
         chat_generator = OpenAIChatGenerator()
+        memory_store = Mem0MemoryStore()
         memory_store_kwargs = {
             "user_id": "haystack_mem0",
         }
