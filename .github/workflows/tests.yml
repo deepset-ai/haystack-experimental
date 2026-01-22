@@ -24,6 +24,10 @@ on:
       - "pyproject.toml"
       - ".github/workflows/tests.yml"
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   PYTHON_VERSION: "3.10"
   HATCH_VERSION: "1.14.2"
