@@ -306,7 +306,8 @@ class TestAgentConfirmationStrategy:
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
-    def test_run_breakpoint_confirmation_strategy_modify(self, tools, tmp_path):
+    def test_run_breakpoint_confirmation_strategy_modify(self, tools, tmp_path, monkeypatch):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             tools=tools,
@@ -344,7 +345,8 @@ class TestAgentConfirmationStrategy:
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
-    def test_run_in_pipeline_breakpoint_confirmation_strategy_modify(self, tools, tmp_path):
+    def test_run_in_pipeline_breakpoint_confirmation_strategy_modify(self, tools, tmp_path, monkeypatch):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             tools=tools,
@@ -385,7 +387,8 @@ class TestAgentConfirmationStrategy:
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_run_async_breakpoint_confirmation_strategy_modify(self, tools, tmp_path):
+    async def test_run_async_breakpoint_confirmation_strategy_modify(self, tools, tmp_path, monkeypatch):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             tools=tools,
