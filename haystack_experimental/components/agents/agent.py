@@ -28,7 +28,7 @@ from haystack.human_in_the_loop.strategies import (
     _process_confirmation_strategies,
     _process_confirmation_strategies_async,
 )
-from haystack.components.agents.state import replace_values, State
+from haystack.components.agents.state import replace_values
 from haystack.components.generators.chat.types import ChatGenerator
 from haystack.core.errors import BreakpointException, PipelineRuntimeError
 from haystack.core.pipeline import AsyncPipeline, Pipeline
