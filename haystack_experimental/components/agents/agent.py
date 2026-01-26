@@ -214,7 +214,9 @@ class Agent(HaystackAgent):
 
         # NOTE: difference with parent method to add memory retrieval
         if self._memory_store:
-            retrieved_memories = self._memory_store.search_memories(query=messages[-1].text, **memory_store_kwargs)
+            retrieved_memories = self._memory_store.search_memories(
+                query=messages[-1].text, **memory_store_kwargs if memory_store_kwargs else {}
+            )
             # we combine the memories into a single string
             combined_memory = "\n".join(
                 f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memories)
@@ -228,7 +230,7 @@ class Agent(HaystackAgent):
             memory_system_message = ChatMessage.from_system(
                 text=f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
             )
-            new_chat_history = new_system_message + messages + [memory_system_message]
+            new_chat_history = [new_system_message] + messages + [memory_system_message]
             # We replace the messages in state with the new chat history including memories
             exe_context.state.set("messages", new_chat_history, handler_override=replace_values)
 
