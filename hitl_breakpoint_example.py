@@ -9,12 +9,13 @@ from typing import Any
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
-from haystack.dataclasses import ChatMessage, ToolExecutionDecision
+from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import PipelineSnapshot
 from haystack.human_in_the_loop import (
     AlwaysAskPolicy,
     BlockingConfirmationStrategy,
     RichConsoleUI,
+    ToolExecutionDecision,
 )
 from haystack.tools import create_tool_from_function
 from rich.console import Console
