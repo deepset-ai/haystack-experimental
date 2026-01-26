@@ -58,6 +58,7 @@ extra-dependencies = [
   "amazon-bedrock-haystack",
   "google-genai-haystack",
   "cohere-haystack",
+  "rich", # for hitl_breakpoint_example.py
   # Type check
   "mypy",
   "pip",
