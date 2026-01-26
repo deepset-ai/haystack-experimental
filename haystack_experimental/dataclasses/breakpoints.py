@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from haystack.dataclasses import AgentBreakpoint, ToolExecutionDecision
+from haystack.dataclasses import AgentBreakpoint
 from haystack.dataclasses import AgentSnapshot as HaystackAgentSnapshot
+from haystack.human_in_the_loop.dataclasses import ToolExecutionDecision
 
 
 @dataclass

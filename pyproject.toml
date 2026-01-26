@@ -25,8 +25,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# TODO Undo this pin once haystack-ai 2.23.0 is officially released
 dependencies = [
-  "haystack-ai"
+  "haystack-ai==2.23.0rc1"
 ]
 
 [project.urls]

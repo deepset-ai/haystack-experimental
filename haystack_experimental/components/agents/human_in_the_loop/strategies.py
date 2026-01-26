@@ -5,7 +5,7 @@
 from typing import Any
 
 from haystack.core.serialization import default_from_dict, default_to_dict
-from haystack.dataclasses import ToolExecutionDecision
+from haystack.human_in_the_loop.dataclasses import ToolExecutionDecision
 
 from haystack_experimental.components.agents.human_in_the_loop import HITLBreakpointException
 

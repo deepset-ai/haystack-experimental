@@ -12,13 +12,15 @@ from haystack import Pipeline, component
 from haystack.human_in_the_loop import (
     AlwaysAskPolicy,
     BlockingConfirmationStrategy,
+    ConfirmationUIResult,
+    ToolExecutionDecision
 )
 from haystack.human_in_the_loop.types import ConfirmationUI
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
-from haystack.dataclasses import ChatMessage, ToolCall, PipelineSnapshot, ConfirmationUIResult, ToolExecutionDecision
+from haystack.dataclasses import ChatMessage, ToolCall, PipelineSnapshot
 from haystack.tools import Tool, create_tool_from_function
 
 from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
