@@ -209,11 +209,11 @@ class TestMem0MemoryStore:
             ChatMessage.from_user("I'm planning to watch a movie tonight. Any recommendations?"),
             ChatMessage.from_assistant("How about thriller movies? They can be quite engaging."),
             ChatMessage.from_user("I'm not a big fan of thriller movies but I love sci-fi movies."),
-            ChatMessage.from_assistant("Got it! Then I would recommend Interstellar or Inception? I would also recommend watching some Japanese anime movies."),
+            ChatMessage.from_assistant(
+                "Got it! Then I would recommend Interstellar or Inception? I would also recommend watching some "
+                "Japanese anime movies."
+            ),
         ]
-        store.delete_all_memories(user_id=user_id)
-        store.delete_all_memories(agent_id=unique_agent_id)
-        sleep(10)
         store.add_memories(messages=messages, infer=False, user_id=user_id, agent_id=unique_agent_id)
         assistant_mem = store.search_memories(filters={"field": "agent_id", "operator": "==", "value": unique_agent_id})
         user_mem = store.search_memories(filters={"field": "user_id", "operator": "==", "value": user_id})
@@ -227,6 +227,9 @@ class TestMem0MemoryStore:
     @pytest.mark.integration
     def test_memory_store_with_agent(self, memory_store):
         store, user_id = memory_store
+        messages = [ChatMessage.from_user("User likes to work with python on NLP projects")]
+        _ = store.add_memories(messages=messages, user_id=user_id, async_mode=False)
+        sleep(10)
         agent = Agent(chat_generator=OpenAIChatGenerator(), memory_store=store)
         answer = agent.run(
             messages=[ChatMessage.from_user("Based on what you know about me, what programming language I work with?")],
