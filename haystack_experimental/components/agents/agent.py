@@ -9,6 +9,8 @@ import inspect
 from dataclasses import dataclass
 from typing import Any
 
+from haystack import component
+
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
@@ -82,6 +84,7 @@ class _ExecutionContext(Haystack_ExecutionContext):
     confirmation_strategy_context: dict[str, Any] | None = None
 
 
+@component
 class Agent(HaystackAgent):
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
