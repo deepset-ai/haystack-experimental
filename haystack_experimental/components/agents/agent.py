@@ -301,6 +301,7 @@ class Agent(HaystackAgent):
             component_visits=dict.fromkeys(["chat_generator", "tool_invoker"], 0),
             chat_generator_inputs=generator_inputs,
             tool_invoker_inputs=tool_invoker_inputs,
+            tool_execution_decisions=None,
             confirmation_strategy_context=confirmation_strategy_context,
         )
 
