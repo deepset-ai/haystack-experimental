@@ -11,17 +11,17 @@ from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import PipelineSnapshot
+from haystack.human_in_the_loop import (
+    AlwaysAskPolicy,
+    BlockingConfirmationStrategy,
+    RichConsoleUI,
+    ToolExecutionDecision,
+)
 from haystack.tools import create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.components.agents.human_in_the_loop import (
-    AlwaysAskPolicy,
-    BlockingConfirmationStrategy,
-    BreakpointConfirmationStrategy,
-    RichConsoleUI,
-    ToolExecutionDecision,
-)
+from haystack_experimental.components.agents.human_in_the_loop import BreakpointConfirmationStrategy
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
     get_tool_calls_and_descriptions_from_snapshot,
 )

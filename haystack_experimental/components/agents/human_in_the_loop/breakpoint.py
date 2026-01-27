@@ -5,9 +5,8 @@
 from copy import deepcopy
 
 from haystack.dataclasses.breakpoints import AgentSnapshot, ToolBreakpoint
+from haystack.human_in_the_loop.strategies import _prepare_tool_args
 from haystack.utils import _deserialize_value_with_schema
-
-from haystack_experimental.components.agents.human_in_the_loop.strategies import _prepare_tool_args
 
 
 def get_tool_calls_and_descriptions_from_snapshot(

@@ -26,8 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "haystack-ai",
-  "rich", # For pretty printing in the console used by human-in-the-loop utilities,
+  "haystack-ai"
 ]
 
 [project.urls]
@@ -58,6 +57,7 @@ extra-dependencies = [
   "amazon-bedrock-haystack",
   "google-genai-haystack",
   "cohere-haystack",
+  "rich", # for hitl_breakpoint_example.py
   # Type check
   "mypy",
   "pip",
