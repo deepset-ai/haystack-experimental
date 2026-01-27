@@ -21,7 +21,7 @@ import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
 
-from haystack import logging
+from haystack import component, logging
 from haystack.components.agents.agent import Agent as HaystackAgent, _ExecutionContext, _schema_from_dict
 from haystack.human_in_the_loop.strategies import (
     ConfirmationStrategy,
@@ -56,6 +56,7 @@ from haystack_experimental.memory_stores.types import MemoryStore
 logger = logging.getLogger(__name__)
 
 
+@component
 class Agent(HaystackAgent):
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
