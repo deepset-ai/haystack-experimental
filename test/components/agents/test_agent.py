@@ -200,7 +200,8 @@ class TestAgent:
     def test_to_dict(self, tools, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, chat_message_store=InMemoryChatMessageStore()
+            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, chat_message_store=InMemoryChatMessageStore(),
+            memory_store=Mem0MemoryStore()
         )
         agent_dict = agent.to_dict()
         assert agent_dict == {
