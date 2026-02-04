@@ -228,6 +228,13 @@ class TestAgent:
                         "skip_system_messages": True,
                     },
                 },
+                'memory_store': {
+                    'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
+                                  'init_parameters': {'api_key':
+                                                      {'type': 'env_var',
+                                                                  'env_vars':
+                                                                  ['MEM0_API_KEY'],
+                                                                  'strict': True}}},
                 "tools": [
                     {
                         "type": "haystack.tools.tool.Tool",
