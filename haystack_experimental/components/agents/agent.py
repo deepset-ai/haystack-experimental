@@ -819,6 +819,9 @@ class Agent(HaystackAgent):
         data["init_parameters"]["chat_message_store"] = (
             self._chat_message_store.to_dict() if self._chat_message_store is not None else None
         )
+        data["init_parameters"]["memory_store"] = (
+            self._memory_store.to_dict() if self._memory_store is not None else None
+        )
         return data
 
     @classmethod
@@ -848,6 +851,9 @@ class Agent(HaystackAgent):
         # NOTE: This is different from the base Agent class to handle ChatMessageStore deserialization
         if "chat_message_store" in init_params and init_params["chat_message_store"] is not None:
             deserialize_component_inplace(init_params, key="chat_message_store")
+
+        if "memory_store" in init_params and init_params["memory_store"] is not None:
+            deserialize_component_inplace(init_params, key="memory_store")
 
         return default_from_dict(cls, data)
 

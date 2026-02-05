@@ -31,6 +31,7 @@ from haystack_experimental.components.agents.human_in_the_loop.breakpoint import
 )
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
+from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 
 
 @pytest.fixture
@@ -199,7 +200,8 @@ class TestAgent:
     def test_to_dict(self, tools, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, chat_message_store=InMemoryChatMessageStore()
+            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, chat_message_store=InMemoryChatMessageStore(),
+            memory_store=Mem0MemoryStore()
         )
         agent_dict = agent.to_dict()
         assert agent_dict == {
@@ -228,6 +230,14 @@ class TestAgent:
                         "skip_system_messages": True,
                     },
                 },
+                'memory_store': {
+                    'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
+                    'init_parameters': {
+                        'api_key':
+                                {'type': 'env_var',
+                                'env_vars':
+                                    ['MEM0_API_KEY'],
+                                    'strict': True}}},
                 "tools": [
                     {
                         "type": "haystack.tools.tool.Tool",
@@ -260,7 +270,8 @@ class TestAgent:
     def test_from_dict(self, tools, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(), tools=tools, chat_message_store=InMemoryChatMessageStore()
+            chat_generator=OpenAIChatGenerator(), tools=tools, chat_message_store=InMemoryChatMessageStore(),
+            memory_store=Mem0MemoryStore()
         )
         deserialized_agent = Agent.from_dict(agent.to_dict())
         assert deserialized_agent.to_dict() == agent.to_dict()
@@ -269,6 +280,7 @@ class TestAgent:
         assert deserialized_agent.tools[0].name == "addition_tool"
         assert isinstance(deserialized_agent._tool_invoker, type(agent._tool_invoker))
         assert isinstance(deserialized_agent._chat_message_store, InMemoryChatMessageStore)
+        assert isinstance(deserialized_agent._memory_store, Mem0MemoryStore)
 
 
 class TestAgentConfirmationStrategy:
