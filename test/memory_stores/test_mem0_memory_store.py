@@ -36,14 +36,6 @@ def memory_store():
 class TestMem0MemoryStore:
 
     @pytest.fixture
-    def mock_memory_client(self):
-        """Mock the Mem0 MemoryClient."""
-        with patch("haystack_experimental.memory_stores.mem0.memory_store.MemoryClient") as mock_client_class:
-            mock_client = Mock()
-            mock_client_class.return_value = mock_client
-            yield mock_client
-
-    @pytest.fixture
     def sample_messages(self):
         """Sample ChatMessage objects for testing."""
         return [

@@ -197,8 +197,9 @@ def tools() -> list[Tool]:
 
 
 class TestAgent:
-    def test_to_dict(self, tools, monkeypatch):
+    def test_to_dict(self, tools, monkeypatch, mock_memory_client):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("MEM0_API_KEY", "test")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, chat_message_store=InMemoryChatMessageStore(),
             memory_store=Mem0MemoryStore()
@@ -267,8 +268,9 @@ class TestAgent:
             },
         }
 
-    def test_from_dict(self, tools, monkeypatch):
+    def test_from_dict(self, tools, monkeypatch, mock_memory_client):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("MEM0_API_KEY", "test")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(), tools=tools, chat_message_store=InMemoryChatMessageStore(),
             memory_store=Mem0MemoryStore()
