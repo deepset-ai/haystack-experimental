@@ -197,7 +197,7 @@ def tools() -> list[Tool]:
 
 
 class TestAgent:
-    def test_to_dict(self, tools, monkeypatch, mock_memory_client):
+    def test_to_dict(self, tools, monkeypatch, mock_mem0_memory_client):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
         monkeypatch.setenv("MEM0_API_KEY", "test")
         agent = Agent(
@@ -268,7 +268,7 @@ class TestAgent:
             },
         }
 
-    def test_from_dict(self, tools, monkeypatch, mock_memory_client):
+    def test_from_dict(self, tools, monkeypatch, mock_mem0_memory_client):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
         monkeypatch.setenv("MEM0_API_KEY", "test")
         agent = Agent(

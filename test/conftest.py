@@ -16,7 +16,7 @@ def test_files_path():
     return Path(__file__).parent / "test_files"
 
 @pytest.fixture
-def mock_memory_client():
+def mock_mem0_memory_client():
     """Mock the Mem0 MemoryClient."""
     with patch("haystack_experimental.memory_stores.mem0.memory_store.MemoryClient") as mock_client_class:
         mock_client = Mock()
