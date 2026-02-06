@@ -36,14 +36,6 @@ def memory_store():
 class TestMem0MemoryStore:
 
     @pytest.fixture
-    def mock_memory_client(self):
-        """Mock the Mem0 MemoryClient."""
-        with patch("haystack_experimental.memory_stores.mem0.memory_store.MemoryClient") as mock_client_class:
-            mock_client = Mock()
-            mock_client_class.return_value = mock_client
-            yield mock_client
-
-    @pytest.fixture
     def sample_messages(self):
         """Sample ChatMessage objects for testing."""
         return [
@@ -51,17 +43,17 @@ class TestMem0MemoryStore:
             ChatMessage.from_user("I like working with Haystack.", meta={"topic": "programming"}),
         ]
 
-    def test_init_with_user_id_and_api_key(self, mock_memory_client):
+    def test_init_with_user_id_and_api_key(self, mock_mem0_memory_client):
         """Test initialization with user_id and api_key."""
         with patch.dict(os.environ, {}, clear=True):
             store = Mem0MemoryStore(api_key=Secret.from_token("test_api_key_12345"))
-            assert store.client == mock_memory_client
+            assert store.client == mock_mem0_memory_client
 
-    def test_init_with_params(self, mock_memory_client):
+    def test_init_with_params(self, mock_mem0_memory_client):
         store = Mem0MemoryStore(
             api_key=Secret.from_token("test_api_key_12345")
         )
-        assert store.client == mock_memory_client
+        assert store.client == mock_mem0_memory_client
 
     def test_init_without_api_key_raises_error(self):
         """Test that initialization without API key raises ValueError."""
@@ -70,7 +62,7 @@ class TestMem0MemoryStore:
                                match="None of the following authentication environment variables are set"):
                 Mem0MemoryStore()
 
-    def test_to_dict(self, monkeypatch, mock_memory_client):
+    def test_to_dict(self, monkeypatch, mock_mem0_memory_client):
         """Test serialization to dictionary."""
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
@@ -80,7 +72,7 @@ class TestMem0MemoryStore:
             result = store.to_dict()
             assert result["init_parameters"]["api_key"] == {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"}
 
-    def test_from_dict(self, monkeypatch, mock_memory_client):
+    def test_from_dict(self, monkeypatch, mock_mem0_memory_client):
         with patch.dict(os.environ, {}, clear=True):
             monkeypatch.setenv("ENV_VAR", "test_api_key_12345")
             data = {
@@ -88,7 +80,7 @@ class TestMem0MemoryStore:
                 'init_parameters': { "api_key": {"env_vars": ["ENV_VAR"], "strict": True, "type": "env_var"},
                                     }}
             store = Mem0MemoryStore.from_dict(data)
-            assert store.client == mock_memory_client
+            assert store.client == mock_mem0_memory_client
             assert store.api_key == Secret.from_env_var("ENV_VAR")
 
     @pytest.mark.skipif(
