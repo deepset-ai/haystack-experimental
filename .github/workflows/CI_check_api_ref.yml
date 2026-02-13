@@ -18,68 +18,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.10"
-
-      - name: Detect changes in API reference
-        id: changed
-        shell: python
-        run: |
-          import os
-          import subprocess
-          import sys
-          from pathlib import Path
-
-          sys.path.insert(0, ".github/utils")
-          from docstrings_checksum import docstrings_checksum
-
-          def git(*args):
-              result = subprocess.run(["git", *args], capture_output=True, text=True)
-              return result.stdout.strip(), result.returncode
-
-          runner_temp = os.environ["RUNNER_TEMP"]
-          base_sha, _ = git("rev-parse", "HEAD^1")
-
-          # Check if pydoc config changed
-          _, exit_code = git("diff", "--quiet", f"{base_sha}...HEAD", "--", "pydoc/")
-          changed_api_ref = (exit_code != 0)
-
-          if not changed_api_ref:
-            # Create base worktree for docstring comparison
-            base_worktree = os.path.join(runner_temp, "base")
-            _, return_code = git("worktree", "add", base_worktree, base_sha)
-            has_worktree = return_code == 0
-
-
-            # Check if docstrings changed
-            pr_docstrings_checksum = docstrings_checksum(Path(".").glob("haystack_experimental/**/*.py"))
-            base_docstrings_checksum = ""
-            if has_worktree:
-                base_docstrings_checksum = docstrings_checksum(Path(base_worktree).glob("haystack_experimental/**/*.py"))
-
-            if base_docstrings_checksum != pr_docstrings_checksum:
-                changed_api_ref = True
-
-          print(f"API reference changes: {changed_api_ref}")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"changed_api_ref={changed_api_ref}\n")
-
       - name: Install Hatch
-        if: steps.changed.outputs.changed_api_ref == 'true'
         run: pip install --upgrade hatch
 
       - name: Generate API references
-        if: steps.changed.outputs.changed_api_ref == 'true'
-
         run: hatch run docs
 
       - name: Set up Node.js
-        if: steps.changed.outputs.changed_api_ref == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "22"
 
       - name: Run Docusaurus md/mdx checker
-        if: steps.changed.outputs.changed_api_ref == 'true'
         working-directory: pydoc/temp
         run: |
           npx docusaurus-mdx-checker -v || {

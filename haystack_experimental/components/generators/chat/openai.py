@@ -68,7 +68,6 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
 
         :param messages:
             A list of ChatMessage instances representing the input messages.
-            {"key": "this would break Docusaurus"}
         :param streaming_callback:
             A callback function that is called when a new token is received from the stream.
         :param generation_kwargs:
