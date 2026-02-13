@@ -38,19 +38,9 @@ jobs:
           runner_temp = os.environ["RUNNER_TEMP"]
           base_sha, _ = git("rev-parse", "HEAD^1")
 
-          # Get all changed files
-          diff_output, _ = git(
-              "diff", "--name-only", f"{base_sha}...HEAD", "--", "haystack_experimental"
-          )
-          changed_files = set(diff_output.splitlines())
-
-          changed_api_ref = False
-
-          # If pydoc config changed, always include
-          for file in changed_files:
-              if file.startswith("pydoc/"):
-                  changed_api_ref = True
-                  break
+          # Check if pydoc config changed
+          _, exit_code = git("diff", "--quiet", f"{base_sha}...HEAD", "--", "pydoc/")
+          changed_api_ref = (exit_code != 0)
 
           if not changed_api_ref:
             # Create base worktree for docstring comparison
