@@ -1,0 +1,38 @@
+name: Check API reference changes
+
+on:
+  pull_request:
+    paths:
+      - "haystack_experimental/**/*.py"
+      - "pydoc/*.yml"
+
+jobs:
+  test-api-reference-build:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Hatch
+        run: pip install --upgrade hatch
+
+      - name: Generate API references
+        run: hatch run docs
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Run Docusaurus md/mdx checker
+        working-directory: pydoc/temp
+        run: |
+          npx docusaurus-mdx-checker -v || {
+              echo ""
+              echo "For common MDX problems, see https://docusaurus.io/blog/preparing-your-site-for-docusaurus-v3#common-mdx-problems"
+              exit 1
+            }
