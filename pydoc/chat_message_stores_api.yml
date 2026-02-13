@@ -15,7 +15,7 @@ processors:
 - type: smart
 - type: crossref
 renderer:
-  description: Storage for the chat messages. TRIGGER!!!
+  description: Storage for the chat messages.
   id: experimental-chatmessage-store-api
   markdown:
     add_member_class_prefix: false
