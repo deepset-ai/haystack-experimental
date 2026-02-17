@@ -35,10 +35,10 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     rag_result = llm.run(
         messages=[
             ChatMessage.from_user(
-                text="Task: Answer strictly based on the evidence provided below.\n"
-                "Question: Who won the Nobel Prize in Physics in 2019?\n"
-                "Evidence:\n"
-                "- Nobel Prize press release (2019): James Peebles (1/2); Michel Mayor & Didier Queloz (1/2).\n"
+                text="Task: Answer strictly based on the evidence provided below.\\n"
+                "Question: Who won the Nobel Prize in Physics in 2019?\\n"
+                "Evidence:\\n"
+                "- Nobel Prize press release (2019): James Peebles (1/2); Michel Mayor & Didier Queloz (1/2).\\n"
                 "Constraints: If evidence is insufficient or conflicting, refuse."
             )
         ],
@@ -47,7 +47,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     print(f"Decision: {rag_result['replies'][0].meta['hallucination_decision']}")
     print(f"Risk bound: {rag_result['replies'][0].meta['hallucination_risk']:.3f}")
     print(f"Rationale: {rag_result['replies'][0].meta['hallucination_rationale']}")
-    print(f"Answer:\n{rag_result['replies'][0].text}")
+    print(f"Answer:\\n{rag_result['replies'][0].text}")
     print("---")
     ```
     """
