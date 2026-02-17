@@ -119,7 +119,7 @@ Some experimental features come with example notebooks that can be found in the 
 
 ## Documentation
 
-Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/experimental-data-classes-api).
+Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/category/experiments-api).
 
 ## Implementation
 
