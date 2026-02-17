@@ -6,8 +6,7 @@
 # ruff: noqa: I001
 
 import inspect
-from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
@@ -22,63 +21,42 @@ import haystack_experimental.core.pipeline.breakpoint as exp_breakpoint
 hs_breakpoint._create_agent_snapshot = exp_breakpoint._create_agent_snapshot
 hs_breakpoint._create_pipeline_snapshot_from_tool_invoker = exp_breakpoint._create_pipeline_snapshot_from_tool_invoker  # type: ignore[assignment]
 
-from haystack import DeserializationError, logging
-from haystack.components.agents.agent import Agent as HaystackAgent
-from haystack.components.agents.agent import _ExecutionContext as Haystack_ExecutionContext
-from haystack.components.agents.agent import _schema_from_dict
-from haystack.components.agents.state import replace_values, State
+from haystack import component, logging
+from haystack.components.agents.agent import Agent as HaystackAgent, _ExecutionContext, _schema_from_dict
+from haystack.human_in_the_loop.strategies import (
+    ConfirmationStrategy,
+    _process_confirmation_strategies,
+    _process_confirmation_strategies_async,
+)
+from haystack.components.agents.state import replace_values
 from haystack.components.generators.chat.types import ChatGenerator
-from haystack.core.errors import PipelineRuntimeError
+from haystack.core.errors import BreakpointException, PipelineRuntimeError
 from haystack.core.pipeline import AsyncPipeline, Pipeline
 from haystack.core.pipeline.breakpoint import (
     _create_pipeline_snapshot_from_chat_generator,
     _create_pipeline_snapshot_from_tool_invoker,
+    _save_pipeline_snapshot,
+    _should_trigger_tool_invoker_breakpoint,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
-from haystack.core.serialization import default_from_dict, import_class_by_name
-from haystack.dataclasses import ChatMessage, ChatRole
+from haystack.core.serialization import default_from_dict
+from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import AgentBreakpoint, ToolBreakpoint
-from haystack.dataclasses.streaming_chunk import StreamingCallbackT, select_streaming_callback
+from haystack.dataclasses.streaming_chunk import StreamingCallbackT
 from haystack.tools import ToolsType, deserialize_tools_or_toolset_inplace
 from haystack.utils.callable_serialization import deserialize_callable
-from haystack.utils.deserialization import deserialize_chatgenerator_inplace
+from haystack.utils.deserialization import deserialize_component_inplace
 
 from haystack_experimental.chat_message_stores.types import ChatMessageStore
-from haystack_experimental.components.agents.human_in_the_loop import (
-    ConfirmationStrategy,
-    ToolExecutionDecision,
-    HITLBreakpointException,
-)
-from haystack_experimental.components.agents.human_in_the_loop.strategies import (
-    _process_confirmation_strategies,
-    _process_confirmation_strategies_async,
-)
+from haystack_experimental.components.agents.human_in_the_loop import HITLBreakpointException
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
+from haystack_experimental.memory_stores.types import MemoryStore
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class _ExecutionContext(Haystack_ExecutionContext):
-    """
-    Execution context for the Agent component
-
-    Extends Haystack's _ExecutionContext to include tool execution decisions for human-in-the-loop strategies.
-
-    :param tool_execution_decisions: Optional list of ToolExecutionDecision objects to use instead of prompting
-        the user. This is useful when restarting from a snapshot where tool execution decisions were already made.
-    :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
-        to confirmation strategies. In web/server environments, this enables passing per-request
-        objects (e.g., WebSocket connections, async queues, or pub/sub clients) that strategies can use for
-        non-blocking user interaction. This is passed directly to strategies via the `confirmation_strategy_context`
-        parameter in their `run()` and `run_async()` methods.
-    """
-
-    tool_execution_decisions: Optional[list[ToolExecutionDecision]] = None
-    confirmation_strategy_context: Optional[dict[str, Any]] = None
-
-
+@component
 class Agent(HaystackAgent):
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
@@ -134,16 +112,17 @@ class Agent(HaystackAgent):
         self,
         *,
         chat_generator: ChatGenerator,
-        tools: Optional[ToolsType] = None,
-        system_prompt: Optional[str] = None,
-        exit_conditions: Optional[list[str]] = None,
-        state_schema: Optional[dict[str, Any]] = None,
+        tools: ToolsType | None = None,
+        system_prompt: str | None = None,
+        exit_conditions: list[str] | None = None,
+        state_schema: dict[str, Any] | None = None,
         max_agent_steps: int = 100,
-        streaming_callback: Optional[StreamingCallbackT] = None,
+        streaming_callback: StreamingCallbackT | None = None,
         raise_on_tool_invocation_failure: bool = False,
-        confirmation_strategies: Optional[dict[str, ConfirmationStrategy]] = None,
-        tool_invoker_kwargs: Optional[dict[str, Any]] = None,
-        chat_message_store: Optional[ChatMessageStore] = None,
+        confirmation_strategies: dict[str, ConfirmationStrategy] | None = None,
+        tool_invoker_kwargs: dict[str, Any] | None = None,
+        chat_message_store: ChatMessageStore | None = None,
+        memory_store: MemoryStore | None = None,
     ) -> None:
         """
         Initialize the agent component.
@@ -162,6 +141,9 @@ class Agent(HaystackAgent):
         :param raise_on_tool_invocation_failure: Should the agent raise an exception when a tool invocation fails?
             If set to False, the exception will be turned into a chat message and passed to the LLM.
         :param tool_invoker_kwargs: Additional keyword arguments to pass to the ToolInvoker.
+        :param chat_message_store: The ChatMessageStore that the agent can use to store
+            and retrieve chat messages history.
+        :param memory_store: The memory store that the agent can use to store and retrieve memories.
         :raises TypeError: If the chat_generator does not support tools parameter in its run method.
         :raises ValueError: If the exit_conditions are not valid.
         """
@@ -175,8 +157,8 @@ class Agent(HaystackAgent):
             streaming_callback=streaming_callback,
             raise_on_tool_invocation_failure=raise_on_tool_invocation_failure,
             tool_invoker_kwargs=tool_invoker_kwargs,
+            confirmation_strategies=confirmation_strategies,
         )
-        self._confirmation_strategies = confirmation_strategies or {}
         self._chat_message_store = chat_message_store
         self._chat_message_retriever = (
             ChatMessageRetriever(chat_message_store=chat_message_store) if chat_message_store else None
@@ -184,18 +166,20 @@ class Agent(HaystackAgent):
         self._chat_message_writer = (
             ChatMessageWriter(chat_message_store=chat_message_store) if chat_message_store else None
         )
+        self._memory_store = memory_store
 
     def _initialize_fresh_execution(
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT],
+        streaming_callback: StreamingCallbackT | None,
         requires_async: bool,
         *,
-        system_prompt: Optional[str] = None,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
-        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        system_prompt: str | None = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+        chat_message_store_kwargs: dict[str, Any] | None = None,
+        memory_store_kwargs: dict[str, Any] | None = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -207,67 +191,78 @@ class Agent(HaystackAgent):
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
+
+        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
+            For example, it can include the `user_id`, `run_id`, and `agent_id` parameters
+            for storing and retrieving memories.
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
             to confirmation strategies.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
+            For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
         :param kwargs: Additional data to pass to the State used by the Agent.
         """
-        system_prompt = system_prompt or self.system_prompt
-        if system_prompt is not None:
-            messages = [ChatMessage.from_system(system_prompt)] + messages
+        exe_context = super(Agent, self)._initialize_fresh_execution(
+            messages=messages,
+            streaming_callback=streaming_callback,
+            requires_async=requires_async,
+            system_prompt=system_prompt,
+            generation_kwargs=generation_kwargs,
+            tools=tools,
+            confirmation_strategy_context=confirmation_strategy_context,
+            chat_message_store_kwargs=chat_message_store_kwargs,
+            **kwargs,
+        )
+
+        # NOTE: difference with parent method to add memory retrieval
+        if self._memory_store:
+            retrieved_memories = self._memory_store.search_memories(
+                query=messages[-1].text, **memory_store_kwargs if memory_store_kwargs else {}
+            )
+            # we combine the memories into a single string
+            combined_memory = "\n".join(
+                f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memories)
+            )
+            retrieved_memory = ChatMessage.from_system(text=combined_memory)
+            memory_instruction = (
+                "\n\nWhen messages start with `[MEMORY]`, treat them as long-term context and use them to guide the "
+                "response if relevant."
+            )
+            new_system_message = ChatMessage.from_system(text=f"{system_prompt}{memory_instruction}")
+            memory_system_message = ChatMessage.from_system(
+                text=f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
+            )
+            new_chat_history = [new_system_message] + messages + [memory_system_message]
+            # We replace the messages in state with the new chat history including memories
+            exe_context.state.set("messages", new_chat_history, handler_override=replace_values)
 
         # NOTE: difference with parent method to add chat message retrieval
         if self._chat_message_retriever:
             retriever_kwargs = _select_kwargs(self._chat_message_retriever, chat_message_store_kwargs or {})
             if "chat_history_id" in retriever_kwargs:
-                messages = self._chat_message_retriever.run(
-                    current_messages=messages,
+                updated_messages = self._chat_message_retriever.run(
+                    current_messages=exe_context.state.get("messages", []),
                     **retriever_kwargs,
                 )["messages"]
+                # We replace the messages in state with the updated messages including chat history
+                exe_context.state.set("messages", updated_messages, handler_override=replace_values)
 
-        if all(m.is_from(ChatRole.SYSTEM) for m in messages):
-            logger.warning("All messages provided to the Agent component are system messages. This is not recommended.")
-
-        state = State(schema=self.state_schema, data=kwargs)
-        state.set("messages", messages)
-
-        streaming_callback = select_streaming_callback(  # type: ignore[call-overload]
-            init_callback=self.streaming_callback, runtime_callback=streaming_callback, requires_async=requires_async
-        )
-
-        selected_tools = self._select_tools(tools)
-        tool_invoker_inputs: dict[str, Any] = {"tools": selected_tools}
-        generator_inputs: dict[str, Any] = {"tools": selected_tools}
-        if streaming_callback is not None:
-            tool_invoker_inputs["streaming_callback"] = streaming_callback
-            generator_inputs["streaming_callback"] = streaming_callback
-        if generation_kwargs is not None:
-            generator_inputs["generation_kwargs"] = generation_kwargs
-
-        # NOTE: difference with parent method to add this to tool_invoker_inputs
-        if self._tool_invoker:
-            tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
-                self._tool_invoker.enable_streaming_callback_passthrough
-            )
-
-        # NOTE: difference is to use the extended _ExecutionContext with confirmation_strategy_context
         return _ExecutionContext(
-            state=state,
-            component_visits=dict.fromkeys(["chat_generator", "tool_invoker"], 0),
-            chat_generator_inputs=generator_inputs,
-            tool_invoker_inputs=tool_invoker_inputs,
-            confirmation_strategy_context=confirmation_strategy_context,
+            state=exe_context.state,
+            component_visits=exe_context.component_visits,
+            chat_generator_inputs=exe_context.chat_generator_inputs,
+            tool_invoker_inputs=exe_context.tool_invoker_inputs,
+            confirmation_strategy_context=exe_context.confirmation_strategy_context,
         )
 
     def _initialize_from_snapshot(  # type: ignore[override]
         self,
         snapshot: AgentSnapshot,
-        streaming_callback: Optional[StreamingCallbackT],
+        streaming_callback: StreamingCallbackT | None,
         requires_async: bool,
         *,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> _ExecutionContext:
         """
         Initialize execution context from an AgentSnapshot.
@@ -282,28 +277,15 @@ class Agent(HaystackAgent):
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
             to confirmation strategies.
         """
-        # The PR https://github.com/deepset-ai/haystack/pull/9616 added the generation_kwargs parameter to
-        # _initialize_from_snapshot. This change has been released in Haystack 2.20.0.
-        # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
-        if inspect.signature(super(Agent, self)._initialize_from_snapshot).parameters.get("generation_kwargs"):
-            exe_context = super(Agent, self)._initialize_from_snapshot(  # type: ignore[call-arg]
-                snapshot=snapshot,
-                streaming_callback=streaming_callback,
-                requires_async=requires_async,
-                generation_kwargs=generation_kwargs,
-                tools=tools,
-            )
-        else:
-            exe_context = super(Agent, self)._initialize_from_snapshot(
-                snapshot=snapshot, streaming_callback=streaming_callback, requires_async=requires_async, tools=tools
-            )
-        # NOTE: 1st difference with parent method to add this to tool_invoker_inputs
-        if self._tool_invoker:
-            exe_context.tool_invoker_inputs["enable_streaming_callback_passthrough"] = (
-                self._tool_invoker.enable_streaming_callback_passthrough
-            )
-        # NOTE: 2nd difference is to use the extended _ExecutionContext
-        # and add tool_execution_decisions + confirmation_strategy_context
+        exe_context = super(Agent, self)._initialize_from_snapshot(
+            snapshot=snapshot,
+            streaming_callback=streaming_callback,
+            requires_async=requires_async,
+            generation_kwargs=generation_kwargs,
+            tools=tools,
+            confirmation_strategy_context=confirmation_strategy_context,
+        )
+        # NOTE: Only difference is to use pass tool_execution_decisions to _ExecutionContext
         return _ExecutionContext(
             state=exe_context.state,
             component_visits=exe_context.component_visits,
@@ -311,22 +293,23 @@ class Agent(HaystackAgent):
             tool_invoker_inputs=exe_context.tool_invoker_inputs,
             counter=exe_context.counter,
             skip_chat_generator=exe_context.skip_chat_generator,
+            confirmation_strategy_context=exe_context.confirmation_strategy_context,
             tool_execution_decisions=snapshot.tool_execution_decisions,
-            confirmation_strategy_context=confirmation_strategy_context,
         )
 
-    def run(  # type: ignore[override]  # noqa: PLR0915
+    def run(  # type: ignore[override]  # noqa: PLR0915 PLR0912
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
+        streaming_callback: StreamingCallbackT | None = None,
         *,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,
-        system_prompt: Optional[str] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
-        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        break_point: AgentBreakpoint | None = None,
+        snapshot: AgentSnapshot | None = None,
+        system_prompt: str | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+        chat_message_store_kwargs: dict[str, Any] | None = None,
+        memory_store_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -350,6 +333,19 @@ class Agent(HaystackAgent):
             can use for non-blocking user interaction.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
+        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
+            It can include:
+            - `user_id`: The user ID to search and add memories from.
+            - `run_id`: The run ID to search and add memories from.
+            - `agent_id`: The agent ID to search and add memories from.
+            - `search_criteria`: A dictionary of containing kwargs for the `search_memories` method.
+                This can include:
+                - `filters`: A dictionary of filters to search for memories.
+                - `query`: The query to search for memories.
+                    Note: If you pass this, the user query passed to the agent will be
+                    ignored for memory retrieval.
+                - `top_k`: The number of memories to return.
+                - `include_memory_metadata`: Whether to include the memory metadata in the ChatMessage.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -360,8 +356,8 @@ class Agent(HaystackAgent):
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
         :raises BreakpointException: If an agent breakpoint is triggered.
         """
-        # We pop parent_snapshot from kwargs to avoid passing it into State.
-        parent_snapshot = kwargs.pop("parent_snapshot", None)
+        memory_store_kwargs = memory_store_kwargs or {}
+
         agent_inputs = {
             "messages": messages,
             "streaming_callback": streaming_callback,
@@ -369,13 +365,9 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        # The PR https://github.com/deepset-ai/haystack/pull/9987 removed the unused snapshot parameter from
-        # _runtime_checks. This change will be released in Haystack 2.20.0.
-        # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
-        if len(inspect.signature(self._runtime_checks).parameters) == 2:
-            self._runtime_checks(break_point, snapshot)  # type: ignore[call-arg]  # pylint: disable=too-many-function-args
-        else:
-            self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
+        # TODO Probably good to add a warning in runtime checks that BreakpointConfirmationStrategy will take
+        #  precedence over passing a ToolBreakpoint
+        self._runtime_checks(break_point)
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
@@ -396,6 +388,7 @@ class Agent(HaystackAgent):
                 tools=tools,
                 confirmation_strategy_context=confirmation_strategy_context,
                 chat_message_store_kwargs=chat_message_store_kwargs,
+                memory_store_kwargs=memory_store_kwargs,
                 **kwargs,
             )
 
@@ -403,10 +396,6 @@ class Agent(HaystackAgent):
             span.set_content_tag("haystack.agent.input", _deepcopy_with_exceptions(agent_inputs))
 
             while exe_context.counter < self.max_agent_steps:
-                # Handle breakpoint and ChatGenerator call
-                Agent._check_chat_generator_breakpoint(
-                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
-                )
                 # We skip the chat generator when restarting from a snapshot from a ToolBreakpoint
                 if exe_context.skip_chat_generator:
                     llm_messages = exe_context.state.get("messages", [])[-1:]
@@ -423,14 +412,26 @@ class Agent(HaystackAgent):
                             },
                             component_visits=exe_context.component_visits,
                             parent_span=span,
+                            break_point=break_point.break_point if isinstance(break_point, AgentBreakpoint) else None,
                         )
-                    except PipelineRuntimeError as e:
-                        pipeline_snapshot = _create_pipeline_snapshot_from_chat_generator(
-                            agent_name=getattr(self, "__component_name__", None),
-                            execution_context=exe_context,
-                            parent_snapshot=parent_snapshot,
+                    except (BreakpointException, PipelineRuntimeError) as e:
+                        if isinstance(e, BreakpointException):
+                            agent_name = break_point.agent_name if break_point else None
+                            saved_bp = break_point
+                        else:
+                            agent_name = getattr(self, "__component_name__", None)
+                            saved_bp = None
+
+                        e.pipeline_snapshot = _create_pipeline_snapshot_from_chat_generator(
+                            agent_name=agent_name, execution_context=exe_context, break_point=saved_bp
                         )
-                        e.pipeline_snapshot = pipeline_snapshot
+                        if isinstance(e, BreakpointException):
+                            e._break_point = e.pipeline_snapshot.break_point
+                        # If Agent is not in a pipeline, we save the snapshot to a file.
+                        # Checked by __component_name__ not being set.
+                        if getattr(self, "__component_name__", None) is None:
+                            full_file_path = _save_pipeline_snapshot(pipeline_snapshot=e.pipeline_snapshot)
+                            e.pipeline_snapshot_file_path = full_file_path
                         raise e
 
                     llm_messages = result["replies"]
@@ -441,8 +442,22 @@ class Agent(HaystackAgent):
                     exe_context.counter += 1
                     break
 
-                # Apply confirmation strategies and update State and messages sent to ToolInvoker
+                # We only pass down the breakpoint if the tool name matches the tool call in the LLM messages
+                resolved_break_point = None
+                break_point_to_pass = None
+                if (
+                    break_point
+                    and isinstance(break_point.break_point, ToolBreakpoint)
+                    and _should_trigger_tool_invoker_breakpoint(
+                        break_point=break_point.break_point, llm_messages=llm_messages
+                    )
+                ):
+                    resolved_break_point = break_point
+                    break_point_to_pass = resolved_break_point.break_point
+
+                # NOTE: difference with parent method to add support HITLBreakpointException
                 try:
+                    # Apply confirmation strategies and update State and messages sent to ToolInvoker
                     # Run confirmation strategies to get updated tool call messages and modified chat history
                     modified_tool_call_messages, new_chat_history = _process_confirmation_strategies(
                         confirmation_strategies=self._confirmation_strategies,
@@ -452,8 +467,8 @@ class Agent(HaystackAgent):
                     # Replace the chat history in state with the modified one
                     exe_context.state.set(key="messages", value=new_chat_history, handler_override=replace_values)
                 except HITLBreakpointException as tbp_error:
-                    # We create a break_point to pass into _check_tool_invoker_breakpoint
-                    break_point = AgentBreakpoint(
+                    # We create a break_point to pass to Pipeline._run_component
+                    resolved_break_point = AgentBreakpoint(
                         agent_name=getattr(self, "__component_name__", ""),
                         break_point=ToolBreakpoint(
                             component_name="tool_invoker",
@@ -462,11 +477,9 @@ class Agent(HaystackAgent):
                             snapshot_file_path=tbp_error.snapshot_file_path,
                         ),
                     )
-
-                # Handle breakpoint
-                Agent._check_tool_invoker_breakpoint(
-                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
-                )
+                    break_point_to_pass = resolved_break_point.break_point
+                    # If we hit a HITL breakpoint, we skip passing modified messages to ToolInvoker
+                    modified_tool_call_messages = llm_messages
 
                 # Run ToolInvoker
                 try:
@@ -481,19 +494,28 @@ class Agent(HaystackAgent):
                         },
                         component_visits=exe_context.component_visits,
                         parent_span=span,
+                        break_point=break_point_to_pass,
                     )
-                except PipelineRuntimeError as e:
-                    # Access the original Tool Invoker exception
-                    original_error = e.__cause__
-                    tool_name = getattr(original_error, "tool_name", None)
+                except (BreakpointException, PipelineRuntimeError) as e:
+                    if isinstance(e, BreakpointException):
+                        agent_name = resolved_break_point.agent_name if resolved_break_point else None
+                        tool_name = e.break_point.tool_name if isinstance(e.break_point, ToolBreakpoint) else None
+                        saved_bp = resolved_break_point
+                    else:
+                        agent_name = getattr(self, "__component_name__", None)
+                        tool_name = getattr(e.__cause__, "tool_name", None)
+                        saved_bp = None
 
-                    pipeline_snapshot = _create_pipeline_snapshot_from_tool_invoker(
-                        tool_name=tool_name,
-                        agent_name=getattr(self, "__component_name__", None),
-                        execution_context=exe_context,
-                        parent_snapshot=parent_snapshot,
+                    e.pipeline_snapshot = _create_pipeline_snapshot_from_tool_invoker(
+                        tool_name=tool_name, agent_name=agent_name, execution_context=exe_context, break_point=saved_bp
                     )
-                    e.pipeline_snapshot = pipeline_snapshot
+                    if isinstance(e, BreakpointException):
+                        e._break_point = e.pipeline_snapshot.break_point
+                    # If Agent is not in a pipeline, we save the snapshot to a file.
+                    # Checked by __component_name__ not being set.
+                    if getattr(self, "__component_name__", None) is None:
+                        full_file_path = _save_pipeline_snapshot(pipeline_snapshot=e.pipeline_snapshot)
+                        e.pipeline_snapshot_file_path = full_file_path
                     raise e
 
                 # Set execution context tool execution decisions to empty after applying them b/c they should only
@@ -523,6 +545,11 @@ class Agent(HaystackAgent):
         if msgs := result.get("messages"):
             result["last_message"] = msgs[-1]
 
+            # Add the new conversation as memories to the memory store
+            if self._memory_store:
+                new_memories = [message for message in msgs if message.role.value != "system"]
+                self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
+
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
             writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
@@ -531,18 +558,19 @@ class Agent(HaystackAgent):
 
         return result
 
-    async def run_async(  # type: ignore[override]
+    async def run_async(  # type: ignore[override] # noqa: PLR0915
         self,
         messages: list[ChatMessage],
-        streaming_callback: Optional[StreamingCallbackT] = None,
+        streaming_callback: StreamingCallbackT | None = None,
         *,
-        generation_kwargs: Optional[dict[str, Any]] = None,
-        break_point: Optional[AgentBreakpoint] = None,
-        snapshot: Optional[AgentSnapshot] = None,
-        system_prompt: Optional[str] = None,
-        tools: Optional[Union[ToolsType, list[str]]] = None,
-        confirmation_strategy_context: Optional[dict[str, Any]] = None,
-        chat_message_store_kwargs: Optional[dict[str, Any]] = None,
+        generation_kwargs: dict[str, Any] | None = None,
+        break_point: AgentBreakpoint | None = None,
+        snapshot: AgentSnapshot | None = None,
+        system_prompt: str | None = None,
+        tools: ToolsType | list[str] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
+        chat_message_store_kwargs: dict[str, Any] | None = None,
+        memory_store_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -569,6 +597,19 @@ class Agent(HaystackAgent):
             can use for non-blocking user interaction.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
+        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
+            It can include:
+            - `user_id`: The user ID to search and add memories from.
+            - `run_id`: The run ID to search and add memories from.
+            - `agent_id`: The agent ID to search and add memories from.
+            - `search_criteria`: A dictionary of containing kwargs for the `search_memories` method.
+                This can include:
+                - `filters`: A dictionary of filters to search for memories.
+                - `query`: The query to search for memories.
+                    Note: If you pass this, the user query passed to the agent will be
+                    ignored for memory retrieval.
+                - `top_k`: The number of memories to return.
+                - `include_memory_metadata`: Whether to include the memory metadata in the ChatMessage.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -579,8 +620,8 @@ class Agent(HaystackAgent):
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
         :raises BreakpointException: If an agent breakpoint is triggered.
         """
-        # We pop parent_snapshot from kwargs to avoid passing it into State.
-        parent_snapshot = kwargs.pop("parent_snapshot", None)
+        memory_store_kwargs = memory_store_kwargs or {}
+
         agent_inputs = {
             "messages": messages,
             "streaming_callback": streaming_callback,
@@ -588,13 +629,7 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        # The PR https://github.com/deepset-ai/haystack/pull/9987 removed the unused snapshot parameter from
-        # _runtime_checks. This change will be released in Haystack 2.20.0.
-        # To maintain compatibility with Haystack 2.19 we check the number of parameters and call accordingly.
-        if len(inspect.signature(self._runtime_checks).parameters) == 2:
-            self._runtime_checks(break_point, snapshot)  # type: ignore[call-arg]  # pylint: disable=too-many-function-args
-        else:
-            self._runtime_checks(break_point)  # type: ignore[call-arg]  # pylint: disable=no-value-for-parameter
+        self._runtime_checks(break_point)
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
@@ -615,6 +650,7 @@ class Agent(HaystackAgent):
                 tools=tools,
                 confirmation_strategy_context=confirmation_strategy_context,
                 chat_message_store_kwargs=chat_message_store_kwargs,
+                memory_store_kwargs=memory_store_kwargs,
                 **kwargs,
             )
 
@@ -622,26 +658,39 @@ class Agent(HaystackAgent):
             span.set_content_tag("haystack.agent.input", _deepcopy_with_exceptions(agent_inputs))
 
             while exe_context.counter < self.max_agent_steps:
-                # Handle breakpoint and ChatGenerator call
-                self._check_chat_generator_breakpoint(
-                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
-                )
                 # We skip the chat generator when restarting from a snapshot from a ToolBreakpoint
                 if exe_context.skip_chat_generator:
                     llm_messages = exe_context.state.get("messages", [])[-1:]
                     # Set to False so the next iteration will call the chat generator
                     exe_context.skip_chat_generator = False
                 else:
-                    result = await AsyncPipeline._run_component_async(
-                        component_name="chat_generator",
-                        component={"instance": self.chat_generator},
-                        component_inputs={
-                            "messages": exe_context.state.data["messages"],
-                            **exe_context.chat_generator_inputs,
-                        },
-                        component_visits=exe_context.component_visits,
-                        parent_span=span,
-                    )
+                    try:
+                        result = await AsyncPipeline._run_component_async(
+                            component_name="chat_generator",
+                            component={"instance": self.chat_generator},
+                            component_inputs={
+                                "messages": exe_context.state.data["messages"],
+                                **exe_context.chat_generator_inputs,
+                            },
+                            component_visits=exe_context.component_visits,
+                            parent_span=span,
+                            break_point=break_point.break_point if isinstance(break_point, AgentBreakpoint) else None,
+                        )
+                    except BreakpointException as e:
+                        e.pipeline_snapshot = _create_pipeline_snapshot_from_chat_generator(
+                            agent_name=break_point.agent_name if break_point else None,
+                            execution_context=exe_context,
+                            break_point=break_point,
+                        )
+                        e._break_point = e.pipeline_snapshot.break_point
+                        # We check if the agent is part of a pipeline by checking for __component_name__
+                        # If it is not in a pipeline, we save the snapshot to a file.
+                        in_pipeline = getattr(self, "__component_name__", None) is not None
+                        if not in_pipeline:
+                            full_file_path = _save_pipeline_snapshot(pipeline_snapshot=e.pipeline_snapshot)
+                            e.pipeline_snapshot_file_path = full_file_path
+                        raise e
+
                     llm_messages = result["replies"]
                     exe_context.state.set("messages", llm_messages)
 
@@ -650,8 +699,22 @@ class Agent(HaystackAgent):
                     exe_context.counter += 1
                     break
 
-                # Apply confirmation strategies and update State and messages sent to ToolInvoker
+                # We only pass down the breakpoint if the tool name matches the tool call in the LLM messages
+                resolved_break_point = None
+                break_point_to_pass = None
+                if (
+                    break_point
+                    and isinstance(break_point.break_point, ToolBreakpoint)
+                    and _should_trigger_tool_invoker_breakpoint(
+                        break_point=break_point.break_point, llm_messages=llm_messages
+                    )
+                ):
+                    resolved_break_point = break_point
+                    break_point_to_pass = resolved_break_point.break_point
+
+                # NOTE: difference with parent method to add support HITLBreakpointException
                 try:
+                    # Apply confirmation strategies and update State and messages sent to ToolInvoker
                     # Run confirmation strategies to get updated tool call messages and modified chat history (async)
                     modified_tool_call_messages, new_chat_history = await _process_confirmation_strategies_async(
                         confirmation_strategies=self._confirmation_strategies,
@@ -662,7 +725,7 @@ class Agent(HaystackAgent):
                     exe_context.state.set(key="messages", value=new_chat_history, handler_override=replace_values)
                 except HITLBreakpointException as tbp_error:
                     # We create a break_point to pass into _check_tool_invoker_breakpoint
-                    break_point = AgentBreakpoint(
+                    resolved_break_point = AgentBreakpoint(
                         agent_name=getattr(self, "__component_name__", ""),
                         break_point=ToolBreakpoint(
                             component_name="tool_invoker",
@@ -671,25 +734,38 @@ class Agent(HaystackAgent):
                             snapshot_file_path=tbp_error.snapshot_file_path,
                         ),
                     )
+                    break_point_to_pass = resolved_break_point.break_point
+                    # If we hit a HITL breakpoint, we skip passing modified messages to ToolInvoker
+                    modified_tool_call_messages = llm_messages
 
-                # Handle breakpoint
-                Agent._check_tool_invoker_breakpoint(
-                    execution_context=exe_context, break_point=break_point, parent_snapshot=parent_snapshot
-                )
-
-                # Run ToolInvoker
-                # We only send the messages from the LLM to the tool invoker
-                tool_invoker_result = await AsyncPipeline._run_component_async(
-                    component_name="tool_invoker",
-                    component={"instance": self._tool_invoker},
-                    component_inputs={
-                        "messages": modified_tool_call_messages,
-                        "state": exe_context.state,
-                        **exe_context.tool_invoker_inputs,
-                    },
-                    component_visits=exe_context.component_visits,
-                    parent_span=span,
-                )
+                try:
+                    # We only send the messages from the LLM to the tool invoker
+                    tool_invoker_result = await AsyncPipeline._run_component_async(
+                        component_name="tool_invoker",
+                        component={"instance": self._tool_invoker},
+                        component_inputs={
+                            "messages": modified_tool_call_messages,
+                            "state": exe_context.state,
+                            **exe_context.tool_invoker_inputs,
+                        },
+                        component_visits=exe_context.component_visits,
+                        parent_span=span,
+                        break_point=break_point_to_pass,
+                    )
+                except BreakpointException as e:
+                    e.pipeline_snapshot = _create_pipeline_snapshot_from_tool_invoker(
+                        tool_name=e.break_point.tool_name if isinstance(e.break_point, ToolBreakpoint) else None,
+                        agent_name=resolved_break_point.agent_name if resolved_break_point else None,
+                        execution_context=exe_context,
+                        break_point=resolved_break_point,
+                    )
+                    e._break_point = e.pipeline_snapshot.break_point
+                    # If Agent is not in a pipeline, we save the snapshot to a file.
+                    # Checked by __component_name__ not being set.
+                    if getattr(self, "__component_name__", None) is None:
+                        full_file_path = _save_pipeline_snapshot(pipeline_snapshot=e.pipeline_snapshot)
+                        e.pipeline_snapshot_file_path = full_file_path
+                    raise e
 
                 # Set execution context tool execution decisions to empty after applying them b/c they should only
                 # be used once for the current tool calls
@@ -718,6 +794,11 @@ class Agent(HaystackAgent):
         if msgs := result.get("messages"):
             result["last_message"] = msgs[-1]
 
+            # Add the new conversation as memories to the memory store
+            if self._memory_store:
+                new_memories = [message for message in msgs if message.role.value != "system"]
+                self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
+
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
             writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
@@ -733,13 +814,12 @@ class Agent(HaystackAgent):
         :return: Dictionary with serialized data
         """
         data = super(Agent, self).to_dict()
-        data["init_parameters"]["confirmation_strategies"] = (
-            {name: strategy.to_dict() for name, strategy in self._confirmation_strategies.items()}
-            if self._confirmation_strategies
-            else None
-        )
+        # NOTE: This is different from the base Agent class to handle ChatMessageStore serialization
         data["init_parameters"]["chat_message_store"] = (
             self._chat_message_store.to_dict() if self._chat_message_store is not None else None
+        )
+        data["init_parameters"]["memory_store"] = (
+            self._memory_store.to_dict() if self._memory_store is not None else None
         )
         return data
 
@@ -753,9 +833,9 @@ class Agent(HaystackAgent):
         """
         init_params = data.get("init_parameters", {})
 
-        deserialize_chatgenerator_inplace(init_params, key="chat_generator")
+        deserialize_component_inplace(init_params, key="chat_generator")
 
-        if "state_schema" in init_params:
+        if init_params.get("state_schema") is not None:
             init_params["state_schema"] = _schema_from_dict(init_params["state_schema"])
 
         if init_params.get("streaming_callback") is not None:
@@ -764,24 +844,15 @@ class Agent(HaystackAgent):
         deserialize_tools_or_toolset_inplace(init_params, key="tools")
 
         if "confirmation_strategies" in init_params and init_params["confirmation_strategies"] is not None:
-            for name, strategy_dict in init_params["confirmation_strategies"].items():
-                try:
-                    strategy_class = import_class_by_name(strategy_dict["type"])
-                except ImportError as e:
-                    raise DeserializationError(f"Class '{strategy_dict['type']}' not correctly imported") from e
-                if not hasattr(strategy_class, "from_dict"):
-                    raise DeserializationError(f"{strategy_class} does not have from_dict method implemented.")
-                init_params["confirmation_strategies"][name] = strategy_class.from_dict(strategy_dict)
+            for name in init_params["confirmation_strategies"]:
+                deserialize_component_inplace(init_params["confirmation_strategies"], key=name)
 
+        # NOTE: This is different from the base Agent class to handle ChatMessageStore deserialization
         if "chat_message_store" in init_params and init_params["chat_message_store"] is not None:
-            cms_data = init_params["chat_message_store"]
-            try:
-                cms_class = import_class_by_name(cms_data["type"])
-            except ImportError as e:
-                raise DeserializationError(f"Class '{cms_data['type']}' not correctly imported") from e
-            if not hasattr(cms_class, "from_dict"):
-                raise DeserializationError(f"{cms_class} does not have from_dict method implemented.")
-            init_params["chat_message_store"] = cms_class.from_dict(cms_data)
+            deserialize_component_inplace(init_params, key="chat_message_store")
+
+        if "memory_store" in init_params and init_params["memory_store"] is not None:
+            deserialize_component_inplace(init_params, key="memory_store")
 
         return default_from_dict(cls, data)
 

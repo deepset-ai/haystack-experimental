@@ -24,12 +24,20 @@ on:
       - "pyproject.toml"
       - ".github/workflows/tests.yml"
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   PYTHON_VERSION: "3.10"
   HATCH_VERSION: "1.14.2"
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+  MEM0_API_KEY: ${{ secrets.MEM0_API_KEY }}
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+  AWS_REGION: "us-east-1"
 jobs:
   linting:
     runs-on: ubuntu-latest
@@ -129,5 +137,16 @@ jobs:
 
       - name: Install Hatch
         run: pip install hatch==${{ env.HATCH_VERSION }}
+
+      # Do not authenticate on PRs from forks and on PRs created by dependabot
+      - name: AWS authentication
+        id: aws-auth
+        if: github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'dependabot/'))
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+
       - name: Run
+        if: success() && steps.aws-auth.outcome == 'success'
         run: hatch run test:integration-retry

@@ -2,17 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional
-
 
 class HITLBreakpointException(Exception):
     """
     Exception raised when a tool execution is paused by a ConfirmationStrategy (e.g. BreakpointConfirmationStrategy).
     """
 
-    def __init__(
-        self, message: str, tool_name: str, snapshot_file_path: str, tool_call_id: Optional[str] = None
-    ) -> None:
+    def __init__(self, message: str, tool_name: str, snapshot_file_path: str, tool_call_id: str | None = None) -> None:
         """
         Initialize the HITLBreakpointException.
 

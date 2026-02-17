@@ -2,10 +2,7 @@ loaders:
 - ignore_when_discovered:
   - __init__
   modules:
-  - haystack_experimental.components.agents.agent
-  - haystack_experimental.components.agents.human_in_the_loop.breakpoint
-  - haystack_experimental.components.agents.human_in_the_loop.errors
-  - haystack_experimental.components.agents.human_in_the_loop.strategies
+  - haystack_experimental.memory_stores.mem0.memory_store
   search_path:
   - ../
   type: haystack_pydoc_tools.loaders.CustomPythonLoader
@@ -18,14 +15,14 @@ processors:
 - type: smart
 - type: crossref
 renderer:
-  description: Tool-using agents with provider-agnostic chat model support.
-  id: experimental-agents-api
+  description: Storage for the memories using Mem0 as the backend.
+  id: experimental-mem0-memory-store-api
   markdown:
     add_member_class_prefix: false
     add_method_class_prefix: true
     classdef_code_block: false
     descriptive_class_title: false
     descriptive_module_title: true
-    filename: experimental_agents_api.md
-  title: Agents
+    filename: experimental_mem0_memory_store_api.md
+  title: Mem0 Memory Store
   type: haystack_pydoc_tools.renderers.DocusaurusRenderer

@@ -7,12 +7,10 @@ from typing import TYPE_CHECKING
 
 from lazy_imports import LazyImporter
 
-_import_structure = {
-    "md_header_level_inferrer": ["MarkdownHeaderLevelInferrer"],
-}
+_import_structure = {"memory_store": ["Mem0MemoryStore"]}
 
 if TYPE_CHECKING:
-    from .md_header_level_inferrer import MarkdownHeaderLevelInferrer as MarkdownHeaderLevelInferrer
+    from .memory_store import Mem0MemoryStore as Mem0MemoryStore
 
 else:
     sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)

@@ -4,7 +4,7 @@
 # Licensed under the Apache License, Version 2.0 (see LICENSE-APACHE).
 import random
 import re
-from typing import Optional, Sequence
+from typing import Sequence
 
 _ERASE_DEFAULT_FIELDS = ["Evidence", "Context", "Citations", "References", "Notes", "Passage", "Snippet"]
 
@@ -14,7 +14,7 @@ _NUMBER = re.compile(r"\b\d+(?:\.\d+)?\b")
 _QUOTED = re.compile(r"([“\"'])(.+?)\1")
 
 
-def _skeletonize_prompt(text: str, fields_to_erase: Optional[Sequence[str]] = None, mask_token: str = "[…]") -> str:
+def _skeletonize_prompt(text: str, fields_to_erase: Sequence[str] | None = None, mask_token: str = "[…]") -> str:
     fields = list(fields_to_erase) if fields_to_erase else list(_ERASE_DEFAULT_FIELDS)
     out = text
     for field in fields:
@@ -105,7 +105,7 @@ def _make_skeletons_evidence_erase(
     text: str,
     m: int,
     seeds: Sequence[int],
-    fields_to_erase: Optional[Sequence[str]] = None,
+    fields_to_erase: Sequence[str] | None = None,
     mask_token: str = "[…]",
     preserve_roles: bool = True,
 ) -> list[str]:
@@ -130,8 +130,8 @@ def _make_skeleton_ensemble_auto(
     *,
     text: str,
     m: int = 6,
-    seeds: Optional[Sequence[int]] = None,
-    fields_to_erase: Optional[Sequence[str]] = None,
+    seeds: Sequence[int] | None = None,
+    fields_to_erase: Sequence[str] | None = None,
     mask_token: str = "[…]",
     skeleton_policy: str = "auto",
 ) -> list[str]:

@@ -2,38 +2,36 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import os
 from pathlib import Path
 from typing import Any, Optional
 
 import pytest
 from haystack import Pipeline, component
+from haystack.human_in_the_loop import (
+    AlwaysAskPolicy,
+    BlockingConfirmationStrategy,
+    ConfirmationUIResult,
+    ToolExecutionDecision
+)
+from haystack.human_in_the_loop.types import ConfirmationUI
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
-from haystack.dataclasses import ChatMessage
-from haystack.dataclasses.breakpoints import PipelineSnapshot
+from haystack.dataclasses import ChatMessage, ToolCall, PipelineSnapshot
 from haystack.tools import Tool, create_tool_from_function
 
 from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
-from haystack_experimental.components.retrievers import ChatMessageRetriever
-from haystack_experimental.components.writers import ChatMessageWriter
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.components.agents.human_in_the_loop import (
-    AlwaysAskPolicy,
-    BlockingConfirmationStrategy,
-    BreakpointConfirmationStrategy,
-    ConfirmationStrategy,
-    ConfirmationUI,
-    ConfirmationUIResult,
-    NeverAskPolicy,
-    SimpleConsoleUI,
-    ToolExecutionDecision,
-)
+from haystack_experimental.components.agents.human_in_the_loop import BreakpointConfirmationStrategy
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
     get_tool_calls_and_descriptions_from_snapshot,
 )
+from haystack_experimental.components.retrievers import ChatMessageRetriever
+from haystack_experimental.components.writers import ChatMessageWriter
+from haystack_experimental.memory_stores.mem0 import Mem0MemoryStore
 
 
 @pytest.fixture
@@ -42,12 +40,24 @@ def store():
     yield msg_store
     msg_store.delete_all_messages()
 
-
 @component
 class MockChatGenerator:
     @component.output_types(replies=list[ChatMessage])
     def run(self, messages: list[ChatMessage], tools: Any) -> dict[str, list[ChatMessage]]:
         return {"replies": [ChatMessage.from_assistant("This is a mock response.")]}
+
+
+@component
+class MockChatGeneratorToolsResponse:
+    @component.output_types(replies=list[ChatMessage])
+    def run(self, messages: list[ChatMessage], tools: Any) -> dict[str, list[ChatMessage]]:
+        return {
+            "replies": [
+                ChatMessage.from_assistant(
+                    tool_calls=[ToolCall(tool_name="addition_tool", arguments={"a": 2, "b": 3})]
+                )
+            ]
+        }
 
 
 @component
@@ -65,7 +75,7 @@ class MockAgent:
         return {"messages": [*messages, assistant_msg], "last_message": assistant_msg}
 
 
-class TestUserInterface(ConfirmationUI):
+class MockUserInterface(ConfirmationUI):
     def __init__(self, ui_result: ConfirmationUIResult) -> None:
         self.ui_result = ui_result
 
@@ -82,7 +92,7 @@ def frontend_simulate_tool_decision(
 ) -> list[dict]:
     confirmation_strategy = BlockingConfirmationStrategy(
         confirmation_policy=AlwaysAskPolicy(),
-        confirmation_ui=TestUserInterface(ui_result=confirmation_ui_result),
+        confirmation_ui=MockUserInterface(ui_result=confirmation_ui_result),
     )
 
     tool_execution_decisions = []
@@ -128,6 +138,29 @@ def run_agent(
         return None
 
 
+def run_pipeline_with_agent(
+    pipeline: Pipeline,
+    messages: list[ChatMessage],
+    snapshot_file_path: Optional[str] = None,
+    tool_execution_decisions: Optional[list[dict[str, Any]]] = None,
+) -> Optional[dict[str, Any]]:
+    # Load the latest snapshot if a path is provided
+    snapshot = None
+    if snapshot_file_path:
+        snapshot = get_latest_snapshot(snapshot_file_path=snapshot_file_path)
+
+        # Add any new tool execution decisions to the snapshot
+        if tool_execution_decisions:
+            teds = [ToolExecutionDecision.from_dict(ted) for ted in tool_execution_decisions]
+            existing_decisions = snapshot.agent_snapshot.tool_execution_decisions or []
+            snapshot.agent_snapshot.tool_execution_decisions = existing_decisions + teds
+
+    try:
+        return pipeline.run({"agent": {"messages": messages}}, pipeline_snapshot=snapshot)
+    except BreakpointException:
+        return None
+
+
 async def run_agent_async(
     agent: Agent,
     messages: list[ChatMessage],
@@ -163,16 +196,13 @@ def tools() -> list[Tool]:
     return [tool]
 
 
-@pytest.fixture
-def confirmation_strategies() -> dict[str, ConfirmationStrategy]:
-    return {"addition_tool": BlockingConfirmationStrategy(NeverAskPolicy(), SimpleConsoleUI())}
-
-
 class TestAgent:
-    def test_to_dict(self, tools, confirmation_strategies, monkeypatch):
+    def test_to_dict(self, tools, monkeypatch, mock_mem0_memory_client):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("MEM0_API_KEY", "test")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(), tools=tools, confirmation_strategies=confirmation_strategies
+            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"), tools=tools, chat_message_store=InMemoryChatMessageStore(),
+            memory_store=Mem0MemoryStore()
         )
         agent_dict = agent.to_dict()
         assert agent_dict == {
@@ -181,7 +211,7 @@ class TestAgent:
                 "chat_generator": {
                     "type": "haystack.components.generators.chat.openai.OpenAIChatGenerator",
                     "init_parameters": {
-                        "model": "gpt-5-mini",
+                        "model": "gpt-4o-mini",
                         "streaming_callback": None,
                         "api_base_url": None,
                         "organization": None,
@@ -194,7 +224,21 @@ class TestAgent:
                         "http_client_kwargs": None,
                     },
                 },
-                "chat_message_store": None,
+                "chat_message_store": {
+                    "type": "haystack_experimental.chat_message_stores.in_memory.InMemoryChatMessageStore",
+                    "init_parameters": {
+                        "last_k": 10,
+                        "skip_system_messages": True,
+                    },
+                },
+                'memory_store': {
+                    'type': 'haystack_experimental.memory_stores.mem0.memory_store.Mem0MemoryStore',
+                    'init_parameters': {
+                        'api_key':
+                                {'type': 'env_var',
+                                'env_vars':
+                                    ['MEM0_API_KEY'],
+                                    'strict': True}}},
                 "tools": [
                     {
                         "type": "haystack.tools.tool.Tool",
@@ -220,28 +264,16 @@ class TestAgent:
                 "streaming_callback": None,
                 "raise_on_tool_invocation_failure": False,
                 "tool_invoker_kwargs": None,
-                "confirmation_strategies": {
-                    "addition_tool": {
-                        "type": "haystack_experimental.components.agents.human_in_the_loop.strategies.BlockingConfirmationStrategy",
-                        "init_parameters": {
-                            "confirmation_policy": {
-                                "type": "haystack_experimental.components.agents.human_in_the_loop.policies.NeverAskPolicy",
-                                "init_parameters": {},
-                            },
-                            "confirmation_ui": {
-                                "type": "haystack_experimental.components.agents.human_in_the_loop.user_interfaces.SimpleConsoleUI",
-                                "init_parameters": {},
-                            },
-                        },
-                    }
-                },
+                "confirmation_strategies": None,
             },
         }
 
-    def test_from_dict(self, tools, confirmation_strategies, monkeypatch):
+    def test_from_dict(self, tools, monkeypatch, mock_mem0_memory_client):
         monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("MEM0_API_KEY", "test")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(), tools=tools, confirmation_strategies=confirmation_strategies
+            chat_generator=OpenAIChatGenerator(), tools=tools, chat_message_store=InMemoryChatMessageStore(),
+            memory_store=Mem0MemoryStore()
         )
         deserialized_agent = Agent.from_dict(agent.to_dict())
         assert deserialized_agent.to_dict() == agent.to_dict()
@@ -249,37 +281,47 @@ class TestAgent:
         assert len(deserialized_agent.tools) == 1
         assert deserialized_agent.tools[0].name == "addition_tool"
         assert isinstance(deserialized_agent._tool_invoker, type(agent._tool_invoker))
-        assert isinstance(deserialized_agent._confirmation_strategies["addition_tool"], BlockingConfirmationStrategy)
-        assert isinstance(
-            deserialized_agent._confirmation_strategies["addition_tool"].confirmation_policy, NeverAskPolicy
-        )
-        assert isinstance(deserialized_agent._confirmation_strategies["addition_tool"].confirmation_ui, SimpleConsoleUI)
+        assert isinstance(deserialized_agent._chat_message_store, InMemoryChatMessageStore)
+        assert isinstance(deserialized_agent._memory_store, Mem0MemoryStore)
 
 
 class TestAgentConfirmationStrategy:
-    @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
-    @pytest.mark.integration
-    def test_run_blocking_confirmation_strategy_modify(self, tools):
+    def test_get_tool_calls_and_descriptions_from_snapshot_no_mutation_of_snapshot(
+        self, tools, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
-            chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
+            chat_generator=MockChatGeneratorToolsResponse(),
             tools=tools,
             confirmation_strategies={
-                "addition_tool": BlockingConfirmationStrategy(
-                    AlwaysAskPolicy(),
-                    TestUserInterface(ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3})),
-                )
+                "addition_tool": BreakpointConfirmationStrategy(snapshot_file_path=str(tmp_path)),
             },
         )
         agent.warm_up()
 
-        result = agent.run([ChatMessage.from_user("What is 2+2?")])
+        # Run the agent to create a snapshot with a breakpoint
+        try:
+            agent.run([ChatMessage.from_user("What is 2+2?")])
+        except BreakpointException:
+            pass
 
-        assert isinstance(result["last_message"], ChatMessage)
-        assert "5" in result["last_message"].text
+        # Load the latest snapshot from disk
+        loaded_snapshot = get_latest_snapshot(snapshot_file_path=str(tmp_path))
+
+        original_snapshot = copy.deepcopy(loaded_snapshot)
+
+        # Extract tool calls and descriptions
+        _ = get_tool_calls_and_descriptions_from_snapshot(
+            agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
+        )
+
+        # Verify that the original snapshot has not been mutated
+        assert loaded_snapshot == original_snapshot
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
-    def test_run_breakpoint_confirmation_strategy_modify(self, tools, tmp_path):
+    def test_run_breakpoint_confirmation_strategy_modify(self, tools, tmp_path, monkeypatch):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             tools=tools,
@@ -317,29 +359,50 @@ class TestAgentConfirmationStrategy:
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_run_async_blocking_confirmation_strategy_modify(self, tools):
+    def test_run_in_pipeline_breakpoint_confirmation_strategy_modify(self, tools, tmp_path, monkeypatch):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             tools=tools,
             confirmation_strategies={
-                "addition_tool": BlockingConfirmationStrategy(
-                    AlwaysAskPolicy(),
-                    TestUserInterface(ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3})),
-                )
+                "addition_tool": BreakpointConfirmationStrategy(snapshot_file_path=str(tmp_path)),
             },
         )
-        agent.warm_up()
 
-        result = await agent.run_async([ChatMessage.from_user("What is 2+2?")])
+        pipeline = Pipeline()
+        pipeline.add_component("agent", agent)
 
-        assert isinstance(result["last_message"], ChatMessage)
-        assert "5" in result["last_message"].text
+        # Step 1: Initial run
+        result = run_pipeline_with_agent(pipeline, [ChatMessage.from_user("What is 2+2?")])
+
+        # Step 2: Loop to handle break point confirmation strategy until pipeline with agent completes
+        while result is None:
+            # Load the latest snapshot from disk and prep data for front-end
+            loaded_snapshot = get_latest_snapshot(snapshot_file_path=str(tmp_path))
+            serialized_tool_calls, tool_descripts = get_tool_calls_and_descriptions_from_snapshot(
+                agent_snapshot=loaded_snapshot.agent_snapshot, breakpoint_tool_only=True
+            )
+
+            # Simulate front-end interaction
+            serialized_teds = frontend_simulate_tool_decision(
+                serialized_tool_calls,
+                tool_descripts,
+                ConfirmationUIResult(action="modify", new_tool_params={"a": 2, "b": 3}),
+            )
+
+            # Re-run the agent with the new tool execution decisions
+            result = run_pipeline_with_agent(pipeline, [], str(tmp_path), serialized_teds)
+
+        # Step 3: Final result
+        last_message = result["agent"]["last_message"]
+        assert isinstance(last_message, ChatMessage)
+        assert "5" in last_message.text
 
     @pytest.mark.skipif(not os.environ.get("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set")
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_run_async_breakpoint_confirmation_strategy_modify(self, tools, tmp_path):
+    async def test_run_async_breakpoint_confirmation_strategy_modify(self, tools, tmp_path, monkeypatch):
+        monkeypatch.setenv("HAYSTACK_PIPELINE_SNAPSHOT_SAVE_ENABLED", "true")
         agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             tools=tools,

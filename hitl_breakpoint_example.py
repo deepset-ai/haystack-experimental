@@ -4,24 +4,24 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.core.errors import BreakpointException
 from haystack.core.pipeline.breakpoint import load_pipeline_snapshot
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import PipelineSnapshot
+from haystack.human_in_the_loop import (
+    AlwaysAskPolicy,
+    BlockingConfirmationStrategy,
+    RichConsoleUI,
+    ToolExecutionDecision,
+)
 from haystack.tools import create_tool_from_function
 from rich.console import Console
 
 from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.components.agents.human_in_the_loop import (
-    AlwaysAskPolicy,
-    BlockingConfirmationStrategy,
-    BreakpointConfirmationStrategy,
-    RichConsoleUI,
-    ToolExecutionDecision,
-)
+from haystack_experimental.components.agents.human_in_the_loop import BreakpointConfirmationStrategy
 from haystack_experimental.components.agents.human_in_the_loop.breakpoint import (
     get_tool_calls_and_descriptions_from_snapshot,
 )
@@ -98,9 +98,9 @@ def run_agent(
     agent: Agent,
     messages: list[ChatMessage],
     console: Console,
-    snapshot_file_path: Optional[str] = None,
-    tool_execution_decisions: Optional[list[dict[str, Any]]] = None,
-) -> Optional[dict[str, Any]]:
+    snapshot_file_path: str | None = None,
+    tool_execution_decisions: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     """
     Run the agent with the given messages and optional snapshot.
     """
