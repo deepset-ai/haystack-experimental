@@ -597,7 +597,6 @@ class Agent(HaystackAgent):
             can use for non-blocking user interaction.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
-        :param kwargs: Additional data to pass to the State schema used by the Agent.
         :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
             It can include:
             - `user_id`: The user ID to search and add memories from.
