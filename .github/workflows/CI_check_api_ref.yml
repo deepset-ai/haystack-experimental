@@ -29,7 +29,7 @@ jobs:
           node-version: "22"
 
       - name: Run Docusaurus md/mdx checker
-        working-directory: pydoc/temp
+        working-directory: tmp_api_reference
         run: |
           npx docusaurus-mdx-checker -v || {
               echo ""
