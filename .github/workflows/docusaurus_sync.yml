@@ -37,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: experimental-api-reference
-          path: pydoc/temp
+          path: tmp_api_reference
           if-no-files-found: error
           retention-days: 1
           overwrite: true
@@ -64,7 +64,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: experimental-api-reference
-          path: temp_api_reference
+          path: tmp_api_reference
 
       - name: Sync API reference
         run: |
@@ -72,7 +72,7 @@ jobs:
           sync_to_dest() {
             echo "Syncing to $1"
             mkdir -p "$1"
-            rsync -av --delete --exclude='.git/' "temp_api_reference/" "$1/"
+            rsync -av --delete --exclude='.git/' "tmp_api_reference/" "$1/"
           }
 
           # Sync to main reference

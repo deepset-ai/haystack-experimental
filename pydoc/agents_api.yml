@@ -1,31 +1,16 @@
 loaders:
-- ignore_when_discovered:
-  - __init__
-  modules:
-  - haystack_experimental.components.agents.agent
-  - haystack_experimental.components.agents.human_in_the_loop.breakpoint
-  - haystack_experimental.components.agents.human_in_the_loop.errors
-  - haystack_experimental.components.agents.human_in_the_loop.strategies
-  search_path:
-  - ../
-  type: haystack_pydoc_tools.loaders.CustomPythonLoader
+  - search_path: [../]
+    modules:
+      - haystack_experimental.components.agents.agent
+      - haystack_experimental.components.agents.human_in_the_loop.breakpoint
+      - haystack_experimental.components.agents.human_in_the_loop.errors
+      - haystack_experimental.components.agents.human_in_the_loop.strategies
 processors:
-- do_not_filter_modules: false
-  documented_only: true
-  expression: null
-  skip_empty_modules: true
-  type: filter
-- type: smart
-- type: crossref
+  - type: filter
+    documented_only: true
+    skip_empty_modules: true
 renderer:
-  description: Tool-using agents with provider-agnostic chat model support.
-  id: experimental-agents-api
-  markdown:
-    add_member_class_prefix: false
-    add_method_class_prefix: true
-    classdef_code_block: false
-    descriptive_class_title: false
-    descriptive_module_title: true
-    filename: experimental_agents_api.md
   title: Agents
-  type: haystack_pydoc_tools.renderers.DocusaurusRenderer
+  id: experimental-agents-api
+  description: Tool-using agents with provider-agnostic chat model support.
+  filename: experimental_agents_api.md
