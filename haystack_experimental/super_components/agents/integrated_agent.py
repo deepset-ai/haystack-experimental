@@ -104,7 +104,6 @@ class IntegratedAgent:
         # --- ChatPromptBuilder parameters --- #
         template: list[ChatMessage] | str | None = None,
         required_variables: list[str] | Literal["*"] | None = None,
-        variables: list[str] | None = None,
         # --- Agent parameters --- #
         chat_generator: ChatGenerator,
         tools: ToolsType | None = None,
@@ -152,9 +151,7 @@ class IntegratedAgent:
         :raises ValueError: If the exit_conditions are not valid.
         """
 
-        prompt_builder = ChatPromptBuilder(
-            template=template, required_variables=required_variables, variables=variables
-        )
+        prompt_builder = ChatPromptBuilder(template=template, required_variables=required_variables)
         agent = HaystackAgent(
             chat_generator=chat_generator,
             tools=tools,
