@@ -9,7 +9,7 @@ from haystack import Pipeline, component
 from haystack.dataclasses import ChatMessage, ToolCall
 from haystack.tools import Tool, create_tool_from_function
 
-from haystack_experimental.super_components.agents.agent_with_prompt_builder import AgentWithPromptBuilder
+from haystack_experimental.super_components.agents.integrated_agent import IntegratedAgent
 
 
 @component
@@ -75,15 +75,15 @@ def tool() -> Tool:
     )
 
 
-def _run_agent(agent: AgentWithPromptBuilder, **kwargs) -> dict[str, Any]:
+def _run_agent(agent: IntegratedAgent, **kwargs) -> dict[str, Any]:
     """Warm-up and run an agent in one call."""
     agent.warm_up()
     return agent.run(**kwargs)
 
 
-def _make_agent(chat_generator=None, template=None, **kwargs) -> AgentWithPromptBuilder:
-    """Shorthand to create an AgentWithPromptBuilder with sensible defaults."""
-    return AgentWithPromptBuilder(
+def _make_agent(chat_generator=None, template=None, **kwargs) -> IntegratedAgent:
+    """Shorthand to create an IntegratedAgent with sensible defaults."""
+    return IntegratedAgent(
         chat_generator=chat_generator or MockChatGenerator(),
         template=template or [ChatMessage.from_user("Hello")],
         **kwargs,

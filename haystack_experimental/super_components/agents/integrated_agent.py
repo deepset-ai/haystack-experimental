@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @super_component
-class AgentWithPromptBuilder:
+class IntegratedAgent:
     """
     A Haystack component that implements a tool-using agent with provider-agnostic chat model support.
 
@@ -37,9 +37,9 @@ class AgentWithPromptBuilder:
     from haystack.components.generators.chat import OpenAIChatGenerator
     from haystack.dataclasses import ChatMessage
 
-    from haystack_experimental.super_components.agents import AgentWithPromptBuilder
+    from haystack_experimental.super_components.agents import IntegratedAgent
 
-    agent = AgentWithPromptBuilder(
+    agent = IntegratedAgent(
         chat_generator=OpenAIChatGenerator(),
         template=[ChatMessage.from_user("Tell me about {{topic}}")],
     )
@@ -53,7 +53,7 @@ class AgentWithPromptBuilder:
 
     ```python
     from haystack.components.generators.chat import OpenAIChatGenerator
-    from haystack_experimental.super_components.agents import AgentWithPromptBuilder
+    from haystack_experimental.super_components.agents import IntegratedAgent
 
     template = \"\"\"
     {% message role="system" %}
@@ -65,7 +65,7 @@ class AgentWithPromptBuilder:
     {% endmessage %}
     \"\"\"
 
-    agent = AgentWithPromptBuilder(
+    agent = IntegratedAgent(
         chat_generator=OpenAIChatGenerator(),
         template=template,
     )
@@ -80,7 +80,7 @@ class AgentWithPromptBuilder:
     from haystack.dataclasses import ChatMessage
     from haystack.tools import Tool
 
-    from haystack_experimental.super_components.agents import AgentWithPromptBuilder
+    from haystack_experimental.super_components.agents import IntegratedAgent
 
     calculator_tool = Tool(
         name="calculator",
@@ -88,7 +88,7 @@ class AgentWithPromptBuilder:
         ...
     )
 
-    agent = AgentWithPromptBuilder(
+    agent = IntegratedAgent(
         chat_generator=OpenAIChatGenerator(),
         template=[ChatMessage.from_user("{{query}}")],
         tools=[calculator_tool],
