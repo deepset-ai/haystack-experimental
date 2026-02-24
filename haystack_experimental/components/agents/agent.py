@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# pylint: disable=wrong-import-order,wrong-import-position,ungrouped-imports
 # ruff: noqa: I001
 
 import inspect
@@ -240,8 +239,7 @@ class Agent(HaystackAgent):
             retriever_kwargs = _select_kwargs(self._chat_message_retriever, chat_message_store_kwargs or {})
             if "chat_history_id" in retriever_kwargs:
                 updated_messages = self._chat_message_retriever.run(
-                    current_messages=exe_context.state.get("messages", []),
-                    **retriever_kwargs,
+                    current_messages=exe_context.state.get("messages", []), **retriever_kwargs
                 )["messages"]
                 # We replace the messages in state with the updated messages including chat history
                 exe_context.state.set("messages", updated_messages, handler_override=replace_values)

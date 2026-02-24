@@ -2,6 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.chat_message_stores.in_memory import InMemoryChatMessageStore
+import sys
+from typing import TYPE_CHECKING
 
-__all__ = ["InMemoryChatMessageStore"]
+from lazy_imports import LazyImporter
+
+_import_structure = {"in_memory": ["InMemoryChatMessageStore"]}
+
+if TYPE_CHECKING:
+    from .in_memory import InMemoryChatMessageStore as InMemoryChatMessageStore
+else:
+    sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)

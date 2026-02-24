@@ -2,6 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.summarizers.llm_summarizer import LLMSummarizer
+import sys
+from typing import TYPE_CHECKING
 
-_all_ = ["Summarizer"]
+from lazy_imports import LazyImporter
+
+_import_structure = {"llm_summarizer": ["LLMSummarizer"]}
+
+if TYPE_CHECKING:
+    from .llm_summarizer import LLMSummarizer as LLMSummarizer
+
+else:
+    sys.modules[__name__] = LazyImporter(name=__name__, module_file=__file__, import_structure=_import_structure)

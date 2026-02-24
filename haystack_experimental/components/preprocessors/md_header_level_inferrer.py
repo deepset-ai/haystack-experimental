@@ -56,7 +56,9 @@ class MarkdownHeaderLevelInferrer:
             logger.warning("No documents provided to process")
             return {"documents": []}
 
-        logger.debug(f"Inferring and rewriting header levels for {len(documents)} documents")
+        logger.debug(
+            "Inferring and rewriting header levels for {num_documents} documents", num_documents=len(documents)
+        )
         processed_docs = [self._process_document(doc) for doc in documents]
         return {"documents": processed_docs}
 
@@ -69,16 +71,22 @@ class MarkdownHeaderLevelInferrer:
             Document object with rewritten header levels.
         """
         if doc.content is None:
-            logger.warning(f"Document {getattr(doc, 'id', '')} content is None; skipping header level inference.")
+            logger.warning(
+                "Document {doc_id} content is None; skipping header level inference.", doc_id=getattr(doc, "id", "")
+            )
             return doc
 
         matches = list(re.finditer(self._header_pattern, doc.content))
         if not matches:
-            logger.info(f"No headers found in document {doc.id}; skipping header level inference.")
+            logger.info("No headers found in document {doc_id}; skipping header level inference.", doc_id=doc.id)
             return doc
 
         modified_text = MarkdownHeaderLevelInferrer._rewrite_headers(doc.content, matches)
-        logger.info(f"Rewrote {len(matches)} headers with inferred levels in document{doc.id}.")
+        logger.info(
+            "Rewrote {num_headers} headers with inferred levels in document{doc_id}.",
+            num_headers=len(matches),
+            doc_id=doc.id,
+        )
         return MarkdownHeaderLevelInferrer._build_final_document(doc, modified_text)
 
     @staticmethod
@@ -99,7 +107,7 @@ class MarkdownHeaderLevelInferrer:
 
             # Skip empty headers
             if not header_text:
-                logger.warning(f"Skipping empty header at position {match.start()}")
+                logger.warning("Skipping empty header at position {start}", start=match.start())
                 continue
 
             has_content = MarkdownHeaderLevelInferrer._has_content_between_headers(content, matches, i)

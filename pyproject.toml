@@ -66,8 +66,6 @@ extra-dependencies = [
   "pytest-rerunfailures",
   "pytest-cov",
   "pytest-asyncio",
-  # Linting
-  "pylint",
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -77,7 +75,6 @@ integration-retry = 'pytest -m "integration" --reruns 3 --reruns-delay 60 -x --m
 all = 'pytest {args:test}'
 
 types = "mypy --install-types --non-interactive {args:haystack_experimental}"
-lint = "pylint -ry -j 0 {args:haystack_experimental}"
 
 [tool.hatch.version]
 source = "vcs"
@@ -96,78 +93,6 @@ packages = ["haystack_experimental"]
 ignore-words-list = "ans,astroid,nd,ned,nin,ue,rouge,ist"
 quiet-level = 3
 skip = "test/nodes/*,test/others/*,test/samples/*,e2e/*"
-
-[tool.pylint]
-ignore-paths = ["haystack_experimental/__init__.py"]
-
-[tool.pylint.'MESSAGES CONTROL']
-max-line-length = 120
-disable = [
-  "C0114", # missing-module-docstring
-  "R0903", # too-few-public-methods
-  # To keep
-  "fixme",
-  "c-extension-no-member",
-  # we re-export symbols for correct type checking
-  # https://typing.python.org/en/latest/spec/distributing.html#import-conventions
-  "useless-import-alias",
-
-  # To review:
-  "missing-docstring",
-  "unused-argument",
-  "no-member",
-  "line-too-long",
-  "protected-access",
-  "too-few-public-methods",
-  "raise-missing-from",
-  "invalid-name",
-  "duplicate-code",
-  "arguments-differ",
-  "consider-using-f-string",
-  "no-else-return",
-  "attribute-defined-outside-init",
-  "super-with-arguments",
-  "redefined-builtin",
-  "abstract-method",
-  "unspecified-encoding",
-  "unidiomatic-typecheck",
-  "no-name-in-module",
-  "consider-using-with",
-  "redefined-outer-name",
-  "arguments-renamed",
-  "unnecessary-pass",
-  "broad-except",
-  "unnecessary-comprehension",
-  "subprocess-run-check",
-  "singleton-comparison",
-  "consider-iterating-dictionary",
-  "undefined-loop-variable",
-  "consider-using-in",
-  "bare-except",
-  "unexpected-keyword-arg",
-  "simplifiable-if-expression",
-  "use-list-literal",
-  "broad-exception-raised",
-
-  # To review later
-  "cyclic-import",
-  "import-outside-toplevel",
-  "deprecated-method",
-  "too-many-arguments",           # sometimes we need to pass more than 5 arguments
-  "too-many-instance-attributes", # sometimes we need to have a class with more than 7 attributes
-]
-
-[tool.pylint.'DESIGN']
-max-args = 38           # Default is 5
-max-attributes = 28     # Default is 7
-max-branches = 34       # Default is 12
-max-locals = 45         # Default is 15
-max-module-lines = 2468 # Default is 1000
-max-nested-blocks = 9   # Default is 5
-max-statements = 206    # Default is 50
-
-[tool.pylint.'SIMILARITIES']
-min-similarity-lines = 6
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -189,65 +114,97 @@ check_untyped_defs = true
 line-length = 120
 exclude = ["test", ".github", "examples"]
 
-[tool.ruff.lint]
-select = [
-  "ASYNC", # flake8-async
-  "C4",    # flake8-comprehensions
-  "C90",   # McCabe cyclomatic complexity
-  "E501",  # Long lines
-  "EXE",   # flake8-executable
-  "F",     # Pyflakes
-  "INT",   # flake8-gettext
-  "PERF",  # Perflint
-  "PL",    # Pylint
-  "Q",     # flake8-quotes
-  "SIM",   # flake8-simplify
-  "SLOT",  # flake8-slots
-  "T10",   # flake8-debugger
-  "UP006", # non-pep585-annotation (enforce list, dict, etc.)
-  "UP007", # non-pep604-annotation-union (enforce X | Y syntax)
-  "UP045", # non-pep604-annotation-optional (enforce X | None syntax)
-  "W",     # pycodestyle
-  "YTT",   # flake8-2020
-  "I",     # isort
-  # built-in shadowing
-  "A001", # builtin-variable-shadowing
-  "A002", # builtin-argument-shadowing
-  "A003", # builtin-attribute-shadowing
-  # docstring rules
-  "D102", # Missing docstring in public method
-  "D103", # Missing docstring in public function
-  "D209", # Closing triple quotes go to new line
-  "D205", # 1 blank line required between summary line and description
-  "D213", # summary lines must be positioned on the second physical line of the docstring
-  "D417", # undocumented-parameter
-  "D419", # undocumented-returns
-]
+[tool.ruff.format]
+skip-magic-trailing-comma = true
 
-ignore = [
-  "F401",    # unused-import
-  "PERF203", # `try`-`except` within a loop incurs performance overhead
-  "PERF401", # Use a list comprehension to create a transformed list
-  "PLR1714", # repeated-equality-comparison
-  "PLR5501", # collapsible-else-if
-  "PLW0603", # global-statement
-  "PLW1510", # subprocess-run-without-check
-  "PLW2901", # redefined-loop-name
-  "SIM108",  # if-else-block-instead-of-if-exp
-  "SIM115",  # open-file-with-context-handler
-  "SIM118",  # in-dict-keys
-  "PLR0913", # too-many-arguments,
-  "PLC0414", # useless-import-alias,
-  "PLC0415", # import-outside-top-level,
-]
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.mccabe]
+max-complexity = 21
 
 [tool.ruff.lint.pylint]
 allow-magic-value-types = ["float", "int", "str"]
-max-args = 14                                     # Default is 5
-max-branches = 21                                 # Default is 12
+max-args = 12                                     # Default is 5
+max-branches = 18                                 # Default is 12
 max-public-methods = 20                           # Default is 20
-max-returns = 7                                   # Default is 6
-max-statements = 60                               # Default is 50
+max-returns = 6                                   # Default is 6
+max-statements = 50                               # Default is 50
 
-[tool.ruff.lint.mccabe]
-max-complexity = 28
+[tool.ruff.lint]
+select = [
+  "A001",   # builtin-variable-shadowing
+  "A002",   # builtin-argument-shadowing
+  "A003",   # builtin-attribute-shadowing
+  "ARG",    # flake8-unused-arguments
+  "ASYNC",  # flake8-async
+  "B",      # flake8-bugbear
+  "BLE",    # flake8-blind-except
+  "C4",     # flake8-comprehensions
+  "C90",    # mccabe complexity
+  "COM818", # trailing-comma-on-bare-tuple
+  "D102",   # Missing docstring in public method
+  "D103",   # Missing docstring in public function
+  "D205",   # 1 blank line required between summary line and description
+  "D209",   # Closing triple quotes go to new line
+  "D213",   # summary lines must be positioned on the second physical line of the docstring
+  "D417",   # undocumented-parameter
+  "D419",   # undocumented-returns
+  "E",      # pycodestyle errors
+  "EXE",    # flake8-executable
+  "F",      # pyflakes
+  "G001",   # logging-format-interpolation
+  "G002",   # logging-percent-format
+  "G004",   # logging-f-string
+  "I",      # isort
+  "ISC001", # implicit-string-concatenation
+  "INT",    # flake8-gettext
+  "PERF",   # perflint
+  "PIE",    # flake8-pie
+  "PL",     # pylint
+  "RET",    # flake8-return
+  "RUF104", # unmatched-suppression-comment
+  "S102",   # flake8-bandit (exec-builtin)
+  "S307",   # flake8-bandit (eval)
+  "SIM",    # flake8-simplify
+  "SLOT",   # flake8-slots
+  "T10",    # flake8-debugger
+  "TID252", # relative-imports
+  "TRY",    # tryceratops
+  "UP",     # pyupgrade
+  "W",      # pycodestyle warnings
+  "YTT",    # flake8-2020
+]
+
+ignore = [
+  "B008",    # function-call-as-argument-default
+  "B904",    # raise-without-from-inside-except
+  "BLE001",  # blind-except
+  "E402",    # module-import-not-top-level # in experimental, we often do monkey patching
+  "E721",    # type-comparison
+  "E722",    # bare-except
+  "PERF203", # try-except-in-loop
+  "PERF401", # manual-list-comprehension
+  "PIE790",  # unnecessary-pass
+
+  # we re-export symbols in __init__ for correct type checking
+  # https://typing.python.org/en/latest/spec/distributing.html#import-conventions
+  "PLC0414", # useless-import-alias
+
+  "PLC0415", # import-outside-top-level
+  "PLR1714", # repeated-equality-comparison
+  "PLW0603", # global-statement
+  "PLW1514", # unspecified-encoding
+  "PLW2901", # redefined-loop-name
+  "RET505",  # superfluous-else-return
+  "SIM108",  # if-else-block-instead-of-ternary
+  "SIM109",  # multiple-comparisons-with-in
+  "SIM118",  # in-dict-keys
+  "TRY002",  # raise-vanilla-class
+  "TRY003",  # raise-vanilla-args
+  "TRY201",  # verbose-raise
+  "TRY300",  # try-consider-else
+  "UP008",   # super-with-arguments
+  "UP032",   # use-f-string
+  "UP037",   # quoted-annotation
+]

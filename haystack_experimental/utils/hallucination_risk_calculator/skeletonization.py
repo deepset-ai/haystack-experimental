@@ -4,7 +4,7 @@
 # Licensed under the Apache License, Version 2.0 (see LICENSE-APACHE).
 import random
 import re
-from typing import Sequence
+from collections.abc import Sequence
 
 _ERASE_DEFAULT_FIELDS = ["Evidence", "Context", "Citations", "References", "Notes", "Passage", "Snippet"]
 
@@ -22,8 +22,7 @@ def _skeletonize_prompt(text: str, fields_to_erase: Sequence[str] | None = None,
         out = re.sub(pattern1, rf"\1{mask_token}", out)
         pattern2 = re.compile(rf'("{re.escape(field)}"\s*:\s*")([^"]*)(")')
         out = re.sub(pattern2, rf"\1{mask_token}\3", out)
-    out = re.sub(rf"(?:{re.escape(mask_token)}\s*)+", mask_token, out)
-    return out
+    return re.sub(rf"(?:{re.escape(mask_token)}\s*)+", mask_token, out)
 
 
 def _extract_blocks(text: str) -> list[str]:
@@ -59,8 +58,7 @@ def mask_entities_numbers(text: str, strength: float, rng: random.Random, mask_t
     s = mask_matches(_QUOTED, s)
     s = mask_matches(_CAPITAL_SEQ, s)
     s = mask_matches(_YEAR, s)
-    s = mask_matches(_NUMBER, s)
-    return s
+    return mask_matches(_NUMBER, s)
 
 
 def _make_skeletons_closed_book(

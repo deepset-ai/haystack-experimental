@@ -4,20 +4,17 @@
 
 from dataclasses import replace
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from haystack import logging
+from haystack.components.agents.agent import _ExecutionContext
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.dataclasses.breakpoints import AgentBreakpoint, PipelineSnapshot, PipelineState, ToolBreakpoint
+from haystack.human_in_the_loop import ToolExecutionDecision
 from haystack.utils.base_serialization import _serialize_value_with_schema
 from haystack.utils.misc import _get_output_dir
 
 from haystack_experimental.dataclasses.breakpoints import AgentSnapshot
-
-if TYPE_CHECKING:
-    from haystack_experimental.components.agents.agent import _ExecutionContext
-    from haystack_experimental.components.agents.human_in_the_loop import ToolExecutionDecision
-
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +24,7 @@ def _create_agent_snapshot(
     component_visits: dict[str, int],
     agent_breakpoint: AgentBreakpoint,
     component_inputs: dict[str, Any],
-    tool_execution_decisions: list["ToolExecutionDecision"] | None = None,
+    tool_execution_decisions: list[ToolExecutionDecision] | None = None,
 ) -> AgentSnapshot:
     """
     Create a snapshot of the agent's state.
