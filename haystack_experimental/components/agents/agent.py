@@ -119,7 +119,7 @@ class Agent(HaystackAgent):
         max_agent_steps: int = 100,
         streaming_callback: StreamingCallbackT | None = None,
         raise_on_tool_invocation_failure: bool = False,
-        confirmation_strategies: dict[str, ConfirmationStrategy] | None = None,
+        confirmation_strategies: dict[str | tuple[str, ...], ConfirmationStrategy] | None = None,
         tool_invoker_kwargs: dict[str, Any] | None = None,
         chat_message_store: ChatMessageStore | None = None,
         memory_store: MemoryStore | None = None,
@@ -843,9 +843,20 @@ class Agent(HaystackAgent):
 
         deserialize_tools_or_toolset_inplace(init_params, key="tools")
 
-        if "confirmation_strategies" in init_params and init_params["confirmation_strategies"] is not None:
-            for name in init_params["confirmation_strategies"]:
-                deserialize_component_inplace(init_params["confirmation_strategies"], key=name)
+        if init_params.get("confirmation_strategies") is not None:
+            restored: dict[str | tuple[str, ...], Any] = {}
+
+            for raw_key in init_params["confirmation_strategies"].keys():
+                deserialize_component_inplace(init_params["confirmation_strategies"], key=raw_key)
+                strategy = init_params["confirmation_strategies"][raw_key]
+
+                if isinstance(raw_key, list):
+                    key = tuple(raw_key)
+                else:
+                    key = raw_key
+                restored[key] = strategy
+
+            init_params["confirmation_strategies"] = restored
 
         # NOTE: This is different from the base Agent class to handle ChatMessageStore deserialization
         if "chat_message_store" in init_params and init_params["chat_message_store"] is not None:
