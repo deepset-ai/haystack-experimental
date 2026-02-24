@@ -6,9 +6,6 @@ from typing import Any, Protocol
 
 from haystack.dataclasses import ChatMessage
 
-# Ellipsis are needed for the type checker, it's safe to disable module-wide
-# pylint: disable=unnecessary-ellipsis
-
 
 class MemoryStore(Protocol):
     """

@@ -46,7 +46,7 @@ class LLMSummarizer:
     ```
     """
 
-    def __init__(  # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
         chat_generator: ChatGenerator,
         system_prompt: str | None = "Rewrite this text in summarized form.",

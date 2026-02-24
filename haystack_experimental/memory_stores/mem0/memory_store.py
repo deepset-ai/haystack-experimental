@@ -10,7 +10,7 @@ from haystack.lazy_imports import LazyImport
 from haystack.utils import Secret, deserialize_secrets_inplace
 
 with LazyImport(message="Run 'pip install mem0ai'") as mem0_import:
-    from mem0 import MemoryClient  # pylint: disable=import-error
+    from mem0 import MemoryClient
 
 logger = logging.getLogger(__name__)
 

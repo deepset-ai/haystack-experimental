@@ -66,8 +66,6 @@ extra-dependencies = [
   "pytest-rerunfailures",
   "pytest-cov",
   "pytest-asyncio",
-  # Linting
-  "pylint",
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -77,7 +75,6 @@ integration-retry = 'pytest -m "integration" --reruns 3 --reruns-delay 60 -x --m
 all = 'pytest {args:test}'
 
 types = "mypy --install-types --non-interactive {args:haystack_experimental}"
-lint = "pylint -ry -j 0 {args:haystack_experimental}"
 
 [tool.hatch.version]
 source = "vcs"
@@ -124,15 +121,15 @@ skip-magic-trailing-comma = true
 split-on-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
-max-complexity = 28
+max-complexity = 21
 
 [tool.ruff.lint.pylint]
 allow-magic-value-types = ["float", "int", "str"]
-max-args = 14                                     # Default is 5
-max-branches = 21                                 # Default is 12
+max-args = 12                                     # Default is 5
+max-branches = 18                                 # Default is 12
 max-public-methods = 20                           # Default is 20
-max-returns = 7                                   # Default is 6
-max-statements = 60                               # Default is 50
+max-returns = 6                                   # Default is 6
+max-statements = 50                               # Default is 50
 
 [tool.ruff.lint]
 select = [
