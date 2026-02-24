@@ -37,10 +37,10 @@ class BreakpointConfirmationStrategy:
         self,
         *,
         tool_name: str,
-        tool_description: str,
-        tool_params: dict[str, Any],
+        tool_description: str,  # noqa: ARG002
+        tool_params: dict[str, Any],  # noqa: ARG002
         tool_call_id: str | None = None,
-        confirmation_strategy_context: dict[str, Any] | None = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,  # noqa: ARG002
     ) -> ToolExecutionDecision:
         """
         Run the breakpoint confirmation strategy for a given tool and its parameters.

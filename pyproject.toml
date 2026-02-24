@@ -183,6 +183,7 @@ ignore = [
   "B008",    # function-call-as-argument-default
   "B904",    # raise-without-from-inside-except
   "BLE001",  # blind-except
+  "E402",    # module-import-not-top-level # in experimental, we often do monkey patching
   "E721",    # type-comparison
   "E722",    # bare-except
   "PERF203", # try-except-in-loop

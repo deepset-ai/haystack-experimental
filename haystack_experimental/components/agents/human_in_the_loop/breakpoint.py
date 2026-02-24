@@ -27,7 +27,7 @@ def get_tool_calls_and_descriptions_from_snapshot(
     """
     break_point = agent_snapshot.break_point.break_point
     if not isinstance(break_point, ToolBreakpoint):
-        raise ValueError("The provided AgentSnapshot does not contain a ToolBreakpoint.")
+        raise TypeError("The provided AgentSnapshot does not contain a ToolBreakpoint.")
 
     tool_caused_break_point = break_point.tool_name
 

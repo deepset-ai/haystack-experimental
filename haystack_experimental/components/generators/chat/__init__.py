@@ -7,9 +7,7 @@ from typing import TYPE_CHECKING
 
 from lazy_imports import LazyImporter
 
-_import_structure = {
-    "openai": ["OpenAIChatGenerator"],
-}
+_import_structure = {"openai": ["OpenAIChatGenerator"]}
 
 if TYPE_CHECKING:
     from .openai import OpenAIChatGenerator as OpenAIChatGenerator

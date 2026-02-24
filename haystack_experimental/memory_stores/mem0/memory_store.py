@@ -20,11 +20,7 @@ class Mem0MemoryStore:
     A memory store implementation using Mem0 as the backend.
     """
 
-    def __init__(
-        self,
-        *,
-        api_key: Secret = Secret.from_env_var("MEM0_API_KEY"),
-    ):
+    def __init__(self, *, api_key: Secret = Secret.from_env_var("MEM0_API_KEY")):
         """
         Initialize the Mem0 memory store.
 
@@ -33,16 +29,11 @@ class Mem0MemoryStore:
 
         mem0_import.check()
         self.api_key = api_key
-        self.client = MemoryClient(
-            api_key=self.api_key.resolve_value(),
-        )
+        self.client = MemoryClient(api_key=self.api_key.resolve_value())
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the store configuration to a dictionary."""
-        return default_to_dict(
-            self,
-            api_key=self.api_key.to_dict(),
-        )
+        return default_to_dict(self, api_key=self.api_key.to_dict())
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Mem0MemoryStore":
@@ -151,12 +142,7 @@ class Mem0MemoryStore:
             if not query:
                 memories = self.client.get_all(filters=mem0_filters, **kwargs)
             else:
-                memories = self.client.search(
-                    query=query,
-                    top_k=top_k,
-                    filters=mem0_filters,
-                    **kwargs,
-                )
+                memories = self.client.search(query=query, top_k=top_k, filters=mem0_filters, **kwargs)
             messages = []
             for memory in memories["results"]:
                 meta = memory["metadata"].copy() if memory["metadata"] else {}
@@ -212,12 +198,7 @@ class Mem0MemoryStore:
             if not query:
                 memories = self.client.get_all(filters=mem0_filters, **kwargs)
             else:
-                memories = self.client.search(
-                    query=query,
-                    top_k=top_k,
-                    filters=mem0_filters,
-                    **kwargs,
-                )
+                memories = self.client.search(query=query, top_k=top_k, filters=mem0_filters, **kwargs)
 
             # we combine the memories into a single string
             combined_memory = "\n".join(
@@ -230,12 +211,7 @@ class Mem0MemoryStore:
             raise RuntimeError(f"Failed to search memories: {e}") from e
 
     def delete_all_memories(
-        self,
-        *,
-        user_id: str | None = None,
-        run_id: str | None = None,
-        agent_id: str | None = None,
-        **kwargs: Any,
+        self, *, user_id: str | None = None, run_id: str | None = None, agent_id: str | None = None, **kwargs: Any
     ) -> None:
         """
         Delete memory records from Mem0.
@@ -277,11 +253,7 @@ class Mem0MemoryStore:
         """
         if not user_id and not run_id and not agent_id:
             raise ValueError("At least one of user_id, run_id, or agent_id must be set")
-        ids = {
-            "user_id": user_id,
-            "run_id": run_id,
-            "agent_id": agent_id,
-        }
+        ids = {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}
         return {key: value for key, value in ids.items() if value is not None}
 
     @staticmethod

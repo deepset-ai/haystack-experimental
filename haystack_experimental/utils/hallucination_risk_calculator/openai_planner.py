@@ -5,7 +5,8 @@
 import json
 import re
 import time
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
 from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
@@ -283,9 +284,7 @@ class OpenAIPlanner:
 
 
 def calculate_hallucination_metrics(
-    prompt: str,
-    hallucination_score_config: HallucinationScoreConfig,
-    chat_generator: OpenAIChatGenerator,
+    prompt: str, hallucination_score_config: HallucinationScoreConfig, chat_generator: OpenAIChatGenerator
 ) -> dict[str, Any]:
     """
     Calculate hallucination metrics for a given prompt using the OpenAIPlanner.
@@ -296,10 +295,7 @@ def calculate_hallucination_metrics(
         m=hallucination_score_config.m,
         skeleton_policy=hallucination_score_config.skeleton_policy,
     )
-    planner = OpenAIPlanner(
-        chat_generator,
-        temperature=hallucination_score_config.temperature,
-    )
+    planner = OpenAIPlanner(chat_generator, temperature=hallucination_score_config.temperature)
     metrics = planner.run(
         [item],
         h_star=hallucination_score_config.h_star,
@@ -308,9 +304,8 @@ def calculate_hallucination_metrics(
         B_clip=hallucination_score_config.B_clip,
         clip_mode=hallucination_score_config.clip_mode,
     )
-    hallucination_meta = {
+    return {
         "hallucination_decision": "ANSWER" if metrics[0].decision_answer else "REFUSE",
         "hallucination_risk": metrics[0].roh_bound,
         "hallucination_rationale": metrics[0].rationale,
     }
-    return hallucination_meta

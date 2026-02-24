@@ -5,7 +5,7 @@
 # Licensed under the Apache License, Version 2.0 (see LICENSE-APACHE).
 
 import math
-from typing import Sequence
+from collections.abc import Sequence
 
 # ------------------------------------------------------------------------------------
 # Core math (EDFL etc., nats)

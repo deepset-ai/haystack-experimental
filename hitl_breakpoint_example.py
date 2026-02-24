@@ -77,8 +77,7 @@ def frontend_simulate_tool_decision(
     """
 
     confirmation_strategy = BlockingConfirmationStrategy(
-        confirmation_policy=AlwaysAskPolicy(),
-        confirmation_ui=RichConsoleUI(console=console),
+        confirmation_policy=AlwaysAskPolicy(), confirmation_ui=RichConsoleUI(console=console)
     )
 
     tool_execution_decisions = []
@@ -132,14 +131,10 @@ def main(user_message: str):
 
     # Define agent with both tools and breakpoint confirmation strategies
     addition_tool = create_tool_from_function(
-        function=addition,
-        name="addition",
-        description="Add two floats together.",
+        function=addition, name="addition", description="Add two floats together."
     )
     balance_tool = create_tool_from_function(
-        function=get_bank_balance,
-        name="get_bank_balance",
-        description="Get the bank balance for a given account ID.",
+        function=get_bank_balance, name="get_bank_balance", description="Get the bank balance for a given account ID."
     )
     snapshot_fp = "pipeline_snapshots"
     bank_agent = Agent(

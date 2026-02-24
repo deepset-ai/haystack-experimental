@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Iterable
 from dataclasses import replace
-from typing import Any, Iterable
+from typing import Any
 
 from haystack import default_from_dict, default_to_dict
 from haystack.dataclasses import ChatMessage, ChatRole

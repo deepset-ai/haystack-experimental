@@ -207,9 +207,7 @@ class LLMSummarizer:
 
         temp_doc = Document(content=text)
         result = self._document_splitter.run(documents=[temp_doc])
-        text_chunks = [doc.content for doc in result["documents"]]
-
-        return text_chunks
+        return [doc.content for doc in result["documents"]]
 
     def _process_chunks(self, text_chunks, summarize_recursively):
         """
@@ -236,13 +234,7 @@ class LLMSummarizer:
 
         return accumulated_summaries
 
-    def summarize(
-        self,
-        text: str,
-        detail: float,
-        minimum_chunk_size: int,
-        summarize_recursively: bool = False,
-    ) -> str:
+    def summarize(self, text: str, detail: float, minimum_chunk_size: int, summarize_recursively: bool = False) -> str:
         """
         Summarizes text by splitting it into optimally-sized chunks and processing each with an LLM.
 

@@ -31,13 +31,7 @@ class MemoryStore(Protocol):
         """
         ...
 
-    def add_memories(
-        self,
-        *,
-        messages: list[ChatMessage],
-        user_id: str | None = None,
-        **kwargs: Any,
-    ) -> None:
+    def add_memories(self, *, messages: list[ChatMessage], user_id: str | None = None, **kwargs: Any) -> None:
         """
         Add ChatMessage memories to the store.
 
@@ -69,12 +63,7 @@ class MemoryStore(Protocol):
         """
         ...
 
-    def delete_all_memories(
-        self,
-        *,
-        user_id: str | None = None,
-        **kwargs: Any,
-    ) -> None:
+    def delete_all_memories(self, *, user_id: str | None = None, **kwargs: Any) -> None:
         """
         Delete all memories in the given scope.
 

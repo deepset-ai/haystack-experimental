@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_experimental.components.retrievers.chat_message_retriever import ChatMessageRetriever
+from haystack_experimental.components.retrievers.chat_message_retriever import (
+    ChatMessageRetriever as ChatMessageRetriever,
+)
 
 _all_ = ["ChatMessageRetriever"]

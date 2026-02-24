@@ -7,9 +7,7 @@ from typing import TYPE_CHECKING
 
 from lazy_imports import LazyImporter
 
-_import_structure = {
-    "md_header_level_inferrer": ["MarkdownHeaderLevelInferrer"],
-}
+_import_structure = {"md_header_level_inferrer": ["MarkdownHeaderLevelInferrer"]}
 
 if TYPE_CHECKING:
     from .md_header_level_inferrer import MarkdownHeaderLevelInferrer as MarkdownHeaderLevelInferrer

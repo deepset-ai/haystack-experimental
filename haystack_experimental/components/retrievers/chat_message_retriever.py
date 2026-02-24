@@ -91,11 +91,7 @@ class ChatMessageRetriever:
 
     @component.output_types(messages=list[ChatMessage])
     def run(
-        self,
-        chat_history_id: str,
-        *,
-        last_k: int | None = None,
-        current_messages: list[ChatMessage] | None = None,
+        self, chat_history_id: str, *, last_k: int | None = None, current_messages: list[ChatMessage] | None = None
     ) -> dict[str, list[ChatMessage]]:
         """
         Run the ChatMessageRetriever
