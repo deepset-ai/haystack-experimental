@@ -63,7 +63,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Download API reference artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: experimental-api-reference
           path: tmp_api_reference
