@@ -59,7 +59,9 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        run: pip install hatch==${{ env.HATCH_VERSION }}
+        uses: pypa/hatch@install
+        with:
+          version: "${{ env.HATCH_VERSION }}"
 
       - name: Ruff - check format and linting
         run: hatch run fmt-check
@@ -88,7 +90,9 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        run: pip install hatch==${{ env.HATCH_VERSION }}
+        uses: pypa/hatch@install
+        with:
+          version: "${{ env.HATCH_VERSION }}"
 
       - name: Run
         run: hatch run test:unit
@@ -98,6 +102,7 @@ jobs:
         # complicates the workflow too much for little to no gain
         if: matrix.os == 'ubuntu-latest'
         uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           path-to-lcov: coverage.xml
 
@@ -128,7 +133,9 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        run: pip install hatch==${{ env.HATCH_VERSION }}
+        uses: pypa/hatch@install
+        with:
+          version: "${{ env.HATCH_VERSION }}"
 
       # Do not authenticate on PRs from forks and on PRs created by dependabot
       - name: AWS authentication

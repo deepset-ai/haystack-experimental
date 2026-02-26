@@ -18,7 +18,9 @@ jobs:
           python-version: "3.13"
 
       - name: Install Hatch
-        run: pip install --upgrade hatch
+        uses: pypa/hatch@install
+        with:
+          version: "${{ env.HATCH_VERSION }}"
 
       - name: Generate API references
         run: hatch run docs
