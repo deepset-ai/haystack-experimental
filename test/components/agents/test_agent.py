@@ -258,6 +258,8 @@ class TestAgent:
                     }
                 ],
                 "system_prompt": None,
+                "user_prompt": None,
+                "required_variables": None,
                 "exit_conditions": ["text"],
                 "state_schema": {},
                 "max_agent_steps": 100,

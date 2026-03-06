@@ -5,7 +5,7 @@
 # ruff: noqa: I001
 
 import inspect
-from typing import Any
+from typing import Any, Literal
 
 # Monkey patch Haystack's AgentSnapshot with our extended version
 import haystack.dataclasses.breakpoints as hdb
@@ -107,12 +107,14 @@ class Agent(HaystackAgent):
     ```
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         chat_generator: ChatGenerator,
         tools: ToolsType | None = None,
         system_prompt: str | None = None,
+        user_prompt: str | None = None,
+        required_variables: list[str] | Literal["*"] | None = None,
         exit_conditions: list[str] | None = None,
         state_schema: dict[str, Any] | None = None,
         max_agent_steps: int = 100,
@@ -129,6 +131,11 @@ class Agent(HaystackAgent):
         :param chat_generator: An instance of the chat generator that your agent should use. It must support tools.
         :param tools: List of Tool objects or a Toolset that the agent can use.
         :param system_prompt: System prompt for the agent.
+        :param user_prompt: User prompt for the agent. If provided this is appended to the messages provided at runtime.
+        :param required_variables:
+            List variables that must be provided as input to user_prompt.
+            If a variable listed as required is not provided, an exception is raised.
+            If set to `"*"`, all variables found in the prompt are required. Optional.
         :param exit_conditions: List of conditions that will cause the agent to return.
             Can include "text" if the agent should return when it generates a message without tool calls,
             or tool names that will cause the agent to return once the tool was executed. Defaults to ["text"].
@@ -150,6 +157,8 @@ class Agent(HaystackAgent):
             chat_generator=chat_generator,
             tools=tools,
             system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            required_variables=required_variables,
             exit_conditions=exit_conditions,
             state_schema=state_schema,
             max_agent_steps=max_agent_steps,
@@ -174,6 +183,7 @@ class Agent(HaystackAgent):
         requires_async: bool,
         *,
         system_prompt: str | None = None,
+        user_prompt: str | None = None,
         generation_kwargs: dict[str, Any] | None = None,
         tools: ToolsType | list[str] | None = None,
         confirmation_strategy_context: dict[str, Any] | None = None,
@@ -188,6 +198,8 @@ class Agent(HaystackAgent):
         :param streaming_callback: Optional callback for streaming responses.
         :param requires_async: Whether the agent run requires asynchronous execution.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
+        :param user_prompt: User prompt for the agent. If provided, it overrides the default user prompt and is
+            appended to the messages provided at runtime.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
 
@@ -205,6 +217,7 @@ class Agent(HaystackAgent):
             streaming_callback=streaming_callback,
             requires_async=requires_async,
             system_prompt=system_prompt,
+            user_prompt=user_prompt,
             generation_kwargs=generation_kwargs,
             tools=tools,
             confirmation_strategy_context=confirmation_strategy_context,
@@ -304,6 +317,7 @@ class Agent(HaystackAgent):
         break_point: AgentBreakpoint | None = None,
         snapshot: AgentSnapshot | None = None,
         system_prompt: str | None = None,
+        user_prompt: str | None = None,
         tools: ToolsType | list[str] | None = None,
         confirmation_strategy_context: dict[str, Any] | None = None,
         chat_message_store_kwargs: dict[str, Any] | None = None,
@@ -323,6 +337,8 @@ class Agent(HaystackAgent):
         :param snapshot: A dictionary containing a snapshot of a previously saved agent execution. The snapshot contains
             the relevant information to restart the Agent execution from where it left off.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
+        :param user_prompt: User prompt for the agent. If provided, it overrides the default user prompt and is
+            appended to the messages provided at runtime.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
@@ -382,6 +398,7 @@ class Agent(HaystackAgent):
                 streaming_callback=streaming_callback,
                 requires_async=False,
                 system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
                 confirmation_strategy_context=confirmation_strategy_context,
@@ -565,6 +582,7 @@ class Agent(HaystackAgent):
         break_point: AgentBreakpoint | None = None,
         snapshot: AgentSnapshot | None = None,
         system_prompt: str | None = None,
+        user_prompt: str | None = None,
         tools: ToolsType | list[str] | None = None,
         confirmation_strategy_context: dict[str, Any] | None = None,
         chat_message_store_kwargs: dict[str, Any] | None = None,
@@ -588,6 +606,8 @@ class Agent(HaystackAgent):
         :param snapshot: A dictionary containing a snapshot of a previously saved agent execution. The snapshot contains
             the relevant information to restart the Agent execution from where it left off.
         :param system_prompt: System prompt for the agent. If provided, it overrides the default system prompt.
+        :param user_prompt: User prompt for the agent. If provided, it overrides the default user prompt and is
+            appended to the messages provided at runtime.
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
             to confirmation strategies. Useful in web/server environments to provide per-request
@@ -644,6 +664,7 @@ class Agent(HaystackAgent):
                 streaming_callback=streaming_callback,
                 requires_async=True,
                 system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 generation_kwargs=generation_kwargs,
                 tools=tools,
                 confirmation_strategy_context=confirmation_strategy_context,
