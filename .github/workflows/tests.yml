@@ -30,7 +30,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.10"
-  HATCH_VERSION: "1.14.2"
+  HATCH_VERSION: "1.16.5"
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -59,9 +59,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        uses: pypa/hatch@install
-        with:
-          version: "${{ env.HATCH_VERSION }}"
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Ruff - check format and linting
         run: hatch run fmt-check
@@ -90,9 +88,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        uses: pypa/hatch@install
-        with:
-          version: "${{ env.HATCH_VERSION }}"
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Run
         run: hatch run test:unit
@@ -133,9 +129,7 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: Install Hatch
-        uses: pypa/hatch@install
-        with:
-          version: "${{ env.HATCH_VERSION }}"
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       # Do not authenticate on PRs from forks and on PRs created by dependabot
       - name: AWS authentication

@@ -6,7 +6,7 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*"
 
 env:
-  HATCH_VERSION: "1.14.2"
+  HATCH_VERSION: "1.16.5"
 
 jobs:
   release-on-pypi:
@@ -22,9 +22,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Hatch
-        uses: pypa/hatch@install
-        with:
-          version: "${{ env.HATCH_VERSION }}"
+        run: pip install hatch==${{ env.HATCH_VERSION }}
 
       - name: Build Haystack Experimental
         run: hatch build
