@@ -19,8 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class E2BSandboxToolset(Toolset):
     """
-    A Haystack Toolset that provides bash command execution and filesystem access
-    inside an E2B cloud sandbox environment.
+    A Haystack Toolset that provides bash command execution and filesystem access inside an E2B sandbox.
 
     E2BSandboxToolset creates and manages a connection to an E2B sandbox, exposing
     the following tools to a Haystack Agent:
