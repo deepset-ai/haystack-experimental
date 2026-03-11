@@ -84,6 +84,8 @@ jobs:
           - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
+      - name: make it fail
+        run: exit 1
       - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v6
@@ -148,7 +150,7 @@ jobs:
         run: hatch run test:integration-retry
 
   notify-slack-on-failure:
-    if: failure() && github.ref_name == 'main'
+    if: failure()
     needs:
       - linting
       - unit-tests
