@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass, field
 from typing import Any
 
 from haystack import logging
@@ -15,7 +14,6 @@ with LazyImport(message="Run 'pip install e2b'") as e2b_import:
 logger = logging.getLogger(__name__)
 
 
-@dataclass
 class E2BSandbox:
     """
     Manages the lifecycle of an E2B cloud sandbox.
@@ -62,13 +60,18 @@ class E2BSandbox:
     ```
     """
 
-    api_key: Secret = field(default_factory=lambda: Secret.from_env_var("E2B_API_KEY"))
-    sandbox_template: str = field(default="base")
-    timeout: int = field(default=300)
-    environment_vars: dict[str, str] = field(default_factory=dict)
-
-    # Private – not serialised
-    _sandbox: Any = field(default=None, init=False, repr=False, compare=False)
+    def __init__(
+        self,
+        api_key: Secret | None = None,
+        sandbox_template: str = "base",
+        timeout: int = 120,
+        environment_vars: dict[str, str] | None = None,
+    ):
+        self.api_key = api_key or Secret.from_env_var("E2B_API_KEY")
+        self.sandbox_template = sandbox_template
+        self.timeout = timeout
+        self.environment_vars = environment_vars or {}
+        self._sandbox: Any = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -94,7 +97,7 @@ class E2BSandbox:
                 template=self.sandbox_template,
                 timeout=self.timeout,
             )
-            self._sandbox = Sandbox(
+            self._sandbox = Sandbox.create(
                 api_key=resolved_key,
                 template=self.sandbox_template,
                 timeout=self.timeout,

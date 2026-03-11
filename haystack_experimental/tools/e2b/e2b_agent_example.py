@@ -21,7 +21,7 @@ import sys
 
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
-
+from haystack.utils import Secret
 from haystack_experimental.components.agents import Agent
 from haystack_experimental.tools.e2b import (
     E2BSandbox,
@@ -65,6 +65,7 @@ def run(query: str, model: str = "gpt-4o-mini") -> None:
 
     # One sandbox passed to each tool class – they all share the same live sandbox process.
     sandbox = E2BSandbox()
+    sandbox.warm_up()
     tools = [
         RunBashCommandTool(sandbox=sandbox),
         ReadFileTool(sandbox=sandbox),
@@ -84,13 +85,10 @@ def run(query: str, model: str = "gpt-4o-mini") -> None:
         max_agent_steps=15,
     )
 
-    try:
-        result = agent.run(messages=[ChatMessage.from_user(query)])
-        print("\n--- Agent response ---")
-        print(result["last_message"].text)
-    finally:
-        # Always close the sandbox to release cloud resources.
-        sandbox.close()
+    result = agent.run(messages=[ChatMessage.from_user(query)])
+    print("\n--- Agent response ---")
+    print(result["last_message"].text)
+
 
 
 if __name__ == "__main__":
