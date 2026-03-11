@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
+from haystack.core.serialization import generate_qualified_class_name
 from haystack.tools import Tool
 
 from haystack_experimental.tools.e2b.e2b_sandbox import E2BSandbox
@@ -66,3 +69,14 @@ class RunBashCommandTool(Tool):
             function=run_bash_command,
         )
         self._e2b_sandbox = sandbox
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": generate_qualified_class_name(type(self)),
+            "data": {"sandbox": self._e2b_sandbox.to_dict()},
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RunBashCommandTool":
+        sandbox = E2BSandbox.from_dict(data["data"]["sandbox"])
+        return cls(sandbox=sandbox)

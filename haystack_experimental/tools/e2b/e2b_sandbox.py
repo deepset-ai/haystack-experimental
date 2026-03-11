@@ -158,7 +158,7 @@ class E2BSandbox:
         return cls(
             api_key=inner["api_key"],
             sandbox_template=inner.get("sandbox_template", "base"),
-            timeout=inner.get("timeout", 300),
+            timeout=inner.get("timeout", 120),
             environment_vars=inner.get("environment_vars", {}),
         )
 

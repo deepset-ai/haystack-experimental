@@ -13,7 +13,7 @@ _import_structure = {
     "read_file_tool": ["ReadFileTool"],
     "write_file_tool": ["WriteFileTool"],
     "list_directory_tool": ["ListDirectoryTool"],
-    "sandbox_toolset": ["create_e2b_tools"],
+    "sandbox_toolset": ["E2BToolset"],
 }
 
 if TYPE_CHECKING:
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .e2b_sandbox import E2BSandbox as E2BSandbox
     from .list_directory_tool import ListDirectoryTool as ListDirectoryTool
     from .read_file_tool import ReadFileTool as ReadFileTool
-    from .sandbox_toolset import create_e2b_tools as create_e2b_tools
+    from .sandbox_toolset import E2BToolset as E2BToolset
     from .write_file_tool import WriteFileTool as WriteFileTool
 
 else:

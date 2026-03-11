@@ -2,7 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack.tools import Tool
+from typing import Any
+
+from haystack.core.serialization import generate_qualified_class_name
+from haystack.tools import Toolset
 from haystack.utils import Secret
 
 from haystack_experimental.tools.e2b.bash_tool import RunBashCommandTool
@@ -12,54 +15,81 @@ from haystack_experimental.tools.e2b.read_file_tool import ReadFileTool
 from haystack_experimental.tools.e2b.write_file_tool import WriteFileTool
 
 
-def create_e2b_tools(
-    api_key: Secret | None = None,
-    sandbox_template: str = "base",
-    timeout: int = 300,
-    environment_vars: dict[str, str] | None = None,
-) -> tuple[E2BSandbox, list[Tool]]:
+class E2BToolset(Toolset):
     """
-    Create an :class:`E2BSandbox` and all four E2B tools in one call.
+    A :class:`~haystack.tools.Toolset` that bundles all E2B sandbox tools.
 
-    Returns both the sandbox (for lifecycle management) and the list of tools
-    so that callers can pass any subset of the tools to an Agent.
-
-    :param api_key: E2B API key. Defaults to ``Secret.from_env_var("E2B_API_KEY")``.
-    :param sandbox_template: E2B sandbox template name. Defaults to ``"base"``.
-    :param timeout: Sandbox inactivity timeout in seconds. Defaults to ``300``.
-    :param environment_vars: Optional environment variables to inject into the sandbox.
-    :returns: A ``(sandbox, tools)`` tuple where *tools* is a list of four
-        :class:`~haystack.tools.Tool` objects: ``run_bash_command``, ``read_file``,
-        ``write_file``, and ``list_directory``.
+    All tools in the set share a single :class:`E2BSandbox` instance so they
+    operate inside the same live sandbox process. The toolset owns the sandbox
+    lifecycle: calling :meth:`warm_up` starts the sandbox, and serialisation
+    round-trips preserve the shared-sandbox relationship.
 
     ### Usage example
 
     ```python
-    from haystack.utils import Secret
-    from haystack_experimental.tools.e2b import create_e2b_tools
+    from haystack.components.generators.chat import OpenAIChatGenerator
 
-    sandbox, tools = create_e2b_tools(
-        api_key=Secret.from_env_var("E2B_API_KEY"),
+    from haystack_experimental.components.agents import Agent
+    from haystack_experimental.tools.e2b import E2BToolset
+
+    agent = Agent(
+        chat_generator=OpenAIChatGenerator(model="gpt-4o"),
+        tools=E2BToolset(),
     )
-
-    # Use all four tools:
-    agent = Agent(chat_generator=..., tools=tools)
-
-    # Or only a subset – they still share the same sandbox connection,
-    # so run_bash_command and read_file operate inside the same environment:
-    bash_tool, read_tool = tools[0], tools[1]
-    agent = Agent(chat_generator=..., tools=[bash_tool, read_tool])
     ```
     """
-    if api_key is None:
-        api_key = Secret.from_env_var("E2B_API_KEY")
-    sandbox = E2BSandbox(
-        api_key=api_key, sandbox_template=sandbox_template, timeout=timeout, environment_vars=environment_vars or {}
-    )
-    tools: list[Tool] = [
-        RunBashCommandTool(sandbox=sandbox),
-        ReadFileTool(sandbox=sandbox),
-        WriteFileTool(sandbox=sandbox),
-        ListDirectoryTool(sandbox=sandbox),
-    ]
-    return sandbox, tools
+
+    def __init__(
+        self,
+        api_key: Secret | None = None,
+        sandbox_template: str = "base",
+        timeout: int = 120,
+        environment_vars: dict[str, str] | None = None,
+    ):
+        """
+        :param api_key: E2B API key. Defaults to ``Secret.from_env_var("E2B_API_KEY")``.
+        :param sandbox_template: E2B sandbox template name. Defaults to ``"base"``.
+        :param timeout: Sandbox inactivity timeout in seconds. Defaults to ``300``.
+        :param environment_vars: Optional environment variables to inject into the sandbox.
+        """
+        self.sandbox = E2BSandbox(
+            api_key=api_key,
+            sandbox_template=sandbox_template,
+            timeout=timeout,
+            environment_vars=environment_vars,
+        )
+        super().__init__(
+            tools=[
+                RunBashCommandTool(sandbox=self.sandbox),
+                ReadFileTool(sandbox=self.sandbox),
+                WriteFileTool(sandbox=self.sandbox),
+                ListDirectoryTool(sandbox=self.sandbox),
+            ]
+        )
+
+    def warm_up(self) -> None:
+        """Start the shared E2B sandbox (idempotent)."""
+        self.sandbox.warm_up()
+
+    def close(self) -> None:
+        """Shut down the shared E2B sandbox and release cloud resources."""
+        self.sandbox.close()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": generate_qualified_class_name(type(self)),
+            "data": self.sandbox.to_dict()["data"],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "E2BToolset":
+        from haystack.utils import deserialize_secrets_inplace
+
+        inner = data["data"]
+        deserialize_secrets_inplace(inner, keys=["api_key"])
+        return cls(
+            api_key=inner["api_key"],
+            sandbox_template=inner.get("sandbox_template", "base"),
+            timeout=inner.get("timeout", 120),
+            environment_vars=inner.get("environment_vars", {}),
+        )

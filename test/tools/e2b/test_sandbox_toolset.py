@@ -12,7 +12,7 @@ from haystack_experimental.tools.e2b.bash_tool import RunBashCommandTool
 from haystack_experimental.tools.e2b.e2b_sandbox import E2BSandbox
 from haystack_experimental.tools.e2b.list_directory_tool import ListDirectoryTool
 from haystack_experimental.tools.e2b.read_file_tool import ReadFileTool
-from haystack_experimental.tools.e2b.sandbox_toolset import create_e2b_tools
+from haystack_experimental.tools.e2b.sandbox_toolset import E2BToolset
 from haystack_experimental.tools.e2b.write_file_tool import WriteFileTool
 
 
@@ -53,7 +53,7 @@ class TestE2BSandboxInit:
         """Verify the real class defaults, not values set by a helper."""
         sandbox = E2BSandbox(api_key=Secret.from_token("test-api-key"))
         assert sandbox.sandbox_template == "base"
-        assert sandbox.timeout == 300
+        assert sandbox.timeout == 120
         assert sandbox.environment_vars == {}
         assert sandbox._sandbox is None
 
@@ -75,16 +75,16 @@ class TestE2BSandboxInit:
 
 class TestE2BSandboxWarmUp:
     @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
-    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
-    def test_warm_up_creates_sandbox(self, mock_sandbox_cls, mock_e2b_import):
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox.create")
+    def test_warm_up_creates_sandbox(self, mock_sandbox_create, mock_e2b_import):
         mock_e2b_import.check.return_value = None
         mock_instance = _make_sandbox_mock()
-        mock_sandbox_cls.return_value = mock_instance
+        mock_sandbox_create.return_value = mock_instance
 
         sb = _make_sandbox(sandbox_template="base", timeout=120)
         sb.warm_up()
 
-        mock_sandbox_cls.assert_called_once_with(
+        mock_sandbox_create.assert_called_once_with(
             api_key="test-api-key",
             template="base",
             timeout=120,
@@ -93,34 +93,34 @@ class TestE2BSandboxWarmUp:
         assert sb._sandbox is mock_instance
 
     @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
-    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
-    def test_warm_up_passes_environment_vars(self, mock_sandbox_cls, mock_e2b_import):
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox.create")
+    def test_warm_up_passes_environment_vars(self, mock_sandbox_create, mock_e2b_import):
         mock_e2b_import.check.return_value = None
-        mock_sandbox_cls.return_value = _make_sandbox_mock()
+        mock_sandbox_create.return_value = _make_sandbox_mock()
 
         sb = _make_sandbox(environment_vars={"MY_VAR": "value"})
         sb.warm_up()
 
-        _, kwargs = mock_sandbox_cls.call_args
+        _, kwargs = mock_sandbox_create.call_args
         assert kwargs["envs"] == {"MY_VAR": "value"}
 
     @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
-    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
-    def test_warm_up_is_idempotent(self, mock_sandbox_cls, mock_e2b_import):
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox.create")
+    def test_warm_up_is_idempotent(self, mock_sandbox_create, mock_e2b_import):
         mock_e2b_import.check.return_value = None
-        mock_sandbox_cls.return_value = _make_sandbox_mock()
+        mock_sandbox_create.return_value = _make_sandbox_mock()
 
         sb = _make_sandbox()
         sb.warm_up()
         sb.warm_up()
 
-        mock_sandbox_cls.assert_called_once()
+        mock_sandbox_create.assert_called_once()
 
     @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
-    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
-    def test_warm_up_raises_on_sandbox_error(self, mock_sandbox_cls, mock_e2b_import):
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox.create")
+    def test_warm_up_raises_on_sandbox_error(self, mock_sandbox_create, mock_e2b_import):
         mock_e2b_import.check.return_value = None
-        mock_sandbox_cls.side_effect = Exception("connection refused")
+        mock_sandbox_create.side_effect = Exception("connection refused")
 
         sb = _make_sandbox()
         with pytest.raises(RuntimeError, match="Failed to start E2B sandbox"):
@@ -239,42 +239,34 @@ class TestToolClasses:
         tool = RunBashCommandTool(sandbox=sb)
         assert tool._e2b_sandbox is sb
 
-    def test_create_e2b_tools_returns_four_tools(self):
-        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
-        assert len(tools) == 4
-        names = {t.name for t in tools}
+    def test_e2b_toolset_contains_four_tools(self):
+        ts = E2BToolset(api_key=Secret.from_token("test-api-key"))
+        assert len(ts) == 4
+        names = {t.name for t in ts}
         assert names == {"run_bash_command", "read_file", "write_file", "list_directory"}
 
-    def test_create_e2b_tools_returns_correct_types(self):
-        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
-        tool_types = {type(t) for t in tools}
+    def test_e2b_toolset_has_correct_tool_types(self):
+        ts = E2BToolset(api_key=Secret.from_token("test-api-key"))
+        tool_types = {type(t) for t in ts}
         assert tool_types == {RunBashCommandTool, ReadFileTool, WriteFileTool, ListDirectoryTool}
 
-    def test_create_e2b_tools_shares_same_sandbox(self):
-        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
-        # All tools must reference the same E2BSandbox instance
-        assert all(t._e2b_sandbox is sb for t in tools)
+    def test_e2b_toolset_shares_same_sandbox(self):
+        ts = E2BToolset(api_key=Secret.from_token("test-api-key"))
+        assert all(t._e2b_sandbox is ts.sandbox for t in ts)
 
-        # Inject a mock and verify the tool actually calls through it
         mock = _make_sandbox_mock()
         mock.commands.run.return_value = MagicMock(exit_code=0, stdout="ok", stderr="")
-        sb._sandbox = mock
+        ts.sandbox._sandbox = mock
 
-        bash_tool = next(t for t in tools if t.name == "run_bash_command")
+        bash_tool = next(t for t in ts if t.name == "run_bash_command")
         bash_tool.invoke(command="echo ok")
 
         mock.commands.run.assert_called_once()
 
-    def test_tools_are_independent_subsets(self):
-        """Users can select any subset of tools."""
-        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
-        bash_only = [t for t in tools if t.name == "run_bash_command"]
-        assert len(bash_only) == 1
-
-    def test_create_e2b_tools_default_api_key(self):
-        """create_e2b_tools uses E2B_API_KEY env var when api_key is omitted."""
-        sb, _ = create_e2b_tools()
-        assert sb.api_key is not None
+    def test_e2b_toolset_default_api_key(self):
+        """E2BToolset uses E2B_API_KEY env var when api_key is omitted."""
+        ts = E2BToolset()
+        assert ts.sandbox.api_key is not None
 
     def test_tools_from_same_sandbox_share_state(self):
         """Tools instantiated with the same sandbox share state."""
