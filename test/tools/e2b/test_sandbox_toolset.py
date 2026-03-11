@@ -8,14 +8,12 @@ import pytest
 from haystack.tools.errors import ToolInvocationError
 from haystack.utils import Secret
 
-from haystack_experimental.tools.e2b.sandbox_toolset import (
-    E2BSandbox,
-    ListDirectoryTool,
-    ReadFileTool,
-    RunBashCommandTool,
-    WriteFileTool,
-    create_e2b_tools,
-)
+from haystack_experimental.tools.e2b.bash_tool import RunBashCommandTool
+from haystack_experimental.tools.e2b.e2b_sandbox import E2BSandbox
+from haystack_experimental.tools.e2b.list_directory_tool import ListDirectoryTool
+from haystack_experimental.tools.e2b.read_file_tool import ReadFileTool
+from haystack_experimental.tools.e2b.sandbox_toolset import create_e2b_tools
+from haystack_experimental.tools.e2b.write_file_tool import WriteFileTool
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +74,8 @@ class TestE2BSandboxInit:
 
 
 class TestE2BSandboxWarmUp:
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.Sandbox")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
     def test_warm_up_creates_sandbox(self, mock_sandbox_cls, mock_e2b_import):
         mock_e2b_import.check.return_value = None
         mock_instance = _make_sandbox_mock()
@@ -94,8 +92,8 @@ class TestE2BSandboxWarmUp:
         )
         assert sb._sandbox is mock_instance
 
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.Sandbox")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
     def test_warm_up_passes_environment_vars(self, mock_sandbox_cls, mock_e2b_import):
         mock_e2b_import.check.return_value = None
         mock_sandbox_cls.return_value = _make_sandbox_mock()
@@ -106,8 +104,8 @@ class TestE2BSandboxWarmUp:
         _, kwargs = mock_sandbox_cls.call_args
         assert kwargs["envs"] == {"MY_VAR": "value"}
 
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.Sandbox")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
     def test_warm_up_is_idempotent(self, mock_sandbox_cls, mock_e2b_import):
         mock_e2b_import.check.return_value = None
         mock_sandbox_cls.return_value = _make_sandbox_mock()
@@ -118,8 +116,8 @@ class TestE2BSandboxWarmUp:
 
         mock_sandbox_cls.assert_called_once()
 
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
-    @patch("haystack_experimental.tools.e2b.sandbox_toolset.Sandbox")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.e2b_import")
+    @patch("haystack_experimental.tools.e2b.e2b_sandbox.Sandbox")
     def test_warm_up_raises_on_sandbox_error(self, mock_sandbox_cls, mock_e2b_import):
         mock_e2b_import.check.return_value = None
         mock_sandbox_cls.side_effect = Exception("connection refused")
