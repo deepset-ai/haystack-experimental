@@ -21,29 +21,36 @@ class E2BSandbox:
     """
     Manages the lifecycle of an E2B cloud sandbox.
 
-    Use :func:`create_e2b_tools` to obtain both an ``E2BSandbox`` and the
-    individual :class:`~haystack.tools.Tool` objects at once, or instantiate
-    this class directly and pass it to the individual ``create_*_tool``
-    factory functions to build a custom subset of tools.
+    Instantiate this class and pass it to one or more E2B tool classes
+    (``RunBashCommandTool``, ``ReadFileTool``, ``WriteFileTool``,
+    ``ListDirectoryTool``) to share a single sandbox environment across all
+    tools.  All tools that receive the same ``E2BSandbox`` instance operate
+    inside the same live sandbox process.
 
     ### Usage example
 
     ```python
     from haystack.components.generators.chat import OpenAIChatGenerator
     from haystack.dataclasses import ChatMessage
-    from haystack.utils import Secret
 
     from haystack_experimental.components.agents import Agent
-    from haystack_experimental.tools.e2b import create_e2b_tools
-
-    sandbox, tools = create_e2b_tools(
-        api_key=Secret.from_env_var("E2B_API_KEY"),
-        sandbox_template="base",
-        timeout=300,
+    from haystack_experimental.tools.e2b import (
+        E2BSandbox,
+        RunBashCommandTool,
+        ReadFileTool,
+        WriteFileTool,
+        ListDirectoryTool,
     )
+
+    sandbox = E2BSandbox()
     agent = Agent(
         chat_generator=OpenAIChatGenerator(model="gpt-4o"),
-        tools=tools,
+        tools=[
+            RunBashCommandTool(sandbox=sandbox),
+            ReadFileTool(sandbox=sandbox),
+            WriteFileTool(sandbox=sandbox),
+            ListDirectoryTool(sandbox=sandbox),
+        ],
     )
     ```
 
@@ -155,7 +162,7 @@ class E2BSandbox:
         )
 
     # ------------------------------------------------------------------
-    # Internal helpers (used by the tool factories)
+    # Internal helpers (used by the tool classes)
     # ------------------------------------------------------------------
 
     def _require_sandbox(self) -> "Sandbox":
@@ -169,156 +176,215 @@ class E2BSandbox:
 
 
 # ---------------------------------------------------------------------------
-# Individual tool factories
+# Tool classes
 # ---------------------------------------------------------------------------
 
 
-def create_run_bash_command_tool(sandbox: E2BSandbox) -> Tool:
+class RunBashCommandTool(Tool):
     """
-    Create a ``run_bash_command`` :class:`~haystack.tools.Tool` bound to *sandbox*.
+    A :class:`~haystack.tools.Tool` that executes bash commands inside an E2B sandbox.
 
-    :param sandbox: The :class:`E2BSandbox` instance that will execute commands.
-    :returns: A :class:`~haystack.tools.Tool` ready to be passed to an Agent.
+    Pass the same :class:`E2BSandbox` instance to multiple tool classes so they
+    all operate in the same live sandbox environment.
+
+    ### Usage example
+
+    ```python
+    sandbox = E2BSandbox()
+    bash_tool = RunBashCommandTool(sandbox=sandbox)
+    read_tool = ReadFileTool(sandbox=sandbox)
+    agent = Agent(chat_generator=..., tools=[bash_tool, read_tool])
+    ```
     """
 
-    def run_bash_command(command: str, timeout: int = 60) -> str:
-        sb = sandbox._require_sandbox()
-        try:
-            result = sb.commands.run(command, timeout=timeout)
-            return f"exit_code: {result.exit_code}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        except Exception as e:
-            raise RuntimeError(f"Failed to run bash command: {e}") from e
+    def __init__(self, sandbox: E2BSandbox) -> None:
+        """
+        :param sandbox: The :class:`E2BSandbox` instance that will execute commands.
+        """
 
-    return Tool(
-        name="run_bash_command",
-        description=(
-            "Execute a bash command inside the E2B sandbox and return the combined stdout, "
-            "stderr, and exit code. Use this to run shell scripts, install packages, compile "
-            "code, or perform any system-level operation."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "command": {"type": "string", "description": "The bash command to execute."},
-                "timeout": {
-                    "type": "integer",
-                    "description": (
-                        "Maximum number of seconds to wait for the command to finish. Defaults to 60 seconds."
-                    ),
+        def run_bash_command(command: str, timeout: int = 60) -> str:
+            sb = sandbox._require_sandbox()
+            try:
+                result = sb.commands.run(command, timeout=timeout)
+                return f"exit_code: {result.exit_code}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+            except Exception as e:
+                raise RuntimeError(f"Failed to run bash command: {e}") from e
+
+        super().__init__(
+            name="run_bash_command",
+            description=(
+                "Execute a bash command inside the E2B sandbox and return the combined stdout, "
+                "stderr, and exit code. Use this to run shell scripts, install packages, compile "
+                "code, or perform any system-level operation."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "The bash command to execute."},
+                    "timeout": {
+                        "type": "integer",
+                        "description": (
+                            "Maximum number of seconds to wait for the command to finish. Defaults to 60 seconds."
+                        ),
+                    },
                 },
+                "required": ["command"],
             },
-            "required": ["command"],
-        },
-        function=run_bash_command,
-    )
+            function=run_bash_command,
+        )
+        self._e2b_sandbox = sandbox
 
 
-def create_read_file_tool(sandbox: E2BSandbox) -> Tool:
+class ReadFileTool(Tool):
     """
-    Create a ``read_file`` :class:`~haystack.tools.Tool` bound to *sandbox*.
+    A :class:`~haystack.tools.Tool` that reads files from an E2B sandbox filesystem.
 
-    :param sandbox: The :class:`E2BSandbox` instance to read files from.
-    :returns: A :class:`~haystack.tools.Tool` ready to be passed to an Agent.
-    """
+    Pass the same :class:`E2BSandbox` instance to multiple tool classes so they
+    all operate in the same live sandbox environment.
 
-    def read_file(path: str) -> str:
-        sb = sandbox._require_sandbox()
-        try:
-            content = sb.files.read(path)
-            if isinstance(content, bytes):
-                return content.decode("utf-8", errors="replace")
-            return str(content)
-        except Exception as e:
-            raise RuntimeError(f"Failed to read file '{path}': {e}") from e
+    ### Usage example
 
-    return Tool(
-        name="read_file",
-        description=(
-            "Read the text content of a file from the E2B sandbox filesystem and return it "
-            "as a string. The file must exist; use list_directory to verify paths first."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {"path": {"type": "string", "description": "Absolute or relative path of the file to read."}},
-            "required": ["path"],
-        },
-        function=read_file,
-    )
-
-
-def create_write_file_tool(sandbox: E2BSandbox) -> Tool:
-    """
-    Create a ``write_file`` :class:`~haystack.tools.Tool` bound to *sandbox*.
-
-    :param sandbox: The :class:`E2BSandbox` instance to write files to.
-    :returns: A :class:`~haystack.tools.Tool` ready to be passed to an Agent.
+    ```python
+    sandbox = E2BSandbox()
+    read_tool = ReadFileTool(sandbox=sandbox)
+    agent = Agent(chat_generator=..., tools=[read_tool])
+    ```
     """
 
-    def write_file(path: str, content: str) -> str:
-        sb = sandbox._require_sandbox()
-        try:
-            sb.files.write(path, content)
-            return f"File written successfully: {path}"
-        except Exception as e:
-            raise RuntimeError(f"Failed to write file '{path}': {e}") from e
+    def __init__(self, sandbox: E2BSandbox) -> None:
+        """
+        :param sandbox: The :class:`E2BSandbox` instance to read files from.
+        """
 
-    return Tool(
-        name="write_file",
-        description=(
-            "Write text content to a file in the E2B sandbox filesystem. "
-            "Parent directories are created automatically if they do not exist. "
-            "Existing files are overwritten."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Absolute or relative path of the file to write."},
-                "content": {"type": "string", "description": "Text content to write into the file."},
+        def read_file(path: str) -> str:
+            sb = sandbox._require_sandbox()
+            try:
+                content = sb.files.read(path)
+                if isinstance(content, bytes):
+                    return content.decode("utf-8", errors="replace")
+                return str(content)
+            except Exception as e:
+                raise RuntimeError(f"Failed to read file '{path}': {e}") from e
+
+        super().__init__(
+            name="read_file",
+            description=(
+                "Read the text content of a file from the E2B sandbox filesystem and return it "
+                "as a string. The file must exist; use list_directory to verify paths first."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute or relative path of the file to read."}
+                },
+                "required": ["path"],
             },
-            "required": ["path", "content"],
-        },
-        function=write_file,
-    )
+            function=read_file,
+        )
+        self._e2b_sandbox = sandbox
 
 
-def create_list_directory_tool(sandbox: E2BSandbox) -> Tool:
+class WriteFileTool(Tool):
     """
-    Create a ``list_directory`` :class:`~haystack.tools.Tool` bound to *sandbox*.
+    A :class:`~haystack.tools.Tool` that writes files to an E2B sandbox filesystem.
 
-    :param sandbox: The :class:`E2BSandbox` instance to list directories from.
-    :returns: A :class:`~haystack.tools.Tool` ready to be passed to an Agent.
+    Pass the same :class:`E2BSandbox` instance to multiple tool classes so they
+    all operate in the same live sandbox environment.
+
+    ### Usage example
+
+    ```python
+    sandbox = E2BSandbox()
+    write_tool = WriteFileTool(sandbox=sandbox)
+    agent = Agent(chat_generator=..., tools=[write_tool])
+    ```
     """
 
-    def list_directory(path: str) -> str:
-        sb = sandbox._require_sandbox()
-        try:
-            entries = sb.files.list(path)
-            lines = []
-            for entry in entries:
-                name = entry.name
-                if getattr(entry, "is_dir", False) or getattr(entry, "type", "") == "dir":
-                    name = name + "/"
-                lines.append(name)
-            return "\n".join(lines) if lines else "(empty directory)"
-        except Exception as e:
-            raise RuntimeError(f"Failed to list directory '{path}': {e}") from e
+    def __init__(self, sandbox: E2BSandbox) -> None:
+        """
+        :param sandbox: The :class:`E2BSandbox` instance to write files to.
+        """
 
-    return Tool(
-        name="list_directory",
-        description=(
-            "List the files and subdirectories inside a directory in the E2B sandbox "
-            "filesystem. Returns a newline-separated list of names with a trailing '/' "
-            "appended to subdirectory names."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Absolute or relative path of the directory to list."}
+        def write_file(path: str, content: str) -> str:
+            sb = sandbox._require_sandbox()
+            try:
+                sb.files.write(path, content)
+                return f"File written successfully: {path}"
+            except Exception as e:
+                raise RuntimeError(f"Failed to write file '{path}': {e}") from e
+
+        super().__init__(
+            name="write_file",
+            description=(
+                "Write text content to a file in the E2B sandbox filesystem. "
+                "Parent directories are created automatically if they do not exist. "
+                "Existing files are overwritten."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute or relative path of the file to write."},
+                    "content": {"type": "string", "description": "Text content to write into the file."},
+                },
+                "required": ["path", "content"],
             },
-            "required": ["path"],
-        },
-        function=list_directory,
-    )
+            function=write_file,
+        )
+        self._e2b_sandbox = sandbox
+
+
+class ListDirectoryTool(Tool):
+    """
+    A :class:`~haystack.tools.Tool` that lists directory contents in an E2B sandbox.
+
+    Pass the same :class:`E2BSandbox` instance to multiple tool classes so they
+    all operate in the same live sandbox environment.
+
+    ### Usage example
+
+    ```python
+    sandbox = E2BSandbox()
+    list_tool = ListDirectoryTool(sandbox=sandbox)
+    agent = Agent(chat_generator=..., tools=[list_tool])
+    ```
+    """
+
+    def __init__(self, sandbox: E2BSandbox) -> None:
+        """
+        :param sandbox: The :class:`E2BSandbox` instance to list directories from.
+        """
+
+        def list_directory(path: str) -> str:
+            sb = sandbox._require_sandbox()
+            try:
+                entries = sb.files.list(path)
+                lines = []
+                for entry in entries:
+                    name = entry.name
+                    if getattr(entry, "is_dir", False) or getattr(entry, "type", "") == "dir":
+                        name = name + "/"
+                    lines.append(name)
+                return "\n".join(lines) if lines else "(empty directory)"
+            except Exception as e:
+                raise RuntimeError(f"Failed to list directory '{path}': {e}") from e
+
+        super().__init__(
+            name="list_directory",
+            description=(
+                "List the files and subdirectories inside a directory in the E2B sandbox "
+                "filesystem. Returns a newline-separated list of names with a trailing '/' "
+                "appended to subdirectory names."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute or relative path of the directory to list."}
+                },
+                "required": ["path"],
+            },
+            function=list_directory,
+        )
+        self._e2b_sandbox = sandbox
 
 
 # ---------------------------------------------------------------------------
@@ -370,10 +436,10 @@ def create_e2b_tools(
     sandbox = E2BSandbox(
         api_key=api_key, sandbox_template=sandbox_template, timeout=timeout, environment_vars=environment_vars or {}
     )
-    tools = [
-        create_run_bash_command_tool(sandbox),
-        create_read_file_tool(sandbox),
-        create_write_file_tool(sandbox),
-        create_list_directory_tool(sandbox),
+    tools: list[Tool] = [
+        RunBashCommandTool(sandbox=sandbox),
+        ReadFileTool(sandbox=sandbox),
+        WriteFileTool(sandbox=sandbox),
+        ListDirectoryTool(sandbox=sandbox),
     ]
     return sandbox, tools

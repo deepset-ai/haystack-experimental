@@ -5,15 +5,16 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from haystack.tools.errors import ToolInvocationError
 from haystack.utils import Secret
 
 from haystack_experimental.tools.e2b.sandbox_toolset import (
     E2BSandbox,
+    ListDirectoryTool,
+    ReadFileTool,
+    RunBashCommandTool,
+    WriteFileTool,
     create_e2b_tools,
-    create_list_directory_tool,
-    create_read_file_tool,
-    create_run_bash_command_tool,
-    create_write_file_tool,
 )
 
 
@@ -201,39 +202,44 @@ class TestE2BSandboxSerialisation:
 
 
 # ---------------------------------------------------------------------------
-# Individual tool factories – structure
+# Tool classes – structure
 # ---------------------------------------------------------------------------
 
 
-class TestToolFactories:
-    def test_create_run_bash_command_tool_name_and_schema(self):
+class TestToolClasses:
+    def test_run_bash_command_tool_name_and_schema(self):
         sb = _make_sandbox()
-        tool = create_run_bash_command_tool(sb)
+        tool = RunBashCommandTool(sandbox=sb)
         assert tool.name == "run_bash_command"
         assert tool.description
         assert "command" in tool.parameters["required"]
 
-    def test_create_read_file_tool_name_and_schema(self):
+    def test_read_file_tool_name_and_schema(self):
         sb = _make_sandbox()
-        tool = create_read_file_tool(sb)
+        tool = ReadFileTool(sandbox=sb)
         assert tool.name == "read_file"
         assert tool.description
         assert "path" in tool.parameters["required"]
 
-    def test_create_write_file_tool_name_and_schema(self):
+    def test_write_file_tool_name_and_schema(self):
         sb = _make_sandbox()
-        tool = create_write_file_tool(sb)
+        tool = WriteFileTool(sandbox=sb)
         assert tool.name == "write_file"
         assert tool.description
         assert "path" in tool.parameters["required"]
         assert "content" in tool.parameters["required"]
 
-    def test_create_list_directory_tool_name_and_schema(self):
+    def test_list_directory_tool_name_and_schema(self):
         sb = _make_sandbox()
-        tool = create_list_directory_tool(sb)
+        tool = ListDirectoryTool(sandbox=sb)
         assert tool.name == "list_directory"
         assert tool.description
         assert "path" in tool.parameters["required"]
+
+    def test_tool_stores_sandbox_reference(self):
+        sb = _make_sandbox()
+        tool = RunBashCommandTool(sandbox=sb)
+        assert tool._e2b_sandbox is sb
 
     def test_create_e2b_tools_returns_four_tools(self):
         sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
@@ -241,9 +247,17 @@ class TestToolFactories:
         names = {t.name for t in tools}
         assert names == {"run_bash_command", "read_file", "write_file", "list_directory"}
 
+    def test_create_e2b_tools_returns_correct_types(self):
+        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
+        tool_types = {type(t) for t in tools}
+        assert tool_types == {RunBashCommandTool, ReadFileTool, WriteFileTool, ListDirectoryTool}
+
     def test_create_e2b_tools_shares_same_sandbox(self):
         sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
-        # Inject a mock sandbox to verify the tools reference the same E2BSandbox
+        # All tools must reference the same E2BSandbox instance
+        assert all(t._e2b_sandbox is sb for t in tools)
+
+        # Inject a mock and verify the tool actually calls through it
         mock = _make_sandbox_mock()
         mock.commands.run.return_value = MagicMock(exit_code=0, stdout="ok", stderr="")
         sb._sandbox = mock
@@ -264,9 +278,16 @@ class TestToolFactories:
         sb, _ = create_e2b_tools()
         assert sb.api_key is not None
 
+    def test_tools_from_same_sandbox_share_state(self):
+        """Tools instantiated with the same sandbox share state."""
+        sb = _make_sandbox()
+        bash_tool = RunBashCommandTool(sandbox=sb)
+        read_tool = ReadFileTool(sandbox=sb)
+        assert bash_tool._e2b_sandbox is read_tool._e2b_sandbox
+
 
 # ---------------------------------------------------------------------------
-# run_bash_command tool behaviour
+# RunBashCommandTool behaviour
 # ---------------------------------------------------------------------------
 
 
@@ -275,7 +296,7 @@ class TestRunBashCommandTool:
         sb, mock = _sandbox_with_mock()
         mock_result = MagicMock(exit_code=0, stdout="hello world\n", stderr="")
         mock.commands.run.return_value = mock_result
-        tool = create_run_bash_command_tool(sb)
+        tool = RunBashCommandTool(sandbox=sb)
 
         output = tool.invoke(command="echo hello world")
 
@@ -286,7 +307,7 @@ class TestRunBashCommandTool:
     def test_passes_custom_timeout(self):
         sb, mock = _sandbox_with_mock()
         mock.commands.run.return_value = MagicMock(exit_code=0, stdout="", stderr="")
-        tool = create_run_bash_command_tool(sb)
+        tool = RunBashCommandTool(sandbox=sb)
 
         tool.invoke(command="sleep 5", timeout=30)
 
@@ -294,20 +315,20 @@ class TestRunBashCommandTool:
 
     def test_raises_when_no_sandbox(self):
         sb = _make_sandbox()
-        tool = create_run_bash_command_tool(sb)
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+        tool = RunBashCommandTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="E2B sandbox is not running"):
             tool.invoke(command="ls")
 
     def test_wraps_sandbox_exception(self):
         sb, mock = _sandbox_with_mock()
         mock.commands.run.side_effect = Exception("timeout")
-        tool = create_run_bash_command_tool(sb)
-        with pytest.raises(RuntimeError, match="Failed to run bash command"):
+        tool = RunBashCommandTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="Failed to run bash command"):
             tool.invoke(command="sleep 1000")
 
 
 # ---------------------------------------------------------------------------
-# read_file tool behaviour
+# ReadFileTool behaviour
 # ---------------------------------------------------------------------------
 
 
@@ -315,7 +336,7 @@ class TestReadFileTool:
     def test_returns_string(self):
         sb, mock = _sandbox_with_mock()
         mock.files.read.return_value = "file content"
-        tool = create_read_file_tool(sb)
+        tool = ReadFileTool(sandbox=sb)
 
         result = tool.invoke(path="/some/file.txt")
 
@@ -325,7 +346,7 @@ class TestReadFileTool:
     def test_decodes_bytes(self):
         sb, mock = _sandbox_with_mock()
         mock.files.read.return_value = b"binary content"
-        tool = create_read_file_tool(sb)
+        tool = ReadFileTool(sandbox=sb)
 
         result = tool.invoke(path="/binary.bin")
 
@@ -333,27 +354,27 @@ class TestReadFileTool:
 
     def test_raises_when_no_sandbox(self):
         sb = _make_sandbox()
-        tool = create_read_file_tool(sb)
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+        tool = ReadFileTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="E2B sandbox is not running"):
             tool.invoke(path="/some/file.txt")
 
     def test_wraps_sandbox_exception(self):
         sb, mock = _sandbox_with_mock()
         mock.files.read.side_effect = Exception("file not found")
-        tool = create_read_file_tool(sb)
-        with pytest.raises(RuntimeError, match="Failed to read file"):
+        tool = ReadFileTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="Failed to read file"):
             tool.invoke(path="/nonexistent.txt")
 
 
 # ---------------------------------------------------------------------------
-# write_file tool behaviour
+# WriteFileTool behaviour
 # ---------------------------------------------------------------------------
 
 
 class TestWriteFileTool:
     def test_returns_confirmation(self):
         sb, mock = _sandbox_with_mock()
-        tool = create_write_file_tool(sb)
+        tool = WriteFileTool(sandbox=sb)
 
         result = tool.invoke(path="/output/result.txt", content="hello")
 
@@ -362,20 +383,20 @@ class TestWriteFileTool:
 
     def test_raises_when_no_sandbox(self):
         sb = _make_sandbox()
-        tool = create_write_file_tool(sb)
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+        tool = WriteFileTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="E2B sandbox is not running"):
             tool.invoke(path="/some/path.txt", content="content")
 
     def test_wraps_sandbox_exception(self):
         sb, mock = _sandbox_with_mock()
         mock.files.write.side_effect = Exception("permission denied")
-        tool = create_write_file_tool(sb)
-        with pytest.raises(RuntimeError, match="Failed to write file"):
+        tool = WriteFileTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="Failed to write file"):
             tool.invoke(path="/protected/file.txt", content="data")
 
 
 # ---------------------------------------------------------------------------
-# list_directory tool behaviour
+# ListDirectoryTool behaviour
 # ---------------------------------------------------------------------------
 
 
@@ -392,7 +413,7 @@ class TestListDirectoryTool:
             self._make_entry("file.txt"),
             self._make_entry("subdir", is_dir=True),
         ]
-        tool = create_list_directory_tool(sb)
+        tool = ListDirectoryTool(sandbox=sb)
 
         result = tool.invoke(path="/home/user")
 
@@ -403,7 +424,7 @@ class TestListDirectoryTool:
     def test_empty_directory(self):
         sb, mock = _sandbox_with_mock()
         mock.files.list.return_value = []
-        tool = create_list_directory_tool(sb)
+        tool = ListDirectoryTool(sandbox=sb)
 
         result = tool.invoke(path="/empty")
 
@@ -411,13 +432,13 @@ class TestListDirectoryTool:
 
     def test_raises_when_no_sandbox(self):
         sb = _make_sandbox()
-        tool = create_list_directory_tool(sb)
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+        tool = ListDirectoryTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="E2B sandbox is not running"):
             tool.invoke(path="/home")
 
     def test_wraps_sandbox_exception(self):
         sb, mock = _sandbox_with_mock()
         mock.files.list.side_effect = Exception("not a directory")
-        tool = create_list_directory_tool(sb)
-        with pytest.raises(RuntimeError, match="Failed to list directory"):
+        tool = ListDirectoryTool(sandbox=sb)
+        with pytest.raises(ToolInvocationError, match="Failed to list directory"):
             tool.invoke(path="/nonexistent")

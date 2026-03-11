@@ -23,7 +23,13 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 
 from haystack_experimental.components.agents import Agent
-from haystack_experimental.tools.e2b import create_e2b_tools
+from haystack_experimental.tools.e2b import (
+    E2BSandbox,
+    ListDirectoryTool,
+    ReadFileTool,
+    RunBashCommandTool,
+    WriteFileTool,
+)
 
 # ---------------------------------------------------------------------------
 # Example queries that exercise cross-tool state sharing:
@@ -57,8 +63,14 @@ def run(query: str, model: str = "gpt-4o-mini") -> None:
     print(f"Query: {query}")
     print("=" * 70)
 
-    # One sandbox, four tools – all sharing the same live sandbox process.
-    sandbox, tools = create_e2b_tools()
+    # One sandbox passed to each tool class – they all share the same live sandbox process.
+    sandbox = E2BSandbox()
+    tools = [
+        RunBashCommandTool(sandbox=sandbox),
+        ReadFileTool(sandbox=sandbox),
+        WriteFileTool(sandbox=sandbox),
+        ListDirectoryTool(sandbox=sandbox),
+    ]
 
     agent = Agent(
         chat_generator=OpenAIChatGenerator(model=model),
