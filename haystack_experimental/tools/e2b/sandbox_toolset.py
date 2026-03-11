@@ -93,15 +93,11 @@ class E2BSandboxToolset(Toolset):
                 parameters={
                     "type": "object",
                     "properties": {
-                        "command": {
-                            "type": "string",
-                            "description": "The bash command to execute.",
-                        },
+                        "command": {"type": "string", "description": "The bash command to execute."},
                         "timeout": {
                             "type": "integer",
                             "description": (
-                                "Maximum number of seconds to wait for the command to finish. "
-                                "Defaults to 60 seconds."
+                                "Maximum number of seconds to wait for the command to finish. Defaults to 60 seconds."
                             ),
                         },
                     },
@@ -118,10 +114,7 @@ class E2BSandboxToolset(Toolset):
                 parameters={
                     "type": "object",
                     "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Absolute or relative path of the file to read.",
-                        },
+                        "path": {"type": "string", "description": "Absolute or relative path of the file to read."}
                     },
                     "required": ["path"],
                 },
@@ -137,14 +130,8 @@ class E2BSandboxToolset(Toolset):
                 parameters={
                     "type": "object",
                     "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Absolute or relative path of the file to write.",
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Text content to write into the file.",
-                        },
+                        "path": {"type": "string", "description": "Absolute or relative path of the file to write."},
+                        "content": {"type": "string", "description": "Text content to write into the file."},
                     },
                     "required": ["path", "content"],
                 },
@@ -160,10 +147,7 @@ class E2BSandboxToolset(Toolset):
                 parameters={
                     "type": "object",
                     "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Absolute or relative path of the directory to list.",
-                        },
+                        "path": {"type": "string", "description": "Absolute or relative path of the directory to list."}
                     },
                     "required": ["path"],
                 },
@@ -295,11 +279,7 @@ class E2BSandboxToolset(Toolset):
         sandbox = self._require_sandbox()
         try:
             result = sandbox.commands.run(command, timeout=timeout)
-            return (
-                f"exit_code: {result.exit_code}\n"
-                f"stdout:\n{result.stdout}\n"
-                f"stderr:\n{result.stderr}"
-            )
+            return f"exit_code: {result.exit_code}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         except Exception as e:
             raise RuntimeError(f"Failed to run bash command: {e}") from e
 
