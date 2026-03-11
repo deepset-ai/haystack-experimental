@@ -7,7 +7,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from haystack.utils import Secret
 
-from haystack_experimental.tools.e2b.sandbox_toolset import E2BSandboxToolset
+from haystack_experimental.tools.e2b.sandbox_toolset import (
+    E2BSandbox,
+    create_e2b_tools,
+    create_list_directory_tool,
+    create_read_file_tool,
+    create_run_bash_command_tool,
+    create_write_file_tool,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -15,16 +22,11 @@ from haystack_experimental.tools.e2b.sandbox_toolset import E2BSandboxToolset
 # ---------------------------------------------------------------------------
 
 
-def _make_toolset(**kwargs) -> E2BSandboxToolset:
-    """Create an E2BSandboxToolset with a dummy API key for testing."""
-    defaults = {
-        "api_key": Secret.from_token("test-api-key"),
-        "sandbox_template": "base",
-        "timeout": 120,
-        "environment_vars": {},
-    }
+def _make_sandbox(**kwargs) -> E2BSandbox:
+    """Create an E2BSandbox with a dummy API key for testing."""
+    defaults = {"api_key": Secret.from_token("test-api-key")}
     defaults.update(kwargs)
-    return E2BSandboxToolset(**defaults)
+    return E2BSandbox(**defaults)
 
 
 def _make_sandbox_mock() -> MagicMock:
@@ -34,94 +36,54 @@ def _make_sandbox_mock() -> MagicMock:
     return sandbox
 
 
+def _sandbox_with_mock() -> tuple[E2BSandbox, MagicMock]:
+    """Return an E2BSandbox that already has a mocked underlying sandbox."""
+    sb = _make_sandbox()
+    mock = _make_sandbox_mock()
+    sb._sandbox = mock
+    return sb, mock
+
+
 # ---------------------------------------------------------------------------
-# Initialisation
+# E2BSandbox – initialisation
 # ---------------------------------------------------------------------------
 
 
-class TestE2BSandboxToolsetInit:
-    def test_default_parameters(self):
-        toolset = _make_toolset()
-        assert toolset.sandbox_template == "base"
-        assert toolset.timeout == 120
-        assert toolset.environment_vars == {}
-        assert toolset._sandbox is None
+class TestE2BSandboxInit:
+    def test_class_defaults(self):
+        """Verify the real class defaults, not values set by a helper."""
+        sandbox = E2BSandbox(api_key=Secret.from_token("test-api-key"))
+        assert sandbox.sandbox_template == "base"
+        assert sandbox.timeout == 300
+        assert sandbox.environment_vars == {}
+        assert sandbox._sandbox is None
 
     def test_custom_parameters(self):
-        toolset = _make_toolset(
+        sandbox = _make_sandbox(
             sandbox_template="my-template",
             timeout=600,
             environment_vars={"FOO": "bar"},
         )
-        assert toolset.sandbox_template == "my-template"
-        assert toolset.timeout == 600
-        assert toolset.environment_vars == {"FOO": "bar"}
-
-    def test_tools_are_created(self):
-        toolset = _make_toolset()
-        tool_names = {tool.name for tool in toolset}
-        assert tool_names == {"run_bash_command", "read_file", "write_file", "list_directory"}
-
-    def test_tools_have_descriptions(self):
-        toolset = _make_toolset()
-        for tool in toolset:
-            assert tool.description, f"Tool '{tool.name}' has no description"
-
-    def test_tools_have_valid_parameters_schema(self):
-        toolset = _make_toolset()
-        for tool in toolset:
-            assert "type" in tool.parameters
-            assert "properties" in tool.parameters
-
-    def test_run_bash_command_required_parameter(self):
-        toolset = _make_toolset()
-        bash_tool = next(t for t in toolset if t.name == "run_bash_command")
-        assert "command" in bash_tool.parameters["required"]
-
-    def test_read_file_required_parameter(self):
-        toolset = _make_toolset()
-        read_tool = next(t for t in toolset if t.name == "read_file")
-        assert "path" in read_tool.parameters["required"]
-
-    def test_write_file_required_parameters(self):
-        toolset = _make_toolset()
-        write_tool = next(t for t in toolset if t.name == "write_file")
-        assert "path" in write_tool.parameters["required"]
-        assert "content" in write_tool.parameters["required"]
-
-    def test_list_directory_required_parameter(self):
-        toolset = _make_toolset()
-        list_tool = next(t for t in toolset if t.name == "list_directory")
-        assert "path" in list_tool.parameters["required"]
-
-    def test_toolset_len(self):
-        toolset = _make_toolset()
-        assert len(toolset) == 4
-
-    def test_toolset_contains_by_name(self):
-        toolset = _make_toolset()
-        assert "run_bash_command" in toolset
-        assert "read_file" in toolset
-        assert "write_file" in toolset
-        assert "list_directory" in toolset
-        assert "nonexistent_tool" not in toolset
+        assert sandbox.sandbox_template == "my-template"
+        assert sandbox.timeout == 600
+        assert sandbox.environment_vars == {"FOO": "bar"}
 
 
 # ---------------------------------------------------------------------------
-# warm_up
+# E2BSandbox – warm_up
 # ---------------------------------------------------------------------------
 
 
-class TestE2BSandboxToolsetWarmUp:
+class TestE2BSandboxWarmUp:
     @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
     @patch("haystack_experimental.tools.e2b.sandbox_toolset.Sandbox")
     def test_warm_up_creates_sandbox(self, mock_sandbox_cls, mock_e2b_import):
         mock_e2b_import.check.return_value = None
-        mock_sandbox_instance = _make_sandbox_mock()
-        mock_sandbox_cls.return_value = mock_sandbox_instance
+        mock_instance = _make_sandbox_mock()
+        mock_sandbox_cls.return_value = mock_instance
 
-        toolset = _make_toolset()
-        toolset.warm_up()
+        sb = _make_sandbox(sandbox_template="base", timeout=120)
+        sb.warm_up()
 
         mock_sandbox_cls.assert_called_once_with(
             api_key="test-api-key",
@@ -129,7 +91,7 @@ class TestE2BSandboxToolsetWarmUp:
             timeout=120,
             envs=None,
         )
-        assert toolset._sandbox is mock_sandbox_instance
+        assert sb._sandbox is mock_instance
 
     @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
     @patch("haystack_experimental.tools.e2b.sandbox_toolset.Sandbox")
@@ -137,8 +99,8 @@ class TestE2BSandboxToolsetWarmUp:
         mock_e2b_import.check.return_value = None
         mock_sandbox_cls.return_value = _make_sandbox_mock()
 
-        toolset = _make_toolset(environment_vars={"MY_VAR": "value"})
-        toolset.warm_up()
+        sb = _make_sandbox(environment_vars={"MY_VAR": "value"})
+        sb.warm_up()
 
         _, kwargs = mock_sandbox_cls.call_args
         assert kwargs["envs"] == {"MY_VAR": "value"}
@@ -149,11 +111,10 @@ class TestE2BSandboxToolsetWarmUp:
         mock_e2b_import.check.return_value = None
         mock_sandbox_cls.return_value = _make_sandbox_mock()
 
-        toolset = _make_toolset()
-        toolset.warm_up()
-        toolset.warm_up()
+        sb = _make_sandbox()
+        sb.warm_up()
+        sb.warm_up()
 
-        # Sandbox should only be created once
         mock_sandbox_cls.assert_called_once()
 
     @patch("haystack_experimental.tools.e2b.sandbox_toolset.e2b_import")
@@ -162,223 +123,49 @@ class TestE2BSandboxToolsetWarmUp:
         mock_e2b_import.check.return_value = None
         mock_sandbox_cls.side_effect = Exception("connection refused")
 
-        toolset = _make_toolset()
+        sb = _make_sandbox()
         with pytest.raises(RuntimeError, match="Failed to start E2B sandbox"):
-            toolset.warm_up()
+            sb.warm_up()
 
 
 # ---------------------------------------------------------------------------
-# close
+# E2BSandbox – close
 # ---------------------------------------------------------------------------
 
 
-class TestE2BSandboxToolsetClose:
+class TestE2BSandboxClose:
     def test_close_without_warm_up_is_noop(self):
-        toolset = _make_toolset()
-        toolset.close()  # must not raise
-        assert toolset._sandbox is None
+        sb = _make_sandbox()
+        sb.close()
+        assert sb._sandbox is None
 
     def test_close_kills_sandbox(self):
-        toolset = _make_toolset()
-        mock_sandbox = _make_sandbox_mock()
-        toolset._sandbox = mock_sandbox
-
-        toolset.close()
-
-        mock_sandbox.kill.assert_called_once()
-        assert toolset._sandbox is None
+        sb, mock = _sandbox_with_mock()
+        sb.close()
+        mock.kill.assert_called_once()
+        assert sb._sandbox is None
 
     def test_close_clears_sandbox_on_kill_error(self):
-        toolset = _make_toolset()
-        mock_sandbox = _make_sandbox_mock()
-        mock_sandbox.kill.side_effect = Exception("kill failed")
-        toolset._sandbox = mock_sandbox
-
-        toolset.close()  # must not raise
-
-        assert toolset._sandbox is None
+        sb, mock = _sandbox_with_mock()
+        mock.kill.side_effect = Exception("kill failed")
+        sb.close()  # must not raise
+        assert sb._sandbox is None
 
 
 # ---------------------------------------------------------------------------
-# Tool invocations
+# E2BSandbox – serialisation
 # ---------------------------------------------------------------------------
 
 
-class TestE2BSandboxToolsetRunBashCommand:
-    def _toolset_with_sandbox(self) -> tuple[E2BSandboxToolset, MagicMock]:
-        toolset = _make_toolset()
-        mock_sandbox = _make_sandbox_mock()
-        toolset._sandbox = mock_sandbox
-        return toolset, mock_sandbox
-
-    def test_run_bash_command_returns_formatted_output(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_result.stdout = "hello world\n"
-        mock_result.stderr = ""
-        mock_sandbox.commands.run.return_value = mock_result
-
-        output = toolset._run_bash_command("echo hello world")
-
-        assert "exit_code: 0" in output
-        assert "hello world" in output
-        mock_sandbox.commands.run.assert_called_once_with("echo hello world", timeout=60)
-
-    def test_run_bash_command_passes_custom_timeout(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.commands.run.return_value = MagicMock(exit_code=0, stdout="", stderr="")
-
-        toolset._run_bash_command("sleep 5", timeout=30)
-
-        mock_sandbox.commands.run.assert_called_once_with("sleep 5", timeout=30)
-
-    def test_run_bash_command_raises_when_no_sandbox(self):
-        toolset = _make_toolset()
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
-            toolset._run_bash_command("ls")
-
-    def test_run_bash_command_wraps_sandbox_exception(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.commands.run.side_effect = Exception("timeout")
-
-        with pytest.raises(RuntimeError, match="Failed to run bash command"):
-            toolset._run_bash_command("sleep 1000")
-
-
-class TestE2BSandboxToolsetReadFile:
-    def _toolset_with_sandbox(self) -> tuple[E2BSandboxToolset, MagicMock]:
-        toolset = _make_toolset()
-        mock_sandbox = _make_sandbox_mock()
-        toolset._sandbox = mock_sandbox
-        return toolset, mock_sandbox
-
-    def test_read_file_returns_string(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.read.return_value = "file content"
-
-        result = toolset._read_file("/some/file.txt")
-
-        assert result == "file content"
-        mock_sandbox.files.read.assert_called_once_with("/some/file.txt")
-
-    def test_read_file_decodes_bytes(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.read.return_value = b"binary content"
-
-        result = toolset._read_file("/binary.bin")
-
-        assert result == "binary content"
-
-    def test_read_file_raises_when_no_sandbox(self):
-        toolset = _make_toolset()
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
-            toolset._read_file("/some/file.txt")
-
-    def test_read_file_wraps_sandbox_exception(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.read.side_effect = Exception("file not found")
-
-        with pytest.raises(RuntimeError, match="Failed to read file"):
-            toolset._read_file("/nonexistent.txt")
-
-
-class TestE2BSandboxToolsetWriteFile:
-    def _toolset_with_sandbox(self) -> tuple[E2BSandboxToolset, MagicMock]:
-        toolset = _make_toolset()
-        mock_sandbox = _make_sandbox_mock()
-        toolset._sandbox = mock_sandbox
-        return toolset, mock_sandbox
-
-    def test_write_file_returns_confirmation(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-
-        result = toolset._write_file("/output/result.txt", "hello")
-
-        assert "/output/result.txt" in result
-        mock_sandbox.files.write.assert_called_once_with("/output/result.txt", "hello")
-
-    def test_write_file_raises_when_no_sandbox(self):
-        toolset = _make_toolset()
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
-            toolset._write_file("/some/path.txt", "content")
-
-    def test_write_file_wraps_sandbox_exception(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.write.side_effect = Exception("permission denied")
-
-        with pytest.raises(RuntimeError, match="Failed to write file"):
-            toolset._write_file("/protected/file.txt", "data")
-
-
-class TestE2BSandboxToolsetListDirectory:
-    def _toolset_with_sandbox(self) -> tuple[E2BSandboxToolset, MagicMock]:
-        toolset = _make_toolset()
-        mock_sandbox = _make_sandbox_mock()
-        toolset._sandbox = mock_sandbox
-        return toolset, mock_sandbox
-
-    def _make_entry(self, name: str, is_dir: bool = False) -> MagicMock:
-        entry = MagicMock()
-        entry.name = name
-        entry.is_dir = is_dir
-        return entry
-
-    def test_list_directory_returns_names(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.list.return_value = [
-            self._make_entry("file.txt"),
-            self._make_entry("subdir", is_dir=True),
-        ]
-
-        result = toolset._list_directory("/home/user")
-
-        assert "file.txt" in result
-        assert "subdir/" in result
-        mock_sandbox.files.list.assert_called_once_with("/home/user")
-
-    def test_list_directory_empty(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.list.return_value = []
-
-        result = toolset._list_directory("/empty")
-
-        assert result == "(empty directory)"
-
-    def test_list_directory_raises_when_no_sandbox(self):
-        toolset = _make_toolset()
-        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
-            toolset._list_directory("/home")
-
-    def test_list_directory_wraps_sandbox_exception(self):
-        toolset, mock_sandbox = self._toolset_with_sandbox()
-        mock_sandbox.files.list.side_effect = Exception("not a directory")
-
-        with pytest.raises(RuntimeError, match="Failed to list directory"):
-            toolset._list_directory("/nonexistent")
-
-
-# ---------------------------------------------------------------------------
-# Serialisation
-# ---------------------------------------------------------------------------
-
-
-class TestE2BSandboxToolsetSerialisation:
-    """Serialisation tests use env-var secrets (the only serialisable Secret type)."""
-
-    def _make_env_toolset(self, **kwargs) -> E2BSandboxToolset:
-        defaults = {
-            "api_key": Secret.from_env_var("E2B_API_KEY"),
-            "sandbox_template": "base",
-            "timeout": 120,
-            "environment_vars": {},
-        }
+class TestE2BSandboxSerialisation:
+    def _make_env_sandbox(self, **kwargs) -> E2BSandbox:
+        defaults = {"api_key": Secret.from_env_var("E2B_API_KEY")}
         defaults.update(kwargs)
-        return E2BSandboxToolset(**defaults)
+        return E2BSandbox(**defaults)
 
     def test_to_dict_contains_expected_keys(self):
-        toolset = self._make_env_toolset(sandbox_template="my-template", timeout=600)
-        data = toolset.to_dict()
+        sb = self._make_env_sandbox(sandbox_template="my-template", timeout=600)
+        data = sb.to_dict()
 
         assert "type" in data
         assert "data" in data
@@ -386,36 +173,251 @@ class TestE2BSandboxToolsetSerialisation:
         assert data["data"]["timeout"] == 600
 
     def test_to_dict_does_not_include_sandbox_instance(self):
-        toolset = self._make_env_toolset()
-        toolset._sandbox = _make_sandbox_mock()  # simulate warm-up
-        data = toolset.to_dict()
+        sb = self._make_env_sandbox()
+        sb._sandbox = _make_sandbox_mock()
+        data = sb.to_dict()
 
         assert "_sandbox" not in data["data"]
         assert "sandbox" not in data["data"]
 
     def test_from_dict_round_trip(self):
-        original = self._make_env_toolset(
+        original = self._make_env_sandbox(
             sandbox_template="custom",
             timeout=900,
             environment_vars={"KEY": "value"},
         )
         data = original.to_dict()
-        restored = E2BSandboxToolset.from_dict(data)
+        restored = E2BSandbox.from_dict(data)
 
         assert restored.sandbox_template == "custom"
         assert restored.timeout == 900
         assert restored.environment_vars == {"KEY": "value"}
-        assert restored._sandbox is None  # sandbox not restored
-
-    def test_from_dict_creates_tools(self):
-        original = self._make_env_toolset()
-        data = original.to_dict()
-        restored = E2BSandboxToolset.from_dict(data)
-
-        assert len(restored) == 4
-        assert "run_bash_command" in restored
+        assert restored._sandbox is None
 
     def test_to_dict_type_is_qualified_class_name(self):
-        toolset = self._make_env_toolset()
-        data = toolset.to_dict()
-        assert "E2BSandboxToolset" in data["type"]
+        sb = self._make_env_sandbox()
+        data = sb.to_dict()
+        assert "E2BSandbox" in data["type"]
+
+
+# ---------------------------------------------------------------------------
+# Individual tool factories – structure
+# ---------------------------------------------------------------------------
+
+
+class TestToolFactories:
+    def test_create_run_bash_command_tool_name_and_schema(self):
+        sb = _make_sandbox()
+        tool = create_run_bash_command_tool(sb)
+        assert tool.name == "run_bash_command"
+        assert tool.description
+        assert "command" in tool.parameters["required"]
+
+    def test_create_read_file_tool_name_and_schema(self):
+        sb = _make_sandbox()
+        tool = create_read_file_tool(sb)
+        assert tool.name == "read_file"
+        assert tool.description
+        assert "path" in tool.parameters["required"]
+
+    def test_create_write_file_tool_name_and_schema(self):
+        sb = _make_sandbox()
+        tool = create_write_file_tool(sb)
+        assert tool.name == "write_file"
+        assert tool.description
+        assert "path" in tool.parameters["required"]
+        assert "content" in tool.parameters["required"]
+
+    def test_create_list_directory_tool_name_and_schema(self):
+        sb = _make_sandbox()
+        tool = create_list_directory_tool(sb)
+        assert tool.name == "list_directory"
+        assert tool.description
+        assert "path" in tool.parameters["required"]
+
+    def test_create_e2b_tools_returns_four_tools(self):
+        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
+        assert len(tools) == 4
+        names = {t.name for t in tools}
+        assert names == {"run_bash_command", "read_file", "write_file", "list_directory"}
+
+    def test_create_e2b_tools_shares_same_sandbox(self):
+        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
+        # Inject a mock sandbox to verify the tools reference the same E2BSandbox
+        mock = _make_sandbox_mock()
+        mock.commands.run.return_value = MagicMock(exit_code=0, stdout="ok", stderr="")
+        sb._sandbox = mock
+
+        bash_tool = next(t for t in tools if t.name == "run_bash_command")
+        bash_tool.invoke(command="echo ok")
+
+        mock.commands.run.assert_called_once()
+
+    def test_tools_are_independent_subsets(self):
+        """Users can select any subset of tools."""
+        sb, tools = create_e2b_tools(api_key=Secret.from_token("test-api-key"))
+        bash_only = [t for t in tools if t.name == "run_bash_command"]
+        assert len(bash_only) == 1
+
+    def test_create_e2b_tools_default_api_key(self):
+        """create_e2b_tools uses E2B_API_KEY env var when api_key is omitted."""
+        sb, _ = create_e2b_tools()
+        assert sb.api_key is not None
+
+
+# ---------------------------------------------------------------------------
+# run_bash_command tool behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestRunBashCommandTool:
+    def test_returns_formatted_output(self):
+        sb, mock = _sandbox_with_mock()
+        mock_result = MagicMock(exit_code=0, stdout="hello world\n", stderr="")
+        mock.commands.run.return_value = mock_result
+        tool = create_run_bash_command_tool(sb)
+
+        output = tool.invoke(command="echo hello world")
+
+        assert "exit_code: 0" in output
+        assert "hello world" in output
+        mock.commands.run.assert_called_once_with("echo hello world", timeout=60)
+
+    def test_passes_custom_timeout(self):
+        sb, mock = _sandbox_with_mock()
+        mock.commands.run.return_value = MagicMock(exit_code=0, stdout="", stderr="")
+        tool = create_run_bash_command_tool(sb)
+
+        tool.invoke(command="sleep 5", timeout=30)
+
+        mock.commands.run.assert_called_once_with("sleep 5", timeout=30)
+
+    def test_raises_when_no_sandbox(self):
+        sb = _make_sandbox()
+        tool = create_run_bash_command_tool(sb)
+        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+            tool.invoke(command="ls")
+
+    def test_wraps_sandbox_exception(self):
+        sb, mock = _sandbox_with_mock()
+        mock.commands.run.side_effect = Exception("timeout")
+        tool = create_run_bash_command_tool(sb)
+        with pytest.raises(RuntimeError, match="Failed to run bash command"):
+            tool.invoke(command="sleep 1000")
+
+
+# ---------------------------------------------------------------------------
+# read_file tool behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestReadFileTool:
+    def test_returns_string(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.read.return_value = "file content"
+        tool = create_read_file_tool(sb)
+
+        result = tool.invoke(path="/some/file.txt")
+
+        assert result == "file content"
+        mock.files.read.assert_called_once_with("/some/file.txt")
+
+    def test_decodes_bytes(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.read.return_value = b"binary content"
+        tool = create_read_file_tool(sb)
+
+        result = tool.invoke(path="/binary.bin")
+
+        assert result == "binary content"
+
+    def test_raises_when_no_sandbox(self):
+        sb = _make_sandbox()
+        tool = create_read_file_tool(sb)
+        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+            tool.invoke(path="/some/file.txt")
+
+    def test_wraps_sandbox_exception(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.read.side_effect = Exception("file not found")
+        tool = create_read_file_tool(sb)
+        with pytest.raises(RuntimeError, match="Failed to read file"):
+            tool.invoke(path="/nonexistent.txt")
+
+
+# ---------------------------------------------------------------------------
+# write_file tool behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestWriteFileTool:
+    def test_returns_confirmation(self):
+        sb, mock = _sandbox_with_mock()
+        tool = create_write_file_tool(sb)
+
+        result = tool.invoke(path="/output/result.txt", content="hello")
+
+        assert "/output/result.txt" in result
+        mock.files.write.assert_called_once_with("/output/result.txt", "hello")
+
+    def test_raises_when_no_sandbox(self):
+        sb = _make_sandbox()
+        tool = create_write_file_tool(sb)
+        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+            tool.invoke(path="/some/path.txt", content="content")
+
+    def test_wraps_sandbox_exception(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.write.side_effect = Exception("permission denied")
+        tool = create_write_file_tool(sb)
+        with pytest.raises(RuntimeError, match="Failed to write file"):
+            tool.invoke(path="/protected/file.txt", content="data")
+
+
+# ---------------------------------------------------------------------------
+# list_directory tool behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestListDirectoryTool:
+    def _make_entry(self, name: str, is_dir: bool = False) -> MagicMock:
+        entry = MagicMock()
+        entry.name = name
+        entry.is_dir = is_dir
+        return entry
+
+    def test_returns_names(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.list.return_value = [
+            self._make_entry("file.txt"),
+            self._make_entry("subdir", is_dir=True),
+        ]
+        tool = create_list_directory_tool(sb)
+
+        result = tool.invoke(path="/home/user")
+
+        assert "file.txt" in result
+        assert "subdir/" in result
+        mock.files.list.assert_called_once_with("/home/user")
+
+    def test_empty_directory(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.list.return_value = []
+        tool = create_list_directory_tool(sb)
+
+        result = tool.invoke(path="/empty")
+
+        assert result == "(empty directory)"
+
+    def test_raises_when_no_sandbox(self):
+        sb = _make_sandbox()
+        tool = create_list_directory_tool(sb)
+        with pytest.raises(RuntimeError, match="E2B sandbox is not running"):
+            tool.invoke(path="/home")
+
+    def test_wraps_sandbox_exception(self):
+        sb, mock = _sandbox_with_mock()
+        mock.files.list.side_effect = Exception("not a directory")
+        tool = create_list_directory_tool(sb)
+        with pytest.raises(RuntimeError, match="Failed to list directory"):
+            tool.invoke(path="/nonexistent")
