@@ -143,3 +143,15 @@ jobs:
       - name: Run
         if: success() && steps.aws-auth.outcome == 'success'
         run: hatch run test:integration-retry
+
+  notify-slack-on-failure:
+    if: failure() && github.ref_name == 'main'
+    needs:
+      - linting
+      - unit-tests
+      - integration-tests
+    runs-on: ubuntu-slim
+    steps:
+      - uses: deepset-ai/notify-slack-action@v1
+        with:
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_NOTIFICATIONS }}
