@@ -92,7 +92,8 @@ class TestMem0MemoryStore:
         """Test adding memories successfully."""
         store, user_id = memory_store
         result = store.add_memories(messages=sample_messages, user_id=user_id)
-        assert len(result) == 2
+        # with infer=True (default), two messages are converted to a single memory
+        assert len(result) == 1
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -124,8 +125,11 @@ class TestMem0MemoryStore:
         reason="Export an env var called MEM0_API_KEY containing the Mem0 API key to run this test.",
     )
     @pytest.mark.integration
-    def test_search_memories(self, sample_messages):
-        """Test searching memories on previously added memories because the mem0 takes time to index the memory"""
+    def test_search_memories(self):
+        """
+        Test searching memories on previously added memories because the mem0 takes time to index the memory.
+        This test points to an existing memory index in mem0 associated to the account we use in CI.
+        """
         memory_store = Mem0MemoryStore()
         # search without query
         result = memory_store.search_memories(user_id="haystack_simple_memories")
