@@ -54,6 +54,7 @@ extra-dependencies = [
   "tiktoken",     # LLM-based Summarizer
   "nltk>=3.9.1",  # LLM-based Summarizer
   "mem0ai", # Mem0MemoryStore
+  "e2b",    # E2BSandboxToolset
   "amazon-bedrock-haystack",
   "google-genai-haystack",
   "cohere-haystack",
