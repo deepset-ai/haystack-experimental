@@ -308,7 +308,7 @@ class Agent(HaystackAgent):
             tool_execution_decisions=snapshot.tool_execution_decisions,
         )
 
-    def run(  # type: ignore[override]  # noqa: PLR0915 PLR0912
+    def run(  # type: ignore[override]  # noqa: PLR0915 PLR0912 C901
         self,
         messages: list[ChatMessage],
         streaming_callback: StreamingCallbackT | None = None,
@@ -381,7 +381,11 @@ class Agent(HaystackAgent):
         }
         # TODO Probably good to add a warning in runtime checks that BreakpointConfirmationStrategy will take
         #  precedence over passing a ToolBreakpoint
-        self._runtime_checks(break_point)
+        # Support both old signature (break_point) and new signature (break_point, tools)
+        _runtime_checks_kwargs: dict[str, Any] = {"break_point": break_point}
+        if "tools" in inspect.signature(HaystackAgent._runtime_checks).parameters:
+            _runtime_checks_kwargs["tools"] = tools
+        self._runtime_checks(**_runtime_checks_kwargs)
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
@@ -573,7 +577,7 @@ class Agent(HaystackAgent):
 
         return result
 
-    async def run_async(  # type: ignore[override] # noqa: PLR0915
+    async def run_async(  # type: ignore[override] # noqa: PLR0915 PLR0912
         self,
         messages: list[ChatMessage],
         streaming_callback: StreamingCallbackT | None = None,
@@ -647,7 +651,10 @@ class Agent(HaystackAgent):
             "snapshot": snapshot,
             **kwargs,
         }
-        self._runtime_checks(break_point)
+        _runtime_checks_kwargs: dict[str, Any] = {"break_point": break_point}
+        if "tools" in inspect.signature(HaystackAgent._runtime_checks).parameters:
+            _runtime_checks_kwargs["tools"] = tools
+        self._runtime_checks(**_runtime_checks_kwargs)
 
         if snapshot:
             exe_context = self._initialize_from_snapshot(
