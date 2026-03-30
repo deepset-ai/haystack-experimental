@@ -11,6 +11,9 @@ env:
 jobs:
   release-on-pypi:
     runs-on: ubuntu-slim
+    environment: pypi
+    permissions:
+      id-token: write
 
     steps:
       - name: Checkout
@@ -28,10 +31,7 @@ jobs:
         run: hatch build
 
       - name: Publish on PyPi
-        env:
-          HATCH_INDEX_USER: __token__
-          HATCH_INDEX_AUTH: ${{ secrets.HAYSTACK_AI_PYPI_TOKEN }}
-        run: hatch publish -y
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
 
       - name: Notify Slack
         env:
