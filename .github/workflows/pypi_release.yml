@@ -10,7 +10,7 @@ env:
 
 jobs:
   release-on-pypi:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write
