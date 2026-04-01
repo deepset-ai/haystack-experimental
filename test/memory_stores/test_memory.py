@@ -33,7 +33,7 @@ class TestMemory:
 
     @pytest.mark.integration
     def test_memory_with_bedrock_claude(self, messages):
-        chat_generator = AmazonBedrockChatGenerator(model="anthropic.claude-3-5-sonnet-20240620-v1:0")
+        chat_generator = AmazonBedrockChatGenerator(model="global.anthropic.claude-sonnet-4-6")
         ans = chat_generator.run(messages=messages)
         print(ans["replies"][0].text)
         assert "Good Morning!" in ans["replies"][0].text
