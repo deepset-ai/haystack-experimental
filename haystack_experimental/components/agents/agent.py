@@ -226,7 +226,7 @@ class Agent(HaystackAgent):
         )
 
         # NOTE: difference with parent method to add memory retrieval
-        if self._memory_store:
+        if self._memory_store and messages:
             retrieved_memories = self._memory_store.search_memories(
                 query=messages[-1].text, **memory_store_kwargs if memory_store_kwargs else {}
             )
