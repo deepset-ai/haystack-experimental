@@ -213,15 +213,13 @@ class TestMem0MemoryStore:
         ]
         store.add_memories(messages=user_messages, infer=False, user_id=user_id)
         store.add_memories(messages=assistant_messages, infer=False, agent_id=unique_agent_id)
-        try:
-            assistant_mem = store.search_memories(
-                filters={"field": "agent_id", "operator": "==", "value": unique_agent_id}
-            )
-            user_mem = store.search_memories(filters={"field": "user_id", "operator": "==", "value": user_id})
-            assert len(assistant_mem) == 2
-            assert len(user_mem) == 2
-        finally:
-            store.delete_all_memories(agent_id=unique_agent_id)
+
+        assistant_mem = store.search_memories(
+            filters={"field": "agent_id", "operator": "==", "value": unique_agent_id}
+        )
+        user_mem = store.search_memories(filters={"field": "user_id", "operator": "==", "value": user_id})
+        assert len(assistant_mem) == 2
+        assert len(user_mem) == 2
 
     @pytest.mark.skipif(
         not (os.environ.get("MEM0_API_KEY", None) and os.environ.get("OPENAI_API_KEY", None)),
