@@ -50,26 +50,25 @@ class Mem0MemoryStore:
         user_id: str | None = None,
         run_id: str | None = None,
         agent_id: str | None = None,
-        async_mode: bool = False,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
         Add ChatMessage memories to Mem0.
 
         :param messages: List of ChatMessage objects with memory metadata
-        :param infer: Whether to infer facts from the messages. If False, the whole message will
-            be added as a memory.
+        :param infer: Whether to infer facts from the messages. If False, the whole message will be added as a memory.
+            With `infer=False`, Mem0 returns the added memory ids synchronously. With `infer=True`, Mem0 may return a
+            pending status without any memory ids; in that case, the extracted memories become available via
+            `search_memories` once the server finishes indexing them.
         :param user_id: The user ID to to store and retrieve memories from the memory store.
         :param run_id: The run ID to to store and retrieve memories from the memory store.
         :param agent_id: The agent ID to to store and retrieve memories from the memory store.
             If you want Mem0 to store chat messages from the assistant, you need to set the agent_id.
-        :param async_mode: Whether to add memories asynchronously.
-            If True, the method will return immediately and the memories will be added in the background.
         :param kwargs: Additional keyword arguments to pass to the Mem0 client.add method.
             Note: ChatMessage.meta in the list of messages will be ignored because Mem0 doesn't allow
             passing metadata for each message in the list. You can pass metadata for the whole memory
             by passing the `metadata` keyword argument to the method.
-        :returns: List of objects with the memory_id and the memory
+        :returns: List of objects with the memory_id and the memory.
         """
         added_ids = []
         ids = self._get_ids(user_id, run_id, agent_id)
@@ -85,11 +84,13 @@ class Mem0MemoryStore:
             # we save the role of the message in the metadata
             mem0_messages.append({"content": message.text, "role": message.role.value})
         try:
-            status = self.client.add(messages=mem0_messages, infer=infer, **ids, async_mode=async_mode, **kwargs)
-            if status:
+            status = self.client.add(messages=mem0_messages, infer=infer, **ids, **kwargs)
+            if status and "results" in status:
                 for result in status["results"]:
-                    memory_id = {"memory_id": result.get("id"), "memory": result["memory"]}
-                    added_ids.append(memory_id)
+                    # Mem0 v3 wraps the memory text under a `data` key; older shapes exposed it directly
+                    data = result.get("data")
+                    memory_text = data.get("memory") if isinstance(data, dict) else result.get("memory")
+                    added_ids.append({"memory_id": result.get("id"), "memory": memory_text})
         except Exception as e:
             raise RuntimeError(f"Failed to add memory message: {e}") from e
         return added_ids
