@@ -92,8 +92,7 @@ class TestMem0MemoryStore:
         """Test adding memories successfully."""
         store, user_id = memory_store
         result = store.add_memories(messages=sample_messages, user_id=user_id)
-        # with infer=True (default), two messages are converted to a single memory
-        assert len(result) == 1
+        assert result == []
 
     @pytest.mark.skipif(
         not os.environ.get("MEM0_API_KEY", None),
@@ -115,9 +114,7 @@ class TestMem0MemoryStore:
         """Test adding memories with metadata."""
         store, user_id = memory_store
         messages = [ChatMessage.from_user("User likes to work with python on NLP projects")]
-        result = store.add_memories(
-            messages=messages, user_id=user_id, metadata={"key": "value"}, async_mode=False
-        )
+        result = store.add_memories(messages=messages, infer=False, user_id=user_id, metadata={"key": "value"})
         assert len(result) == 1
 
     @pytest.mark.skipif(
@@ -201,17 +198,25 @@ class TestMem0MemoryStore:
     def test_role_based_memories(self, memory_store):
         store, user_id = memory_store
         unique_agent_id = _get_unique_user_id()
-        messages = [
+        # in Mem0 v3, to keep user and assistant turns searchable by their own entity id,
+        # they must be added in separate calls
+        user_messages = [
             ChatMessage.from_user("I'm planning to watch a movie tonight. Any recommendations?"),
-            ChatMessage.from_assistant("How about thriller movies? They can be quite engaging."),
             ChatMessage.from_user("I'm not a big fan of thriller movies but I love sci-fi movies."),
+        ]
+        assistant_messages = [
+            ChatMessage.from_assistant("How about thriller movies? They can be quite engaging."),
             ChatMessage.from_assistant(
                 "Got it! Then I would recommend Interstellar or Inception? I would also recommend watching some "
                 "Japanese anime movies."
             ),
         ]
-        store.add_memories(messages=messages, infer=False, user_id=user_id, agent_id=unique_agent_id)
-        assistant_mem = store.search_memories(filters={"field": "agent_id", "operator": "==", "value": unique_agent_id})
+        store.add_memories(messages=user_messages, infer=False, user_id=user_id)
+        store.add_memories(messages=assistant_messages, infer=False, agent_id=unique_agent_id)
+
+        assistant_mem = store.search_memories(
+            filters={"field": "agent_id", "operator": "==", "value": unique_agent_id}
+        )
         user_mem = store.search_memories(filters={"field": "user_id", "operator": "==", "value": user_id})
         assert len(assistant_mem) == 2
         assert len(user_mem) == 2
