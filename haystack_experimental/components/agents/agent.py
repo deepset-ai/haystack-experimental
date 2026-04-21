@@ -178,7 +178,7 @@ class Agent(HaystackAgent):
 
     def _initialize_fresh_execution(
         self,
-        messages: list[ChatMessage] | None,
+        messages: list[ChatMessage],
         streaming_callback: StreamingCallbackT | None,
         requires_async: bool,
         *,
