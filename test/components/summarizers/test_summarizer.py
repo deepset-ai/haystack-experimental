@@ -80,7 +80,8 @@ class TestSummarizer:
         assert init_params["summarize_recursively"] is True
         assert init_params["split_overlap"] == 25
 
-    def test_from_dict(self):
+    def test_from_dict(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "placeholder")
         mock_generator = Mock()
         mock_generator.to_dict = Mock(
             return_value={
@@ -204,4 +205,3 @@ class TestSummarizer:
         assert len(result["documents"]) == 1
         assert "summary" in result["documents"][0].meta
         assert len(result["documents"][0].meta["summary"]) < len(doc.content)
-
