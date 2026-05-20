@@ -17,8 +17,11 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+
       - name: Install Hatch
-        run: pip install hatch
+        run: pip install --uploaded-prior-to=P1D hatch
 
       - name: Generate API references
         run: hatch run docs

@@ -27,8 +27,11 @@ jobs:
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+
       - name: Install Hatch
-        run: pip install hatch==${{ env.HATCH_VERSION }}
+        run: pip install --uploaded-prior-to=P1D hatch==${{ env.HATCH_VERSION }}
 
       - name: Generate API reference
         run: hatch run docs
