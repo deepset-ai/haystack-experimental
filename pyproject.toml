@@ -89,6 +89,12 @@ include = ["/haystack_experimental"]
 [tool.hatch.build.targets.wheel]
 packages = ["haystack_experimental"]
 
+[tool.uv]
+exclude-newer = "24 hours"
+
+[[tool.uv.exclude-newer-package]]
+package = "haystack-pydoc-tools"
+
 [tool.codespell]
 ignore-words-list = "ans,astroid,nd,ned,nin,ue,rouge,ist"
 quiet-level = 3
