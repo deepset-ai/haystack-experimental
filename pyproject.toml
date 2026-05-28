@@ -53,10 +53,6 @@ docs = "haystack-pydoc pydoc tmp_api_reference"
 extra-dependencies = [
   "tiktoken",     # LLM-based Summarizer
   "nltk>=3.9.1",  # LLM-based Summarizer
-  "mem0ai", # Mem0MemoryStore
-  "amazon-bedrock-haystack",
-  "google-genai-haystack",
-  "cohere-haystack",
   "rich", # for hitl_breakpoint_example.py
   # Type check
   "mypy",

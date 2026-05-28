@@ -48,7 +48,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | [`Agent`][17]; [`BreakpointConfirmationStrategy`][20]; [`HITLBreakpointException`][22] | Human in the Loop via Breakpoints     | December 2025     | None         | None                                                                                                                                                                                                                                                       | [Discuss][23] |
 | [`LLMSummarizer`][24]                                                                  | Document Summarizer                   | January 2025      | None         | None                                                                                                                                                                                                                                                       | [Discuss][25] |
 | [`InMemoryChatMessageStore`][1]; [`ChatMessageRetriever`][2]; [`ChatMessageWriter`][3] | Chat Message Store, Retriever, Writer | February 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>       | [Discuss][4]  |
-| [`Mem0MemoryStore`][26]                                                                | MemoryStore                           | April 2025        | mem0ai       | None                                                                                                                                                                                                                                                       | --            |
 
 [1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
 [2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
@@ -64,7 +63,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [23]: https://github.com/deepset-ai/haystack-experimental/discussions/381
 [24]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/sumarizers/llm_summarizer.py
 [25]: https://github.com/deepset-ai/haystack-experimental/discussions/382
-[26]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/memory_stores/mem0/memory_store.py
 
 ### Adopted experiments
 | Name                                                                                                                                                                                                                                       | Type                                      | Final release |
@@ -82,6 +80,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 | `MultiQueryTextRetriever`                                                                                                                                                                                                                  | MultiQueryTextRetriever                   | 0.14.3        |
 | `EmbeddingBasedDocumentSplitter`                                                                                                                                                                                                           | Document Splitting                        | 0.15.2        |
 | `Confirmation Policies`; `ConfirmationUIs`; `BlockingConfirmationStrategy`; `ConfirmationUIResult`; `ToolExecutionDecision`                                                                                                                | Human in the Loop                         | 0.16.0        |
+| `Mem0MemoryStore`                                                                                                                                                                                                                          | MemoryStore                               | 0.19.0        |
 
 ### Discontinued experiments
 
