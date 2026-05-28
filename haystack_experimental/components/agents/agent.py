@@ -50,7 +50,6 @@ from haystack_experimental.chat_message_stores.types import ChatMessageStore
 from haystack_experimental.components.agents.human_in_the_loop import HITLBreakpointException
 from haystack_experimental.components.retrievers import ChatMessageRetriever
 from haystack_experimental.components.writers import ChatMessageWriter
-from haystack_experimental.memory_stores.types import MemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +122,6 @@ class Agent(HaystackAgent):
         confirmation_strategies: dict[str | tuple[str, ...], ConfirmationStrategy] | None = None,
         tool_invoker_kwargs: dict[str, Any] | None = None,
         chat_message_store: ChatMessageStore | None = None,
-        memory_store: MemoryStore | None = None,
     ) -> None:
         """
         Initialize the agent component.
@@ -149,7 +147,6 @@ class Agent(HaystackAgent):
         :param tool_invoker_kwargs: Additional keyword arguments to pass to the ToolInvoker.
         :param chat_message_store: The ChatMessageStore that the agent can use to store
             and retrieve chat messages history.
-        :param memory_store: The memory store that the agent can use to store and retrieve memories.
         :raises TypeError: If the chat_generator does not support tools parameter in its run method.
         :raises ValueError: If the exit_conditions are not valid.
         """
@@ -174,7 +171,6 @@ class Agent(HaystackAgent):
         self._chat_message_writer = (
             ChatMessageWriter(chat_message_store=chat_message_store) if chat_message_store else None
         )
-        self._memory_store = memory_store
 
     def _initialize_fresh_execution(
         self,
@@ -188,7 +184,6 @@ class Agent(HaystackAgent):
         tools: ToolsType | list[str] | None = None,
         confirmation_strategy_context: dict[str, Any] | None = None,
         chat_message_store_kwargs: dict[str, Any] | None = None,
-        memory_store_kwargs: dict[str, Any] | None = None,
         **kwargs: dict[str, Any],
     ) -> _ExecutionContext:
         """
@@ -203,9 +198,6 @@ class Agent(HaystackAgent):
         :param tools: Optional list of Tool objects, a Toolset, or list of tool names to use for this run.
             When passing tool names, tools are selected from the Agent's originally configured tools.
 
-        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
-            For example, it can include the `user_id`, `run_id`, and `agent_id` parameters
-            for storing and retrieving memories.
         :param confirmation_strategy_context: Optional dictionary for passing request-scoped resources
             to confirmation strategies.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
@@ -224,28 +216,6 @@ class Agent(HaystackAgent):
             chat_message_store_kwargs=chat_message_store_kwargs,
             **kwargs,
         )
-
-        # NOTE: difference with parent method to add memory retrieval
-        if self._memory_store and messages:
-            retrieved_memories = self._memory_store.search_memories(
-                query=messages[-1].text, **memory_store_kwargs if memory_store_kwargs else {}
-            )
-            # we combine the memories into a single string
-            combined_memory = "\n".join(
-                f"- MEMORY #{idx + 1}: {memory.text}" for idx, memory in enumerate(retrieved_memories)
-            )
-            retrieved_memory = ChatMessage.from_system(text=combined_memory)
-            memory_instruction = (
-                "\n\nWhen messages start with `[MEMORY]`, treat them as long-term context and use them to guide the "
-                "response if relevant."
-            )
-            new_system_message = ChatMessage.from_system(text=f"{system_prompt}{memory_instruction}")
-            memory_system_message = ChatMessage.from_system(
-                text=f"Here are the relevant memories for the user's query: {retrieved_memory.text}"
-            )
-            new_chat_history = [new_system_message] + messages + [memory_system_message]
-            # We replace the messages in state with the new chat history including memories
-            exe_context.state.set("messages", new_chat_history, handler_override=replace_values)
 
         # NOTE: difference with parent method to add chat message retrieval
         if self._chat_message_retriever:
@@ -321,7 +291,6 @@ class Agent(HaystackAgent):
         tools: ToolsType | list[str] | None = None,
         confirmation_strategy_context: dict[str, Any] | None = None,
         chat_message_store_kwargs: dict[str, Any] | None = None,
-        memory_store_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -347,19 +316,6 @@ class Agent(HaystackAgent):
             can use for non-blocking user interaction.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
-        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
-            It can include:
-            - `user_id`: The user ID to search and add memories from.
-            - `run_id`: The run ID to search and add memories from.
-            - `agent_id`: The agent ID to search and add memories from.
-            - `search_criteria`: A dictionary of containing kwargs for the `search_memories` method.
-                This can include:
-                - `filters`: A dictionary of filters to search for memories.
-                - `query`: The query to search for memories.
-                    Note: If you pass this, the user query passed to the agent will be
-                    ignored for memory retrieval.
-                - `top_k`: The number of memories to return.
-                - `include_memory_metadata`: Whether to include the memory metadata in the ChatMessage.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -370,7 +326,6 @@ class Agent(HaystackAgent):
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run()`.
         :raises BreakpointException: If an agent breakpoint is triggered.
         """
-        memory_store_kwargs = memory_store_kwargs or {}
 
         agent_inputs = {
             "messages": messages,
@@ -407,7 +362,6 @@ class Agent(HaystackAgent):
                 tools=tools,
                 confirmation_strategy_context=confirmation_strategy_context,
                 chat_message_store_kwargs=chat_message_store_kwargs,
-                memory_store_kwargs=memory_store_kwargs,
                 **kwargs,
             )
 
@@ -564,11 +518,6 @@ class Agent(HaystackAgent):
         if msgs := result.get("messages"):
             result["last_message"] = msgs[-1]
 
-            # Add the new conversation as memories to the memory store
-            if self._memory_store:
-                new_memories = [message for message in msgs if message.role.value != "system"]
-                self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
-
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
             writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
@@ -590,7 +539,6 @@ class Agent(HaystackAgent):
         tools: ToolsType | list[str] | None = None,
         confirmation_strategy_context: dict[str, Any] | None = None,
         chat_message_store_kwargs: dict[str, Any] | None = None,
-        memory_store_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -619,19 +567,6 @@ class Agent(HaystackAgent):
             can use for non-blocking user interaction.
         :param chat_message_store_kwargs: Optional dictionary of keyword arguments to pass to the ChatMessageStore.
             For example, it can include the `chat_history_id` and `last_k` parameters for retrieving chat history.
-        :param memory_store_kwargs: Optional dictionary of keyword arguments to pass to the MemoryStore.
-            It can include:
-            - `user_id`: The user ID to search and add memories from.
-            - `run_id`: The run ID to search and add memories from.
-            - `agent_id`: The agent ID to search and add memories from.
-            - `search_criteria`: A dictionary of containing kwargs for the `search_memories` method.
-                This can include:
-                - `filters`: A dictionary of filters to search for memories.
-                - `query`: The query to search for memories.
-                    Note: If you pass this, the user query passed to the agent will be
-                    ignored for memory retrieval.
-                - `top_k`: The number of memories to return.
-                - `include_memory_metadata`: Whether to include the memory metadata in the ChatMessage.
         :param kwargs: Additional data to pass to the State schema used by the Agent.
             The keys must match the schema defined in the Agent's `state_schema`.
         :returns:
@@ -642,7 +577,6 @@ class Agent(HaystackAgent):
         :raises RuntimeError: If the Agent component wasn't warmed up before calling `run_async()`.
         :raises BreakpointException: If an agent breakpoint is triggered.
         """
-        memory_store_kwargs = memory_store_kwargs or {}
 
         agent_inputs = {
             "messages": messages,
@@ -676,7 +610,6 @@ class Agent(HaystackAgent):
                 tools=tools,
                 confirmation_strategy_context=confirmation_strategy_context,
                 chat_message_store_kwargs=chat_message_store_kwargs,
-                memory_store_kwargs=memory_store_kwargs,
                 **kwargs,
             )
 
@@ -820,11 +753,6 @@ class Agent(HaystackAgent):
         if msgs := result.get("messages"):
             result["last_message"] = msgs[-1]
 
-            # Add the new conversation as memories to the memory store
-            if self._memory_store:
-                new_memories = [message for message in msgs if message.role.value != "system"]
-                self._memory_store.add_memories(messages=new_memories, **memory_store_kwargs)
-
         # Write messages to ChatMessageStore if configured
         if self._chat_message_writer:
             writer_kwargs = _select_kwargs(self._chat_message_writer, chat_message_store_kwargs or {})
@@ -843,9 +771,6 @@ class Agent(HaystackAgent):
         # NOTE: This is different from the base Agent class to handle ChatMessageStore serialization
         data["init_parameters"]["chat_message_store"] = (
             self._chat_message_store.to_dict() if self._chat_message_store is not None else None
-        )
-        data["init_parameters"]["memory_store"] = (
-            self._memory_store.to_dict() if self._memory_store is not None else None
         )
         return data
 
@@ -887,9 +812,6 @@ class Agent(HaystackAgent):
         # NOTE: This is different from the base Agent class to handle ChatMessageStore deserialization
         if "chat_message_store" in init_params and init_params["chat_message_store"] is not None:
             deserialize_component_inplace(init_params, key="chat_message_store")
-
-        if "memory_store" in init_params and init_params["memory_store"] is not None:
-            deserialize_component_inplace(init_params, key="memory_store")
 
         return default_from_dict(cls, data)
 
