@@ -25,7 +25,7 @@ jobs:
           python-version: "3.12"
 
       - name: Upgrade pip
-        run: pip install --upgrade pip
+        run: python -m pip install --upgrade pip
 
       - name: Install Hatch
         run: pip install --uploaded-prior-to=P1D hatch==${{ env.HATCH_VERSION }}
