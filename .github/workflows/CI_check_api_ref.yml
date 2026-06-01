@@ -18,7 +18,7 @@ jobs:
           python-version: "3.13"
 
       - name: Upgrade pip
-        run: pip install --upgrade pip
+        run: python -m pip install --upgrade pip
 
       - name: Install Hatch
         run: pip install --uploaded-prior-to=P1D hatch
