@@ -160,3 +160,31 @@ def test_very_long_content():
     assert content.startswith("# Header 0")
     assert "# Header 1" in content
     assert len(content.split("\n")) == len(text.split("\n"))
+
+
+def test_whitespace_only_header_does_not_merge_with_next_header():
+    """Regression: a header line with only whitespace after the '#' characters (e.g. '## ')
+    must not be merged with the following header line.
+
+    Before the fix, the regex used \\s+ which could consume a trailing newline, causing
+    '## \\n## Section\\nContent' to produce '# ## Section\\nContent' (invalid Markdown).
+    """
+    inferrer = MarkdownHeaderLevelInferrer()
+    text = "## \n## Section\nContent"
+    result = inferrer.run([Document(content=text)])
+    output = result["documents"][0].content
+    # The whitespace-only first line is not a valid header and must be left untouched.
+    # '## Section' is the first matchable header, so it becomes level 1.
+    assert "# ## Section" not in output, f"Whitespace-only header merged with next header. Got: {output!r}"
+    assert output == "## \n# Section\nContent", f"Unexpected output: {output!r}"
+
+
+def test_whitespace_only_header_does_not_produce_invalid_markdown():
+    """Regression: '# \\n# Second' must not produce '# # Second' (a hash in heading text)."""
+    inferrer = MarkdownHeaderLevelInferrer()
+    text = "# \n# Second"
+    result = inferrer.run([Document(content=text)])
+    output = result["documents"][0].content
+    assert output != "# # Second", f"Regex consumed newline and merged headers. Got: {output!r}"
+    # '# Second' is the first real header; it should remain at level 1.
+    assert output == "# \n# Second", f"Unexpected output: {output!r}"
