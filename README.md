@@ -83,7 +83,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 |------------------------|----------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | `OpenAIFunctionCaller` | Function Calling Component | 0.3.0         | None                                                                                                                                     |
 | `OpenAPITool`          | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
-| `Agent`; `BreakpointConfirmationStrategy`; `HITLBreakpointException` | Human in the Loop via Breakpoints | unreleased | None |
+| `Agent`; `BreakpointConfirmationStrategy`; `HITLBreakpointException` | Human in the Loop via Breakpoints | 0.19.0 | None |
 | `EvaluationHarness`    | Evaluation orchestrator    | 0.7.0         | None                                                                                                                                     |
 
 ## Usage
