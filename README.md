@@ -45,7 +45,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 |----------------------------------------------------------------------------------------|---------------------------------------|-------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | [`OpenAIChatGenerator`][9]                                                             | Chat Generator Component              | November 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hallucination_score_calculator.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>        | [Discuss][10] |
 | [`MarkdownHeaderLevelInferrer`][15]                                                    | Preprocessor                          | January 2025      | None         | None                                                                                                                                                                                                                                                       | [Discuss][16] |
-| [`Agent`][17]; [`BreakpointConfirmationStrategy`][20]; [`HITLBreakpointException`][22] | Human in the Loop via Breakpoints     | December 2025     | None         | None                                                                                                                                                                                                                                                       | [Discuss][23] |
 | [`LLMSummarizer`][24]                                                                  | Document Summarizer                   | January 2025      | None         | None                                                                                                                                                                                                                                                       | [Discuss][25] |
 | [`InMemoryChatMessageStore`][1]; [`ChatMessageRetriever`][2]; [`ChatMessageWriter`][3] | Chat Message Store, Retriever, Writer | February 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>       | [Discuss][4]  |
 
@@ -57,10 +56,6 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 [10]: https://github.com/deepset-ai/haystack-experimental/discussions/361
 [15]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/preprocessors/md_header_level_inferrer.py  
 [16]: https://github.com/deepset-ai/haystack-experimental/discussions/376
-[17]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/agent.py
-[20]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/strategies.py
-[22]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/errors.py
-[23]: https://github.com/deepset-ai/haystack-experimental/discussions/381
 [24]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/sumarizers/llm_summarizer.py
 [25]: https://github.com/deepset-ai/haystack-experimental/discussions/382
 
@@ -88,6 +83,7 @@ that includes it. Once it reaches the end of its lifespan, the experiment will b
 |------------------------|----------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | `OpenAIFunctionCaller` | Function Calling Component | 0.3.0         | None                                                                                                                                     |
 | `OpenAPITool`          | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
+| `Agent`; `BreakpointConfirmationStrategy`; `HITLBreakpointException` | Human in the Loop via Breakpoints | unreleased | None |
 | `EvaluationHarness`    | Evaluation orchestrator    | 0.7.0         | None                                                                                                                                     |
 
 ## Usage
