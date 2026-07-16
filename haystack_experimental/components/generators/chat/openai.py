@@ -7,6 +7,7 @@ from typing import Any
 
 from haystack import component
 from haystack.components.generators.chat.openai import OpenAIChatGenerator as BaseOpenAIChatGenerator
+from haystack.components.generators.utils import _normalize_messages
 from haystack.dataclasses import ChatMessage, StreamingCallbackT
 from haystack.tools import ToolsType
 
@@ -55,7 +56,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     @component.output_types(replies=list[ChatMessage])
     def run(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage] | str,
         streaming_callback: StreamingCallbackT | None = None,
         generation_kwargs: dict[str, Any] | None = None,
         *,
@@ -67,7 +68,8 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         Invokes chat completion based on the provided messages and generation parameters.
 
         :param messages:
-            A list of ChatMessage instances representing the input messages.
+            A list of ChatMessage instances representing the input messages. If a string is provided, it is
+            converted to a list containing a ChatMessage with user role.
         :param streaming_callback:
             A callback function that is called when a new token is received from the stream.
         :param generation_kwargs:
@@ -97,6 +99,8 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
                 - `hallucination_risk`: The EDFL hallucination risk bound.
                 - `hallucination_rationale`: The rationale behind the hallucination decision.
         """
+        messages = _normalize_messages(messages)
+
         if len(messages) == 0:
             return {"replies": []}
 
@@ -122,7 +126,7 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
     @component.output_types(replies=list[ChatMessage])
     async def run_async(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage] | str,
         streaming_callback: StreamingCallbackT | None = None,
         generation_kwargs: dict[str, Any] | None = None,
         *,
@@ -137,7 +141,8 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
         but can be used with `await` in async code.
 
         :param messages:
-            A list of ChatMessage instances representing the input messages.
+            A list of ChatMessage instances representing the input messages. If a string is provided, it is
+            converted to a list containing a ChatMessage with user role.
         :param streaming_callback:
             A callback function that is called when a new token is received from the stream.
             Must be a coroutine.
@@ -168,6 +173,8 @@ class OpenAIChatGenerator(BaseOpenAIChatGenerator):
                 - `hallucination_risk`: The EDFL hallucination risk bound.
                 - `hallucination_rationale`: The rationale behind the hallucination decision.
         """
+        messages = _normalize_messages(messages)
+
         if len(messages) == 0:
             return {"replies": []}
 
