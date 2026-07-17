@@ -39,8 +39,10 @@ class MarkdownHeaderLevelInferrer:
 
     def __init__(self):
         """Initializes the MarkdownHeaderLevelInferrer."""
-        # handles headers with optional trailing spaces and empty content
-        self._header_pattern = re.compile(r"(?m)^(#{1,6})\s+(.+?)(?:\s*)$")
+        # handles headers with optional trailing spaces; uses [ \t]+ (not \s+) to avoid
+        # consuming newlines, which would incorrectly merge a whitespace-only header line
+        # with the following header and produce invalid Markdown (e.g. "# # Title").
+        self._header_pattern = re.compile(r"(?m)^(#{1,6})[ \t]+(.+?)(?:[ \t]*)$")
 
     @component.output_types(documents=list[Document])
     def run(self, documents: list[Document]) -> dict:
