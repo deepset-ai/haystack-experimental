@@ -127,9 +127,7 @@ from haystack import component
 
 
 @component
-class FoobarGenerator:
-    ...
-
+class FoobarGenerator: ...
 ```
 
 When the experiment overrides an existing feature, the new symbol should be created at the same path in the experimental
@@ -144,8 +142,7 @@ from haystack.core.pipeline import Pipeline as HaystackPipeline
 
 class Pipeline(HaystackPipeline):
     # Any new experimental method that doesn't exist in the original class
-    def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
-        ...
+    def run_async(self, inputs) -> Dict[str, Dict[str, Any]]: ...
 
     # Existing methods with breaking changes to their signature, like adding a new mandatory param
     def to_dict(self, new_param: str) -> Dict[str, Any]:
@@ -153,7 +150,6 @@ class Pipeline(HaystackPipeline):
         print(new_param)
         # call the original method
         return super().to_dict()
-
 ```
 
 ## Contributing
