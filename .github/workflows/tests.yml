@@ -5,10 +5,6 @@ on:
   # Activate this workflow manually
   workflow_dispatch:
 
-  # Run tests nightly against Haystack's main branch
-  schedule:
-    - cron: "0 0 * * *"
-
   push:
     branches:
       - main
@@ -105,14 +101,6 @@ jobs:
         with:
           path-to-lcov: coverage.xml
 
-      - name: Nightly - run unit tests with Haystack main branch
-        if: github.event_name == 'schedule'
-        id: nightly-haystack-main
-        run: |
-          hatch env prune
-          hatch -e test env run -- uv pip install git+https://github.com/deepset-ai/haystack.git@main
-          hatch run test:unit
-
   integration-tests:
     name: Integration / ${{ matrix.os }}
     needs: linting
@@ -140,7 +128,7 @@ jobs:
       # Do not authenticate on PRs from forks and on PRs created by dependabot
       - name: AWS authentication
         id: aws-auth
-        if: github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'dependabot/'))
+        if: github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'dependabot/')
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
