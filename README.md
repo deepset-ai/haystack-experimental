@@ -1,170 +1,105 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/haystack-experimental.svg)](https://pypi.org/project/haystack-experimental)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/haystack-experimental.svg)](https://pypi.org/project/haystack-experimental)
-[![Tests](https://github.com/deepset-ai/haystack-experimental/actions/workflows/tests.yml/badge.svg)](https://github.com/deepset-ai/haystack-experimental/actions/workflows/tests.yml)
-[![Project release on PyPi](https://github.com/deepset-ai/haystack-experimental/actions/workflows/pypi_release.yml/badge.svg)](https://github.com/deepset-ai/haystack-experimental/actions/workflows/pypi_release.yml)
-[![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch)
-[![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 
 # Haystack experimental package
 
-The `haystack-experimental` package provides Haystack users with access to experimental features without immediately
-committing to their official release. The main goal is to gather user feedback and iterate on new features quickly.
+> [!WARNING]
+> **This project is archived and no longer maintained.**
+>
+> `0.19.0.post1` is the **final release**. There will be no further releases, bug fixes, or compatibility updates,
+> and the repository is read-only.
+>
+> - **Most experiments graduated into Haystack itself.** If you are looking for `Agent`, `Tool` and tool calling,
+>   `AsyncPipeline`, pipeline breakpoints, multimodality, `SuperComponent`, `QueryExpander`, Human-in-the-Loop and
+>   more, they all ship in [`haystack-ai`](https://pypi.org/project/haystack-ai) now — see
+>   [Graduated experiments](#graduated-experiments) below for the full list and use the
+>   [Haystack documentation](https://docs.haystack.deepset.ai/docs/intro).
+> - **The remaining experiments were discontinued** rather than graduated — see
+>   [Discontinued experiments](#discontinued-experiments). They are not part of Haystack and will not be maintained
+>   anywhere.
+> - **If you depend on a discontinued experiment**, pin the final release explicitly. It will remain installable from
+>   PyPI, but it is only tested against the version of Haystack that was current in February 2026 and will drift out
+>   of compatibility with newer `haystack-ai` releases:
+>
+>   ```sh
+>   pip install "haystack-experimental==0.19.0.post1"
+>   ```
 
-## Installation
+The `haystack-experimental` package gave Haystack users early access to experimental features without immediately
+committing to their official release, so that we could gather feedback and iterate quickly. Each experiment had a
+limited lifespan, after which it was either merged into Haystack core, released as a Core Integration, or dropped.
 
-For simplicity, every release of `haystack-experimental` will ship all the available experiments at that time. To
-install the latest experimental features, run:
-
-```sh
-$ pip install -U haystack-experimental
-```
-
-Install from the `main` branch to try the newest features:
-```sh
-pip install git+https://github.com/deepset-ai/haystack-experimental.git@main
-```
-
-> [!IMPORTANT]
-> The latest version of the experimental package is only tested against the latest version of Haystack. Compatibility
-> with older versions of Haystack is not guaranteed.
-
-## Experiments lifecycle
-
-Each experimental feature has a default lifespan of 3 months starting from the date of the first non-pre-release build
-that includes it. Once it reaches the end of its lifespan, the experiment will be either:
-
-- Merged into Haystack core and published in the next minor release, or
-- Released as a Core Integration, or
-- Dropped.
+That process has now concluded. This README is kept as the record of where each experiment ended up.
 
 ## Experiments catalog
 
-### Active experiments
+### Graduated experiments
 
-| Name                                                                                   | Type                                  | Expected End Date | Dependencies | Cookbook                                                                                                                                                                                                                                                   | Discussion    |
-|----------------------------------------------------------------------------------------|---------------------------------------|-------------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| [`OpenAIChatGenerator`][9]                                                             | Chat Generator Component              | November 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hallucination_score_calculator.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>        | [Discuss][10] |
-| [`MarkdownHeaderLevelInferrer`][15]                                                    | Preprocessor                          | January 2025      | None         | None                                                                                                                                                                                                                                                       | [Discuss][16] |
-| [`Agent`][17]; [`BreakpointConfirmationStrategy`][20]; [`HITLBreakpointException`][22] | Human in the Loop via Breakpoints     | December 2025     | None         | None                                                                                                                                                                                                                                                       | [Discuss][23] |
-| [`LLMSummarizer`][24]                                                                  | Document Summarizer                   | January 2025      | None         | None                                                                                                                                                                                                                                                       | [Discuss][25] |
-| [`InMemoryChatMessageStore`][1]; [`ChatMessageRetriever`][2]; [`ChatMessageWriter`][3] | Chat Message Store, Retriever, Writer | February 2025     | None         | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>       | [Discuss][4]  |
-| [`Mem0MemoryStore`][26]                                                                | MemoryStore                           | April 2025        | mem0ai       | None                                                                                                                                                                                                                                                       | --            |
+These experiments were adopted into Haystack core and are available in `haystack-ai`. The version column is the last
+release of `haystack-experimental` that contained the experimental copy.
 
-[1]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/chat_message_stores/in_memory.py
-[2]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/retrievers/chat_message_retriever.py
-[3]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/writers/chat_message_writer.py
-[4]: https://github.com/deepset-ai/haystack-experimental/discussions/75
-[9]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/generators/chat/openai.py
-[10]: https://github.com/deepset-ai/haystack-experimental/discussions/361
-[15]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/preprocessors/md_header_level_inferrer.py  
-[16]: https://github.com/deepset-ai/haystack-experimental/discussions/376
-[17]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/agent.py
-[20]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/strategies.py
-[22]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/agents/human_in_the_loop/errors.py
-[23]: https://github.com/deepset-ai/haystack-experimental/discussions/381
-[24]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/components/sumarizers/llm_summarizer.py
-[25]: https://github.com/deepset-ai/haystack-experimental/discussions/382
-[26]: https://github.com/deepset-ai/haystack-experimental/blob/main/haystack_experimental/memory_stores/mem0/memory_store.py
-
-### Adopted experiments
-| Name                                                                                                                                                                                                                                       | Type                                      | Final release |
-|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|---------------|
-| `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker`                                                                                                                                                     | Tool Calling support                      | 0.4.0         |
-| `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                                                                                                                                                                      | AsyncPipeline execution                   | 0.7.0         |
-| `LLMMetadataExtractor`                                                                                                                                                                                                                     | Metadata extraction with LLM              | 0.7.0         |
-| `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                                                                                                                                                                                  | Document Splitting & Retrieval Technique  | 0.8.0         |
-| `Agent`                                                                                                                                                                                                                                    | Simplify Agent development                | 0.8.0         |
-| `SuperComponent`                                                                                                                                                                                                                           | Simplify Pipeline development             | 0.8.0         |
-| `Pipeline`                                                                                                                                                                                                                                 | Pipeline breakpoints for debugging        | 0.12.0        |
-| `ImageContent`; Image Converters; multimodal support in `OpenAIChatGenerator` and `AmazonBedrockChatGenerator`; `ChatPromptBuilder` refactoring; `SentenceTransformersDocumentImageEmbedder`; `LLMDocumentContentExtractor`; new `Routers` | Multimodality                             | 0.12.0        |
-| `QueryExpander`                                                                                                                                                                                                                            | Query Expansion Component                 | 0.14.3        |
-| `MultiQueryEmbeddingRetriever`                                                                                                                                                                                                             | MultiQueryEmbeddingRetriever              | 0.14.3        |
-| `MultiQueryTextRetriever`                                                                                                                                                                                                                  | MultiQueryTextRetriever                   | 0.14.3        |
-| `EmbeddingBasedDocumentSplitter`                                                                                                                                                                                                           | Document Splitting                        | 0.15.2        |
-| `Confirmation Policies`; `ConfirmationUIs`; `BlockingConfirmationStrategy`; `ConfirmationUIResult`; `ToolExecutionDecision`                                                                                                                | Human in the Loop                         | 0.16.0        |
+| Name                                                                                                                                                                                                                                      | Type                                     | Final release |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|---------------|
+| `ChatMessage` refactoring; `Tool` class; tool support in ChatGenerators; `ToolInvoker`                                                                                                                                                     | Tool Calling support                     | 0.4.0         |
+| `AsyncPipeline`; `Pipeline` bug fixes and refactoring                                                                                                                                                                                     | AsyncPipeline execution                  | 0.7.0         |
+| `LLMMetadataExtractor`                                                                                                                                                                                                                    | Metadata extraction with LLM             | 0.7.0         |
+| `Auto-Merging Retriever` & `HierarchicalDocumentSplitter`                                                                                                                                                                                 | Document Splitting & Retrieval Technique | 0.8.0         |
+| `Agent`                                                                                                                                                                                                                                   | Simplify Agent development               | 0.8.0         |
+| `SuperComponent`                                                                                                                                                                                                                          | Simplify Pipeline development            | 0.8.0         |
+| `Pipeline`                                                                                                                                                                                                                                | Pipeline breakpoints for debugging       | 0.12.0        |
+| `ImageContent`; Image Converters; multimodal support in `OpenAIChatGenerator` and `AmazonBedrockChatGenerator`; `ChatPromptBuilder` refactoring; `SentenceTransformersDocumentImageEmbedder`; `LLMDocumentContentExtractor`; new `Routers` | Multimodality                            | 0.12.0        |
+| `QueryExpander`                                                                                                                                                                                                                           | Query Expansion Component                | 0.14.3        |
+| `MultiQueryEmbeddingRetriever`                                                                                                                                                                                                             | MultiQueryEmbeddingRetriever             | 0.14.3        |
+| `MultiQueryTextRetriever`                                                                                                                                                                                                                  | MultiQueryTextRetriever                  | 0.14.3        |
+| `EmbeddingBasedDocumentSplitter`                                                                                                                                                                                                           | Document Splitting                       | 0.15.2        |
+| `Confirmation Policies`; `ConfirmationUIs`; `BlockingConfirmationStrategy`; `ConfirmationUIResult`; `ToolExecutionDecision`                                                                                                                | Human in the Loop                        | 0.16.0        |
+| `Mem0MemoryStore`                                                                                                                                                                                                                         | MemoryStore                              | 0.19.0        |
 
 ### Discontinued experiments
 
-| Name                   | Type                       | Final release | Cookbook                                                                                                                                 |
-|------------------------|----------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| `OpenAIFunctionCaller` | Function Calling Component | 0.3.0         | None                                                                                                                                     |
-| `OpenAPITool`          | OpenAPITool component      | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) |
-| `EvaluationHarness`    | Evaluation orchestrator    | 0.7.0         | None                                                                                                                                     |
+These experiments were **not** adopted into Haystack. They exist only in the release listed below.
+
+| Name                                                                                | Type                              | Final release | Cookbook                                                                                                                                 | Discussion    |
+|-------------------------------------------------------------------------------------|-----------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| `OpenAIFunctionCaller`                                                              | Function Calling Component        | 0.3.0         | None                                                                                                                                     | --            |
+| `OpenAPITool`                                                                       | OpenAPITool component             | 0.3.0         | [Notebook](https://github.com/deepset-ai/haystack-experimental/blob/fe20b69b31243f8a3976e4661d9aa8c88a2847d2/examples/openapitool.ipynb) | [Discuss][5]  |
+| `EvaluationHarness`                                                                 | Evaluation orchestrator           | 0.7.0         | None                                                                                                                                     | [Discuss][6]  |
+| `Agent`; `BreakpointConfirmationStrategy`; `HITLBreakpointException`                 | Human in the Loop via Breakpoints | 0.19.0        | None                                                                                                                                     | [Discuss][23] |
+| [`InMemoryChatMessageStore`][1]; [`ChatMessageRetriever`][2]; [`ChatMessageWriter`][3] | Chat Message Store, Retriever, Writer | 0.19.0    | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/conversational_rag_using_memory.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | [Discuss][4]  |
+| [`OpenAIChatGenerator`][9] (hallucination risk scoring)                             | Chat Generator Component          | 0.19.0        | <a href="https://colab.research.google.com/github/deepset-ai/haystack-cookbook/blob/main/notebooks/hallucination_score_calculator.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | [Discuss][10] |
+| [`MarkdownHeaderLevelInferrer`][15]                                                 | Preprocessor                      | 0.19.0        | None                                                                                                                                     | [Discuss][16] |
+| [`LLMSummarizer`][24]                                                               | Document Summarizer               | 0.19.0        | None                                                                                                                                     | [Discuss][25] |
+
+[1]: https://github.com/deepset-ai/haystack-experimental/blob/v0.19.0/haystack_experimental/chat_message_stores/in_memory.py
+[2]: https://github.com/deepset-ai/haystack-experimental/blob/v0.19.0/haystack_experimental/components/retrievers/chat_message_retriever.py
+[3]: https://github.com/deepset-ai/haystack-experimental/blob/v0.19.0/haystack_experimental/components/writers/chat_message_writer.py
+[4]: https://github.com/deepset-ai/haystack-experimental/discussions/75
+[5]: https://github.com/deepset-ai/haystack-experimental/discussions/79
+[6]: https://github.com/deepset-ai/haystack-experimental/discussions/74
+[9]: https://github.com/deepset-ai/haystack-experimental/blob/v0.19.0/haystack_experimental/components/generators/chat/openai.py
+[10]: https://github.com/deepset-ai/haystack-experimental/discussions/361
+[15]: https://github.com/deepset-ai/haystack-experimental/blob/v0.19.0/haystack_experimental/components/preprocessors/md_header_level_inferrer.py
+[16]: https://github.com/deepset-ai/haystack-experimental/discussions/376
+[23]: https://github.com/deepset-ai/haystack-experimental/discussions/381
+[24]: https://github.com/deepset-ai/haystack-experimental/blob/v0.19.0/haystack_experimental/components/summarizers/llm_summarizer.py
+[25]: https://github.com/deepset-ai/haystack-experimental/discussions/382
 
 ## Usage
 
-Experimental new features can be imported like any other Haystack integration package:
+Experimental features were imported like any other Haystack integration package:
 
 ```python
-from haystack.dataclasses import ChatMessage
-from haystack_experimental.components.generators import FoobarGenerator
+from haystack import Document
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack_experimental.components.summarizers import LLMSummarizer
 
-c = FoobarGenerator()
-c.run([ChatMessage.from_user("What's an experiment? Be brief.")])
+summarizer = LLMSummarizer(chat_generator=OpenAIChatGenerator())
+summarizer.run(documents=[Document(content="...")])
 ```
 
-Experiments can also override existing Haystack features. For example, users can opt into an experimental type of
-`Pipeline` by just changing the usual import:
-
-```python
-# from haystack import Pipeline
-from haystack_experimental import Pipeline
-
-pipe = Pipeline()
-# ...
-pipe.run(...)
-```
-
-Some experimental features come with example notebooks that can be found in the [Haystack Cookbook](https://haystack.deepset.ai/cookbook).
-
-## Documentation
-
-Documentation for `haystack-experimental` can be found [here](https://docs.haystack.deepset.ai/reference/experimental-data-classes-api).
-
-## Implementation
-
-Experiments should replicate the namespace of the core package. For example, a new generator:
-
-```python
-# in haystack_experimental/components/generators/foobar.py
-
-from haystack import component
-
-
-@component
-class FoobarGenerator:
-    ...
-
-```
-
-When the experiment overrides an existing feature, the new symbol should be created at the same path in the experimental
-package. This new symbol will override the original in `haystack-ai`: for classes, with a subclass and for bare
-functions, with a wrapper. For example:
-
-```python
-# in haystack_experiment/src/haystack_experiment/core/pipeline/pipeline.py
-
-from haystack.core.pipeline import Pipeline as HaystackPipeline
-
-
-class Pipeline(HaystackPipeline):
-    # Any new experimental method that doesn't exist in the original class
-    def run_async(self, inputs) -> Dict[str, Dict[str, Any]]:
-        ...
-
-    # Existing methods with breaking changes to their signature, like adding a new mandatory param
-    def to_dict(self, new_param: str) -> Dict[str, Any]:
-        # do something with the new parameter
-        print(new_param)
-        # call the original method
-        return super().to_dict()
-
-```
-
-## Contributing
-
-Direct contributions to `haystack-experimental` are not expected, but Haystack maintainers might ask contributors to move pull requests that target the [core repository](https://github.com/deepset-ai/haystack) to this repository.
+Some experiments came with example notebooks in the [Haystack Cookbook](https://haystack.deepset.ai/cookbook).
 
 ## Telemetry
 
-As with the Haystack core package, we rely on anonymous usage statistics to determine the impact and usefulness of the experimental features. For more information on what we collect and how we use the data, as well as instructions to opt-out, please refer to our [documentation](https://docs.haystack.deepset.ai/docs/telemetry).
+As with the Haystack core package, this package collected anonymous usage statistics. For more information on what was
+collected and how to opt out, refer to the [telemetry documentation](https://docs.haystack.deepset.ai/docs/telemetry).

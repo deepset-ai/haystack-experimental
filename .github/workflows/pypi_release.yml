@@ -6,40 +6,42 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*"
 
 env:
-  HATCH_VERSION: "1.14.2"
+  HATCH_VERSION: "1.16.5"
 
 jobs:
   release-on-pypi:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
       - name: Install Hatch
-        run: pip install hatch==${{ env.HATCH_VERSION }}
+        run: pip install --uploaded-prior-to=P1D hatch==${{ env.HATCH_VERSION }}
 
       - name: Build Haystack Experimental
         run: hatch build
 
       - name: Publish on PyPi
-        env:
-          HATCH_INDEX_USER: __token__
-          HATCH_INDEX_AUTH: ${{ secrets.HAYSTACK_AI_PYPI_TOKEN }}
-        run: hatch publish -y
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
 
       - name: Notify Slack
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           VERSION: ${{ github.ref_name }}
         if: always()
-        uses: act10ns/slack@v2
+        uses: act10ns/slack@2f01f46db9f41c75a04d93c6ce310bc51db7cb50 # v2
         with:
           status: ${{ job.status }}
           channel: "#haystack-notifications"
-          config: .github/config/pypi-release-slack-notification.yml
