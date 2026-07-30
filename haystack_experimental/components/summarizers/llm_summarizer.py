@@ -261,7 +261,7 @@ class LLMSummarizer:
         # combine all summaries
         return "\n\n".join(accumulated_summaries)
 
-    @component.output_types(summary=list[Document])
+    @component.output_types(documents=list[Document])
     def run(
         self,
         *,
